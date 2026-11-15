@@ -97,10 +97,8 @@ export function drawAppRelease(c) {
     acts.push(button('Download from GitHub', () => window.open(r.download, '_blank', 'noopener'), { fk: 'mx:android-download' }));
   }
   const wait = r.wait_minutes || 10;
-  c.appendChild(group({ footer: 'Download the newest Mantel for Android (the APK) from its releases on GitHub and upload it '
-    + 'here. Mantel checks it’s the same app, newer than the tablets’ and signed by the same key. It installs on the test '
-    + 'tablet first; once that tablet is back on the new version, every other tablet updates. A tablet that’s off takes it '
-    + 'within an hour of coming back. A tablet not back on the new version within ' + wait + ' minutes has failed, and '
-    + 'the reason is shown.' + (r.commands_on ? '' : ' Commands are off on this Mantel, so no tablet can be asked now.') }, acts));
+  c.appendChild(group({ footer: 'Download the newest Mantel for Android (the APK) from its releases on GitHub and upload it here. It installs on the test tablet '
+    + 'first; once that one is back on the new version, every other tablet updates. A tablet not back within ' + wait + ' minutes has failed, and the reason is shown.'
+    + (r.commands_on ? '' : ' Commands are off on this Mantel, so no tablet can be asked now.') }, acts));
   result(c, KEY);
 }

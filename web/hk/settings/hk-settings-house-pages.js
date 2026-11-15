@@ -398,6 +398,7 @@
           }
           var all = this.tabs();
           if (sub[0] === 'add') return mk('Add Tablet', function (c) { self.t_add(c); });
+          if (sub[0] === 'all' && !all.all) return mk('All Tablets', function (c) { self.t_all(c); });
           if (sub[0] && all[sub[0]]) {
             var tid = sub[0], tt = all[tid], tb = [tt.name, base + '/' + encodeURIComponent(tid)];
             var tx = { tablet: tid, path: tt.screen, title: tt.name };
@@ -406,10 +407,13 @@
             }
             if (sub[1] === 'sleep') return { title: 'Sleep Screen', back: tb, body: function (c) { self.s_sleep(c, tx, self.tabs()[tid]); } };
             if (sub[1] === 'copy') return { title: 'Copy Sleep Screen', back: tb, body: function (c) { self.t_copySleep(c, tid); } };
-            return { title: tt.name, back: [title, base], body: function (c) { self.t_one(c, tid); } };
+            if (sub[1] === 'advanced') return { title: 'Advanced', back: tb, scope: K.esc(tt.name), body: function (c) { self.t_advanced(c, tid); } };
+            var X = self.tabCtx(tid, true);
+            return { title: tt.name, back: [title, base], top: true, tile: ['mdi:tablet', self.tabColor(tid)],
+                     scope: self.tabHeader(tid, X), body: function (c) { self.t_one(c, tid, X); } };
           }
           return { title: title, top: true, body: function (c) { self.h_tablets(c); },
-                   scope: 'The tablets on your walls: how each one is doing, and what it does when nobody’s using it. What the screensaver shows is in Screensaver.' };
+                   scope: 'The tablets on your walls: how each one is doing, and what it does when nobody’s using it.' };
         }
         return this.p_overview();
       }

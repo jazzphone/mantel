@@ -37,8 +37,7 @@ import { pConnections } from './settings/connections.js';
 import { pCameras } from './settings/cameras.js';
 import { pIntercom } from './settings/intercom.js';
 import { drawDirect, pressTablets } from './settings/tablets.js';
-import { drawAllTablets, drawTabletApp } from './settings/tablet-app.js';
-import { drawAppRelease } from './settings/tablet-release.js';
+import { androidRow, drawTabletApp, drawTabletAppAdvanced } from './settings/tablet-app.js';
 import { drawHaDashboard, drawWhere, pAddScreen } from './settings/ha-screens.js';
 import { pAudit } from './settings/audit.js';
 import { pSetup, setupOpen } from './settings/setup.js';
@@ -69,7 +68,7 @@ const PAGES = [
   ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'none'],
 ];
 // Photos is inside Your Files (#/mantel/files/photos): its old addresses forward there. Devices is each wall tablet's
-// own page now (All Screens, Wall Tablets: extend 'tablet' and 'tablets', below); Mantel Connect is in Connections,
+// own page now (Wall Tablets: extend 'tablet' and 'tablets', below); Mantel Connect is in Connections,
 // Home Assistant. Their old addresses forward there (OLD_PAGES).
 const OLD_PAGES = { devices: 'house/tablets', connect: ROUTE + '/connections/ha/sidebar' };
 // The words Mantel puts on HK's own pages where Mantel differs (the panel's host notes)
@@ -182,9 +181,15 @@ export const host = {
   },
   extend(where, c, ctx, p) {
     if (p) { setPanel(p); ensureStyle(p.shadowRoot); }
-    if (where === 'tablet' && me && ctx && ctx.tablet) { let app = false; if (can('devices')) { drawTabletMantel(c, ctx); app = drawTabletApp(c, ctx); } if (!app && ctx.app !==
-      'android_app') drawDirect(c, ctx); }
-    if (where === 'tablets' && me && can('devices')) { drawAllTablets(c, ctx, p); drawAppRelease(c); drawTabletsMantel(c); }
+    // phase 32: a wall tablet's page is the same groups for every kiosk app; Mantel adds rows to them (Screen & Room, Display, Access, Reload,
+    // Sign Out) and its own groups to the tablet's Advanced page (the app's, or the kiosk app's Direct Connection)
+    if (where === 'tablet' && me && ctx && ctx.tablet && can('devices')) { drawTabletMantel(ctx); drawTabletApp(ctx); }
+    if (where === 'tablet-advanced' && me && ctx && ctx.tablet) {
+      const app = can('devices') && drawTabletAppAdvanced(c, ctx);
+      if (!app && ctx.app !== 'android_app') drawDirect(c, ctx);
+    }
+    if (where === 'tablets-pages' && me && can('devices') && ctx && Array.isArray(ctx.rows)) { const row = androidRow(); if (row) ctx.rows.push(row); }
+    if (where === 'tablets' && me && can('devices')) drawTabletsMantel(c);
     if (where === 'screen' && me && ctx && ctx.screen) { drawWhere(c, ctx); if (!ctx.where || ctx.where.where !== 'ha') drawHaDashboard(c, ctx); }
     if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);
     // phase 31: notifications on the Apple TVs, on HK's Notifications page and each notification's (settings/appletv.js)
@@ -205,6 +210,8 @@ export const host = {
       : s === 'timeline' ? 'timeline history recorded doors locks garage alarm arrivals doorbell detections retention pictures morning summary digest clear' : s }));
     if (manages()) out.push({ label: 'Apple TV', route: ROUTE + '/' + APPLE_TV, where: 'Notifications',
                               words: 'apple tv notifications homekit camera picture television alerts corner' });
+    if (can('devices')) out.push({ label: 'Mantel for Android', route: ROUTE + '/devices/android', where: 'Wall Tablets',
+                                    words: 'android tablet app updates apk keep screen on scale airplay renderer fleet every tablet' });
     if (can('photos')) out.push({ label: 'Photos', route: ROUTE + '/' + photos.SECTION, where: 'Mantel → Your Files', words: 'photos albums upload screensaver pictures' });
     return out;
   },

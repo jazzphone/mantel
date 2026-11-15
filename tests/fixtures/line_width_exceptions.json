@@ -115,11 +115,6 @@
   "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
  },
  {
-  "file": "tests/test_mantel_settings_devices.py",
-  "hash": "fc5b246f614b4c57",
-  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
- },
- {
   "file": "tests/test_saverpieces_cameras.py",
   "hash": "9b39ce655912afe8",
   "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
