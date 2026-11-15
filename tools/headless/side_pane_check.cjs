@@ -199,6 +199,23 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       want('...landed: the grid as wide as it came in, never a frame elsewhere, the layer gone', [h1.w, h2, landed.slice(0, 4)],
            /\/home$/.test(h2.path) && h2.w === h1.w && !h2.layers.length && landed.length > 5 &&
            landed.every((x) => x[0] === landed[landed.length - 1][0] && x[1] === h1.w));
+      // UP, IT WAITS BESIDE NOTHING (2026-11-14, the Kitchen's tablet: left on the Pages screen, the idle return brought
+      // Home back under the screensaver and Home stood without its pane). On the Pages screen the pane waits off the
+      // screen beside Home's page; Home reached while the swipe stands down (asleep: no stage, no hand-over) has its
+      // pane in its place all the same
+      cur = 'pane-swipe';
+      await page.mouse.move(700, sy); await page.mouse.down();
+      for (let k = 1; k <= 10; k++) { await page.mouse.move(700 - 36 * k, sy); await page.waitForTimeout(16); }
+      await page.mouse.up();
+      await page.waitForTimeout(1200);
+      const w0 = await sw();
+      await page.evaluate(() => { window.__hkAsleep = true; window.hkShell.navigate(location.pathname.replace(/\/[^/]*$/, '/0')); });
+      await page.waitForTimeout(1200);
+      await page.evaluate(() => { window.__hkAsleep = false; });
+      await page.waitForTimeout(1500);
+      const w1 = await sw();
+      want('left on the Pages screen (the pane waiting off the screen), Home back with no swipe: its pane in its place', [w0, w1],
+           /\/pages$/.test(w0.path) && !w0.seen && w0.x !== 0 && w1.seen && w1.x === 0);
       // A SLIDER IS ITS OWN (2026-11-01, the owner: "horizontal sliders like volume, cause the swipe page to trigger"):
       // the Music page's volume, drawn by hand and touch-action none, moves; the page stays
       await page.goto(input.origin + '/pane-swipe/playmusic');

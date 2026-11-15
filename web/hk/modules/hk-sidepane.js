@@ -423,6 +423,11 @@
     // (a Home Grid takes the band off its own height: hk-layout.js --hk-pane-b)
     bandRoom(up && p.kind === 'band' && !(grid && grid.isConnected) ? p.h : 0);
     if (dash) dress(dash, dash.show({ list: list, place: p, side: sp ? sp.side : 'right', doorbell: door }));
+    // UP, IT WAITS BESIDE NOTHING (2026-11-14, the Kitchen's tablet: left on the Pages screen, where the pane waits off
+    // the screen beside Home's page, the idle return brought Home back under the screensaver -- no swipe, so no
+    // hand-over -- and Home stood there without its pane, still parked 1280 px away, until the next swipe). A pane that
+    // is up is the page's own: what it waited for is over, whoever forgot to say so. Not while a swipe has it.
+    if (dash && dash.hasAttribute('on') && (WAIT || dash._waits) && !FOLLOW.going) { WAIT = null; waitDraw(); }
     // (the pane WILL take the music: up here, or coming up, with a Now Playing section -- whether or not anything
     // plays yet. Said only once the music was in the pane, the bar came up for the frames between the music starting
     // and the pane's next draw, the page lost its height and a Home Grid fitted itself smaller, then back: the owner,
