@@ -801,6 +801,7 @@
           return html;
         };
         this._artBg(list, c);
+        this._tone();
         var sig = JSON.stringify([list, W, H, o.side, band, o.doorbell, HEAD_ON]) + '|' + this._dataSig(c);
         if (!again && sig === this._sig) {
           if (this._parked) { this._parked = false; this._fill(); this._cams(); }
@@ -904,7 +905,7 @@
         if (pic === this._artPic && dim === this._artDim) return;
         this._artDim = dim;
         this._artPic = pic;
-        if (!pic) { this.removeAttribute('arted'); return; }
+        if (!pic) { this.removeAttribute('arted'); this._tone(); return; }
         var img = new Image();
         img.onload = function () {
           if (self._artPic !== pic) return;
@@ -925,9 +926,22 @@
             olds.forEach(function (o) { o.classList.remove('on'); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 1300); });
           }); });
           self.setAttribute('arted', '');
+          self._tone();
         };
-        img.onerror = function () { if (self._artPic === pic) self.removeAttribute('arted'); };
+        img.onerror = function () { if (self._artPic === pic) { self.removeAttribute('arted'); self._tone(); } };
         img.src = pic;
+      }
+      // IN FLAT, THE THEME'S OWN INK ON THE THEME'S OWN SURFACE (2026-11-15, the owner: "the side bar is still dark when
+      // flat is set to Light mode"): the Dashboard's pane is a Flat surface of its own, as the menu and the tab bar are
+      // (hkCards.flatSurface: `hk-flat` and the theme's values on the host, which the CSS reads). With a song's cover
+      // behind it, it is a dark media surface in both themes -- 'music', as the Music page's Now Playing -- so white
+      // words stand over the cover on a Light screen too. Never the screensaver's pane or a Pages-screen widget: those
+      // are drawn on someone else's ground. Asked again at each draw and whenever the cover comes or goes; it writes
+      // only when the answer changes.
+      _tone() {
+        var H = C();
+        if (!H || !H.flatSurface || this.getAttribute('mode') !== 'dash') return;
+        H.flatSurface(this, this.hasAttribute('arted') ? 'music' : 'pane');
       }
       // A TAP ON A SECTION (2026-10-30, the owner: "ALL the Widgets should do
       // something if you tap on them"): on one thing in it -- an event, a

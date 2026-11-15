@@ -37,8 +37,13 @@
         '.mpanel.pn.dr{border-radius:0;box-shadow:none;background:rgba(18,20,24,.93);-webkit-backdrop-filter:blur(30px) saturate(1.4);backdrop-filter:blur(30px) saturate(1.4)}' +
         '.mpanel.dr .mpmini{order:-1;border-top:0;border-bottom:1px solid rgba(255,255,255,.12);padding:24px 22px 16px}' +
         '.mpanel.dr .mpmini .ia{width:60px;height:60px;border-radius:10px}.mpanel.dr .mpmini .tx b{font-size:17px}' +
-        '.mpanel.dr .mphd{padding-top:14px}';
+        '.mpanel.dr .mphd{padding-top:14px}' +
+        // (Flat: no blur, so nothing of the pane under it -- an opaque plate)
+        ':host([hk-flat]) .mpanel.pn.dr{background:rgb(18,20,24);-webkit-backdrop-filter:none;backdrop-filter:none}';
       sr.appendChild(st);
+      // A DARK MEDIA SURFACE IN BOTH FLAT THEMES, as the Music page's Now Playing is (2026-11-15: on a Flat Light
+      // screen its words took Light's dark ink from the page and could not be read on it)
+      if (HC && HC.flatSurface) HC.flatSurface(host, 'music');
       var scrim = document.createElement('div'); scrim.className = 'scrim';
       sr.appendChild(scrim);
       var me = { host: host, doneT: null };
