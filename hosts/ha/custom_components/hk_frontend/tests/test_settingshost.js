@@ -189,31 +189,42 @@ print('\n=== the Preview button ===');
   ok('a desk-wide window keeps it beside the page, with no button', SRC.indexOf("this.previewButton(!xwide && !!pg.preview, pinned);") > 0, true);
 })();
 
-print('\n=== a host\'s own groups on a wall tablet\'s page (extend) ===');
+print('\n=== a host\'s own rows on a wall tablet\'s page (extend) ===');
 (function () {
   var TAB = { tablets: { living_room: { name: 'Living Room', screen: 'dashboard-kitchen', app: 'kiosk_satellite', sleep: {}, parts: {} } } };
-  function tabletPage(host) {
+  function tabletPage(host, sub) {
     var pg = page(host, Object.assign(JSON.parse(JSON.stringify(DATA)), TAB));
     var c = document.createElement('div');
-    pg.resolve(['house', 'tablets', 'living_room']).body(c);
+    pg.resolve(['house', 'tablets', 'living_room'].concat(sub || [])).body(c);
     return c;
   }
   var asked = [];
   var x = example();
+  // (phase 32: a tablet's page is the same groups for every kiosk app; the host adds ROWS to them, and its own groups to Advanced)
   x.extend = function (where, c, ctx) {
     asked.push([where, ctx]);
-    var g = document.createElement('section'); g._text = 'The host’s own group'; c.appendChild(g);
+    if (where === 'tablet') {
+      var r = document.createElement('div'); r._text = 'The host’s own row'; ctx.rows.access.push(r);
+    } else if (where === 'tablet-advanced') {
+      var g = document.createElement('section'); g._text = 'The host’s own group'; c.appendChild(g);
+    }
   };
   var c = tabletPage(x);
-  ok('the host is asked on a tablet\'s page, with the tablet', asked, [['tablet', { tablet: 'living_room', name: 'Living Room', app: 'kiosk_satellite', app_sky: false,
-                                                                          set: asked.length && asked[0][1].set,
-                                                                          app_options: {}, house_app: {} }]]);
-  ok('...and a way to save the tablet\'s own settings (Mantel\'s Sky Drawn by the App)', typeof (asked[0] && asked[0][1].set), 'function');
-  ok('...and what it draws is on the page', texts(c).indexOf('The host’s own group') >= 0, true);
+  ok('the host is asked on a tablet\'s page, with the tablet', asked.map(function (a) { return a[0]; }), ['tablet']);
+  var ctx = asked[0][1];
+  ok('...which one it is', [ctx.tablet, ctx.name, ctx.app, ctx.app_sky, ctx.room], ['living_room', 'Living Room', 'kiosk_satellite', false, '']);
+  ok('...and what its kiosk app was sent and what All Tablets says', [ctx.app_options, ctx.house_app], [{}, {}]);
+  ok('...and a way to save the tablet\'s own settings (the tablet app\'s Sky Drawn by the App)', typeof ctx.set, 'function');
+  ok('...and a place for its rows in each group', Object.keys(ctx.rows).sort(), ['access', 'danger', 'display', 'place', 'reload']);
+  ok('...and what it draws is on the page, in its Access group', texts(c).indexOf('The host’s own row') >= 0 && texts(c).indexOf('Access') >= 0, true);
+  asked.length = 0;
+  var adv = tabletPage(x, ['advanced']);
+  ok('Advanced asks it for its own groups', asked.map(function (a) { return a[0]; }), ['tablet-advanced']);
+  ok('...and they are drawn there', texts(adv).indexOf('The host’s own group') >= 0, true);
   var y = example(); y.extend = function () { throw new Error('a host that fails'); };
-  ok('a host that throws leaves HK\'s page whole', texts(tabletPage(y)).indexOf('Setup') >= 0, true);
-  ok('a host without extend: HK\'s page alone', texts(tabletPage(example())).indexOf('Setup') >= 0, true);
-  ok('Home Assistant (no host): HK\'s page alone', texts(tabletPage(null)).indexOf('The host’s own group') < 0, true);
+  ok('a host that throws leaves HK\'s page whole', texts(tabletPage(y)).indexOf('Screen & Room') >= 0, true);
+  ok('a host without extend: HK\'s page alone', texts(tabletPage(example())).indexOf('Screen & Room') >= 0, true);
+  ok('Home Assistant (no host): HK\'s page alone', texts(tabletPage(null)).indexOf('The host’s own row') < 0, true);
 })();
 
 print('\n=== a host\'s own groups on a screen\'s page (extend) ===');

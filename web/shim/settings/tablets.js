@@ -96,7 +96,7 @@ export function drawDirect(c, ctx) {
   if (t.unreadable) notes.push('Mantel’s saved copy could not be opened (was the at-rest key changed?). Pair it again.');
   if (sv.missing && sv.missing.length) notes.push('This ' + t.app_label + ' version lacks ' + sv.missing.join(', ') + ', which Mantel needs for its commands. Update the app.');
   notes.push('Mantel reads ' + t.app_label + ' on the tablet itself, without Home Assistant. The only commands it sends are Reload and ' +
-             'Clear Cache & Reload (Actions, below, and All at Once on Wall Tablets), while commands are on; each is in the Audit Log.');
+             'Clear Cache & Reload (on its page, and All Tablets), while commands are on; each is in the Audit Log.');
   if (!can2) notes.push('Only an Owner can pair a tablet.');
   c.appendChild(group({ header, footer: notes.join(' ') }, rows));
   result(c, key);

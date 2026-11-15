@@ -275,7 +275,9 @@ async def enroll(request: web.Request) -> web.Response:
     if make_tablet:
         from .settings_store import SettingsError, actor_of
         try:
-            service.add_tablet({"name": name[:40], "room": room}, actor_of(ident), "device.enroll")
+            # (its screen and kiosk app too when the page asked: Make This a Wall Tablet asks what Add Tablet does)
+            given = {k: body[k] for k in ("screen", "app") if isinstance(body.get(k), str) and body[k]}
+            service.add_tablet({"name": name[:40], "room": room, **given}, actor_of(ident), "device.enroll")
         except SettingsError as exc:
             return error(400, "tablet_not_made", message=f"The HK tablet could not be made ({exc.code}).")
     device_id, secret, csrf = mgr.enroll(name[:64], role, room, user.id, client_ip(request), device_id=device_id)

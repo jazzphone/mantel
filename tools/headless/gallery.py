@@ -691,13 +691,30 @@ async def seed_people(app, owner_id: str) -> None:
                 continue
         people[username] = await acc.create_user(username, name, role, password)
     app["devices"].enroll("Kitchen Tablet", "wall_tablet", "kitchen", owner_id)
-    app["devices"].enroll("Hallway Tablet", "wall_tablet", "living_room", owner_id)
+    hallway_device = app["devices"].enroll("Hallway Tablet", "wall_tablet", "living_room", owner_id)[0]
     service = app.get("settings")
     if service is not None:                  # HK's wall tablets the two devices are (a tablet's page: Mantel's group)
         from mantel_server.settings_store import Actor
         for tid, name, room in (("kitchen", "Kitchen", "kitchen"), ("hallway", "Hallway", "living_room")):
-            service.store.write([("tablet", tid, {"name": name, "room": room, "screen": SCREEN, "app": "fully",
+            # (the Hallway runs Mantel for Android, the Kitchen Fully Kiosk: a tablet's page for each kind of kiosk app)
+            service.store.write([("tablet", tid, {"name": name, "room": room, "screen": SCREEN,
+                                                  "app": "android_app" if tid == "hallway" else "fully",
                                                   "uid": f"tablet_{tid}"})], actor=Actor(label="gallery"))
+        # the Hallway's app, as it reports itself (apps/tablet_app.py): connected, so its controls are drawn live
+        from types import SimpleNamespace as NS
+        from mantel_server.apps import tablet_app as TA
+        TA.apps_of(app).heard(hallway_device, {
+            "version": "0.1.16", "version_code": 116, "screen": True, "brightness": 0.6, "curtain": False, "battery": 87.0, "charging": True,
+            "kiosk_mode": True, "owner": True, "esphome_port": 6055, "menu_pin": False, "ip": "192.0.2.31", "model": "Pixel Tablet",
+            "update": "current 0.1.16", "rotation": "auto", "rotation_allowed": True, "airplay": False, "airplay_name": "Hallway Tablet",
+            "keep_awake": True, "keep_screen_on": True, "scale": 100, "adaptive_brightness": False, "adaptive_brightness_allowed": True,
+            "wireless_debugging": False, "wireless_debugging_allowed": True, "renderer": "default", "render_size": 100, "adb_paired": True,
+            "sky": "off"})
+        hub = app.get("hub")
+        if hub is not None and isinstance(getattr(hub, "sessions", None), set):
+            stand_in = type("TabletPage", (), {})()                      # (a set holds it: a SimpleNamespace can't be hashed)
+            stand_in.principal, stand_in.gone = NS(device=NS(id=hallway_device)), False
+            hub.sessions.add(stand_in)
     app["user_data"].set(f"u:{owner_id}", "hk_music_focus", {"key": "media_player.living_room"})
     audit = app["audit"]
     clock = audit.clock

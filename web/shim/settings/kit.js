@@ -53,6 +53,11 @@ export function screenPicker(key, label, sub, value, list, none, put) {
   return K().select({ label, sub, options: screenOptions(list, none), value: value || '', fk: 'mx:screen:' + key,
     onChange: (v) => act(key, () => put(v || null), 'Saved.', 'myscreen', 'dscreens') });
 }
+// the same, as a row, for a page whose rows are drawn into groups the host page owns (a wall tablet's page)
+export function flashRow(key) {
+  if (!ui.flash || (ui.flash.key !== key && ui.flash.key !== '*')) return null;
+  return K().info({ label: ui.flash.text, valueCls: ui.flash.err ? 'warn' : 'ok' });
+}
 // the last action's result, on the page it was done from
 export function result(c, key) {
   if (!ui.flash || (ui.flash.key !== key && ui.flash.key !== '*')) return;

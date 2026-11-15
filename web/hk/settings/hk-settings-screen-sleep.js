@@ -45,6 +45,7 @@
         var put = function (ch) { return ctx.set({ sleep: Object.assign({}, sl, ch) }); };
         var ids = (this.data.screensavers || {})[ctx.key] || {};
         var choices = (this.data.choices || {}).sleep || {};
+        if (x.tablet) this.tabTimeline(c, x.tablet);
         var mins = function (m) { return m < 60 ? m + ' min' : (m / 60) + (m === 60 ? ' hour' : ' hours'); };
         var secs = function (v) { return v === 0 ? 'None' : v < 60 ? v + ' s' : mins(v / 60); };
         c.appendChild(K.group({ header: 'Going Dark', footer: 'Drawn By: Kiosk Satellite puts its own Black screensaver up; ' + PN() +
@@ -70,9 +71,9 @@
           if (x.tablet) {
             // the tablet's own Kiosk App and Device (its page's Setup)
             var kd = ks.filter(function (k) { return k.id === sl.kiosk; })[0];
-            c.appendChild(K.group({ header: 'Kiosk', footer: kfoot + (kd ? '' : ' Choose it on the tablet’s page: Kiosk App, Kiosk Satellite, and its Device.') }, [
+            c.appendChild(K.group({ header: 'Kiosk', footer: kfoot + (kd ? '' : ' Choose it on the tablet’s Advanced page: Kiosk App, Kiosk Satellite, and its Device.') }, [
               K.nav({ label: 'Kiosk Satellite', value: kd ? kd.name : 'None', sk: 't:sleep.kiosk',
-                      href: '#/house/tablets/' + encodeURIComponent(x.tablet) })]));
+                      href: '#/house/tablets/' + encodeURIComponent(x.tablet) + '/advanced' })]));
           } else {
             c.appendChild(K.group({ header: 'Kiosk', footer: kfoot }, [
               K.select({ label: 'Kiosk Satellite', sk: 'b:sleep.kiosk', value: sl.kiosk || '',
