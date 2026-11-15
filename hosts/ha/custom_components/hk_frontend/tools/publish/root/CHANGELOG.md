@@ -6,6 +6,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Fixed**
+- **A notification on a sensor whose state is words could only go off when it Changes**: Goes Off When now offers Changes To each value it's known to take, and Changes To Another Value… to type one.
 - **Settings' switches jumped back for seconds**: a feature's change (a notification's Important or Wakes the Screen, Stays On Screen, Do Not Disturb, any option of Notifications or Energy) showed its old value until the save was answered. It shows at once now; a refused save reads the page again.
 
 **Changed**

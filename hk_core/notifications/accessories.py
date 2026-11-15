@@ -169,9 +169,9 @@ def camera_pairs(house: House, item: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-def describe(house: House, entity_id: str) -> dict[str, Any]:
+def describe(house: House, entity_id: str, also: Any = None) -> dict[str, Any]:
     """What a notification on this accessory is: its kind, choices, name,
-    suggested camera."""
+    suggested camera. `also`: a value a notification already goes off for, kept among the choices."""
     st = house.state(entity_id)
     domain, oid = entity_id.split(".", 1)
     k = rules.kind_of(domain, st.attributes.get("device_class") if st else None, oid)
@@ -183,7 +183,10 @@ def describe(house: House, entity_id: str) -> dict[str, Any]:
     when = rules.default_when(k)
     title, message = rules.words(k, when, name, (when, {}), fired_on=when)
     icon, tint = rules.look(k)
-    return {"entity": entity_id, "kind": k, "name": name, "choices": [list(c) for c in rules.choices(k)],
+    return {"entity": entity_id, "kind": k, "name": name,
+            "choices": [list(c) for c in rules.value_choices(k, (st.state, st.attributes) if st else None, also)],
+            # a value's kind takes a typed value too (Changes To Another Value on the page)
+            "values": k in rules.VALUE_KINDS,
             "when": when, "camera": cam, "event": domain == "event", "title": title, "message": message,
             "icon": icon, "tint": tint, "important": k in rules.IMPORTANT,
             "missing": st is None}
@@ -252,7 +255,7 @@ def about(house: House, item: dict[str, Any]) -> dict[str, Any]:
     """describe() for a notification: its accessory's, or its category's."""
     key = item.get("category")
     if not key:
-        return describe(house, item["entity"])
+        return describe(house, item["entity"], also=item.get("when"))
     cat = rules.category(key) or ("", key, ("state",), {})
     k = cat[2][0]
     when = item.get("when") or cat[3].get("when") or rules.default_when(k)
@@ -261,7 +264,7 @@ def about(house: House, item: dict[str, Any]) -> dict[str, Any]:
     if k == "calendar":
         title, message = "The event’s name", "When it is, and where"
     icon, tint = rules.look(k)
-    return {"category": key, "kind": k, "name": cat[1], "choices": [list(c) for c in rules.choices(k)],
+    return {"category": key, "kind": k, "name": cat[1], "choices": [list(c) for c in rules.choices(k)], "values": False,
             "when": cat[3].get("when") or rules.default_when(k), "camera": None, "event": False,
             "title": title, "message": message, "icon": icon, "tint": tint,
             "important": bool(cat[3].get("important")), "missing": False}

@@ -18,6 +18,9 @@
         waiting = KIT.waiting, WHAT = KIT.WHAT;
 
     var K;
+    // a notification whose Goes Off When is being typed (Changes To Another Value…), by its id
+    var notifyTyping = {};
+    var TYPE_VALUE = '\u2026type';
     // (set when the page starts, not now: the shell calls bindLate() once it has assigned them)
     KIT.late.push(function (s) {
       K = s.K;
@@ -194,11 +197,30 @@
       var save = function (ch) { return notifySave(P, id, ch); };
       var sk = function (k) { return 'f:' + NT + ':' + k; };
       var whenOpts = (it.choices || []).map(function (x) { return [x[0], x[1]]; });
+      // CHANGES TO A VALUE (an accessory whose state is just a value: a text sensor, a select): the values it's known to
+      // take are among the choices; Changes To Another Value… opens a box to type one, kept among them once saved
+      var typing = !!(it.values && notifyTyping[id]);
+      if (it.values) whenOpts = whenOpts.concat([[TYPE_VALUE, 'Changes To Another Value…']]);
+      var pickWhen = function (v) {
+        if (v === TYPE_VALUE) { notifyTyping[id] = true; P.render(); return; }
+        delete notifyTyping[id];
+        save({ when: v });
+      };
       var when = whenOpts.length === 1 ? K.info({ label: 'Goes Off When', value: whenOpts[0][1] })
-        : whenControl(it.choices) === 'seg'
-          ? K.seg({ label: 'Goes Off When', value: it.when, sk: sk('when'), options: whenOpts, onChange: function (v) { save({ when: v }); } })
-          : K.select({ label: 'Goes Off When', value: it.when, sk: sk('when'), options: whenOpts, onChange: function (v) { save({ when: v }); } });
+        : !it.values && whenControl(it.choices) === 'seg'
+          ? K.seg({ label: 'Goes Off When', value: it.when, sk: sk('when'), options: whenOpts, onChange: pickWhen })
+          : K.select({ label: 'Goes Off When', value: typing ? TYPE_VALUE : it.when, sk: sk('when'), options: whenOpts, onChange: pickWhen });
+      var known = (it.choices || []).filter(function (x) { return x[0] !== 'any'; }).map(function (x) { return x[0]; });
+      var typed = typing ? K.text({ label: 'Changes To', value: '', maxlength: 64, sk: sk('when'), error: P.err(sk('when')),
+        placeholder: known.length ? 'Exactly as it says, like “' + known[0] + '”' : 'Exactly as it says',
+        onCommit: function (v) {
+          v = String(v || '').trim();
+          if (!v) return;
+          delete notifyTyping[id];
+          save({ when: v });
+        } }) : null;
       c.appendChild(K.group({ header: 'When', footer: it.missing ? 'The accessory isn’t in Home Assistant right now; this goes off again once it is.'
+          : it.values && it.when !== 'any' ? 'It goes off when the accessory changes to exactly this, as Home Assistant shows it.'
           : it.kind === 'calendar' ? 'Each event notifies once. All-Day Events: the morning one starts, at that time.'
           : 'Not Again For: a camera that sees someone for a minute sends one notification, not twenty.' }, [
         it.category ? null : P.entityRow({ label: 'Accessory', sk: sk('entity'), value: it.entity, title: 'Notify When',
@@ -206,6 +228,7 @@
                               'switch', 'timer', 'sensor', 'light', 'fan', 'vacuum'], shown: true },
           onPick: function (v) { if (v) save({ entity: v }); } }),
         when,
+        typed,
         K.select({ label: 'Only When', value: it.only || 'always', sk: sk('only'),
                    options: Object.keys(ONLY_WORDS).map(function (k) { return [k, ONLY_WORDS[k]]; }), onChange: function (v) { save({ only: v }); } }),
         it.kind === 'calendar' ? K.select({ label: 'All-Day Events', value: it.allday || '', sk: sk('allday'),

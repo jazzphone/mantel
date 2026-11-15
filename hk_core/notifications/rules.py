@@ -134,6 +134,42 @@ def choices(kind: str) -> list[tuple[str, str]]:
     return list(_CHOICES.get(kind) or _CHOICES["state"])
 
 
+# CHANGES TO A VALUE (2026-11-14, the owner: a mailbox sensor whose state is words -- "Changes" was the only choice, and
+# there was no way to say "changes to Mail Likely Delivered"). An accessory whose state is just a value (kind "state":
+# a text or enum sensor, a select) can go off when it changes to one value: its `when` is that value, matched exactly
+# (fires(): n == when). The choices are Changes, the values it is known to take (its `options`, else its state now), and
+# one typed on the page; a typed one is kept among them.
+VALUE_KINDS = ("state",)
+VALUE_MAX = 64
+OPTIONS_MAX = 40
+
+
+def value_ok(v: Any) -> bool:
+    """A value a notification may go off for: a short line of text, not "any" and not a state that never fires."""
+    return isinstance(v, str) and 0 < len(v) <= VALUE_MAX and v.strip() == v and v not in GONE and v != "any" \
+        and not any(ord(c) < 32 for c in v) and "<" not in v
+
+
+def to_value(v: str) -> tuple[str, str]:
+    return v, "Changes To “%s”" % v
+
+
+def value_choices(kind: str, new: State, also: Any = None) -> list[tuple[str, str]]:
+    """Goes Off When for an accessory: its kind's choices, and for a value's kind, Changes To each value it is known to
+    take (`options`, else its state now) and `also` (the one a notification already has)."""
+    out = choices(kind)
+    if kind not in VALUE_KINDS:
+        return out
+    opts = (new[1].get("options") if new else None) or []
+    known = [str(o) for o in opts if isinstance(o, (str, int, float)) and not isinstance(o, bool)][:OPTIONS_MAX] \
+        if isinstance(opts, (list, tuple)) else []
+    if not known and new and value_ok(new[0]):
+        known = [new[0]]
+    if value_ok(also) and also not in known:
+        known.append(also)
+    return out + [to_value(v) for v in known if value_ok(v)]
+
+
 def default_when(kind: str) -> str:
     return choices(kind)[0][0]
 

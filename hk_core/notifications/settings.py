@@ -55,7 +55,8 @@ def page(house: House, opts: dict[str, Any], on_now: dict[str, float], state: st
         muted = sorted(({"key": k, "entity": k[len(pre):], "name": name_of(house, k[len(pre):]) if k[len(pre):] else "",
                          "until": v} for k, v in on_now.items() if k.startswith(pre)), key=lambda m: m["until"])
         items.append({**{k: it.get(k) for k in ("id",) + ITEM_FIELDS}, "kind": d["kind"], "name": d["name"],
-                      "choices": d["choices"], "auto_title": d["title"], "auto_message": d["message"],
+                      "choices": d["choices"], "values": d.get("values", False), "auto_title": d["title"],
+                      "auto_message": d["message"],
                       "icon": d["icon"], "tint": d["tint"], "suggested_camera": d["camera"],
                       "missing": d["missing"], "muted": muted})
     # THE CATEGORIES found here: those with an accessory, each with its
@@ -199,9 +200,11 @@ def _go(v: Any) -> str | None:
 
 
 def _when(v: Any) -> str:
-    """Goes Off When: one of the accessory's choices (apply_item checks which)."""
+    """Goes Off When: one of the accessory's choices, or a value it changes to (apply_item checks which)."""
     if not isinstance(v, str) or not v:
         raise Bad("choice")
+    if len(v) > rules.VALUE_MAX or v.strip() != v or any(ord(c) < 32 for c in v) or "<" in v:
+        raise Bad("text")
     return v
 
 
