@@ -106,6 +106,8 @@ function () {
   ok('Large and Extra Large: the title one line, a long one drifting (still under reduced motion)',
      css.indexOf('line-height:27px;white-space:nowrap;overflow:hidden') >= 0 && css.indexOf('@keyframes hk-np-mq') >= 0 &&
      css.indexOf('@media (prefers-reduced-motion:no-preference){:host(:is([size=L],[size=XL])) .np .title.mq .mqt{animation') >= 0);
+  ok('...and the drift is clipped at the cover\'s gap, never over the cover (the title\'s padding is beside it)',
+     /\.np \.title\.mq\{[^}]*-webkit-mask-clip:content-box;mask-clip:content-box;-webkit-mask-origin:content-box;mask-origin:content-box\}/.test(css));
   ok('Wide: the speaker line, the song and the strip beside the cover', css.indexOf('"art ." "art line" "art title" "art artist" "art strip" "art ."') >= 0);
   ok('...the cover as big as the keys\' 178 px and the gap beside it (the block\'s inset) leave it', /--np-art:min\(\(100cqh[^;]*- 178px - var\(--hk-pad-l,22px\)\)/.test(css));
   // (the thin line stays in the progress's place, never along the foot -- 2026-11-09, the owner: "it looks bad at the bottom
