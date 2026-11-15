@@ -216,6 +216,36 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const w1 = await sw();
       want('left on the Pages screen (the pane waiting off the screen), Home back with no swipe: its pane in its place', [w0, w1],
            /\/pages$/.test(w0.path) && !w0.seen && w0.x !== 0 && w1.seen && w1.x === 0);
+      // WHERE PAGES CROSS-FADE, IT FADES WITH ITS PAGE (2026-11-14, the owner: "if you chose flat appearance / white
+      // the side pane doesn't follow"): in Flat no page moves, the two cross-fade -- and the pane, in its own place, goes
+      // out with Home's page and comes back in with it (it cut in after the pages had faded, or stayed where it waited)
+      await page.evaluate(() => { window.hkSettings.previewGlass('flat'); });
+      await page.waitForTimeout(800);
+      const fadeOf = async (fromX, toX) => {
+        await page.evaluate(() => {
+          window.__fade = []; const t0 = performance.now();
+          const tick = () => {
+            const p = document.querySelector('hk-side-pane[mode="dash"]'), pl = p && p.shadowRoot && p.shadowRoot.querySelector('.pane');
+            if (p && pl) { const b = p.getBoundingClientRect(), shown = getComputedStyle(p).display !== 'none' && b.right > 0 && b.left < innerWidth;
+              window.__fade.push([shown ? +(+getComputedStyle(pl).opacity).toFixed(2) : -1, Math.round(b.left)]); }
+            if (performance.now() - t0 < 1500) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        await page.mouse.move(fromX, sy); await page.mouse.down();
+        for (let k = 1; k <= 10; k++) { await page.mouse.move(fromX + (toX - fromX) * k / 10, sy); await page.waitForTimeout(16); }
+        await page.mouse.up();
+        await page.waitForTimeout(1700);
+        return page.evaluate(() => window.__fade);
+      };
+      const f0 = await sw(), fOut = await fadeOf(700, 340), f1 = await sw(), fBack = await fadeOf(300, 300 + 0.45 * W), f2 = await sw();
+      const part = (a) => a.filter((x) => x[0] > 0.05 && x[0] < 0.95);
+      want('Flat, swiping off Home: the pane fades out where it stands (never moved, never cut at full strength)', [f0, f1, fOut.slice(0, 40)],
+           f0.seen && !/\/pages$/.test(f0.path) && /\/pages$/.test(f1.path) && !f1.seen && part(fOut).length >= 2 && part(fOut).every((x) => x[1] === fOut[0][1]));
+      want('...and back to Home: it fades in, in its place, and stays', [f2, fBack.slice(0, 40)],
+           /\/home$/.test(f2.path) && f2.seen && f2.x === 0 && f2.op === 1 && part(fBack).length >= 2 && part(fBack).every((x) => x[1] === fOut[0][1]));
+      await page.evaluate(() => { window.hkSettings.previewGlass(null); });
+      await page.waitForTimeout(500);
       // A SLIDER IS ITS OWN (2026-11-01, the owner: "horizontal sliders like volume, cause the swipe page to trigger"):
       // the Music page's volume, drawn by hand and touch-action none, moves; the page stays
       await page.goto(input.origin + '/pane-swipe/playmusic');

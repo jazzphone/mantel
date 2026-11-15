@@ -224,8 +224,10 @@ page with the pane beside it and a page without are the same width with the pane
 goes that far -- the swipe's `span`: the page's width, the pane's with it -- and both pages and the pane move
 together: the pane off the screen with Home, or in ahead of Home's grid from the side Home waits on. The pane does not
 fade, and it follows the finger with Animations off too (a page still follows the finger there; the pane that stood
-still and cut at the landing was what jarred). Only Reduce Motion, which cross-fades the pages, leaves it where it
-is. A pane on every page does not move at all. What it took:
+still and cut at the landing was what jarred). Where the pages cross-fade -- Reduce Motion, and the Flat look, which
+turns motion off -- the pane stays in its place and fades with its page over the same .2 s (`hkSidePane.fade`; the
+owner, 2026-11-14: "if you chose flat appearance / white the side pane doesn't follow" -- it had cut in after the pages
+had faded, or stayed where it waited). A pane on every page does not move at all. What it took:
 
 - The page waiting beside this one starts a span away (`N.off = dir * span`), not this page's width away with the next
   page coming out from under the pane; the settle, the fraction the companions hear and the let-go thresholds all go by

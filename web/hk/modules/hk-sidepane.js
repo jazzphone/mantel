@@ -291,7 +291,7 @@
   }
   function waitDraw() {
     if (!dash) return;
-    var ok = !!WAIT && !reduced() && !dash.hasAttribute('on') && paneChange(WAIT.path) < 0;
+    var ok = !!WAIT && !FADE && !reduced() && !dash.hasAttribute('on') && paneChange(WAIT.path) < 0;
     if (ok) {
       var x = WAIT.dir * WAIT.span;
       dash._waits = true;
@@ -386,6 +386,38 @@
     waitDraw();
   }
 
+  // WHERE PAGES CROSS-FADE, IT FADES WITH ITS PAGE (Flat, Reduce Motion: hk-pageswipe.js crossfade; 2026-11-14, the
+  // owner: "if you chose flat appearance / white the side pane doesn't follow"). No page moves there, so the pane does
+  // not either: it goes out with the page it belongs to and comes in with the page that brings it, over the same
+  // `ms`, in its own place all the while (nothing waits off the screen for a fade). It ended as a cut, after the pages
+  // had faded. Its plate fades, as ever (plate, above); the page landing ends it (sync), or three seconds.
+  var FADE = null;
+  function fade(toPath, ms) {
+    var k = toPath ? paneChange(toPath) : 0;
+    fadeEnd();
+    if (!k || !dash) return;
+    ms = ms > 0 ? ms : 200;
+    FADE = { going: k, timer: setTimeout(fadeEnd, ms + 3000) };
+    waitDraw();                                       // (back from where it waited, if it did)
+    var pl = plate();
+    if (k < 0) dash.setAttribute('peek', '');
+    dash.style.transition = 'none'; dash.style.transform = '';
+    pl.style.transition = 'none'; pl.style.opacity = k > 0 ? '1' : '0';
+    try { void getComputedStyle(pl).opacity; } catch (e) { /* a test page */ }
+    pl.style.transition = 'opacity ' + ms + 'ms linear';
+    pl.style.opacity = k > 0 ? '0' : '1';
+  }
+  function fadeEnd() {
+    if (!FADE) return;
+    clearTimeout(FADE.timer); FADE = null;
+    if (dash) {
+      var pl = plate();
+      pl.style.opacity = ''; pl.style.transition = ''; dash.style.transition = '';
+      if (!dash.hasAttribute('on')) dash.removeAttribute('peek');
+    }
+    waitDraw();
+  }
+
   var dash = null;
   function sync() {
     var sp = paneOf(), c = clientNow();
@@ -428,6 +460,8 @@
     // hand-over -- and Home stood there without its pane, still parked 1280 px away, until the next swipe). A pane that
     // is up is the page's own: what it waited for is over, whoever forgot to say so. Not while a swipe has it.
     if (dash && dash.hasAttribute('on') && (WAIT || dash._waits) && !FOLLOW.going) { WAIT = null; waitDraw(); }
+    // (a fade's page has landed: the pane is up, or gone, as the fade left it)
+    if (FADE && dash && (FADE.going > 0) !== dash.hasAttribute('on')) fadeEnd();
     // (the pane WILL take the music: up here, or coming up, with a Now Playing section -- whether or not anything
     // plays yet. Said only once the music was in the pane, the bar came up for the frames between the music starting
     // and the pane's next draw, the page lost its height and a Home Grid fitted itself smaller, then back: the owner,
@@ -552,6 +586,8 @@
       follow: function (p, toPath, move) { try { follow(p, toPath, move); } catch (e) { /* not drawn */ } },
       land: function (path, motion, move) { try { land(path, motion, move); } catch (e) { /* not drawn */ } },
       beside: function (toPath, move) { try { beside(toPath, move); } catch (e) { /* not drawn */ } },
+      // (where pages cross-fade: with its page, over the same time -- fade, above)
+      fade: function (toPath, ms) { try { fade(toPath, ms); } catch (e) { /* not drawn */ } },
       room: function (toPath) { try { return roomFor(toPath); } catch (e) { return null; } },
       navigationRoom: navigationRoom,
       // THE SETTINGS SLIDER'S DIM while it moves (hk-settings.js pvPaneDim): held a few seconds past the last move,

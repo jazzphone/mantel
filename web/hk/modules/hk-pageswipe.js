@@ -1080,7 +1080,8 @@
     var dir = to ? (st.items[st.at + 1] === to ? 1 : -1) : x < 0 ? 1 : -1, N = to ? st.nb[dir] || null : null;
     var T = window.hkTabBar, P = window.hkSidePane;
     try { if (g && g.calm && T && T.land) T.land(to ? to.path : null); } catch (e) { /* not drawn */ }
-    if (g && g.calm && P && P.land) P.land(to ? to.path : null);
+    // (...and the Side Pane fades with its page there, over the pages' own time: hk-sidepane.js fade)
+    if (g && g.calm && P) { if (P.fade) P.fade(to ? to.path : null, FADE_MS); else if (P.land) P.land(to ? to.path : null); }
     if (g && g.calm) {
       if (sky) sky.done(false, 0);
       if (to) crossfade(st, to, dir, N);
