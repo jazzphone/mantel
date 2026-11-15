@@ -67,7 +67,8 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   frame-timing checks (`swipe-motion-check`, `pre-glass-motion-check`) were by hand from 2026-11-08 to 11-11; they are
   **motion checks** now (phase 25, decision 5): in a full run after everything else, one lane per engine with the two
   lanes side by side, a failure tried once more, run again only when the pager, the swipe or the glass changed
-  (`MOTION_INPUTS`), and in a release's run, `tools/ci.py full --release`, unless they passed in a release run as they
+  (`MOTION_INPUTS`: those files and the pager's and the sky's split manifests, not every manifest), and in a
+  release's run, `tools/ci.py full --release`, unless they passed in a release run as they
   are (so a release's rerun after a flake elsewhere doesn't run them again); `release_house.py` takes only a full run in
   which they ran or were carried from a release run. The screensaver Shows' check runs each Show at its first size
   (`--one-size`; whole, at three and four sizes, it was a third of the run's step time) and Swipe Between Pages at
@@ -80,7 +81,9 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   same 1,502 checks passing. Most of what is left is the screensaver's own fades (4 s in, 3 s between slides), which a
   check of what they end on must wait out. `SAVER_SETTLE=probe` keeps the old waits and says, for each, when the page
   was still and anything that changed after it; `SAVER_SETTLE=fixed` is the old check.
-  The main suite runs on 8 workers (`CI_PYTEST_WORKERS`) where `pytest-xdist` is installed (`pip install -e
+  The main suite runs on 8 workers in a full run and on three quarters of the cores, 8 to 16, when it runs alone
+  (`quick`, `versions`; 2026-11-15: 167 s on 8, 132 s on 12, 110 s on 16 on this Mac; `CI_PYTEST_WORKERS` says
+  otherwise) where `pytest-xdist` is installed (`pip install -e
   '.[dev]'`); a parametrized test's ids must not depend on random data, or the workers collect different tests.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
   in what is committed and in the commit messages `origin/main` hasn't got.
@@ -93,7 +96,9 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   private words, no `~/.venvs/hk-ha-test`, no `PLAYWRIGHT_PATH` or `NODE`). A skip is never counted as a pass.
 - **Unchanged since it passed** (2026-11-02). Each browser check and HK Frontend's two suites name what they read
   (`ci.py` `PAGE_INPUTS`, `HK_INPUTS`): a browser check the page and the server it runs against (`web/`, `hk_core/`,
-  `hosts/server/mantel_server/`, the guide the server serves, `tests/fixtures/`) and its script's own files (the
+  `hosts/server/mantel_server/`, the guide the server serves, the route table's lock and the cameras' fixtures, not
+  the main suite's baselines in `tests/fixtures/`), less the features it does not read (below), and its script's
+  own files (the
   check, its `.cjs` half, and every module of `tools/headless`, `tools` and `tests` it imports, followed through
   their imports); HK Frontend's suites what its build takes (`hosts/ha/`, `web/`, `hk_core/`, the build tools). A
   step's **key** is those files' contents in HEAD's tree (a version file without its version lines, so a release's
@@ -103,8 +108,45 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   names the commit it passed on. A failure with a key forgets it. A step runs whenever one of its inputs changed, is
   uncommitted (changed, new, or a git-ignored file in an input folder), or `--all` or `--only` is given. The main
   suite, the release checks, the HA build and the Caddy image always run. So a few commits to Python, shell or docs
-  outside those folders check in the main suite's time; a change to `web/` or the server runs the browser checks
-  it touches, which is all of them for `web/` and the server.
+  outside those folders check in the main suite's time.
+- **A check reads its features, not every one** (2026-11-15, the owner: "it takes 15-20min for these checks"). Keyed
+  on the whole page, a change to the Side Pane's CSS ran the screensaver's Shows, the Intercom and Laundry again: 99
+  steps, 96 minutes of step time, 18 minutes on this Mac, in nearly every full run. Now a **feature owns files**
+  (`ci.py` `FEATURES`: the screensaver, music, Settings, the Side Pane, the Intercom, Laundry, the Alert, House
+  Status, the Home block, the swipe, the glass, the sky, the Home Grid's schema, and the Python side -- Mantel Server
+  and `hk_core`), each
+  browser check **names the features it reads** (`READS`, by its script), and its key leaves out the files of the
+  features it does not read. A check runs again when **the shared page** changed (whatever no feature owns: the base,
+  the shell, the tiles, the sheets, the tab bar) or **a feature it reads** did. The Python side is read by the checks
+  that are about the server (signing in, the gateway, saving, a stand-in reader); the main suite is its check in every
+  run. Replayed over the 300 commits before it, a full run's browser steps fell from 53 to 35 on average, and a
+  change to one feature runs its own checks: the Side Pane's fix that started this would have run 21 steps, not 99.
+  - **A release's run reads the whole page.** `tools/ci.py full --release` keys every check on all of it again (its
+    `wide` inputs), so what one feature's change did to another is found before a release; a pass is kept under
+    both keys, so a check that ran on this very tree is not run twice. `release_house.py` takes only such a run
+    (`release_ready`). `full --all` runs every step whatever passed.
+  - **Before a hotfix that changes shared code** nothing more is needed: shared code runs everything. Before one
+    that changes only a feature, `full` has run what reads it; run `full --release` when the change is one another
+    feature could feel (a shared helper moved into a feature's file, a setting two features read).
+  - **A new file is shared until a feature owns it**, and a check not in `READS` reads everything: the safe side.
+    Add a file to a feature only when no other feature's check could be broken by it; add a check to `READS` with
+    every feature its pages show. `tests/test_ci_runner.py` holds that each owned file exists, that no file has two
+    owners, and what runs again for what.
+- **Keeping the checks short** (the same day). What made the run long was not one check but every one added since:
+  a browser check for each feature, in two engines and three sizes, each with a case for each bug ever fixed.
+  Before adding to the checks:
+  1. **A bug's guard is a unit test first.** The main suite and HK Frontend's jsc suites run a case in
+     milliseconds; a browser check is for what only a browser shows -- a layout, a gesture, an engine's quirk.
+  2. **A new case rides a page an existing check already opens.** No new page load, no fixed wait: wait on the
+     page (`waitForFunction`, the check's own `settle`), never the clock.
+  3. **A new browser check names what it reads** (`READS`), in **one engine and one size** unless the bug is the
+     engine's or the size's, and stays under `STEP_BUDGET` (240 s; a check that grows is cut into parts).
+  4. **A one-off is by hand.** One house's layout, one incident's exact steps, a look nobody has chosen: a script
+     in `tools/headless/` run when that code changes (`house_twin.py` draws a real screen), not a step in `full`.
+  5. **No test waits.** `tests/conftest.py` fails a main-suite test that takes a minute (`SLOW_TEST_S`): two had
+     been waiting in every run, 75 s on a timer (a jsc script ends only when its timers have: `quit()`) and 30 s
+     on a stand-in server closing under an open socket.
+  6. **Read "Slower than it should be"** under the table before pushing, and fix what it names in the same change.
 - **Worktrees check their own code.** `~/.venvs/mantel` installs the main checkout editable, so a check run in a
   worktree once imported the main checkout's `hk_core`. Each step run with Mantel's venv gets the checkout's root
   and `hosts/server` first on `PYTHONPATH`; HK Frontend's harness keeps its own path (the build's vendored

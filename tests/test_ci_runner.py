@@ -564,7 +564,7 @@ def test_a_release_takes_only_a_full_run_in_which_the_motion_checks_ran(tmp_path
 def test_release_runs_the_motion_checks_even_when_unchanged(tmp_path, monkeypatch):
     m, other = ci.Step("swipe-motion-check-x", [sys.executable, "-c", "pass"], tier="full", alone=True), \
         ci.Step("other", [sys.executable, "-c", "pass"], tier="full")
-    monkeypatch.setattr(ci, "step_keys", lambda chosen, build, root=ci.ROOT: {s.name: "k" for s in chosen})
+    monkeypatch.setattr(ci, "step_keys", lambda chosen, build, root=ci.ROOT, wide=False: {s.name: "k" for s in chosen})
     monkeypatch.setattr(ci, "carried_passes", lambda keys, store: {n: {"commit": "c" * 40, "finished": "f"} for n in keys})
     ran = lambda **kw: {r["name"]: r["status"] for r in ci.run([m, other], "full", record_dir=tmp_path,  # noqa: E731
                                                                echo=lambda _: None, step_store=tmp_path / "s.json", **kw)["steps"]}
@@ -574,3 +574,101 @@ def test_release_runs_the_motion_checks_even_when_unchanged(tmp_path, monkeypatc
     monkeypatch.setattr(ci, "carried_passes",
                         lambda keys, store: {n: {"commit": "c" * 40, "finished": "f", "release": True} for n in keys})
     assert ran(release=True) == {"swipe-motion-check-x": "unchanged", "other": "unchanged"}
+
+
+# ---------------------------------------------------------------- a check reads its features, not every one (2026-11-15)
+
+def test_every_feature_owns_files_that_exist_and_every_check_that_reads_is_a_step():
+    blobs = ci.tree_blobs("HEAD")
+    for feature, specs in ci.FEATURES.items():
+        for spec in specs:
+            assert any(ci.inside(p, spec) for p in blobs), f"{feature}: nothing in the tree is {spec}"
+    scripts = {Path(a).stem for s in ci.steps() for a in (s.cmd() if callable(s.cmd) else s.cmd) if str(a).startswith("tools/headless/")}
+    for script, reads in ci.READS.items():
+        assert script in scripts, f"READS names {script}, which no step runs"
+        assert set(reads) <= set(ci.FEATURES), f"{script} reads a feature FEATURES has not got"
+    # no file belongs to two features, but a feature's own Python inside the server's folder
+    for a, b in ((a, b) for a in ci.FEATURES for b in ci.FEATURES if a < b and "server" not in (a, b)):
+        both = [p for p in blobs if any(ci.inside(p, sp) for sp in ci.FEATURES[a]) and any(ci.inside(p, sp) for sp in ci.FEATURES[b])]
+        assert not both, f"{a} and {b} both own {both[:3]}"
+    # the checks keyed on less than the whole page are the ones a release's run keys on all of it
+    narrow = [s for s in ci.steps() if s.wide]
+    assert narrow and all(ci.is_narrow(s.name) and "web/" in s.wide() and not any(x.startswith("!") for x in s.wide()) for s in narrow)
+    assert ci.is_narrow("saver-shows-check-3of7") and ci.is_narrow("swipe-motion-check-webkit-390x844")
+    assert not ci.is_narrow("main-suite") and not ci.is_narrow("hk-frontend-js")
+
+
+def test_a_check_runs_again_for_the_shared_page_or_a_feature_it_reads_and_a_release_for_any_of_the_page():
+    by = {s.name: s for s in ci.steps()}
+    laundry, music, smoke = by["laundry-check-webkit"], by["music-page-check-webkit"], by["headless-client_smoke"]
+    blobs = {p: "100644 a" for p in ("web/hk/cards/hk-base.js", "web/hk/cards/hk-laundry-card.js", "web/hk/saver/hk-saver-draw.js",
+                                     "web/hk/modules/hk-saver-panel.js", "web/hk/modules/hk-saver-timers.js",
+                                     "hosts/server/mantel_server/server.py", "hosts/server/mantel_server/music/engine.py",
+                                     "hk_core/laundry.py", "tests/fixtures/file_sizes.json", "docs/x.md")}
+    key = lambda step, changed=None, wide=False: ci.step_key(                                  # noqa: E731
+        step, {**blobs, **({changed: "100644 b"} if changed else {})}, [], ["x"], wide=wide)
+    for step, reruns, carried in (
+            (laundry, ("web/hk/cards/hk-base.js", "web/hk/cards/hk-laundry-card.js", "hk_core/laundry.py"),
+             ("web/hk/saver/hk-saver-draw.js", "web/hk/modules/hk-saver-panel.js", "hosts/server/mantel_server/server.py",
+              "hosts/server/mantel_server/music/engine.py", "tests/fixtures/file_sizes.json", "docs/x.md")),
+            # (the music's panel is music's though its name says saver; music's own Python is in the server's folder)
+            (music, ("web/hk/cards/hk-base.js", "web/hk/modules/hk-saver-panel.js", "hosts/server/mantel_server/music/engine.py"),
+             ("web/hk/saver/hk-saver-draw.js", "web/hk/modules/hk-saver-timers.js", "hosts/server/mantel_server/server.py",
+              "web/hk/cards/hk-laundry-card.js")),
+            (smoke, ("hosts/server/mantel_server/server.py", "web/hk/saver/hk-saver-draw.js", "hk_core/laundry.py"),
+             ("web/hk/cards/hk-laundry-card.js", "tests/fixtures/file_sizes.json"))):
+        k0 = key(step)
+        assert k0 and all(key(step, p) != k0 for p in reruns), step.name
+        assert all(key(step, p) == k0 for p in carried), step.name
+        # a release's run: the whole page, whatever the check reads (never a baseline or a doc)
+        w0 = key(step, wide=True)
+        assert w0 != k0 and all(key(step, p, wide=True) != w0 for p in (*reruns, *carried) if p.startswith(("web/", "hosts/", "hk_core/")))
+        assert key(step, "tests/fixtures/file_sizes.json", wide=True) == w0 and key(step, "docs/x.md", wide=True) == w0
+    # an uncommitted file of a feature it does not read is no reason to run; one it reads is
+    assert ci.step_key(laundry, blobs, ["web/hk/saver/new.js"], ["x"]) == key(laundry)
+    assert ci.step_key(laundry, blobs, ["web/hk/cards/hk-laundry-card.js"], ["x"]) is None
+    assert ci.step_key(laundry, blobs, ["web/hk/"], ["x"]) is None, "a new folder that could hold anything"
+    # the motion checks read the pager's and the sky's manifests, not every file ever cut into parts
+    motion = by["swipe-motion-check-webkit-390x844"].inputs()
+    assert "tools/split_manifests/layout.json" in motion and "tools/split_manifests/" not in motion
+
+
+def test_a_pass_is_kept_under_both_keys_and_a_releases_run_carries_only_by_the_whole_page(tmp_path):
+    root, rec, store = keyed_repo(tmp_path), tmp_path / "rec", tmp_path / "steps.json"
+    (root / "web/other").mkdir()
+    (root / "web/other/x.js").write_text("1\n")
+    commit(root, "another feature's file")
+    marks = tmp_path / "marks"
+    step = ci.Step("look", [sys.executable, "-c", f"open({str(marks)!r}, 'a').write('x')"], tier="full", timeout=30,
+                   inputs=("web/", "!web/other/"), wide=("web/",))
+    go = lambda **kw: ci.run([step], "full", record_dir=rec, echo=lambda _: None, step_store=store, root=root,  # noqa: E731
+                             **kw)["steps"][0]["status"]
+    assert go() == "passed" and go() == "unchanged"
+    assert go(release=True) == "unchanged", "it ran on this very tree: its pass counts for the whole page too"
+    (root / "web/other/x.js").write_text("2\n")
+    commit(root, "the other feature changed")
+    assert go() == "unchanged", "not its feature"
+    assert go(release=True) == "passed" and marks.read_text() == "xx", "a release's run: the page is not as it passed on"
+    assert go(release=True) == "unchanged"
+    # a release takes a run in which no such check was carried on less than the whole page
+    narrow = next(s.name for s in ci.steps() if s.wide)
+    run = lambda status, release: {"release": release, "steps": {"swipe-motion-check-webkit-390x844": "passed", narrow: status}}  # noqa: E731
+    assert ci.release_ready(run("passed", False)) and ci.release_ready(run("unchanged", True))
+    assert not ci.release_ready(run("unchanged", False))
+
+
+def test_the_main_suite_takes_more_workers_when_it_runs_alone(monkeypatch):
+    monkeypatch.delenv("CI_PYTEST_WORKERS", raising=False)
+    monkeypatch.setattr(ci, "_XDIST", {"py": True})
+    monkeypatch.setattr(ci.os, "cpu_count", lambda: 18)
+    monkeypatch.setattr(ci, "ALONE", False)
+    assert ci.xdist_args("py") == ["-n", "8"], "beside the browser checks of a full run"
+    monkeypatch.setattr(ci, "ALONE", True)
+    assert ci.xdist_args("py") == ["-n", "13"], "quick and versions: three quarters of the cores"
+    monkeypatch.setattr(ci.os, "cpu_count", lambda: 4)
+    assert ci.xdist_args("py") == ["-n", "8"]
+    monkeypatch.setenv("CI_PYTEST_WORKERS", "3")
+    assert ci.xdist_args("py") == ["-n", "3"]
+    monkeypatch.setattr(ci, "_XDIST", {"py": False})
+    assert ci.xdist_args("py") == []
+

@@ -9,7 +9,8 @@ checks"). One runner, one table, one record:
     tools/ci.py full --all       # every step, whatever passed before
     tools/ci.py versions         # what reads the version files and changelogs (seconds): a release's re-check
     tools/ci.py full --only js   # only the steps whose name contains "js"
-    tools/ci.py full --release   # a release's run: also the motion checks, unless they passed in a release run as they are
+    tools/ci.py full --release   # a release's run: every check keyed on the whole page, and the motion checks, unless
+                                 # they passed in a release run as they are
     tools/ci.py full --only swipe-motion  # only the motion checks (swipe-motion, pre-glass-motion)
     tools/ci.py quick --skip-passed  # (the pre-push hook) a tree that already passed: only the commit messages
     tools/ci.py --list           # the steps of each tier
@@ -27,6 +28,8 @@ A full step that names its inputs (the browser checks, HK Frontend's suites) is 
 was in a run where it passed: the same files in HEAD's tree, the same command, the same venv, Playwright, Node, Chrome
 and macOS. An unchanged step is not run again; it counts as a pass, and the table says from which commit. Its inputs
 uncommitted, --all or --only: it runs. (The passed steps, by key: steps.json beside the passed runs.)
+A browser check reads the shared page and the features it names, not every feature's files (FEATURES, READS below):
+the screensaver's checks do not run again for a change to the Intercom. A release's run reads the whole page.
 """
 from __future__ import annotations
 
@@ -34,6 +37,7 @@ import argparse
 import datetime
 import fcntl
 import fnmatch
+import functools
 import hashlib
 import importlib.util
 import json
@@ -87,7 +91,8 @@ SWIPE_MOTION = {"chromium": ("1280x800", "390x844"), "webkit": ("1180x820", "390
 MOTION = ("swipe-motion-check-", "pre-glass-motion-check")
 MOTION_INPUTS = ("web/hk/modules/hk-pageswipe.js", "web/hk/modules/hk-drag.js", "web/hk/layout/hk-layout-pager.js",
                  "web/hk/shell/", "web/hk/modules/hk-glass.js", "web/hk/modules/hk-frosttint.js", "web/hk/modules/hk-sky.js",
-                 "tools/split_manifests/", "tools/build_static.py")
+                 "tools/split_manifests/layout.json", "tools/split_manifests/sky.json", "tools/build_static.py")
+# (2026-11-15: the pager's and the sky's manifests, not every one -- cutting a Settings page into parts ran these again)
 # THE RELEASE RUN'S SIZES (the owner, 2026-11-08: "a lot of these tests aren't needed"): the wall tablet, the iPad and a
 # phone; the check's other sizes (page_swipe_check.py ENGINE_SIZES) run when it is run by hand
 PAGE_SWIPE = {"chromium": ("1280x800",), "webkit": ("1180x820", "390x844")}
@@ -107,8 +112,94 @@ VERSION_LINE = re.compile(r'^\s*"?version"?\s*[:=]\s*"?[0-9A-Za-z.+-]*"?\s*,?\s*
 # lines. A browser check: the page and the server it runs against (the gallery's fictional house over Mantel's own
 # server, which also serves the guide), and its script's files (check_inputs). HK Frontend's suites: what its build
 # takes (publish.py plan: the component, web/hk, the shared assets, hk_core) and the esbuild it minifies with.
-PAGE_INPUTS = ("web/", "tools/split_manifests/", "hk_core/", "hosts/server/mantel_server/", "tests/fixtures/",
+# (2026-11-15: not all of tests/fixtures/ -- the main suite's baselines there, a file's size or a line's width, changed
+# in most commits and no browser reads them; the route table's lock is the server's, the Protect answers the cameras')
+PAGE_INPUTS = ("web/", "tools/split_manifests/", "hk_core/", "hosts/server/mantel_server/",
+               "tests/fixtures/route_table.lock.json", "tests/fixtures/protect/",
                "hosts/ha/custom_components/hk_frontend/docs/", "packaging/ha-app/DOCS.md", *VERSION_FILES)
+# WHAT BELONGS TO ONE FEATURE, AND WHICH CHECKS READ IT (2026-11-15, the owner: "it takes 15-20min for these checks").
+# Every browser check was keyed on the whole page, so a change to the Side Pane's CSS ran the screensaver's Shows, the
+# Intercom and Laundry again: 99 steps, 96 minutes of step time, in nearly every full run. A FEATURE here owns files; a
+# check names the features it reads (READS, by its script; a check not named reads them all); and a check's key leaves
+# out the files of the features it does not read. So a check runs again when the shared page changed -- whatever no
+# feature owns: the base, the shell, the tiles, the server -- or a feature it reads did. A file is owned only when no
+# other feature's check could be broken by it; when unsure, leave it out (it is then shared, and runs everything).
+# A RELEASE'S RUN keys every check on the whole page again (its `wide` inputs): `full --release` runs each check
+# whose page is not as in a run it passed, so what one feature's change did to another is found before a release,
+# and release_house.py takes no other run (release_ready).
+FEATURES: dict[str, tuple[str, ...]] = {
+    "saver": ("web/hk/saver/", "web/hk/modules/hk-saver.js", "web/hk/modules/hk-saver-[!p]*.js",
+              "web/hk/modules/hk-saver[a-z]*.js", "web/hk/holiday/", "web/hk/modules/hk-holidays.js",
+              "web/hk/panels/hk-saver-designs.js", "web/hk/panels/hk-saver-editor.js", "hk_core/screensaver/",
+              "hk_core/settings/saver_*.py", "tools/split_manifests/saver.json"),
+    "music": ("web/hk/cards/hk-music.js", "web/hk/cards/hk-media.js", "web/hk/cards/hk-library.js", "web/hk/media/",
+              "web/hk/library/", "web/hk/modules/hk-np-strip.js", "web/hk/modules/hk-pairs.js",
+              "web/hk/modules/hk-saver-panel.js", "web/hk/sheets/hk-sheet-media.js", "hk_core/music/",
+              "hosts/server/mantel_server/music/", "tools/split_manifests/media.json", "tools/split_manifests/library.json"),
+    # HK Settings and Mantel Settings: the panels, their model and the Home Grid editor (never the settings a page
+    # reads: hk-settings.js, hk-settings-defaults.js and settings-module/ are the shared page's)
+    "settings": ("web/hk/settings/", "web/hk/panels/hk-settings*.js", "web/hk/panels/hk-grid-editor.js",
+                 "web/hk/settings-model/", "web/hk/settings-features/", "web/hk/grid-editor/", "web/shim/settings/",
+                 "web/shim/settings-page.js", "web/shim/mantel-settings.js", "web/settings.html",
+                 "tools/split_manifests/settings.json", "tools/split_manifests/settings-features.json",
+                 "tools/split_manifests/settings-model.json", "tools/split_manifests/grid-editor.json"),
+    "sidepane": ("web/hk/sidepane/", "web/hk/modules/hk-sidepane.js", "tools/split_manifests/sidepane.json"),
+    "intercom": ("web/hk/cards/hk-intercom.js", "web/hk/modules/hk-mic.js", "web/hk/modules/hk-mic-tap.js",
+                 "web/hk/modules/hk-pcm-tap.js", "hk_core/intercom/", "hk_core/talk/", "hosts/server/mantel_server/intercom/"),
+    "laundry": ("web/hk/cards/hk-laundry-card.js", "web/hk/modules/hk-laundry.js", "web/hk/sheets/hk-sheet-laundry.js",
+                "hk_core/laundry.py", "hosts/server/mantel_server/features/laundry.py"),
+    "alert": ("web/hk/cards/hk-alert.js",),
+    "house-status": ("web/hk/cards/hk-house-status.js",),
+    "home-block": ("web/hk/cards/hk-home-block.js",),
+    # THE PYTHON SIDE: Mantel Server and hk_core. The main suite is its check (7,500 tests, in every run); in a browser
+    # it is read by the checks that are about the server -- signing in, the gateway, saving, a stand-in reader -- not
+    # by each card's. (A feature's own Python above stays that feature's: a path a check reads is never left out.)
+    "server": ("hosts/server/mantel_server/", "hk_core/", "tests/fixtures/route_table.lock.json", "tests/fixtures/protect/"),
+    # (the Home Grid's blocks and their sizes, which both sides hold: read by every check that draws a Home Grid)
+    "grid": ("hk_core/settings/home_grid.py", "hosts/server/mantel_server/hk_cards.py"),
+    # how a page is reached and what it is seen through: read by the checks that swipe, or look through the glass
+    "swipe": ("web/hk/modules/hk-pageswipe.js", "web/hk/layout/hk-layout-pager.js"),
+    "glass": ("web/hk/modules/hk-glass.js", "web/hk/modules/hk-frosttint.js"),
+    "sky": ("web/hk/modules/hk-sky.js", "web/hk/sky-parts/", "web/hk/sky/", "web/hk/modules/hk-skyshot.js",
+            "web/hk/modules/hk-skylab.js", "web/hk/modules/hk-wallpapers.js", "tools/split_manifests/sky.json"),
+}
+READS: dict[str, tuple[str, ...]] = {
+    "client_smoke": ("server", "saver", "music", "settings", "glass", "sky", "grid"),
+    "gateway_page_check": ("server", "settings"),
+    "admin_page_check": ("server", "settings"),
+    "settings_viewports": ("server", "settings"),
+    "ingress_smoke": ("server",),
+    "grid_blocks_check": ("server", "music", "settings", "glass", "grid"),
+    "grid_music_turn_check": ("music", "saver", "grid"),
+    "timer_roller_check": ("server", "grid"),
+    "stereo_pair_check": ("music", "grid"),
+    "grid_editor_smoke": ("server", "settings", "music", "grid"),
+    "edit_mode_check": ("server", "settings", "swipe", "grid"),
+    "grid_edit_check": ("server", "settings", "music", "sidepane", "swipe", "grid"),
+    "media_card_check": ("server", "music", "settings", "sidepane", "grid"),
+    "intercom_check": ("intercom", "music", "grid"),
+    "house_status_check": ("house-status", "laundry", "alert", "glass", "grid"),
+    "home_sheet_check": ("home-block", "glass", "grid"),
+    "alert_check": ("server", "alert", "laundry", "house-status", "grid"),
+    "laundry_check": ("laundry", "grid"),
+    "custom_sheet_check": ("server", "settings", "glass", "grid"),
+    "app_sky_check": ("server", "swipe", "glass", "sky", "grid"),
+    "side_strip_check": ("music", "swipe", "grid"),
+    "page_swipe_check": ("server", "music", "sidepane", "swipe", "glass", "sky", "grid"),
+    "pager_edges_check": ("swipe", "glass", "sky", "grid"),
+    "saver_faces_check": ("saver", "music", "sky"),
+    "holiday_scenes_check": ("saver",),
+    "timer_slide_check": ("saver",),
+    "homepod_timers_check": ("server", "saver", "settings"),
+    "saver_designs_check": ("server", "saver", "music", "settings", "sidepane", "sky"),
+    "saver_editor_check": ("server", "saver", "settings", "sky"),
+    "side_pane_check": ("sidepane", "saver", "music", "settings", "swipe", "glass", "grid"),
+    "music_pane_check": ("music", "saver", "sidepane", "swipe", "glass", "grid"),
+    "music_page_check": ("music",),
+    "now_playing_page_check": ("music", "saver", "sidepane", "swipe", "glass"),
+    "looks_check": ("server", "settings", "sidepane", "glass", "sky", "grid"),
+    "saver_shows_check": ("saver", "settings", "alert", "sky"),
+}
 HK_INPUTS = ("hosts/ha/", "web/", "hk_core/", "tools/build_ha.py", "tools/build_tools.py", "tools/package.json",
              "tools/package-lock.json", *VERSION_FILES)
 # what types-py reads: the Python it checks and its own config and baselines
@@ -151,6 +242,9 @@ class Step:
     versions: bool = False
     # what it reads (PAGE_INPUTS): with them, a step that passed is "unchanged" while they are; without, it always runs
     inputs: tuple[str, ...] | Callable[[], tuple[str, ...]] = ()
+    # a check that leaves other features' files out of `inputs` (FEATURES, READS): the whole page, its key in a
+    # release's run
+    wide: tuple[str, ...] | Callable[[], tuple[str, ...]] = ()
     # what it runs with besides the tree (env_print's kinds): part of its key
     needs: tuple[str, ...] = ()
     # one part of a check run in parts (`--shard K/N`): the check's name, its parts counted by next_parts
@@ -168,11 +262,19 @@ class Result:
 _XDIST: dict[str, bool] = {}
 
 
+# THE MAIN SUITE'S WORKERS (2026-11-15: 167 s on 8, 132 s on 12, 110 s on 16, alone on this 18-core Mac). Beside a dozen
+# browsers in a full run it stays on 8: more made its timing tests fail on load (2026-11-02). Alone -- quick, the
+# pre-push hook's, and versions -- it takes three quarters of the cores (ALONE, set by main()).
+ALONE = False
+
+
 def xdist_args(py: str) -> list[str]:
-    """The main suite's workers: 8 where pytest-xdist is installed in `py` (asked once), none where it isn't."""
+    """The main suite's workers where pytest-xdist is installed in `py` (asked once), none where it isn't: 8, or three
+    quarters of the cores (8 to 16) when the suite runs alone; CI_PYTEST_WORKERS says otherwise."""
     if py not in _XDIST:
         _XDIST[py] = subprocess.run([py, "-c", "import xdist"], capture_output=True).returncode == 0
-    return ["-n", os.environ.get("CI_PYTEST_WORKERS") or "8"] if _XDIST[py] else []
+    workers = max(8, min(16, (os.cpu_count() or 8) * 3 // 4)) if ALONE else 8
+    return ["-n", os.environ.get("CI_PYTEST_WORKERS") or str(workers)] if _XDIST[py] else []
 
 
 def private_env() -> dict[str, str]:
@@ -239,10 +341,23 @@ class Build:
             shutil.rmtree(self.dir, ignore_errors=True)
 
 
-def check_inputs(script: str, engine: str = "webkit") -> dict:
-    """A browser check's `inputs` and `needs`: the page and its server, and the script's files (imported())."""
-    return {"inputs": lambda: (*PAGE_INPUTS, *imported([script])),
-            "needs": ("py", "chrome", "mac") if engine == "cdp" else PLAYWRIGHT + (("chrome",) * (engine == "chromium"))}
+def unread(script: str) -> tuple[str, ...]:
+    """The files of the features a check does not read (READS, by its script's name), each as "!spec": left out of its
+    key -- and those of the features it reads as "+spec", never left out (a feature's own Python inside the server's
+    folder). A check not in READS reads every feature."""
+    reads = READS.get(Path(script).stem)
+    if reads is None:
+        return ()
+    return tuple(("+" if f in reads else "!") + spec for f, specs in FEATURES.items() for spec in specs)
+
+
+def check_inputs(script: str, engine: str = "webkit", extra: tuple[str, ...] = ()) -> dict:
+    """A browser check's `inputs` and `needs`: the page and its server without the features it does not read (unread),
+    and the script's files (imported()) and `extra`; `wide`, the same with every feature, where it leaves any out."""
+    whole = lambda: (*PAGE_INPUTS, *imported([script]), *extra)     # noqa: E731
+    out = {"inputs": lambda: (*whole(), *unread(script)),
+           "needs": ("py", "chrome", "mac") if engine == "cdp" else PLAYWRIGHT + (("chrome",) * (engine == "chromium"))}
+    return {**out, "wide": whole} if any(sp.startswith("!") for sp in unread(script)) else out
 
 
 def motion_inputs(script: str, engine: str = "webkit") -> dict:
@@ -254,6 +369,17 @@ def motion_inputs(script: str, engine: str = "webkit") -> dict:
 
 def is_motion(name: str) -> bool:
     return name.startswith(MOTION)
+
+
+@functools.lru_cache(maxsize=1)
+def narrow_names() -> tuple[str, ...]:
+    """The steps keyed on less than the whole page: the checks that leave a feature out (a check in parts by its name
+    without the part)."""
+    return tuple(sorted({s.family or s.name for s in steps() if s.wide}))
+
+
+def is_narrow(name: str) -> bool:
+    return is_motion(name) or name.startswith(narrow_names())
 
 
 def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> list[Step]:
@@ -387,13 +513,11 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     # its effects only while it is up -- a page of its own, no server)
     for e in ("webkit", "chromium"):
         out.append(Step(f"holiday-scenes-check-{e}", [py, "tools/headless/holiday_scenes_check.py", "--engine", e], tier="full", timeout=1500,
-                        skip=playwright_missing, **dict(check_inputs("tools/headless/holiday_scenes_check.py", e),
-                        inputs=lambda: (*PAGE_INPUTS, *imported(["tools/headless/holiday_scenes_check.py"]), "tools/headless/holiday_harness.html"))))
+                        skip=playwright_missing, **check_inputs("tools/headless/holiday_scenes_check.py", e, ("tools/headless/holiday_harness.html",))))
     # (the Timer slide at five sizes, phase 21: on the screen, nothing on anything, no frame asked for -- a page of its own, no server)
     for e in ("webkit", "chromium"):
         out.append(Step(f"timer-slide-check-{e}", [py, "tools/headless/timer_slide_check.py", "--engine", e], tier="full", timeout=600,
-                        skip=playwright_missing, **dict(check_inputs("tools/headless/timer_slide_check.py", e),
-                        inputs=lambda: (*PAGE_INPUTS, *imported(["tools/headless/timer_slide_check.py"]), "tools/headless/timer_slide_harness.html"))))
+                        skip=playwright_missing, **check_inputs("tools/headless/timer_slide_check.py", e, ("tools/headless/timer_slide_harness.html",))))
     # (HomePod timers on the screens, phase 28: the Timers page, its keys and alarms reaching a stand-in reader, the sheet,
     # "unavailable", Settings -- the fictional house at three sizes)
     out += [Step(f"homepod-timers-check-{e}", [py, "tools/headless/homepod_timers_check.py", "--engine", e], tier="full", timeout=900,
@@ -533,7 +657,10 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     record_dir.mkdir(exist_ok=True)
     started = datetime.datetime.now(datetime.timezone.utc)
     before = git_state(root)
-    keys = step_keys(chosen, build, root) if step_store else {}
+    # (a release's run keys each check on the whole page; a pass is remembered under both keys, the one it was not asked
+    # by in `other`: it ran on this very tree)
+    keys = step_keys(chosen, build, root, wide=release) if step_store else {}
+    other = step_keys([s for s in chosen if s.wide], build, root, wide=not release) if step_store else {}
     carried = carried_passes(keys, step_store) if step_store and reuse else {}
     if release:
         # (a motion check carried only when its key passed in a release run already: a release's rerun after a flake
@@ -629,6 +756,8 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
         remember(record, store)
     if step_store and keys:
         remember_steps(record, keys, step_store)
+        if other:
+            remember_steps(record, other, step_store)
     return record
 
 
@@ -710,12 +839,22 @@ def motion_ran(run: dict) -> bool:
     return bool(named) and all(st in ok for st in named.values())
 
 
+def release_ready(run: dict) -> bool:
+    """A stored run that speaks for a release: the motion checks ran (motion_ran), and no check that leaves a feature
+    out was carried on less than the whole page -- each passed, or the run was a release's (`full --release`, where a
+    carried one was carried by the whole page)."""
+    named = {n: st for n, st in (run.get("steps") or {}).items() if is_narrow(n)}
+    ok = ("passed", "unchanged") if run.get("release") else ("passed",)
+    return motion_ran(run) and all(st in ok for st in named.values())
+
+
 def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20,
                  motion: bool = False) -> tuple[dict | None, str]:
     """The passed full run that speaks for the commit `head`: (run, "same") when it ran on `head` itself; (run,
     "versions") when it ran on a commit with `head`'s tree, or one that differs from it only in versions and
     changelogs (`versions` must then pass on head); (None, why not) when none does. With `motion` (a release), only a
-    run in which the motion checks ran (`full --release`, or one after a change to what they read) counts."""
+    run in which the motion checks ran and each check read the whole page (release_ready: `full --release`, or a run
+    that ran them all) counts."""
     tree = subprocess.run(["git", "rev-parse", f"{head}^{{tree}}"], cwd=root, capture_output=True, text=True).stdout.strip()
     if failed := failed_tree(tree, store):
         return None, (f"the last whole {failed['tier']} run of HEAD's tree, on {failed['commit'][:9]}, failed: "
@@ -724,9 +863,10 @@ def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20,
     if not fulls:
         return None, "no passed full run: run `tools/ci.py full` first"
     if motion:
-        fulls = [r for r in fulls if motion_ran(r)]
+        fulls = [r for r in fulls if release_ready(r)]
         if not fulls:
-            return None, "no passed full run in which the motion checks ran: run `tools/ci.py full --release`"
+            return None, ("no passed full run in which the motion checks ran and every check read the whole page: "
+                          "run `tools/ci.py full --release`")
     for r in fulls:
         if r.get("commit") == head:
             return r, "same"
@@ -884,10 +1024,27 @@ def env_print(kind: str) -> str:
     return _PRINTS[kind]
 
 
-def step_key(step: Step, blobs: dict[str, str], dirty: list[str], cmd: list[str], root: Path = ROOT) -> str | None:
-    """The step's key (see above), or None: it names no inputs, or one of them is uncommitted."""
-    specs = step.inputs() if callable(step.inputs) else step.inputs
-    if not specs or any(matches(p, sp) for p in dirty for sp in specs):
+def inside(path: str, spec: str) -> bool:
+    """A path that an input left out ("!spec") covers: a file in the folder, or the file or glob itself; never a
+    folder that could hold more than it."""
+    if spec.endswith("/"):
+        return path.startswith(spec)
+    if path.endswith("/"):
+        return False
+    return fnmatch.fnmatchcase(path, spec) if any(c in spec for c in "*?[") else path == spec
+
+
+def step_key(step: Step, blobs: dict[str, str], dirty: list[str], cmd: list[str], root: Path = ROOT,
+             wide: bool = False) -> str | None:
+    """The step's key (see above), or None: it names no inputs, or one of them is uncommitted. An input "!spec" leaves
+    those files out (a feature the check does not read) unless a "+spec" covers them (one it reads); with `wide`, the
+    step's `wide` inputs where it has them (a release's run: the whole page)."""
+    specs = (step.wide if wide and step.wide else step.inputs)
+    specs = specs() if callable(specs) else specs
+    out, keep = (tuple(sp[1:] for sp in specs if sp.startswith(c)) for c in "!+")
+    specs = [sp for sp in specs if not sp.startswith(("!", "+"))]
+    left = lambda p: any(inside(p, sp) for sp in out) and not any(inside(p, sp) for sp in keep)   # noqa: E731
+    if not specs or any(matches(p, sp) for p in dirty if not left(p) for sp in specs):
         return None
     folders = tuple(sp for sp in specs if sp.endswith("/"))
     files = {sp for sp in specs if not sp.endswith("/") and not any(c in sp for c in "*?[")}
@@ -897,7 +1054,7 @@ def step_key(step: Step, blobs: dict[str, str], dirty: list[str], cmd: list[str]
                  *(env_print(k) for k in step.needs)):
         h.update(part.encode() + b"\0")
     for path in sorted(blobs):
-        if path in files or path.startswith(folders) or any(fnmatch.fnmatchcase(path, g) for g in globs):
+        if (path in files or path.startswith(folders) or any(fnmatch.fnmatchcase(path, g) for g in globs)) and not left(path):
             h.update(f"{path}\0{versionless(path, root) if path in VERSION_FILES else blobs[path]}\0".encode())
     # (a file named but in no tree is part of the key too: when it appears, the key changes)
     for path in sorted(files - set(blobs)):
@@ -905,8 +1062,9 @@ def step_key(step: Step, blobs: dict[str, str], dirty: list[str], cmd: list[str]
     return h.hexdigest()
 
 
-def step_keys(chosen: list[Step], build: Build | None = None, root: Path = ROOT) -> dict[str, str]:
-    """Each chosen step's key, for those that have one (HEAD's tree; the HA build's folder out of the commands)."""
+def step_keys(chosen: list[Step], build: Build | None = None, root: Path = ROOT, wide: bool = False) -> dict[str, str]:
+    """Each chosen step's key, for those that have one (HEAD's tree; the HA build's folder out of the commands); with
+    `wide`, a check's key on the whole page (step_key)."""
     wanted = [s for s in chosen if s.inputs]
     if not wanted:
         return {}
@@ -916,7 +1074,7 @@ def step_keys(chosen: list[Step], build: Build | None = None, root: Path = ROOT)
         cmd = s.cmd() if callable(s.cmd) else s.cmd
         if build and build.dir:
             cmd = [c.replace(str(build.dir), "$BUILD") for c in cmd]
-        if key := step_key(s, blobs, dirty, cmd, root):
+        if key := step_key(s, blobs, dirty, cmd, root, wide):
             out[s.name] = key
     return out
 
@@ -1181,7 +1339,7 @@ def install_hooks(hooks: Path | None = None) -> list[Path]:
 
 def plan(chosen: list[Step], build: Build, store: Path, release: bool = False) -> str:
     """What a run would do with each step (--plan): run it, and why, or carry its pass."""
-    keys = step_keys(chosen, build)
+    keys = step_keys(chosen, build, wide=release)
     carried = {k: v for k, v in carried_passes(keys, store).items() if not (release and is_motion(k) and not v.get("release"))}
     rows = []
     for s in chosen:
@@ -1190,7 +1348,8 @@ def plan(chosen: list[Step], build: Build, store: Path, release: bool = False) -
         elif release and is_motion(s.name):
             why = "runs: a motion check in a release's run"
         elif s.name in keys:
-            why = "runs: its inputs are not as in any run it passed"
+            why = ("runs: the whole page is not as in any run it passed (a release's run)" if release and s.wide else
+                   "runs: its inputs are not as in any run it passed")
         elif s.inputs:
             why = "runs: one of its inputs is not committed"
         else:
@@ -1207,7 +1366,8 @@ def main(argv: list[str] | None = None) -> int:
                                                      "they run even when unchanged")
     ap.add_argument("--all", action="store_true", help="run every step, even those whose inputs are unchanged")
     ap.add_argument("--release", action="store_true",
-                    help="full: a release's run: the motion checks too, unless they passed in a release run as they are")
+                    help="full: a release's run: every check keyed on the whole page, and the motion checks too, "
+                         "unless they passed in a release run as they are")
     ap.add_argument("--list", action="store_true", help="list the steps of each tier")
     ap.add_argument("--plan", action="store_true", help="say which steps would run and which are unchanged, run none")
     ap.add_argument("--skip-passed", action="store_true",
@@ -1226,6 +1386,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{s.tier:<8} {s.name}" + ("  (also in versions)" if s.versions and s.tier != "versions" else ""))
         return 0
     chosen = select(all_steps, args.tier, args.only)
+    global ALONE
+    ALONE = args.tier != "full"                  # (the main suite beside no browser: xdist_args)
     if not chosen:
         print(f"no step matches {args.only}", file=sys.stderr)
         return 2

@@ -68,6 +68,9 @@ var tt = E.makeRoom(t,'t2',[1,0,1]);
 check(tt && E.valid(tt) && tt.items[1].at.join() === '1,0,1', 'a Tiny onto the bottom half of a Small: the Small moves aside');
 check(E.place(t,'t1',[2,0],'S').items[0].at.join() === '2,0', 'a Tiny made Small: its place whole');
 print('ALL placement checks PASS');
+// (done: the editor's parts loader keeps a 75 s timer for a page whose files never come, and jsc waits out every
+// timer before it ends -- this test was 75 s of the main suite, doing nothing, from the day the editor was cut into parts)
+quit();
 ''')
     run = subprocess.run([str(JSC), str(script)], capture_output=True, text=True)
     assert run.returncode == 0, run.stdout + run.stderr

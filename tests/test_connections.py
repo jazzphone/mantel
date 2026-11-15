@@ -912,6 +912,7 @@ async def test_no_probing_for_non_managers_and_when_ma_is_set_up(envs):
         assert (await env.call("POST", "/api/connections/ma", {"url": ma_url, "token": MA_TOKEN_A}))[0] == 200
         _, body = await env.call("GET", "/api/connections")
         assert "suggested_url" not in body["connections"]["ma"] and fakes.resolved == []
+        await env.app["ma"].close()                 # before the fake goes away (its shutdown waited 30 s for the socket)
     finally:
         await server.close()
 

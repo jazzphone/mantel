@@ -89,3 +89,21 @@ def image_threads(monkeypatch):
     monkeypatch.setattr(imaging, "PROCESSES", False)
     yield
     imaging.reset()
+
+# NO TEST TAKES A MINUTE (2026-11-15, the owner: "it takes 15-20min for these checks"). Two tests had been waiting, not
+# working, in every run of the suite: one 75 s on a timer its script never needed (jsc ends only when every timer
+# has), one 30 s on a stand-in server closing under an open socket. Nothing said so: they passed. The slowest real test
+# is under 20 s alone, so one that takes a minute is waiting on something, and fails saying so. (The timing budgets,
+# `-m perf`, have their own.)
+SLOW_TEST_S = 60
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    if report.when == "call" and report.passed and call.duration > SLOW_TEST_S and not item.get_closest_marker("perf"):
+        report.outcome = "failed"
+        report.longrepr = (f"{item.nodeid} passed but took {call.duration:.0f} s (tests/conftest.py SLOW_TEST_S, "
+                           f"{SLOW_TEST_S} s): it is waiting on something -- a timer, a socket, a sleep. Find the wait "
+                           "(pytest --durations=10), or cut the test into parts.")
