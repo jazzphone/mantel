@@ -243,7 +243,7 @@ def test_a_tablets_page_has_what_mantel_has_of_it(got):
     assert [r["label"] for r in access["rows"]] == ["Signed In As", "Role", "What It Can Do", "Home Assistant User", "Pair a Tablet App…"]
     assert row(got["kitchen"], "Signed In As")["value"] == "Kitchen Tablet"
     assert row(got["kitchen"], "Role")["value"] == "Wall Tablet"
-    assert row(got["kitchen"], "What It Can Do")["href"] == "#/mantel/roles/role/wall_tablet"
+    assert row(got["kitchen"], "What It Can Do")["href"] == "#/mantel/devices/access/k1"   # the Access component, for this device
     ha = row(got["kitchen"], "Home Assistant User")
     # a free HA user, or one linked to a Wall Tablet account; never a person's or an admin
     assert [o[1] for o in ha["options"]] == ["None", "kitchentablet (now a Wall Tablet account)", "mqtt"]
