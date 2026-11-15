@@ -935,7 +935,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       cur = 'settings/house/sidepane';
       await page.goto(input.origin + '/settings#/house/sidepane');
       await page.waitForFunction(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
-        const fr = deep(document).find((e) => e.tagName === 'IFRAME' && e.closest && e.closest('.pvbox')); return !!(fr && fr.contentWindow && fr.contentWindow.hkSidePane && fr.contentWindow.hkSidePane.pane()); },
+        const fr = deep(document).find((e) => e.tagName === 'IFRAME' && e.closest && e.closest('.pvbox'));
+          return !!(fr && fr.contentWindow && fr.contentWindow.hkSidePane && fr.contentWindow.hkSidePane.pane()); },
         null, { timeout: 6000 }).catch(() => {});
       await settle(1500);
       const frameOf = () => page.evaluate(() => {
