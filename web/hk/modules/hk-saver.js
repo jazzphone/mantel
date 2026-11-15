@@ -406,6 +406,16 @@
     });
   }
 
+  // FLAT'S VALUES PUT BACK TO NOTHING ON THE SCREENSAVER -- only while the screen is Flat (applyLook puts them on <html>
+  // then): in a Glass look several of the same names are the look's own (--hk-glass-plate, --hk-look-shadow ...), which
+  // the screensaver's glass pieces wear as they always have. Again whenever the look changes (hk-look).
+  function saverLookOff() {
+    var HC = window.hkCards, HS = window.hkSettings, flat = false;
+    if (!ST.host || !HC || !HC.FLAT) return;
+    try { flat = !!(HS && HS.rendering && HS.rendering().flat); } catch (e) { flat = false; }
+    Object.keys(HC.FLAT.light).forEach(function (k) { if (flat) ST.host.style.setProperty(k, 'initial'); else ST.host.style.removeProperty(k); });
+  }
+  if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('hk-look', function () { saverLookOff(); });
   function build() {
     ST.host = document.createElement('hk-screensaver');
     ST.root = ST.host.attachShadow({ mode: 'open' });
@@ -421,7 +431,7 @@
     // to nothing here, so what the screensaver draws with var()'s own values is as it is outside Flat. Motion (and the
     // Background's Animations) still decide what moves.
     ST.host.setAttribute('hk-flat-force', 'off');
-    if (HC && HC.FLAT) Object.keys(HC.FLAT.light).forEach(function (k) { ST.host.style.setProperty(k, 'initial'); });
+    saverLookOff();
     var st = document.createElement('style'); st.textContent = CSS + (HC && HC.edgeCss ? '\n' + HC.edgeCss() : ''); ST.root.appendChild(st);
     for (var i = 0; i < 2; i++) {
       var ph = document.createElement('div'); ph.className = 'ph';

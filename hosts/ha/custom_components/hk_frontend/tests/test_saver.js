@@ -379,11 +379,19 @@ ok('the house turning the switch ON starts it (the sleep script)', S.running() &
 ok('...and a start by the switch writes nothing back', calls.length === 0, calls);
 ok('...a screensaver element is on the page', walkFake(document.body).some(function (e) { return e.tagName === 'HK-SCREENSAVER'; }));
 // (2026-11-15, the owner: "Appearances shouldn't apply to screensavers")
-ok('...wearing no look: never Flat inside it, and none of Flat\'s values from the page', (function () {
-  var sv = walkFake(document.body).filter(function (e) { return e.tagName === 'HK-SCREENSAVER'; }).pop(), F = window.hkCards && window.hkCards.FLAT;
+ok('...wearing no look: never Flat inside it, and none of Flat\'s values from the page -- only while the screen is Flat', (function () {
+  var sv = walkFake(document.body).filter(function (e) { return e.tagName === 'HK-SCREENSAVER'; }).pop();
   var prop = function (k) { return sv.style.getPropertyValue ? sv.style.getPropertyValue(k) : sv.style[k]; };
-  return sv.attrs['hk-flat-force'] === 'off' && !sv.hasAttribute('hk-flat') &&
-    (!F || Object.keys(F.light).every(function (k) { return prop(k) === 'initial'; }));
+  if (sv.attrs['hk-flat-force'] !== 'off' || sv.hasAttribute('hk-flat')) return false;
+  // (stand-ins: this suite loads neither hk-base nor hk-settings, and its element's style has no removeProperty)
+  if (!sv.style.removeProperty) Object.defineProperty(sv.style, 'removeProperty', { enumerable: false, value: function (k) { delete this[k]; } });
+  var HC0 = window.hkCards, HS0 = window.hkSettings, flat = true, ev = function () { window.dispatchEvent(new CustomEvent('hk-look')); };
+  window.hkCards = { FLAT: { light: { '--hk-glass-plate': '#FAF9F6', '--hk-ink': '#252528' } } };
+  window.hkSettings = { rendering: function () { return { flat: flat, theme: 'light' }; }, get: function (p, f) { return f; } };
+  ev(); var inFlat = prop('--hk-glass-plate') === 'initial' && prop('--hk-ink') === 'initial';
+  flat = false; ev(); var inGlass = !prop('--hk-glass-plate') && !prop('--hk-ink');
+  window.hkCards = HC0; window.hkSettings = HS0;
+  return inFlat && inGlass;
 })());
 ok('...the sky and the cards are told', window.__hkSaverEvents === undefined || true);
 push(hassWith('off'));
