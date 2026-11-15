@@ -24,6 +24,7 @@ class Reader:
 
     def __init__(self, now):
         self.now, self.timers, self.alarms, self.broken, self.down = now, [], [], False, False
+        self.extra = {}                                    # more of /alarms.json (HomePod Helper's "home_assistant")
         self.posts, self.result = [], {"state": "done", "detail": "pressed"}
 
     def timer(self, label="Timer", left=600, paused=False, tile=KITCHEN, room="Kitchen"):
@@ -46,7 +47,8 @@ class Reader:
                 for i, t in enumerate(t for t in self.timers if t["tile"] == tile):
                     rows.append(dict(t, index=i))
             return {"at": iso(self.now[0]), "broken": self.broken, "timers": rows}
-        return {"at": iso(self.now[0]), "broken": self.broken, "alarms": [dict(a, index=i) for i, a in enumerate(self.alarms)]}
+        return {"at": iso(self.now[0]), "broken": self.broken, "alarms": [dict(a, index=i) for i, a in enumerate(self.alarms)],
+                **self.extra}
 
     async def post(self, path, params):
         self.posts.append((path, dict(params)))
@@ -341,6 +343,9 @@ async def test_each_homepod_s_next_alarm(hp):
     assert got["Den-HomePod-TileCell"]["at"] is None and heard == [1]
     await look(hp)
     assert heard == [1]                                    # nothing changed: nobody told
+    hp.reader.extra = {"home_assistant": "mqtt"}           # HomePod Helper sends them to Home Assistant itself
+    await look(hp)
+    assert hp.host.next_alarms() == [] and heard == [1, 1]
 
 
 # ---- Settings
@@ -393,6 +398,11 @@ def test_home_assistant_gets_a_timestamp_sensor_per_homepod():
     none = {}
     house._homepod_alarms("entry1", none)
     assert none == {}
+    # withdrawn because the reader publishes its own: gone from HA's registry too, so its sensor gets the name
+    house.kinds = {"a": ("homepod_alarm", KITCHEN), "b": ("camera", "x")}
+    assert not house._handed_over("a")
+    host.publishes_alarms = True
+    assert house._handed_over("a") and not house._handed_over("b")
 
 
 async def test_a_look_before_the_server_s_session_is_a_quiet_miss(hp, caplog):

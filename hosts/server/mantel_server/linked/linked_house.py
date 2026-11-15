@@ -298,6 +298,12 @@ class LinkedHouse:
                          "state": row["at"], "available": up, "attributes": attrs,
                          "features": {"device_class": "timestamp"}}, ("homepod_alarm", row["tile"]))
 
+    def _handed_over(self, uid: str) -> bool:
+        """A HomePod's next alarm leaves HA's registry too once the reader publishes its own (HomePod Helper's MQTT):
+        kept, it would hold the name the reader's sensor wants. Everything else withdrawn keeps its entry."""
+        host = self.app.get("homepod_timers")
+        return self.kinds.get(uid, ("",))[0] == "homepod_alarm" and bool(getattr(host, "publishes_alarms", False))
+
     # -- publishing ------------------------------------------------------------------------------------
     async def refresh(self) -> None:
         """Bring the published house-level entities in line with the ownership, the settings and the
@@ -324,7 +330,7 @@ class LinkedHouse:
                     self.owners.remember("keypads_seen", {"panels": sorted(seen)})
             want = self.descriptors(entry) if entry else {}
             for uid in [u for u in self.descs if u not in want]:
-                await reg.remove(uid, forget=False)
+                await reg.remove(uid, forget=self._handed_over(uid))
                 self.descs.pop(uid, None)
                 self.kinds.pop(uid, None)
             for uid, (desc, kind) in want.items():

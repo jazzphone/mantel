@@ -191,6 +191,9 @@ every 1.5 s across the house. The VM: two to four cores busy (the Home app and i
   (`homepod`, `homepodFeed`, `alarmAct`).
 - **Home Assistant:** through Mantel Link, while Mantel owns `house`: `sensor.<room>_<homepod>_next_alarm`, a timestamp
   (`features.device_class`, which Mantel Link and HK Frontend's linked mode now read).
+  Not while the reader sends the alarms to Home Assistant itself (HomePod Helper 2.1.1 with MQTT says
+  `"home_assistant": "mqtt"` in `/alarms.json`): Mantel then withdraws its sensors and HA forgets them, so the
+  reader's own sensor has the plain name (2026-11-15).
 - **Alarms on the Timers page** (`HkTimersCard._alarms`, look A): under Running, one plate, a row per alarm (the time large
   and light, label, HomePod and room, repeat; an off alarm gray) with the iOS switch; Edit puts a red minus on each row,
   and Delete asks first (`hkCards.confirmSheet`). Only while the reader is reading. No Stop: the Home app never shows a

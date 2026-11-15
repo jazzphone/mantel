@@ -87,6 +87,7 @@ class HomePodTimers:
         self.creating: dict[int, float] = {}
         self.went_off: list[dict[str, Any]] = []         # one-time alarms seen going off (status, the sheet's "Went off")
         self.homes: set[str] = set()                     # every Home app room seen, for Settings' room matching
+        self.publishes_alarms = False                    # the reader sends the alarms to Home Assistant itself (MQTT)
         self.get: Getter = self._get                     # (tests hand in their own reader)
         self.post: Poster = self._post
         self.task: asyncio.Task | None = None
@@ -205,6 +206,7 @@ class HomePodTimers:
                 return
             self.error = None
             self.broken = t[0] or a[0]
+            self.publishes_alarms = isinstance(adoc, dict) and adoc.get("home_assistant") == "mqtt"
             if not self.broken:
                 self.last_ok = now
                 self.homes |= {r.room for r in t[1]} | {x.room for x in a[1]}
@@ -575,8 +577,9 @@ class HomePodTimers:
             self.hub.on_change({R.SENSOR})
 
     def next_alarms(self) -> list[dict[str, Any]]:
-        """Each HomePod's next alarm, for its sensor in Home Assistant (Mantel Link)."""
-        if self.availability() != "ok" and not self.alarms:
+        """Each HomePod's next alarm, for its sensor in Home Assistant (Mantel Link). None while the reader sends them to
+        Home Assistant itself (HomePod Helper 2.1.1's MQTT says so in /alarms.json): one sensor per alarm, not two."""
+        if self.publishes_alarms or (self.availability() != "ok" and not self.alarms):
             return []
         names = {a.tile: (a.homepod, a.room) for a in self.alarms}
         out = []
