@@ -47,7 +47,7 @@
         // LIVE FIRST CAMERA, this screen's own or All Screens' (2026-10-10)
         var hLive = (this.data.settings.cameras || {}).live !== false, ownLive = typeof b.camera_live_video === 'boolean';
         top.push(K.toggle({ label: 'Live First Camera', sk: 'b:camera_live_video', on: ownLive ? b.camera_live_video : hLive,
-          sub: ownLive ? 'Just This Screen' : 'Same as All Screens', onChange: function (on) { set({ camera_live_video: on }); } }));
+          sub: ownLive ? 'Just This Screen' : null, onChange: function (on) { set({ camera_live_video: on }); } }));
         if (ownLive) top.push(K.button({ label: 'Reset to All Screens (' + (hLive ? 'On' : 'Off') + ')', sk: 'b:camera_live_video:reset',
                                          onClick: function () { set({ camera_live_video: null }); } }));
         c.appendChild(K.group({ footer: 'The first tile plays live video; the others show snapshots. A dropdown helper can choose which camera is first — the one where someone was just seen, say. ' +

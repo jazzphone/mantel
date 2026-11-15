@@ -449,10 +449,49 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
     ok(h + ' draws', draw(go(h)).err, null);
   });
   ok('opening every one of them wrote nothing', writes.length, 0);
+  // PHASE 32: a screen's page, in the iOS shape -- More for This Screen, choice pages, Reset to All Screens, one footer
+  var mp = text(draw(go('#/screens/dashboard-k')).box);
+  ok('a screen’s page: Home Page, Pages with its Menu, Look, then One More for This Screen row', ['Home Page', 'Pages', 'Menu', 'Look', 'More for This Screen', 'Wall Tablets',
+    'Copy Settings From…'].every(function (w) { return mp.indexOf(w) >= 0; }), true);
+  ok('...Now Playing, Pop-ups and the Screensaver are on that page, not this one', /Allow Pop-ups|Fit a car/.test(mp), false);
+  var mo = text(draw(go('#/screens/dashboard-k/more')).box);
+  ok('More for This Screen has them: Pop-ups, Screensaver, Header, Car Browser', ['Pop-ups', 'Screensaver', 'Header', 'Car Browser'].every(function (w) { return mo.indexOf(w) >= 0; }), true);
+  ok('a value that follows All Screens is the value, never Same as All Screens (Cameras, Rooms, Page Headers)', /Same as All Screens/.test(mp), false);
+  var cm = draw(go('#/screens/dashboard-k/menu/choose/tablets')).box;
+  ok('a screen’s Menu on tablets is a choice page: Off, Button, Always Open, Tab Bar', ['off', 'button', 'open', 'tabbar'].every(function (k) { return !!byFk(cm, 'menu:tablets:' + k); }), true);
+  ok('...its checkmark is on the Tab Bar', byFk(cm, 'menu:tablets:tabbar').attrs['aria-checked'], 'true');
+  tap(byFk(cm, 'menu:tablets:open'));
+  ok('...choosing Always Open writes the screen’s menu', writes.pop()[2].menu, window.hkSettingsModel.menuFor('open', boards['dashboard-k'], undefined));
+  var cp = draw(go('#/screens/dashboard-k/menu/tab-bar/position')).box;
+  ok('the Tab Bar’s Position is a choice page of four, none of them its own yet', ['bottom', 'top', 'left', 'right'].every(function (k) { return !!byFk(cp, 'tabpos:' + k); }) &&
+     !byFk(cp, 'tabpos:reset'), true);
+  tap(byFk(cp, 'tabpos:left'));
+  ok('...choosing Left makes the position the screen’s own', JSON.stringify(writes.pop()),
+     JSON.stringify(['b', 'dashboard-k', { tab_bar_pos: 'left', menu_own: ['accent', 'tab_bar_pos', 'tab_bar_size'] }]));
+  boards['dashboard-k'].menu_own.push('tab_bar_pos');
+  cp = draw(go('#/screens/dashboard-k/menu/tab-bar/position')).box;
+  ok('...once its own, Reset to All Screens is on that page', !!byFk(cp, 'tabpos:reset'), true);
+  tap(byFk(cp, 'tabpos:reset'));
+  ok('...and gives the position back', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { menu_own: ['accent', 'tab_bar_size'] }]));
+  boards['dashboard-k'].menu_own.pop();
+  var hp = draw(go('#/house/menu/tab-bar/position')).box;
+  ok('All Screens’ Tab Bar Position is the same page, without a Reset', !!byFk(hp, 'tabpos:top') && !byFk(hp, 'tabpos:reset'), true);
+  var ht = text(draw(go('#/house/menu/tab-bar')).box);
+  ok('the Tab Bar page: Position is a row opening a page, and the rest while a screen uses a tab bar', /Position/.test(ht) && /Labels/.test(ht), true);
+  boards['dashboard-k'].menu = 'button';
+  ht = text(draw(go('#/house/menu/tab-bar')).box);
+  ok('...with no screen using one it is the one row saying so', /No Screen Uses a Tab Bar/.test(ht) && !/Labels/.test(ht), true);
+  boards['dashboard-k'].menu = 'tabbar';
+  // the Screensaver and the Background, in the same shape
+  var dc = text(draw(go('#/house/appearance/sky/decorations')).box);
+  ok('Seasonal Decorations is a page of its own under Background: the switch, their style, Liveliness', ['Seasonal Decorations', 'Decoration Style', 'Woodland'].every(
+    function (w) { return dc.indexOf(w) >= 0; }), true);
+  var sdp = text(draw(go('#/screens/dashboard-k/sky/decorations')).box);
+  ok('...and a screen’s, saying once that it follows All Screens', /Seasonal Decorations/.test(sdp) && /follows All Screens until/.test(sdp), true);
   // the old addresses open the new pages
   // (a section of its own in the sidebar since phase 32)
   ok('Background (Sky / Background before) opens as its own section', go('#/house/sky').title === 'Background' && go('#/house/sky').top === true, true);
-  ok('...and its pages too', go('#/house/sky/woodland').back[1], '#/house/appearance/sky');
+  ok('...and its pages too', go('#/house/sky/woodland').back[1], '#/house/appearance/sky/decorations');
   ok('the sidebar has no Sky entry', /\['sky',/.test(read(HK_ROOT + '/frontend/panels/hk-settings.js').split('var HOUSE = [')[1].split('];')[0]), false);
   ok('the Highlight Color is the Accent Color', go('#/house/menu/accent').title, 'Accent Color');
   ok('...a screen’s too, whether its menu follows or not', go('#/screens/dashboard-k/menu/accent').title, 'Accent Color');

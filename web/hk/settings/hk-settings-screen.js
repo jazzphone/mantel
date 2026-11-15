@@ -257,13 +257,14 @@
           }, ['Background', base + '/sky']);
         }
         if (s === 'sky' && sub[1] === 'pages') return mkl('Background', function (c) { self.s_sky(c, x, b); }, ab);
+        if (s === 'sky' && sub[1] === 'decorations') return mkl('Seasonal Decorations', function (c) { self.s_skyDecor(c, x, b); }, ['Background', base + '/sky']);
         if (s === 'sky' && sub[1] === 'lively' && sub[2]) {
           var locc = decodeURIComponent(sub[2]);
           return mkl(M.livelyOccLabel(locc), function (c) { self.livelyGroup(c, locc, null, { b: b, path: path }); },
                     ['Each Occasion', base + '/sky/lively']);
         }
         if (s === 'sky' && sub[1] === 'lively') {
-          return mkl('Each Occasion', function (c) { self.livelyList(c, { b: b, path: path, base: base }); }, ['Background', base + '/sky']);
+          return mkl('Each Occasion', function (c) { self.livelyList(c, { b: b, path: path, base: base }); }, ['Seasonal Decorations', base + '/sky/decorations']);
         }
         if (s === 'sky' && sub[1] === 'page' && sub[2]) {
           var skey = decodeURIComponent(sub[2]);
