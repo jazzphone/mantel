@@ -2,6 +2,7 @@
 import { mantelUrl } from '../base.js';
 import { act, ago, api, ask, cache, ERRORS, fmt, hh, K, load, me, panel, redraw, roleLabel, ui } from './core.js';
 import { button, choose, clearDraft, draft, failed, field, flashRow, group, info, nav, pending, result, screenOptions, screenPicker } from './kit.js';
+import { drawAccess } from './access.js';
 import { haPeopleRead, standIn } from './people.js';
 import { pAndroid, pTabletScreen } from './tablet-app.js';
 
@@ -100,8 +101,9 @@ export function drawTabletMantel(ctx) {
     access.push(info('Signed In As' + sfx, ['last seen ' + ago(dv.last_seen), dv.source_ip, 'since ' + fmt(dv.created)].filter(Boolean).join(' · '), dv.name));
     access.push(info('Role' + sfx, null, roleLabel(dv.role)));
   }
-  for (const role of [...new Set(mine.map((d) => d.role))]) {
-    access.push(nav('What It Can Do', 'roles/role/' + encodeURIComponent(role), { sub: many ? roleLabel(role) : undefined }));
+  // (What It Can Do: the same Access a person's page draws -- access.js -- for this device, its grants and rooms)
+  for (const dv of mine) {
+    access.push(nav('What It Can Do', 'devices/access/' + encodeURIComponent(dv.id), { sub: many ? dv.name : undefined }));
   }
   if (!mine.length) {
     access.push(info('Signed In As', null, 'Not Yet', 'warn'));
@@ -187,6 +189,7 @@ export function drawTabletsMantel(c) {
 export function pDevices(sub) {
   if (sub[0] === 'android') return pAndroid();
   if (sub[0] === 'screen' && sub[1]) return pTabletScreen(decodeURIComponent(sub[1]));
+  if (sub[0] === 'access' && sub[1]) return pDeviceAccess(decodeURIComponent(sub[1]));
   if (sub[0] === 'enroll') return pEnroll(sub[1] ? ['Wall Tablet', '#/house/tablets/' + encodeURIComponent(sub[1])] : undefined, sub[1]);
   if (sub[0]) return pDevice(sub[0]);
   return { title: 'Wall Tablets', top: true, body(c) {
@@ -194,6 +197,19 @@ export function pDevices(sub) {
     c.appendChild(group({ footer: 'Each wall tablet is in one place now, with its screen, room and kiosk app: Wall Tablets.' },
       [K().nav({ label: 'Wall Tablets', href: '#/house/tablets', icon: 'mdi:tablet', fk: 'mx:to-tablets' })]));
   } };
+}
+// WHAT A WALL TABLET CAN DO (phase 32, "One shape"): the Access component, as on a person's page
+function pDeviceAccess(id) {
+  const got = devicesRead();
+  const dv = got && got.data && got.data.devices.find((x) => x.id === id);
+  const tab = dv && (dv.hk_tablets || [])[0];
+  return { title: 'What It Can Do', back: tab ? [dv.name, '#/house/tablets/' + encodeURIComponent(tab)] : ['Wall Tablets', '#/house/tablets'],
+    body(c) {
+      if (!got) { pending(c); return; }
+      if (got.err) { failed(c, got.err); return; }
+      if (!dv) { failed(c, 'That wall tablet isn’t signed in to Mantel.'); return; }
+      drawAccess(c, { kind: 'device', id: dv.id, role: dv.role, name: dv.name });
+    } };
 }
 // ONE DEVICE: its HK tablet or room, changed in place (PATCH /api/devices/{id}; it keeps its credential)
 function pDevice(id) {
