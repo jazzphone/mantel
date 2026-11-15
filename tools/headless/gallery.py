@@ -710,11 +710,15 @@ async def seed_people(app, owner_id: str) -> None:
             "keep_awake": True, "keep_screen_on": True, "scale": 100, "adaptive_brightness": False, "adaptive_brightness_allowed": True,
             "wireless_debugging": False, "wireless_debugging_allowed": True, "renderer": "default", "render_size": 100, "adb_paired": True,
             "sky": "off"})
-        hub = app.get("hub")
-        if hub is not None and isinstance(getattr(hub, "sessions", None), set):
-            stand_in = type("TabletPage", (), {})()                      # (a set holds it: a SimpleNamespace can't be hashed)
-            stand_in.principal, stand_in.gone = NS(device=NS(id=hallway_device)), False
-            hub.sessions.add(stand_in)
+        # (its page counts as open -- connected -- through the app's own question, sessions_of; never as a page in the
+        # hub's sessions, which the hub tells of every change: a stand-in there broke every check that changes a state)
+        stand_in = NS(principal=NS(device=NS(id=hallway_device)), gone=False)
+        before = TA.sessions_of
+
+        def sessions_of(a, device_id, _before=before, _app=app, _dev=hallway_device, _page=stand_in):
+            got = _before(a, device_id)
+            return got or ([_page] if a is _app and device_id == _dev else [])
+        TA.sessions_of = sessions_of
     app["user_data"].set(f"u:{owner_id}", "hk_music_focus", {"key": "media_player.living_room"})
     audit = app["audit"]
     clock = audit.clock

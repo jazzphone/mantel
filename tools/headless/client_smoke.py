@@ -796,7 +796,7 @@ async def smoke(shot=None, shots=None):
                       return { client: el.client === window.__mantel.client, title: sr.querySelector('.side h1').textContent,
                                back: sr.querySelector('.side .hostback').getAttribute('href'), full: Math.round(r.top) === 0 && r.height > 200,
                                me: sr.querySelector('.side a[href="#/mantel/me"]') !== null,
-                               mantel: heads.includes('People & Access') && heads.includes('Mantel'), hk: heads.includes('Screens'),
+                               mantel: heads.includes('Household') && heads.includes('Mantel'), hk: heads.includes('Screens'),
                                ha_forms: [...sr.querySelectorAll('*')].filter(n => /^ha-(form|yaml-editor|selector)$/.test(n.localName)).length };
                     })()""")
                     assert hk_page == {"client": True, "title": "Mantel Settings", "back": "/home", "full": True, "me": True,
@@ -807,7 +807,9 @@ async def smoke(shot=None, shots=None):
                     screens = await browser.eval("""(() => {
                       const el = window.__mantelSettings, sr = el.shadowRoot;
                       return { n: el.data.dashboards.filter(d => d.item).length, source: el.data.source,
-                               overview: [...sr.querySelectorAll('.side .grp')].map(g => g.textContent).join(' ').match(/(\\d+) Screens/)?.[1] || null,
+                               // (the Screens group's rows, Add Screen aside: the sidebar has no Overview row since phase 32)
+                               overview: String([...sr.querySelectorAll('.side .grp')].filter(g => g.querySelector('.gh') && g.querySelector('.gh').textContent === 'Screens')
+                                 .map(g => g.querySelectorAll('a.cell').length - 1)[0]),
                                rows: [...sr.querySelectorAll('.side a, .side [role=link], .side .nav')].map(n => n.textContent.trim())
                                  .filter(t => /Proof/.test(t)).length };
                     })()""")
