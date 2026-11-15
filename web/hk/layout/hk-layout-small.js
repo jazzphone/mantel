@@ -16,8 +16,10 @@
     // with a cached hk-base.js from before it), and both together: the
     // page's width less them, for the gutter a row may bleed into
     var SAFE = C.SAFE || {};
-    var SAFE_PAD_L = SAFE.padL || '0px', SAFE_PAD_R = SAFE.padR || '0px';
-    var SAFE_PADS = SAFE_PAD_L + ' - ' + SAFE_PAD_R;
+    // (SAFE_PAD_L / _R: what the view pads itself by -- that room less what
+    // its host's container already pads, Home Assistant's: SAFE.viewL / viewR)
+    var SAFE_PAD_L = SAFE.viewL || SAFE.padL || '0px', SAFE_PAD_R = SAFE.viewR || SAFE.padR || '0px';
+    var SAFE_PADS = (SAFE.padL || '0px') + ' - ' + (SAFE.padR || '0px');
 
     // -------------------------------------------------------- hk-frame
     //

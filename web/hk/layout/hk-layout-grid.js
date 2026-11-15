@@ -380,7 +380,9 @@
         // system controls, a phone turned with its Dynamic Island at the side.
         // The view pads itself by it -- its background, and the sky behind it,
         // still run under -- less what a docked menu or a pane already clears
-        // (hk-base.js SAFE.padL / padR). 0 in a browser on a computer.
+        // (hk-base.js SAFE.padL / padR), and what Home Assistant's own
+        // view container already pads (SAFE.viewL / viewR, 2026-11-15).
+        // 0 in a browser on a computer.
         st.textContent = ':host{display:flow-root;overflow-y:clip;box-sizing:border-box;padding-left:' + SAFE_PAD_L + ';padding-right:' + SAFE_PAD_R + '}' +
           '#root>*{margin:4px 4px 8px}' +
           // (a grid of pop-ups alone: no room, no margins -- hk-grid-card _markZero)

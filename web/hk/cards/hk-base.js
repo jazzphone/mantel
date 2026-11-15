@@ -216,6 +216,14 @@
   // --hk-page-left / -right): the room the page keeps there
   SAFE.padL = 'max(0px,' + SAFE.l + ' - var(--hk-page-left,0px))';
   SAFE.padR = 'max(0px,' + SAFE.r + ' - var(--hk-page-right,0px))';
+  // ...and of that, what the view pads itself by: what its host has not already kept (2026-11-15, the owner's Duo in
+  // the Home Assistant app). Home Assistant 2026.11's hui-view-container pads itself by the side safe area
+  // (--view-container-inset-left / -right; left only in its narrow layout), so the view padding by it as well kept
+  // the strip twice: 298 px of page where the Mantel app has 382, under two of a phone's 150 px tracks, every grid
+  // below Scenes one pill to a row. Mantel's own view container keeps nothing (the variables are unset there). The
+  // room kept on a side is still padL / padR whoever keeps it: the gutter, and how far a row reaches past the view.
+  SAFE.viewL = 'max(0px,' + SAFE.padL + ' - var(--view-container-inset-left,0px))';
+  SAFE.viewR = 'max(0px,' + SAFE.padR + ' - var(--view-container-inset-right,0px))';
   // ...and in px, measured (the tab bar's strip, the page's width for its band): a hidden probe padded by them, zeros
   // where it can't be read. Once a window (its size, sheets, stand-ins): each read worked out the whole document's
   // style, a third of a page swipe's landing on a slowed tablet (2026-11-07)
