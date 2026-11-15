@@ -87,6 +87,9 @@ ok('music-browse is the Music page', S.flatColors().keys.join() === 'music');
 // ---- the palette's roles --------------------------------------------------
 location.pathname = '/dashboard-k/climate';
 var pal = C.flatPalette();
+// (2026-11-15, the owner: Flat's grounds didn't fade in a swipe -- the next page was painted with the page shown's palette)
+ok('a swipe paints the next page\'s ground with that page\'s palette, not the one shown',
+   /FC\.flatPalette\(path \? \{ keys: keysOfView\(v\) \} : undefined\)/.test(read(HK_ROOT + '/frontend/sky-parts/hk-sky-surprises.js')));
 ok('a coordinated seed and its tint', pal.seed === LAV && pal.tint === LAV && pal.tinted);
 ok('the ground: 10 % into #F4F2EE (as a page’s own tone)', pal.ground === C.flatRole(LAV, 'light', 'ground') && pal.ground.toLowerCase() === '#eae5e9', pal.ground);
 var a = C.flatIdle('rgba(255, 204, 0, 0.98)', false, pal), b = C.flatIdle('rgba(10, 132, 255, 0.98)', false, pal);

@@ -455,6 +455,24 @@ ok('...not a page taller than the window: it scrolls the document, and its fixed
 music.__hkBox = { l: 0, t: 0, w: winW, h: winH };
 ok('...the Music page where its page is the window and wide enough for its wall-tablet layout', P._.restOk(music) === (winW >= 900), [winW, winH]);
 ok('...nor a view of cards that aren\'t ours', P._.restOk(other) === false);
+// NO BLURRED GROUND IN FLAT (2026-11-15, the owner: swiping to the Pages screen, a blur, then none as it landed): a page
+// with a ground of its own -- whatever it last said -- gets no blurred layer in a look without blur
+(function () {
+  var saved = window.hkSettings, host = document.createElement('div'), view = document.createElement('div'), pg = document.createElement('div');
+  host.appendChild(view); host.appendChild(pg);
+  if (!host.insertBefore) host.insertBefore = function (n) { n.parentNode = host; return n; };
+  if (!host.removeChild) host.removeChild = function (n) { n.parentNode = null; return n; };
+  pg.swipeGround = function () { return 'blur(8px)'; };
+  var st = { view: view, nb: {}, spare: [] };
+  window.hkSettings = { rendering: function () { return { flat: true, blur: false }; } };
+  pg.__hkGroundOf = undefined;
+  ok('a page\'s blurred ground while it moves: none in Flat', P._.ground(st, pg, 0) === null);
+  window.hkSettings = { rendering: function () { return { flat: false, blur: true }; } };
+  var d = P._.ground(st, pg, 0);
+  ok('...its blur in a Glass look', !!d && /blur\(8px\)/.test(d.style.cssText || ''), d && d.style.cssText);
+  P._.unground(d);
+  window.hkSettings = saved;
+})();
 if (navWas === undefined) delete globalThis.navigator; else globalThis.navigator = navWas;
 ok('...off the wall tablets it is inert and takes no touch, as before', P._.untouched() === false);
 run();

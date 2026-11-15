@@ -649,6 +649,11 @@
     return null;
   }
   function ground(st, el, k) {
+    // (no blur in a look without one -- Flat: a ground known before the screen turned Flat, or before its card had drawn,
+    // wore the Pages screen's blur through the swipe and dropped it as it landed; 2026-11-15, the owner)
+    var HS = window.hkSettings, pol = null;
+    try { pol = HS && HS.rendering ? HS.rendering() : null; } catch (e) { pol = null; }
+    if (pol && pol.blur === false) return null;
     groundKnown(el);
     var f = el.__hkGroundOf, parent = st.view.parentNode;
     if (!f || !parent) return null;
@@ -1497,7 +1502,7 @@
          viewSeg: viewSeg, ghost: ghost, slow: slow, park: park, keeps: keeps, restOk: restOk, fixedIn: fixedIn, untouched: untouched,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },
-         letGoTo: letGoTo,
+         letGoTo: letGoTo, ground: ground, unground: unground,
          state: function () { return { G: G, L: L, A: A, ST: ST, why: why }; } }
   };
   if (typeof document !== 'undefined' && document.addEventListener) start();

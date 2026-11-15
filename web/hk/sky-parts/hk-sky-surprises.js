@@ -935,6 +935,8 @@
     // null  -> this dashboard has not opted in; do nothing whatsoever
     // false -> opted in, but THIS view wants no sky; tear down
     // object-> mount with these options
+    // a view's keys as hkSettings.flatColors reads the page shown (viewKeys): its room and page, else its page, else none
+    function keysOfView(v) { return v.sky_room ? [v.sky_room, v.sky_page] : v.sky_page ? [v.sky_page] : []; }
     function resolve(path) {
       var cfg = lovelaceCfg();
       if (!cfg) return null;
@@ -956,8 +958,10 @@
         var fown = typeof v.sky_variant === 'string' || !!(FC && FC.flatOwnGround && FC.flatOwnGround(fpage));
         // FLAT COLORS (2026-10-17): a chosen Accent Color is the seed of an
         // Automatic ground -- only Automatic: a color, photo or landscape
-        // chosen stays as chosen
-        var fpal = FC && FC.flatPalette ? FC.flatPalette() : null;
+        // chosen stays as chosen. THAT PAGE'S palette, not the one shown (2026-11-15, the owner: "swiping between pages the
+        // background doesn't fade"): a swipe paints the next page's ground under this one's (swipeCover) while the address is
+        // still this page's, and flatPalette() read the address -- every page's ground was this page's, a fade from green to green
+        var fpal = FC && FC.flatPalette ? FC.flatPalette(path ? { keys: keysOfView(v) } : undefined) : null;
         return { flat: FS && FS.flatBackground ? FS.flatBackground(fkeys, fown) : { color: 'auto' }, page: fpage,
                  seed: fpal && fpal.ground || null,
                  enable: cfg.sky && cfg.sky.enable || null, sleep: cfg.sky && cfg.sky.sleep || null };

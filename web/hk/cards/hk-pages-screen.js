@@ -332,6 +332,9 @@
       '.pill::after{content:"";width:var(--pw);height:var(--ph);border-radius:999px;background:rgba(255,255,255,.85);',
       '  box-shadow:0 1px 4px rgba(0,0,0,.2)}',
       ':host([data-flat]) .pill::after{background:' + v('ink-2') + '}',
+      // NO BLUR IN FLAT (2026-11-15, the owner: "for Flat, there should be no blur"): the folder and the open folder keep their
+      // washes, unblurred (the background's own .bg is hidden above)
+      ':host([data-flat]) .fold,:host([data-flat]) .open{-webkit-backdrop-filter:none;backdrop-filter:none}',
       // the open folder: the rooms as their own icons, over the screen
       '.open{position:absolute;inset:0;z-index:2;display:grid;place-items:center;',
       '  background:rgba(0,0,0,.18);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}',
@@ -352,8 +355,14 @@
     class HkPagesScreenCard extends HkBase {
       static get CSS() { return CSS; }
       getCardSize() { return 12; }
-      // THE BLURRED SKY a page swipe wears behind the page while it moves (hk-pageswipe.js ground); none in Flat
-      swipeGround() { return this.hasAttribute('data-flat') ? null : BG_BLUR; }
+      // THE BLURRED SKY a page swipe wears behind the page while it moves (hk-pageswipe.js ground); none in Flat -- asked of
+      // the screen's look itself, not of data-flat: a Pages screen made ready beside a page before it has drawn hasn't
+      // said it yet, and a swipe to it wore the blur, then landed unblurred (2026-11-15, the owner)
+      swipeGround() {
+        var HS = window.hkSettings, flat = this.hasAttribute('data-flat');
+        try { flat = flat || !!(HS && HS.rendering && HS.rendering().flat); } catch (e) { /* as drawn */ }
+        return flat ? null : BG_BLUR;
+      }
 
       connectedCallback() {
         super.connectedCallback();

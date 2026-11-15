@@ -173,6 +173,7 @@
         "selfRender",
         "offPanel",
         "teardown",
+        "keysOfView",
         "resolve",
         "swiping",
         "clientNow",

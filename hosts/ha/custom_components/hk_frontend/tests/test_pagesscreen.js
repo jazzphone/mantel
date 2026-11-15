@@ -185,6 +185,19 @@ ok('a widget\'s place: 2 x 2 at the top right, 328 wide', /class="wd" data-w="0"
 var hp = card._html(data, { W: 390, H: 844 }, new Date());
 ok('a phone: the iPhone\'s pill', hp.indexOf('--pw:134px') > 0);
 
+// NO BLUR IN FLAT (2026-11-15, the owner: "swiping to the apps page gives it a blurred background and then it pops back"):
+// a card asked before it has drawn (no data-flat yet) answers from the screen's look
+(function () {
+  var saved = window.hkSettings, fresh = new (customElements.get('hk-pages-screen-card'))();
+  window.hkSettings = { rendering: function () { return { flat: true, blur: false }; }, get: function (p, f) { return f; } };
+  ok('a page swipe asks an undrawn Pages screen in Flat for its ground: none', fresh.swipeGround() === null, fresh.swipeGround());
+  window.hkSettings = { rendering: function () { return { flat: false, blur: true }; }, get: function (p, f) { return f; } };
+  ok('...in a Glass look, its blur', /blur\(/.test(String(fresh.swipeGround())), fresh.swipeGround());
+  window.hkSettings = saved;
+  var css = customElements.get('hk-pages-screen-card').CSS;
+  ok('...and in Flat the folder and the open folder blur nothing', css.indexOf(':host([data-flat]) .fold,:host([data-flat]) .open{-webkit-backdrop-filter:none;backdrop-filter:none}') >= 0);
+})();
+
 print('=== the strategy: only while it is on ===');
 load(HK_ROOT + '/frontend/cards/hk-strategy.js');
 var hass = { states: { 'light.desk': { entity_id: 'light.desk', state: 'on', attributes: { friendly_name: 'Desk' } } },
