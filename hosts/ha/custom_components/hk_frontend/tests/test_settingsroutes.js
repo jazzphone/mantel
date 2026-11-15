@@ -213,6 +213,7 @@ print('\n=== Pages (2026-10-16) ===');
   var keys = P.pagesListed.call(pg).map(function (p) { return p[0]; });
   ok('the Pages section lists what the house has', keys.join(','), 'security,water,energy,power,timers,vacuums,music,cameras,calendar,weather,live_tv');
   ok('...Doors & Windows only without an alarm', keys.indexOf('doors_windows') < 0, true);
+  ok('...Security is listed even with no alarm or lock yet: its Alarm Panel is where they begin', M.pagesListed({ kinds: {}, alarm: null }).some(function (p) { return p[0] === 'security'; }), true);
   ok('a page opens its own settings page', go('#/page/water').title, 'Water');
   ok('...a top page, beside the sidebar', go('#/page/water').top, true);
   ok('its status row below it', go('#/page/water/status').back[1], '#/page/water');
@@ -288,6 +289,20 @@ print('\n=== Pages (2026-10-16) ===');
   go('#/page/water').body(box);
   var html = JSON.stringify(box, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
   ok('a page lists its screens, each opening that screen’s pages', html.indexOf('#/screens/dashboard-a/pages') >= 0, true);
+  // PHASE 32: every Pages' own page ends in the same three groups, and Cameras has no Related group any more
+  var cbox = document.createElement('div');
+  go('#/page/cameras').body(cbox);
+  var cht = JSON.stringify(cbox, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
+  ok('the Cameras page: What’s on It, Look and On Screens, no Related group', /What’s on It/.test(cht) && /\bLook\b/.test(cht) && /On Screens/.test(cht) && !/Related/.test(cht), true);
+  var wbox = document.createElement('div');
+  go('#/page/weather').body(wbox);
+  var wht = JSON.stringify(wbox, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
+  ok('the Weather page: its settings are one group, On the Page', /On the Page/.test(wht) && !/Optional Readings|Presentation/.test(wht), true);
+  var sbox = document.createElement('div');
+  go('#/page/security').body(sbox);
+  var sht = JSON.stringify(sbox, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
+  ok('the Security page leads with the Security System: the panel and its keypad in one group', sht.indexOf('Security System') < sht.indexOf('Show Header') &&
+     /Wrong-Code Indicator/.test(sht) && !/Alarm Keypad/.test(sht), true);
 })();
 
 print('\n=== Flat Colors: one editor at every scope (2026-10-17) ===');
