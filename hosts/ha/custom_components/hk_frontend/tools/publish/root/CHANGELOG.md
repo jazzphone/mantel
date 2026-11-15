@@ -5,6 +5,14 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **HK Settings look and work like iOS 26's Settings**: rounder cards, taller rows, Title Case group headers, capsule segmented controls and search; on an iPad the sidebar is a panel in groups with the page you're on as a gray pill, and each section opens with a header card. The screen's page, Background (Seasonal Decorations on a page of its own), the Screensaver (Photos as one row, Also Show, Slideshow), the Pages' own pages (Security leads with its Security System) and Wall Tablets (the same groups for every kiosk app) were reworked in that shape, with short footers; a value that follows All Screens shows that value in gray, and Reset to All Screens sits on one you changed.
+- **A switch slides once**: a change drew the whole page three times and replaced the switch mid-tap; it now redraws only when something it shows changed. A row whose label wraps puts its control underneath. Accessories draws in about a third of the time on a large house.
+
+**Fixed**
+- **The Side Pane stayed dark in Flat Light**, with dark words on it. It is light in Flat Light and dark in Flat Dark; under a song's cover it is a dark media surface in both, and the music's panel over it is opaque in Flat.
+- **A HomePod's leftover AirPlay session showed as paused music** after Music Assistant restarted mid-song. A paused, untitled AirPlay session with no artist is no longer music.
+
 ## 1.60.0 - 2026-11-15
 
 **Fixed**
