@@ -999,6 +999,10 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 
 ## Mantel 0.1.168 (2026-11-15)
 
+- The owner's OK, in this session: "can you push all of these fixes over the current release and re-release it?" (a tag is never moved: 0.1.168 and HK Frontend 1.61.1 after 0.1.167 / 1.61.0), and "We should probably look into that before this new release goes out" for the Side Pane's calendar.
+- What it carries, all already on the house as hotfixes except the last two: the screensaver wears no Appearance (`22333d21`), no gray squares behind the speakers in Flat Light (`de357ca2`), Flat's page grounds fade in a swipe and the Pages screen has no blur in Flat (`6be7edef`), the Side Pane's calendar asks again by itself (`1571d6f1`), and Flat's values blanked on the screensaver only while the screen is Flat (`62fe3ec9`; `22333d21` had blanked eleven of the Glass looks' own values on it too).
+- Its full runs: `music-pane-check-webkit` failed twice in a row under load (the music slide's speaker line, then the screensaver gone before a second drag of Up Next) and passed alone and in the next two runs; `SAVER-STATE.md` (generated, by line) written again twice.
+- Before it, 2026-11-15 ~17:30: Docker on the LXC could start no container (its `/dev/null` was proxmox2's deleted one); the owner recreated the host's `/dev/null` and rebooted CT 103.
 - Mantel 0.1.168, release commit `16399f8`, tagged `v0.1.168`; the LXC 0.1.167 -> 0.1.168 (build `a495f0317aad425d`).
 - Images run 43774580041 (stage=images), promote run 43775240614, GitHub Release `v0.1.168`.
 - Strict health 200, all services healthy, mantel-server built from `16399f8`, Home Assistant connected for 64 s; no "Traceback" or "ERROR" in Mantel's log.
