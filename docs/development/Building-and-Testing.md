@@ -81,6 +81,15 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   same 1,502 checks passing. Most of what is left is the screensaver's own fades (4 s in, 3 s between slides), which a
   check of what they end on must wait out. `SAVER_SETTLE=probe` keeps the old waits and says, for each, when the page
   was still and anything that changed after it; `SAVER_SETTLE=fixed` is the old check.
+  **A dashboard's checks have the same** (2026-11-15, `tools/headless/settle.cjs`): `settle(ceiling)` returns when
+  the page is still -- nothing on the network or from the hub, pictures and fonts in, no animation that ends still
+  running, the same elements and the same Side Pane for half a second -- and `settle.loaded(ceiling)` first asks the
+  page for what it does 1.5 s after it loads (the swipe armed, the pages on either side made: some 250 elements,
+  which is what a fixed 2.5 s after every load was really waiting for). The Side Pane's check was 254 s at a
+  tablet's size, 221 s of them fixed waits; it is 120 s (51 to 26 s upright, 39 to 21 s on a phone), the same cases
+  passing 15 runs of 15 in both engines. `HK_SETTLE=probe` and `HK_SETTLE=fixed` as the screensaver's. What is left
+  is the product's own time: a camera's ten-second still, the screensaver's fade, a swipe's frames. The other
+  dashboard checks still wait the old way; use this when one is touched.
   The main suite runs on 8 workers in a full run and on three quarters of the cores, 8 to 16, when it runs alone
   (`quick`, `versions`; 2026-11-15: 167 s on 8, 132 s on 12, 110 s on 16 on this Mac; `CI_PYTEST_WORKERS` says
   otherwise) where `pytest-xdist` is installed (`pip install -e

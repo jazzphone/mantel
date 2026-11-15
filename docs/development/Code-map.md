@@ -963,6 +963,7 @@ Build, release and check tools.
   - `settings_sweep.cjs`
   - `settings_sweep.py` — EVERY PAGE OF HK SETTINGS, drawn at three sizes in Chromium and WebKit, kept as deep DOM text and a screenshot, and compared (phase 18, Part B
   - `settings_viewports.py` — Mantel Settings on iPhone and iPad sizes (docs/phase10/APPLE-APPS.md §8, slice 10.1), in an isolated headless Chrome.
+  - `settle.cjs`
   - `sheet_review.cjs` — sheet_review.py's browser
   - `sheet_review.py` — Every detail sheet at every screen size, in WebKit (Safari's engine), measured and shot.
   - `sheet_short_check.py` — Detail sheets on a short screen (2026-10-24
