@@ -103,7 +103,7 @@ each way (`tools/headless/side_pane_check.cjs` is the model).
 A setting that trades looks for speed is its own switch, not a side effect of a look: Motion is separate from Flat,
 and separate from the Background's Animations, by the owner's decision (2026-11-14). The policy is read in one place
 (`hkSettings.rendering()`: `flat`, `blur`, `liveSky`, `motion`); a card never works it out from the look's name. Where
-two switches touch the same thing, the footer of each names the other.
+two switches touch the same thing, a footer says so (Motion's names the Background's Animations).
 
 ## Measuring, and what fooled us
 
