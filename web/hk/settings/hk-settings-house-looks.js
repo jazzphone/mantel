@@ -406,7 +406,7 @@
       // the Appearance row on a screen's page: its style, and whose it is
       appearanceSays(b) {
         var gl = M.glassOf(b, this.data.settings.look);
-        return gl.own ? 'Just This Screen' : 'Same as All Screens';
+        return gl.own ? 'Just This Screen' : null;
       }
       // ALL SCREENS' SKY / BACKGROUND (under Appearance since 2026-10-29)
       // ALL SCREENS -> APPEARANCE's pages (p_house): Style, Accent, Background, Flat Colors, Page Pills, the page itself

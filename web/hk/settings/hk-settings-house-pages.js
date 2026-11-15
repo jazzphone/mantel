@@ -327,6 +327,9 @@
               ? mk('Button Style on Phones', function (c) { self.phoneStyle(c, M.phoneButton(hmv), pickH('button_phone'), hmv.swipe); }, sbH)
               : mk('Button Style', function (c) { self.menuStyle(c, hmv.menu, pickH('menu'), hmv.swipe); }, sbH);
           }
+          if (sub[0] === 'tab-bar' && sub[1] === 'position') {
+            return mk('Position', function (c) { self.tabBarPosPage(c, self.menuCtx(null, null)); }, ['Tab Bar', base + '/tab-bar']);
+          }
           var hkind = M.menuKind(sub[0]);
           if (hkind) return Object.assign(mk(hkind[1], function (c) { self.kindPage(c, self.menuCtx(null, null), hkind[0]); }), { scope: this.usedLine(hkind[0]) });
           if (sub[0] === 'header') return mk('Back Button & Title', function (c) { self.headerPage(c, self.menuCtx(null, null)); });

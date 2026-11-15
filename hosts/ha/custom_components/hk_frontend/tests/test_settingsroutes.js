@@ -421,7 +421,7 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
                      accent: 'teal', tab_bar_size: 'large', tab_bar_pos: 'bottom', tab_position: '', tab_size: 'large', tab_size_phone: 'standard',
                      page_header: 'current', flat_colors: {}, rooms_custom: false, chips_row: true, chips: [], cameras: [], scenes: [], favorites: [],
                      categories: [], menu_top: [], headers: {}, tablets: [], popups: true, sky: true },
-    'dashboard-c': { pages: [], glass: 'house', menu: 'off', menu_phone: 'off', menu_own: [], flat_colors: {} } };
+    'dashboard-c': { pages: [], favorites: [], chips: [], scenes: [], cameras: [], glass: 'house', menu: 'off', menu_phone: 'off', menu_own: [], flat_colors: {} } };
   pg.data = { settings: { sky: { pages: {}, flat_pages: {}, background: 'live' }, look: look, menu: { accent: 'orange', bar_size: 'medium', style: 'auto' },
                           rooms: {}, generated: {}, headers: {}, status_rows: {}, security: {}, features: {}, weather: {}, calendar: {}, cameras: {}, browse: { hide: [], discover: [] } },
               choices: {}, counts: {}, kinds: {}, accessories: { pages: {} }, tablets: {},
@@ -476,11 +476,12 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   var sm = text(draw(go('#/screens/dashboard-k/menu')).box);
   ok('a screen’s Menu Settings lists only the kinds it uses', /Side Menu/.test(sm) && /Edge Tab/.test(sm) && /Tab Bar/.test(sm), true);
   var nm = draw(go('#/screens/dashboard-c/menu')).box;
-  ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu:off') && !!byFk(nm, 'b:menu_phone:off') &&
+  ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu') && !!byFk(nm, 'b:menu_phone') &&
     !/Navigation/.test(text(nm)), true);
-  ok('...and its page has the one Menu row, its menus in words', /Off/.test(text(draw(go('#/screens/dashboard-c')).box)) && !byFk(draw(go('#/screens/dashboard-c')).box, 'b:menu:off'), true);
+   ok('...and its page has the one Menu row, its menus in words', /Off/.test(text(draw(go('#/screens/dashboard-c')).box)) && !byFk(draw(go('#/screens/dashboard-c')).box, 'b:menu'), true);
   var tbp = draw(go('#/screens/dashboard-k/menu/tab-bar')).box;
-  ok('its Tab Bar page: Size Just This Screen, Position Same as All Screens', /Just This Screen/.test(text(tbp)) && /Same as All Screens/.test(text(tbp)), true);
+  ok('its Tab Bar page: Size Just This Screen, and said once that the rest follows All Screens', /Just This Screen/.test(text(tbp)) && /follows All Screens until/.test(text(tbp)) &&
+     !/Same as All Screens/.test(text(tbp)), true);
   tap(byFk(tbp, 'b:tab_bar_size:reset'));
   ok('Reset to All Screens takes the one setting back', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { menu_own: ['accent'] }]));
   var sp = draw(go('#/screens/dashboard-k/menu/side/phones')).box;
@@ -489,8 +490,9 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
     JSON.stringify(['b', 'dashboard-k', { button_phone: 'chip', menu_own: ['accent', 'tab_bar_size', 'button_phone'] }]));
   // a screen's page: Appearance one row; Back Button & Title in its Header
   var main = text(draw(go('#/screens/dashboard-k')).box);
-  ok('a screen’s Appearance is one row: its style and whose it is', /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && /Same as All Screens/.test(main), true);
-  ok('...Back Button & Title beside its other header settings', /Back Button & Title/.test(main), true);
+  ok('a screen’s Appearance is one row: its style as the value, never “Same as All Screens”',
+     /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && !/Same as All Screens/.test(main), true);
+  ok('...Back Button & Title beside its other header settings, on More for This Screen', /Back Button & Title/.test(text(draw(go('#/screens/dashboard-k/more')).box)), true);
   ok('...no Sky group of its own any more', main.split('Sky / Background').length - 1, 0);
   var sa = text(draw(go('#/screens/dashboard-k/appearance')).box);
   ok('a screen’s Appearance: laid out as All Screens’', ['Style', 'Colors', 'Background', 'Accent Color', 'Teal', 'Just This Screen', 'Tab Bar Glass'].every(
@@ -592,14 +594,14 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   // HOME ASSISTANT: no reports; this device's own sample, under This Device on the screen it measured
   pg._host = null; pg._health = undefined;
   localStorage.setItem('hk-fps', JSON.stringify({ fps: 31.6, at: Date.now() - 60000, screen: 'dashboard-k', style: 'blur' }));
-  var dp = draw(go('#/screens/dashboard-k')).box, dt = text(dp);
+  var dp = draw(go('#/screens/dashboard-k/more')).box, dt = text(dp);
   ok('This Device: this device’s own number, on the screen it measured', /Recommended for This Device/.test(dt) &&
      /This device draws 32 frames a second with Blur/.test(dt) && dt.indexOf('Recommended for This Device') > dt.indexOf('Car Browser'), true);
   ok('...with the same two buttons', !!byFk(dp, 'rec:glass') && !!byFk(dp, 'rec:flat'), true);
-  ok('...not on another screen’s page', /for This Device/.test(text(draw(go('#/screens/dashboard-c')).box)), false);
+  ok('...not on another screen’s page', /for This Device/.test(text(draw(go('#/screens/dashboard-c/more')).box)), false);
   ok('...nor on the Appearance page (its home is This Device)', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
   localStorage.removeItem('hk-fps');
-  ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k/more')).box)), false);
   // ...the ladder too: the next step from a new sample, none from one drawn with something else on
   var mine = function (b2, fps) {
     return JSON.stringify({ fps: fps, at: Date.now() - 60000, screen: 'dashboard-k', style: 'clear',
@@ -607,11 +609,11 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   };
   kb.glass = 'clear';
   localStorage.setItem('hk-fps', mine(kb, 33));
-  var dr = draw(go('#/screens/dashboard-k')).box;
+  var dr = draw(go('#/screens/dashboard-k/more')).box;
   ok('This Device: once the style is Glass, the next step from a sample drawn with it', /Recommended for This Device/.test(text(dr)) &&
      /This device draws 33 frames a second with Rain & Snow on\./.test(text(dr)) && !!byFk(dr, 'rec:rain'), true);
   localStorage.setItem('hk-fps', mine(Object.assign({}, kb, { glass: 'blur' }), 33));
-  ok('...but nothing from one drawn with Blur still on', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  ok('...but nothing from one drawn with Blur still on', /for This Device/.test(text(draw(go('#/screens/dashboard-k/more')).box)), false);
   localStorage.removeItem('hk-fps');
   kb.glass = 'house';
   ok('opening every one of them wrote nothing', writes.length, 0);
