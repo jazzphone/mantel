@@ -497,6 +497,19 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ht = text(draw(go('#/house/menu/tab-bar')).box);
   ok('...with no screen using one it is the one row saying so', /No Screen Uses a Tab Bar/.test(ht) && !/Labels/.test(ht), true);
   boards['dashboard-k'].menu = 'tabbar';
+  // the Screensaver: Photos is one row, the host's album hook draws on that row's page
+  var asked2 = [];
+  pg._host = { extend: function (where, box, ctx) { asked2.push(where + ':' + (ctx.screen || ctx.photos)); } };
+  var sv = text(draw(go('#/house/screensaver')).box);
+  ok('All Screens’ Screensaver: one Photos row, Slideshow with Photo Layout, Also Show, Timing, Night Mode', ['Photos', 'Slideshow', 'Photo Layout', 'Also Show', 'Timing', 'Night Mode'].every(
+    function (w) { return sv.indexOf(w) >= 0; }) && !/Now and Then|Portrait Photos/.test(sv), true);
+  ok('...the host is asked nothing until the Photos page opens', asked2.length, 0);
+  var phb = draw(go('#/house/screensaver/photos'));
+  ok('...the Photos page draws Screensaver Photos, and asks the host for its album', phb.err === null && /Screensaver Photos/.test(text(phb.box)) && asked2[0] === 'house-saver:undefined', true);
+  ok('...and Photo Layout has Portrait and Landscape', /Portrait Photos/.test(text(draw(go('#/house/screensaver/layout')).box)) || /Zoom/.test(text(draw(go('#/house/screensaver/layout')).box)), true);
+  draw(go('#/screens/dashboard-k/screensaver/photos'));
+  ok('a screen’s Photos page asks the host for that screen’s album', asked2[asked2.length - 1], 'saver:dashboard-k');
+  pg._host = null;
   // the Screensaver and the Background, in the same shape
   var dc = text(draw(go('#/house/appearance/sky/decorations')).box);
   ok('Seasonal Decorations is a page of its own under Background: the switch, their style, Liveliness', ['Seasonal Decorations', 'Decoration Style', 'Woodland'].every(
