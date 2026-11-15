@@ -955,3 +955,24 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
   Mantel has phase 31), and phase 28's HomePod next-alarm timestamp sensors. Mantel itself was held back (the owner).
 - Not published to jazzphone/mantel-link (the release's default).
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (living room, master bathroom, master bedroom, office).
+
+## HK Frontend 1.60.0 (2026-11-15)
+
+- The owner's OK, in this session: "Release it" (after the iPhone Duo fix, `5e15738c`).
+- hk-frontend 1.60.0, commit `c27a400`, tagged `hk-frontend/v1.60.0`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (the new `hk-base.js` checked too: it carries the fix).
+- `release_house.py` stopped at its last check, as Mantel Link 0.1.15's did: Mantel on the LXC runs hotfix
+  `3bd980482`, not the checkout's `3687dbd2`, so the revision check could not pass. Checked by hand instead:
+  mantel-server healthy, strict health 200, Home Assistant connected again about 6.5 min after the restart, Mantel Link
+  and HK Frontend linked, no "Traceback" or "ERROR" in its log; then tagged and published with the tool's own steps.
+- What it carries: the iPhone Duo's two tiles across in the Home Assistant app (Home Assistant 2026.11 pads its views by
+  the side safe area itself), and the web app the house's Mantel tablets already run (Motion's own switch, the Home
+  block, HomeView's Glyphs and no wells, the AirPlay-style speakers, the swipe and Pre-rendered glass fixes).
+- The release's full runs (57faa807): `types-py` first failed on `hk_core/music/airplay_groups.py` (fixed in
+  `57faa807`); `music-pane-check-webkit` failed twice under load (two different waits; passed alone and in the third
+  run), `test_live_tv.py::test_a_quick_retune_keeps_the_stream` once (passed alone 3 of 3); the fourth whole run passed.
+- Published to jazzphone/hk-frontend main as `fdef2c3`, tagged `v1.60.0` and released on GitHub.
+- The Wiki had no changes.
+- The tablets' refresh failed in the tool (Home Assistant's entity registry list is 4.2 MB, past aiohttp's 4 MB
+  message cap; the cap raised in `tools/release_house.py`), then `refresh-kiosks`: the 4 Kiosk Satellite tablets'
+  cache cleared (4) and the page reloaded (living room, master bathroom, master bedroom, office).

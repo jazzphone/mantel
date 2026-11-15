@@ -277,7 +277,8 @@ class House:
         import aiohttp
         self.session = aiohttp.ClientSession(headers={"Authorization": f"Bearer {self.token}"})
         try:
-            self.ws = await self.session.ws_connect(f"{self.url}/api/websocket", heartbeat=30)
+            # (no 4 MB cap: the house's entity registry list is 4.2 MB, and the tablets' refresh failed on it, 2026-11-15)
+            self.ws = await self.session.ws_connect(f"{self.url}/api/websocket", heartbeat=30, max_msg_size=64 * 2**20)
             await self.ws.receive_json()                                 # auth_required
             await self.ws.send_json({"type": "auth", "access_token": self.token})
             if (await self.ws.receive_json()).get("type") != "auth_ok":

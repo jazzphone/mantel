@@ -369,6 +369,11 @@ ok('fallback player cannot expose the announcement', M.ignored(ah.states[e('offi
 M._configure(Object.assign({}, HK_HOUSE, { ignore_announcements: true }));
 ah.states[e('office')].attributes.media_duration = 2;
 ok('short AirPlay music with generic metadata is not guessed away', M.contexts(ah).length, 2);
+var lh = house({ [e('office')]: { title: 'com.apple.tvairplayd', state: 'paused' }, [e('loft')]: { title: 'Real song' } });
+ok('a paused, untitled AirPlay receiver session is a leftover, not music', M.active(lh.states[e('office')]), false);
+ok('the leftover drops out of the contexts', M.contexts(lh).map(function (c) { return c.key; }).join(','), e('loft'));
+lh.states[e('office')].state = 'playing';
+ok('the same session playing is AirPlay music and stays', M.active(lh.states[e('office')]), true);
 ah.states[e('office')].attributes.media_content_id = 'media-source://tts/tts.piper?message=hello';
 ok('explicit TTS content is recognized', M.contexts(ah).length, 1);
 ah.states[e('office')].attributes.media_content_id = 'http://ha:8123/api/tts_proxy/abc.wav';
