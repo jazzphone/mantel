@@ -390,7 +390,7 @@
     var el = it.el;
     if (dir) { el.style.transform = ''; el.classList.add(dir < 0 ? 'gone-l' : 'gone-r'); }
     else { el.style.transform = ''; el.classList.add('leave'); }
-    if (host && host.hasAttribute('hk-flat')) { if (el.parentNode) el.parentNode.removeChild(el); }
+    if (host && host.hasAttribute('hk-still')) { if (el.parentNode) el.parentNode.removeChild(el); }
     else setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 420);
     setTimeout(layout, fan ? 120 : 0);
   }

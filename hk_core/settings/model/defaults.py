@@ -263,7 +263,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # at its height, the scenery's ground below) in place of one gray
     # (hk-frosttint.js), held at one darkness so white text reads the same.
     # docs/ (each setting on its topic's page).
-    "look": {"flat": False, "flat_theme": "dark", "glass": "clear", "frost": 50, "blur": 50, "tint": 50, "well": "dark", "frost_tint": False,
+    "look": {"flat": False, "flat_theme": "dark", "glass": "clear", "frost": 50, "blur": 50, "tint": 50, "well": "dark", "frost_tint": False, "motion": True,
              # BRIGHT GLASS (2026-10-30): bright -- its Strength, how much of
              # the white wash and the lift (50 as designed), capped where
              # white text would fall under 4.5:1 (hk-settings.js brightCap)

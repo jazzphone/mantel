@@ -103,6 +103,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     g = RETIRED_GLASS.get(out["look"].get("glass"), out["look"].get("glass"))
     out["look"]["glass"] = g if g in GLASS else DEFAULTS["look"]["glass"]
     out["look"]["flat"] = out["look"].get("flat") is True
+    # (Motion, 2026-11-14: on unless switched off -- only an explicit False is off)
+    out["look"]["motion"] = out["look"].get("motion") is not False
     if out["look"].get("flat_theme") not in ("light", "dark"):
         out["look"]["flat_theme"] = "dark"
     for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),

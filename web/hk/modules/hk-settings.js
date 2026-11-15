@@ -236,6 +236,8 @@
   // (or hkSettings.previewGlass(), which the test probe uses) wears that look
   // on this page only, without changing the house's setting or the cache.
   var glassPreview = null;
+  // (Motion held for this page alone -- a check, HK Settings' preview: true, false, or null for the saved choice)
+  var motionPreview = null;
   function rendering() {
     var a = appearance(boardHere(), get('look', {}));
     if (glassPreview) a.flat = glassPreview === 'flat';
@@ -243,7 +245,10 @@
       var t = /[?&]hkflat_theme=(light|dark)\b/.exec(location.search);
       if (t && glassPreview === 'flat') a.theme = t[1];
     } catch (e) { /* no location */ }
-    a.motion = a.blur = a.liveSky = a.autoplay = !a.flat;
+    // (the look decides the blur, the live sky and what plays by itself; Motion is its own switch -- appearance --
+    // and a test or the Settings preview may hold it: previewMotion)
+    a.blur = a.liveSky = a.autoplay = !a.flat;
+    if (motionPreview !== null) a.motion = motionPreview;
     return a;
   }
   // `path`: another page of this screen (a swipe's neighbor, lookAt), else the page shown
@@ -637,6 +642,9 @@
     try {
       var gm = /[?&]hkglass=(flat|clear|frosted|tinted|blur_each|blur_pre|blur|bright_each|bright_pre|bright)\b/.exec(location.search);
       if (gm) glassPreview = gm[1];
+      // (...and Motion held the same way: ?hkmotion=off, on)
+      var mm = /[?&]hkmotion=(on|off)\b/.exec(location.search);
+      if (mm) motionPreview = mm[1] === 'on';
     } catch (e) { /* no location (a test harness) */ }
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('hk-saver', function (e) { if (e && e.detail && e.detail.on) landscapeSleep(); });
@@ -763,6 +771,13 @@
       // (the Side Pane's Same as the Glass)
       brightDim: function () { return isBright(glass()) ? brightDim() : 0; },
       BRIGHT_DIM_MAX: BRIGHT_DIM_MAX,
+      previewMotion: function (on) {
+        motionPreview = on === true || on === false ? on : null;
+        applyLook();
+        listeners.slice().forEach(function (fn) {
+          try { fn(cur); } catch (e) { console.error('[hk-settings] listener', e); }
+        });
+      },
       previewGlass: function (mode) {
         glassPreview = LOOKS[mode] ? mode : null;
         applyLook();

@@ -111,7 +111,7 @@ On the day itself the number gives way to a greeting. Along the bottom: **The Co
 
 - **Which Holiday:** **Next Up** (the soonest), **Take Turns** (each near one in turn) or **One Holiday** (only the one you pick).
 - **Starts:** 30, 60 or 90 days before (60 by default).
-- **Effects:** **Full**, **Gentle** (fewer and slower) or **Off**. Off, Reduce Motion, Flat and the sky's Animations off all draw one still picture.
+- **Effects:** **Full**, **Gentle** (fewer and slower) or **Off**. Off, Reduce Motion, **Motion** off (Appearance) and the Background's Animations off all draw one still picture.
 - **Holidays:** each one on or off. A house outside the US starts with Thanksgiving and the Fourth of July off.
 - **Add a Date:** a name, a month and day (every year, or only one year), and the scene it wears. Up to 12; a one-year date leaves the list once it has passed. Use it for Hanukkah, Diwali, Lunar New Year and other dates that move each year.
 - **Scenes:** turn one off to show that holiday outdoors instead of in its painted room.

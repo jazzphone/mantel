@@ -96,9 +96,13 @@
         var v = b ? b[bk] : undefined;
         return (v === null || v === undefined) ? get(hk, dflt) : v;
       };
-      var flat = rendering().flat;
+      var R = rendering(), flat = R.flat;
       return {
-        animations: !flat && !reducedMotion() && own('sky_animations', 'sky.animations', true) !== false,
+        // (Flat, which has no live sky, held everything that keys on this still. Motion is its own switch now
+        // (2026-11-14): in Flat with Motion on, the cards' own loops run again -- a fan's spinning glyph, the art's
+        // cross-fade -- unless the Background's Animations are off; in the glass looks this is the Background's switch
+        // alone, whatever Motion says: the owner's "keeping them independent is best")
+        animations: (!flat || R.motion !== false) && !reducedMotion() && own('sky_animations', 'sky.animations', true) !== false,
         weather: !flat && own('sky_weather', 'sky.weather', true) !== false,
         // Rain & Snow: the falling weather alone (2026-10-10); and Pause When
         // Not in Focus -- on a computer, the sky and the cards hold while

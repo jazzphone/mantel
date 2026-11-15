@@ -280,7 +280,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # Tint from Background, well: its own Tinted icon circles, None follows
     # All Screens.
     "flat": None, "flat_theme": None,
-    "glass": "house", "frost": None, "blur": None, "tint": None, "well": None, "frost_tint": None, "sky": True, "car": False,
+    "glass": "house", "frost": None, "blur": None, "tint": None, "well": None, "frost_tint": None, "motion": None, "sky": True, "car": False,
     # Bright Glass's Strength, this screen's own (None: All Screens'), and its Dim
     "bright": None, "bright_dim": None,
     # its own Tile Style and Centered tiles' icons (TILE_STYLES, TILE_ICONS; None: All Screens')
@@ -557,6 +557,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
         out[k] = amount_or_none(d.get(k))
     out["well"] = d.get("well") if d.get("well") in WELLS else None
     out["frost_tint"] = d.get("frost_tint") if isinstance(d.get("frost_tint"), bool) else None
+    # (Motion, 2026-11-14: this screen's own, None follows All Screens' look.motion)
+    out["motion"] = d.get("motion") if isinstance(d.get("motion"), bool) else None
     out["bright"] = amount_or_none(d.get("bright"))
     out["bright_dim"] = bright_dim_or_none(d.get("bright_dim"))
     out["tile_style"] = d.get("tile_style") if d.get("tile_style") in TILE_STYLES else None

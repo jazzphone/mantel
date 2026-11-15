@@ -116,6 +116,7 @@
       ['Blur Amount', 'house/appearance', 'look.blur', 'blur strength'],
       ['Darkness', 'house/appearance', 'look.tint', 'tinted dark darkness opacity see through'],
       ['Icon Circles', 'house/appearance', 'look.well', 'tinted icon circle well dark light'],
+      ['Motion', 'house/appearance', 'look.motion', 'animations animate slide swipe transitions cross-fade still reduce performance slow tablet flat'],
       ['HK Detail Sheets', 'accessories', 'look.details', 'more info dialog sheet tap accessory'],
       ['Page Pills', 'house/appearance/pills', 'look.page_pills', 'page pill scenes row name icon color colour play music cameras calendar live tv'],
       ['Sky Switch', 'house/appearance/sky', 'look.sky_switch', 'live sky helper'],
@@ -347,7 +348,8 @@
       ['header', 'Header', ['phone_header', 'kiosk', 'kiosk_header', 'kiosk_sidebar', 'kiosk_admins', 'kiosk_engine', 'kiosk_options'], true],
       // the pages, Home among them, and where each sits in the menu (set on Pages)
       ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers', 'pages_screen'], true],
-      ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'sky', 'sky_animations', 'sky_weather',
+      ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'motion', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'sky', 'sky_animations',
+        'sky_weather',
         'sky_precipitation', 'sky_focus_pause',
                               'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
                               'sky_liveliness', 'sky_liveliness_occ', 'sky_liveliness_custom', 'sky_calm_empty',

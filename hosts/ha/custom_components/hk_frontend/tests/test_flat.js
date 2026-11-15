@@ -17,8 +17,30 @@ cases.forEach(function(x,i){ok('inheritance '+i,S.appearance(x[0],x[1]).flat===x
  ok('settings editor agrees '+i,(M.glassOf(x[0],x[1]).effective==='flat')===x[2]);});
 ok('screen theme overrides shared', S.appearance({flat_theme:'light'},{flat_theme:'dark'}).theme==='light');
 ok('theme inherits independently', S.appearance({flat:false,flat_theme:null},{flat_theme:'light'}).theme==='light');
-S._apply({look:{flat:true,flat_theme:'light',glass:'blur',blur:90},sky:{animations:true,weather:true,decorations:true,photo_look:{blur:80,dim:60,saturation:150}}});
-ok('all decorative policy gates close',S.glass()==='flat'&&!S.rendering().motion&&!S.rendering().blur&&!S.rendering().liveSky&&!S.rendering().autoplay);
+// MOTION IS ITS OWN SWITCH (2026-11-14, the owner: "I like the way flat looks, but still want animations, but good to have
+// them off for performance reasons ... a setting that lives outside of appearance"): on in every look unless switched
+// off, a screen's own over All Screens'; Flat no longer decides it
+ok('Motion: on unless switched off, in every look',S.appearance({},{}).motion===true&&S.appearance({},{flat:true}).motion===true&&
+    S.appearance({},{motion:false}).motion===false&&S.appearance({},{flat:true,motion:false}).motion===false);
+ok('...a screen\'s own over All Screens\'',S.appearance({motion:true},{motion:false}).motion===true&&S.appearance({motion:false},{}).motion===false&&
+    S.appearance({motion:null},{motion:false}).motion===false);
+S._apply({look:{flat:true,flat_theme:'light',glass:'blur',blur:90},sky:{animations:true,weather:true,decorations:true}});
+ok('Flat with Motion on: it moves, with no blur and no live sky all the same',S.glass()==='flat'&&S.rendering().motion===true&&!S.rendering().blur&&!S.rendering().liveSky);
+ok('...the cards\' own loops run again there (the weather and the decorations stay off)',S.skyLook().animations===true&&!S.skyLook().weather&&!S.skyLook().decorations);
+S._apply({look:{flat:true,flat_theme:'light',motion:true},sky:{animations:false}});
+ok('...unless the Background\'s Animations are off',S.skyLook().animations===false);
+S._apply({look:{flat:false,glass:'blur',motion:false},sky:{animations:true}});
+ok('a glass look with Motion off: still, its blur kept -- and the background keeps its own Animations switch',
+    S.rendering().motion===false&&S.rendering().blur===true&&S.skyLook().animations===true);
+S.previewMotion(true);
+ok('Motion held for this page alone (previewMotion: a check, the Settings preview), then let go',S.rendering().motion===true&&
+    (S.previewMotion(null),S.rendering().motion===false));
+ok('what holds a card still is keyed on Motion (hk-still), what makes it Flat on Flat',
+    /:host\(\[hk-still\]\) \*::after\{animation:none!important;transition:none!important;will-change:auto!important;scroll-behavior:auto!important\}/.test(C.flatCss())&&
+    /:host\(\[hk-flat\]\) \*::after\{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;text-shadow:none!important\}/.test(C.flatCss())&&
+    /\.hkd\[hk-still\] :active\{transform:none!important\}/.test(C.flatCss('.hkd[hk-flat]'))&&!/\[hk-flat\][^{}]*\{[^}]*transition:none/.test(C.flatCss()));
+S._apply({look:{flat:true,flat_theme:'light',glass:'blur',blur:90,motion:false},sky:{animations:true,weather:true,decorations:true,photo_look:{blur:80,dim:60,saturation:150}}});
+ok('Flat with Motion off, as Flat always was: every decorative policy gate closes',S.glass()==='flat'&&!S.rendering().motion&&!S.rendering().blur&&!S.rendering().liveSky&&!S.rendering().autoplay);
 ok('sky stops decoration but retains settings',!S.skyLook().animations&&!S.skyLook().weather&&!S.skyLook().decorations&&S.get('sky.animations')===true);
 ok('photo effects bypassed',S.photoLook().blur===0&&S.photoLook().dim===0&&S.photoLook().saturate===1);
 ok('opaque shared Light material',C.FLAT.light['--hk-glass-plate']==='#FAF9F6'&&document.documentElement.style.getPropertyValue('--hk-glass-plate')==='#FAF9F6');

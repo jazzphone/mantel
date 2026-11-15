@@ -218,16 +218,39 @@ The order now: everything that writes the page's edges writes first, then the pa
 Left in the landing's frame: that one layout, and the tab bar's own small one. The frame after it makes the next page
 ready (its styles, 9-12 ms at 4x CPU).
 
+**Motion is its own switch** (2026-11-14, the owner: "I like the way flat looks, but still want animations, but good to
+have them off for performance reasons ... a setting that lives outside of appearance, so you can enable/disable motion /
+animations"). Flat used to decide it: `hkSettings.rendering().motion` was `!flat`, and Flat's styles in every card
+(`hkCards.flatCss`) carried `animation: none; transition: none`. Now Appearance has **Motion**, on in every look unless
+switched off -- All Screens' `look.motion`, a screen's own `motion` over it (`hkSettings.appearance`):
+
+- `rendering().motion` is the switch, whatever the look. Everything that asked it -- the page swipe (off: a cross-fade),
+  the pager, a sheet's opening, the menu's highlight, the screensaver's effects -- follows it unchanged.
+- What holds a card still is keyed on `hk-still`, an attribute `flatTone` sets beside `hk-flat` (hk-base-card-core.js):
+  `flatCss` writes the blur, filter and text-shadow rules under `[hk-flat]` and the animation, transition, will-change
+  and press rules under `[hk-still]`. A card whose motion is its content (`FLAT_MOTION`) still moves. The three places
+  that read `hk-flat` to skip an animation (the pop-up, the detail sheet, a banner leaving) read `hk-still`.
+- A sheet made Flat on its own (`hk-flat-force`, the Home block's Sheet option) stays still: it is Flat to be light.
+- The Background's **Animations** is independent (the owner: "keeping them independent is best ... but there should
+  probably be a note around Background having it's own option"; the Motion group's footer is the note): in a glass look
+  `skyLook().animations` is the Background's switch alone, so a still page can keep a moving sky. In Flat, which has no
+  live sky, it is on with Motion (the cards' own loops) unless the Background's switch is off.
+- Reduce Motion (the device's) is over both, as before.
+- `hkSettings.previewMotion(true | false | null)` and `?hkmotion=on|off` hold it for one page (checks, a preview).
+
+Every screen that wore Flat moves again until Motion is switched off there: the owner's choice of a plain switch over
+an Automatic that kept Flat still.
+
 **The Side Pane goes with its page** (2026-11-14, the owner: "the side pane going in and out the way it does on page
 switches is pretty jarring. Can the side pane just move with the whole page content..like it's part of the page?"). A
 page with the pane beside it and a page without are the same width with the pane counted in, so a swipe between them
 goes that far -- the swipe's `span`: the page's width, the pane's with it -- and both pages and the pane move
 together: the pane off the screen with Home, or in ahead of Home's grid from the side Home waits on. The pane does not
 fade, and it follows the finger with Animations off too (a page still follows the finger there; the pane that stood
-still and cut at the landing was what jarred). Where the pages cross-fade -- Reduce Motion, and the Flat look, which
-turns motion off -- the pane stays in its place and fades with its page over the same .2 s (`hkSidePane.fade`; the
-owner, 2026-11-14: "if you chose flat appearance / white the side pane doesn't follow" -- it had cut in after the pages
-had faded, or stayed where it waited). A pane on every page does not move at all. What it took:
+still and cut at the landing was what jarred). Where the pages cross-fade -- Reduce Motion, and Motion switched off
+(below; Flat, until that switch) -- the pane stays in its place and fades with its page over the same .2 s
+(`hkSidePane.fade`; the owner, 2026-11-14: "if you chose flat appearance / white the side pane doesn't follow" -- it had
+cut in after the pages had faded, or stayed where it waited). A pane on every page does not move at all. What it took:
 
 - The page waiting beside this one starts a span away (`N.off = dir * span`), not this page's width away with the next
   page coming out from under the pane; the settle, the fraction the companions hear and the let-go thresholds all go by

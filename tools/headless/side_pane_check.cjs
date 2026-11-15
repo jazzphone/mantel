@@ -216,10 +216,26 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const w1 = await sw();
       want('left on the Pages screen (the pane waiting off the screen), Home back with no swipe: its pane in its place', [w0, w1],
            /\/pages$/.test(w0.path) && !w0.seen && w0.x !== 0 && w1.seen && w1.x === 0);
-      // WHERE PAGES CROSS-FADE, IT FADES WITH ITS PAGE (2026-11-14, the owner: "if you chose flat appearance / white
-      // the side pane doesn't follow"): in Flat no page moves, the two cross-fade -- and the pane, in its own place, goes
-      // out with Home's page and comes back in with it (it cut in after the pages had faded, or stayed where it waited)
+      // FLAT MOVES TOO, WITH MOTION ON (2026-11-14, the owner: "I like the way flat looks, but still want animations"):
+      // Motion is its own switch, on in every look -- in Flat the page follows the finger and the pane rides with it,
+      // as in the glass looks
       await page.evaluate(() => { window.hkSettings.previewGlass('flat'); });
+      await page.waitForTimeout(800);
+      const m0 = await sw();
+      await page.mouse.move(700, sy); await page.mouse.down();
+      for (let k = 1; k <= 10; k++) { await page.mouse.move(700 - 36 * k, sy); await page.waitForTimeout(16); }
+      const m1 = await sw();
+      await page.mouse.move(700, sy); await page.waitForTimeout(50);
+      await page.mouse.up();
+      await page.waitForTimeout(1200);
+      const m2 = await sw();
+      want('Flat with Motion on, swiping off Home: the page follows the finger and the pane is where its page is', [m0, m1, m2],
+           m0.seen && m1.shown && m1.op === 1 && m1.x < -100 && Math.abs(m1.x - m1.pageX) <= 2 && m2.seen && m2.x === 0 && m2.path === m0.path);
+      // WHERE PAGES CROSS-FADE, IT FADES WITH ITS PAGE (2026-11-14, the owner: "if you chose flat appearance / white
+      // the side pane doesn't follow"): with Motion off no page moves, the two cross-fade -- and the pane, in its own
+      // place, goes out with Home's page and comes back in with it (it cut in after the pages had faded, or stayed
+      // where it waited)
+      await page.evaluate(() => { window.hkSettings.previewMotion(false); });
       await page.waitForTimeout(800);
       const fadeOf = async (fromX, toX) => {
         await page.evaluate(() => {
@@ -240,12 +256,32 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       };
       const f0 = await sw(), fOut = await fadeOf(700, 340), f1 = await sw(), fBack = await fadeOf(300, 300 + 0.45 * W), f2 = await sw();
       const part = (a) => a.filter((x) => x[0] > 0.05 && x[0] < 0.95);
-      want('Flat, swiping off Home: the pane fades out where it stands (never moved, never cut at full strength)', [f0, f1, fOut.slice(0, 40)],
+      want('Flat with Motion off, swiping off Home: the pane fades out where it stands (never moved, never cut at full strength)', [f0, f1, fOut.slice(0, 40)],
            f0.seen && !/\/pages$/.test(f0.path) && /\/pages$/.test(f1.path) && !f1.seen && part(fOut).length >= 2 && part(fOut).every((x) => x[1] === fOut[0][1]));
       want('...and back to Home: it fades in, in its place, and stays', [f2, fBack.slice(0, 40)],
            /\/home$/.test(f2.path) && f2.seen && f2.x === 0 && f2.op === 1 && part(fBack).length >= 2 && part(fBack).every((x) => x[1] === fOut[0][1]));
+      // ...IN EVERY LOOK (the owner: "this may be a good option for all appearances right?"): the glass look back, Motion
+      // still off -- the cards are held still (hk-still, not Flat), the pages cross-fade and the pane with them
       await page.evaluate(() => { window.hkSettings.previewGlass(null); });
+      await page.waitForTimeout(800);
+      const stillNow = await page.evaluate(() => {
+        const all = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? all(e.shadowRoot) : [])]);
+        const els = all(document);
+        return { still: els.filter((e) => e.hasAttribute('hk-still')).length, flat: els.filter((e) => e.hasAttribute('hk-flat')).length,
+                 motion: window.hkSettings.rendering().motion, isFlat: window.hkSettings.rendering().flat };
+      });
+      const gOut = await fadeOf(700, 340), g1 = await sw(), gBack = await fadeOf(300, 300 + 0.45 * W), g2 = await sw();
+      want('a glass look with Motion off: its cards held still, none of them Flat', stillNow,
+           stillNow.motion === false && !stillNow.isFlat && stillNow.still > 3 && stillNow.flat === 0);
+      want('...the pages cross-fade there too, and the pane with its page', [g1, g2, gOut.slice(0, 30), gBack.slice(0, 30)],
+           /\/pages$/.test(g1.path) && !g1.seen && part(gOut).length >= 2 && /\/home$/.test(g2.path) && g2.seen && g2.x === 0 && part(gBack).length >= 2);
+      await page.evaluate(() => { window.hkSettings.previewMotion(null); });
       await page.waitForTimeout(500);
+      const freed = await page.evaluate(() => {
+        const all = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? all(e.shadowRoot) : [])]);
+        return all(document).filter((e) => e.hasAttribute('hk-still')).map((e) => e.localName + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className : ''));
+      });
+      want('...Motion back on: nothing held still', freed, freed.length === 0);
       // A SLIDER IS ITS OWN (2026-11-01, the owner: "horizontal sliders like volume, cause the swipe page to trigger"):
       // the Music page's volume, drawn by hand and touch-action none, moves; the page stays
       await page.goto(input.origin + '/pane-swipe/playmusic');

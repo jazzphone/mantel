@@ -728,6 +728,10 @@
         ON_PAGE.forEach(markAsleep);
       });
     });
+    // (...and when the look itself changes -- Flat, its theme, Motion: hk-settings.js says hk-look -- every card and
+    // surface is toned again at once: the tab bar and the cards of a quiet page kept `hk-still` after Motion came back
+    // on, until the next page change, 2026-11-14)
+    window.addEventListener('hk-look', function () { syncFlat(); });
     // An inert gallery's readings belong to its card tree, never to the
     // page-wide client feed. Even a caller passing actions gets a read-only port.
     window.hkCards.previewClient = function (port) {

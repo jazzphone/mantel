@@ -140,13 +140,18 @@
     // in, the water supply's waves, the power flows (a class's FLAT_MOTION).
     // They cost little and the user wants them (2026-10-16); Flat still takes
     // their blur and filters.
+    // MOTION IS ITS OWN SWITCH (2026-11-14, the owner: "I like the way flat looks, but still want animations, but good to
+    // have them off for performance reasons ... a setting that lives outside of appearance"). What holds a card still
+    // is keyed on `hk-still` -- Motion off, in any look (flatTone, below) -- and no longer on Flat, which keeps what
+    // makes it Flat: no blur, no filter, no text shadow. A card whose motion is its content moves all the same.
     function flatCss(prefix, keepMotion) {
-      var p = prefix || ':host([hk-flat])';
-      return p + ',' + p + ' *,' + p + ' *::before,' + p + ' *::after{' +
-        (keepMotion ? '' : 'animation:none!important;transition:none!important;') + 'backdrop-filter:none!important;' +
-        '-webkit-backdrop-filter:none!important;' + (keepMotion ? '' : 'filter:none!important;') + 'text-shadow:none!important;' +
-        'scroll-behavior:auto!important;' + (keepMotion ? '' : 'will-change:auto!important') + '}' +
-        (keepMotion ? '' : p + ' :active{transform:none!important}') +
+      var p = prefix || ':host([hk-flat])', s = p.replace('[hk-flat]', '[hk-still]');
+      return p + ',' + p + ' *,' + p + ' *::before,' + p + ' *::after{backdrop-filter:none!important;' +
+        '-webkit-backdrop-filter:none!important;' + (keepMotion ? '' : 'filter:none!important;') + 'text-shadow:none!important}' +
+        s + ',' + s + ' *,' + s + ' *::before,' + s + ' *::after{' +
+        (keepMotion ? '' : 'animation:none!important;transition:none!important;will-change:auto!important;') +
+        'scroll-behavior:auto!important}' +
+        (keepMotion ? '' : s + ' :active{transform:none!important}') +
         // (a scene lit -- running, or its request in flight -- is white, as a
         // tapped one is: feedback, never a state it keeps)
         p + ' .scene:not(.hk-tapped):not([data-on="1"]){background:var(--hk-flat-scene)!important}' +
@@ -162,12 +167,12 @@
         p + ' hk-plate.card[data-hk-idle]:not([data-on="1"]):not(.hk-tapped){background:var(--hk-idle-pill)!important}' +
         p + ' hk-plate.card.scene[data-hk-idle]:not([data-on="1"]):not(.hk-tapped) .icon{color:var(--hk-idle-glyph)!important;fill:var(--hk-idle-glyph)!important}' +
         p + ' .scene .well::after{display:none!important}' +
-        (keepMotion ? '' : p + ' .anim,' + p + ' .anim>*{opacity:1;clip-path:none;transform:none}') +
+        (keepMotion ? '' : s + ' .anim,' + s + ' .anim>*{opacity:1;clip-path:none;transform:none}') +
         p + ' .vs{background:var(--hk-key)!important}' +
         p + ' .btn:not(.sel),'+p+' .bk button{background:var(--hk-key);color:var(--hk-ink)}' +
         p + ' .btn.menu .cur{color:var(--hk-ink-2)}' +
         p + ' .vs .gl:not(.dark){color:var(--hk-ink-2)}' +
-        p + ' .prog-fill{animation:none!important}' +
+        s + ' .prog-fill{animation:none!important}' +
         // (not an element focused by script -- a sheet takes focus as it
         // opens, tabindex -1, and Safari ringed the whole sheet in blue)
         p + ' :focus-visible:not([tabindex="-1"]){outline:2px solid var(--hk-accent,#0a84ff);outline-offset:3px}' +
@@ -189,13 +194,16 @@
     // the look this element is drawn in: the screen's (hkSettings.rendering), or Flat where a sheet says so
     function renderingAt(el) {
       var S = window.hkSettings, a = S && S.rendering ? S.rendering() : { flat: false }, t = el ? flatForced(el) : null;
-      return t && !a.flat ? Object.assign({}, a, { flat: true, theme: t }) : a;
+      // (a sheet made Flat on its own is made so to be easy on the tablet: still, as it has been)
+      return t && !a.flat ? Object.assign({}, a, { flat: true, theme: t, motion: false }) : a;
     }
     function flatTone(el) {
       var a = renderingAt(el);
       var key = a.flat ? (el._hkFlatKind === 'music' ? 'dark' : a.theme) : '';
       var own = !!key && (!el._hkNested || !!el._hkFlatKind);
-      if (el._hkFlatTone === key && el._hkFlatOwn === own) return;
+      // (still: Motion off -- or a policy that doesn't say, a stand-in's, where Flat is still as it always was)
+      var still = a.motion === false || (a.motion === undefined && !!a.flat);
+      if (el._hkFlatTone === key && el._hkFlatOwn === own && el._hkStill === still) return;
       var wasFlat = !!el._hkFlatTone && el._hkFlatOwn;
       // (a card toned for the first time has drawn nothing that could be moving: asking for its animations made the
       // browser work out the whole document's style again, once for each card put in -- a Flat sheet of sixty tiles
@@ -203,12 +211,14 @@
       // drawn in another look has anything to stop.)
       var drawn = el._hkFlatTone !== undefined;
       el._hkFlatOwn = own;
-      if (key && drawn && el.getAnimations && !(el.constructor && el.constructor.FLAT_MOTION)) {
+      if (still && !el._hkStill && drawn && el.getAnimations && !(el.constructor && el.constructor.FLAT_MOTION)) {
         el.getAnimations({ subtree: true }).forEach(function (a) { try { a.cancel(); } catch (e) { /* already ended */ } });
       }
-      if (key && el._progAnim) { try { el._progAnim.cancel(); } catch (e) {} el._progAnim = null; }
+      if (still && el._progAnim) { try { el._progAnim.cancel(); } catch (e) {} el._progAnim = null; }
       el._hkFlatTone = key;
+      el._hkStill = still;
       if (key) el.setAttribute('hk-flat', key); else if (el.removeAttribute) el.removeAttribute('hk-flat');
+      if (still) el.setAttribute('hk-still', ''); else if (el.removeAttribute) el.removeAttribute('hk-still');
       Object.keys(FLAT.light).forEach(function (k) {
         if (own) el.style.setProperty(k, FLAT[key][k]); else if (wasFlat) el.style.removeProperty(k);
       });

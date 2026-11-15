@@ -378,7 +378,7 @@
       var t = 'How the pills, tiles and chips look.';
       if (style ===
         'flat'
-        ) return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
+        ) return 'Opaque surfaces with no blur or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
       if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Tint from Background: each card takes the color of the page behind it instead of one gray.';
       if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
       if (
@@ -494,7 +494,7 @@
       if (step.id === 'glass') {
         label = (GLASS_STYLES.filter(function (g) { return g[0] === kind; })[0] || [0, kind])[1];
         says = who + label + '. ' + (kind === 'blur' || kind === 'bright' ? 'Glass looks almost the same and is lighter.'
-          : 'Flat is the lightest look: no blur, animations or moving sky.');
+          : 'Flat is the lightest look: no blur or moving sky. With Motion off as well, nothing animates.');
       } else says = who + step.drew + '. ' + step.why;
       // the next step, if one would still apply once this one is taken
       var next = step.after(facts);

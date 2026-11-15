@@ -274,7 +274,7 @@
     // stored value each (look.glass / a screen's glass): clear, frosted, blur
     // (Shared Layer), blur_pre (Pre-rendered), blur_each (Each Card)
     var GLASS_STYLES = [
-      ['flat', 'Flat', 'A clean, opaque look designed for smoother performance. Disables blur, animations and live sky effects. Especially useful on slower tablets.'],
+      ['flat', 'Flat', 'A clean, opaque look designed for smoother performance. No blur and no live sky effects. Especially useful on slower tablets, with Motion off as well.'],
       ['clear', 'Glass', 'The original see-through glass. The status chips blur what’s behind them.'],
       ['frosted', 'Frosted', 'A milky material with no blur. Costs nothing per frame on any device.'],
       ['tinted', 'Tinted', 'The Home app’s dark plate, with no blur anywhere on the page. The lightest on any device; sheets and pop-ups still blur while open.'],

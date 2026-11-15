@@ -1477,7 +1477,8 @@
         // in once its art is in -- placed at once it showed the placeholder,
         // then the art faded in over it (2026-10-15). At most PANE_ARRIVE_MS.
         var paneArrive = arriving && !carry && this._placeNow && this._placeNow.kind === 'pane';
-        if (el.hasAttribute('hk-flat')) {
+        // (held still -- Motion off, in any look: hk-base-card-core.js flatTone -- it is simply there)
+        if (el.hasAttribute('hk-still')) {
           el.classList.add('instant', 'open');
           if (carry) dropGhost(CARRY[this._hash]);
         } else if (paneArrive) {
@@ -1652,7 +1653,7 @@
             if (self._open) return;
             kids.forEach(function (k) { if (k.parentNode) k.parentNode.removeChild(k); });
             if (el.parentNode) el.parentNode.removeChild(el);
-          }, el.hasAttribute('hk-flat') ? 0 : 320);
+          }, el.hasAttribute('hk-still') ? 0 : 320);
         }
         // A close by hand while the trigger still holds is a DISMISSAL. Not a
         // trigger close (the session ended), not a switch to another sheet,

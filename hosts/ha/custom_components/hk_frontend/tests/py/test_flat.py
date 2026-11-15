@@ -245,3 +245,26 @@ def _gen_theme():
     spec.loader.exec_module(mod)
     return mod
 
+
+def test_motion_is_its_own_switch_on_unless_switched_off():
+    """Motion (2026-11-14): one switch in every look, All Screens' and a screen's own; Flat does not decide it."""
+    assert S.merged(None)['look']['motion'] is True
+    assert S.board(None)['motion'] is None
+    out, err = A.apply_house({'dashboard': {'look': {'flat': True}}}, {'look.motion': False})
+    assert not err
+    look = S.merged(out)['look']
+    assert look['motion'] is False and look['flat'] is True, 'Flat is kept as it was'
+    back, err = A.apply_house(out, {'look.motion': True})
+    assert not err and S.merged(back)['look']['motion'] is True
+    # a screen's own: False survives the trim, None follows All Screens again
+    own = S.board_stored({'motion': False, 'glass': 'house'})
+    assert own['motion'] is False and S.board(own)['motion'] is False
+    follow = S.board_stored(dict(own, motion=None))
+    assert 'motion' not in follow and S.board(follow)['motion'] is None
+    assert A.BOARD['motion'](None) is None and A.BOARD['motion'](True) is True
+    # a corrupt cache reads as on; a value that is no switch is refused whole
+    assert S.merged({'dashboard': {'look': {'motion': 'false'}}})['look']['motion'] is True
+    assert S.board({'motion': 'off'})['motion'] is None
+    same, err = A.apply_house(out, {'look.motion': 'off', 'look.flat': False})
+    assert err == {'look.motion': 'bool'} and same == out
+

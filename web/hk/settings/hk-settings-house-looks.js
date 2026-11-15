@@ -12,6 +12,9 @@
         TILE_FOOT = KIT.TILE_FOOT;
 
     var h, K, M;
+    // MOTION's few words, under its switch (Appearance): what it stills, and that the background has its own
+    var MOTION_FOOT = 'Pages slide with your finger, and sheets and cards animate. Off: pages cross-fade and nothing animates, ' +
+      'which is lighter on a slow tablet. The background’s moving parts have their own switch: Background → Animations.';
     // (set when the page starts, not now: the shell calls bindLate() once it has assigned them)
     KIT.late.push(function (s) {
       h = s.h; K = s.K; M = s.M;
@@ -216,6 +219,7 @@
         var own = this.ownLooks(look);
         c.appendChild(K.group({ header: 'Style', footer: typeof own === 'string' ? M.glassFooter(style) + ' ' + TILE_FOOT
           : [document.createTextNode(M.glassFooter(style) + ' ')].concat(own, [document.createTextNode(' ' + TILE_FOOT)]) }, rows));
+        c.appendChild(K.group({ header: 'Motion', footer: MOTION_FOOT + ' Each screen can choose its own.' }, this.motionRows(null, look, null)));
         this.recommendGroups(c, null);
         // COLORS & BACKGROUND: the one Accent Color, Flat's own while any
         // screen wears Flat, then the Background (one group since 2026-10-30)
@@ -374,6 +378,7 @@
         // TILE STYLE in the Style group (its own Tiles group until 2026-10-30)
         app = app.concat(this.tileStyleRows(b, path));
         c.appendChild(K.group({ header: 'Style', footer: M.glassFooter(gl.effective) + ' ' + TILE_FOOT }, app));
+        c.appendChild(K.group({ header: 'Motion', footer: MOTION_FOOT }, this.motionRows(b, look, path)));
         this.recommendGroups(c, x, b);
         var colors = [this.accentNav(x, b, base + '/accent')];
         if (gl.effective === 'flat') {
@@ -565,6 +570,20 @@
           if (w.own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TINT_WELLS, w.house) + ')',
             sk: skp + 'well:reset', onClick: w.reset }));
         }
+        return rows;
+      }
+      // MOTION (2026-11-14, the owner: "I like the way flat looks, but still want animations, but good to have them off
+      // for performance reasons ... a setting that lives outside of appearance, so you can enable/disable motion /
+      // animations"): one switch, in every look -- All Screens' (look.motion), a screen's own over it. The background
+      // keeps its own Animations switch (the owner: "keeping them independent is best ... but there should probably be a
+      // note around Background having it's own option"): MOTION_FOOT says so.
+      motionRows(b, look, path) {
+        var self = this, own = !!b && typeof b.motion === 'boolean', house = look.motion !== false;
+        var rows = [K.toggle({ label: 'Motion', sk: b ? 'b:motion' : 'look.motion', on: own ? b.motion : house,
+          sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null,
+          onChange: function (on) { if (b) self.setB(path, { motion: on }); else self.setH({ 'look.motion': on }); } })];
+        if (own) rows.push(K.button({ label: 'Reset to All Screens (' + (house ? 'On' : 'Off') + ')', sk: 'b:motion:reset',
+          onClick: function () { self.setB(path, { motion: null }); } }));
         return rows;
       }
       flatThemeRows(b, look, path) {
