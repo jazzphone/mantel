@@ -39,7 +39,8 @@ def _names(speakers: list, flag: str) -> list[str]:
     out = []
     for s in speakers:
         # (locked_out is true or false; needs_setup is null or what it needs: "password_required", "pairing_required")
-        if isinstance(s, Mapping) and (s.get(flag) is True or (isinstance(s.get(flag), str) and s.get(flag).strip())):
+        v = s.get(flag) if isinstance(s, Mapping) else None
+        if isinstance(s, Mapping) and (v is True or (isinstance(v, str) and v.strip())):
             name = _text(s.get("name")) or _text(s.get("ip")) or "A speaker"
             if name not in out:
                 out.append(name)
@@ -53,11 +54,15 @@ def read(body: Any) -> dict[str, Any] | None:
      needs_setup: [names], groups, alerts: [titles of the page's active alerts]}"""
     if not isinstance(body, Mapping) or not isinstance(body.get("addon"), Mapping) or not isinstance(body.get("speakers"), list):
         return None
-    addon, speakers = body["addon"], body["speakers"]
-    alerts = body.get("alerts") if isinstance(body.get("alerts"), Mapping) else {}
-    active = alerts.get("active") if isinstance(alerts.get("active"), list) else []
-    groups = body.get("groups") if isinstance(body.get("groups"), list) else []
-    titles = []
+    addon: Mapping[str, Any] = body["addon"]
+    speakers: list[Any] = body["speakers"]
+    alerts_v = body.get("alerts")
+    alerts: Mapping[str, Any] = alerts_v if isinstance(alerts_v, Mapping) else {}
+    active_v = alerts.get("active")
+    active: list[Any] = active_v if isinstance(active_v, list) else []
+    groups_v = body.get("groups")
+    groups: list[Any] = groups_v if isinstance(groups_v, list) else []
+    titles: list[str] = []
     for a in active:
         t = _text(a.get("title")) if isinstance(a, Mapping) else None
         if t and t not in titles:
@@ -78,7 +83,7 @@ def read(body: Any) -> dict[str, Any] | None:
 
 def healthy(summary: Mapping[str, Any] | None) -> bool:
     """Nothing to look at: the add-on is on, no speaker is locked out, and the page has no active alert."""
-    return bool(summary) and summary["addon"]["on"] and not summary["locked_out"] and not summary["alerts"]
+    return summary is not None and bool(summary) and summary["addon"]["on"] is True and not summary["locked_out"] and not summary["alerts"]
 
 
 def alert_due(down_since: float | None, now: float) -> bool:
