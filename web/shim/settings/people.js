@@ -134,10 +134,10 @@ export function pPeople(sub) {
     if (other.length) c.appendChild(group({ header: 'Other Accounts' }, other.map(row)));
     c.appendChild(group({}, [nav('Add Person…', 'people/add', { icon: 'mdi:plus' })]));
     // (In the Docs once: with Home Assistant's users when they can't be read, else at the end)
-    const before = c.childNodes.length;
+    const ha = haPeopleRead();
+    const unread = !!(ha && ha.data && ha.data.error && !(ha.data.users || []).length);
     drawHaUsers(c, false);
-    const drewDocs = [].slice.call(c.childNodes, before).some((n) => n.querySelector && n.querySelector('[data-fk^="mx:docs:"]'));
-    const docs = drewDocs ? null : docsRow('People-and-Roles');
+    const docs = unread ? null : docsRow('People-and-Roles');
     if (docs) c.appendChild(group({}, [docs]));
   } };
 }
