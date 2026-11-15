@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.60.0 - 2026-11-15
+
 **Fixed**
 - **A phone with a side strip (the iPhone Duo) had one tile to a row in the Home Assistant app**: Home Assistant 2026.11 keeps its views clear of a side safe area itself, and the page kept clear of it again, so the Duo's front screen lost its strip twice -- under the room two tiles need, every grid one tile to a row and the scenes squeezed. The page now keeps only the room Home Assistant hasn't, and is as wide as in the Mantel app: two tiles across on every page, and the sideways rows run under the strip to the screen's edge again.
 - **A notification on a sensor whose state is words could only go off when it Changes**: Goes Off When now offers Changes To each value it's known to take, and Changes To Another Value… to type one.
