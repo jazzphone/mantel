@@ -979,6 +979,8 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 
 ## Mantel 0.1.167 (2026-11-15)
 
+- The owner's OK, in this session: "We probably should push new releases of everything, mantel, mantel-link, and hk frontend if they all need it. Please put them on the house as well!" Mantel Link was left at 0.1.15: nothing it ships changed since (`release_house.py plan`).
+- Before the release, two of the owner's fixes from the same session: a Large or Extra Large Now Playing block's drifting title passed over the cover (`cc79e937`), and the confirm and choose dialogs were the dark alert gray under Flat Light's dark ink (`1133e335`). The release's full run (`full --release`, from a worktree on local disk) passed on `1133e335`: 98 passed, 1 unchanged.
 - Mantel 0.1.167, release commit `3f77fcd`, tagged `v0.1.167`; the LXC 0.1.166 -> 0.1.167 (build `996858a1df89cf82`).
 - Images run 43749543218 (stage=images), promote run 43750258385, GitHub Release `v0.1.167`.
 - Strict health 200, all services healthy, mantel-server built from `3f77fcd`, Home Assistant connected for 63 s; no "Traceback" or "ERROR" in Mantel's log.
@@ -991,6 +993,6 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - hk-frontend 1.61.0, commit `2754276`, tagged `hk-frontend/v1.61.0`, copied with rsync --inplace; diff -rq shows no difference.
 - Home Assistant restarted and serves `/hk/panels/hk-settings.js` (49 s from the restart).
 - Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (86 s).
-- Published to jazzphone/hk-frontend main as `ab14ef3`, untagged.
+- Published to jazzphone/hk-frontend main as `ab14ef3`; the release ran without `--github-release`, so `v1.61.0` was tagged on `ab14ef3` and released on GitHub by hand afterward, with publish.py's own steps (an annotated tag as jazzphone, the changelog's 1.61.0 section as the notes), as 1.60.0 was.
 - The Wiki had no changes.
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (living room, master bathroom, master bedroom, office).
