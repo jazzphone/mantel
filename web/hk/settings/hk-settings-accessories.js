@@ -42,7 +42,16 @@
     // checker lets `this` have the properties the shell's class gives it; nothing makes an instance of this.)
     var Methods = class extends /** @type {any} */ (Object) {
       // ---------------------------------------------------------- accessories
+      // (read once per drawing: Accessories asks it for each of its ~30 types, and each walk is every state the house has
+      // -- 4,752 on the owner's, 300 ms a drawing at a slow tablet's speed, 2026-11-15; render() counts drawings)
       accIds() {
+        var memo = this._accIdsMemo;
+        if (memo && memo.gen === this._drawGen && memo.states === this.client.states && memo.data === this.data) return memo.ids.slice();
+        var ids = this.accIdsWalk();
+        this._accIdsMemo = { gen: this._drawGen, states: this.client.states, data: this.data, ids: ids };
+        return ids.slice();
+      }
+      accIdsWalk() {
         var self = this, client = this.client, ents = client.entities || {}, acc = (this.data.accessories || {}).entities || {};
         var chipIds = {}, shown = {};
         (this.data.settings.generated.include_entities || []).forEach(function (id) { shown[id] = true; });
@@ -1025,7 +1034,13 @@
       laundryList() {
         var L = window.hkLaundry, own = this.hs('features.laundry');
         if (Array.isArray(own) && own.length) return own;
-        return L ? L.found(this.client) : [];
+        if (!L) return [];
+        // (found once for a set of states -- Home Assistant hands a new set at each change -- not at every drawing: it walks
+        // the house's devices, 60 ms a drawing on the owner's at a slow tablet's speed)
+        var memo = this._laundryMemo, cl = this.client;
+        if (memo && memo.states === cl.states && memo.devices === cl.devices && memo.entities === cl.entities) return memo.list;
+        this._laundryMemo = { states: cl.states, devices: cl.devices, entities: cl.entities, list: L.found(cl) };
+        return this._laundryMemo.list;
       }
       laundrySaved() { var own = this.hs('features.laundry'); return Array.isArray(own) && own.length > 0; }
       laundrySave(list, keys) {

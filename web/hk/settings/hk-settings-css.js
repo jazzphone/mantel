@@ -38,7 +38,7 @@
       '.sidehead.menubtn{margin-left:-8px}',
       '.sidehead h1{margin:0;font-family:var(--hk-display);font-size:22px;font-weight:700;letter-spacing:.01em}',
       '.search{position:relative;margin:6px 4px 0}',
-      '.search input{width:100%;height:36px;border:0;border-radius:10px;padding:0 30px 0 32px;background:var(--hk-fill);',
+      '.search input{width:100%;height:36px;border:0;border-radius:18px;padding:0 30px 0 32px;background:var(--hk-fill);',
       '  color:var(--hk-label);font:inherit;font-size:16px;outline:none}',
       '.search input::placeholder{color:var(--hk-label2)}',
       '.search input:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--hk-tint) 45%,transparent)}',
@@ -91,10 +91,26 @@
       '.side .gh{padding-left:12px}',
       '.side .cell{padding-left:12px;min-height:44px}',
       '.side .cell.hasic + .cell::before,.side .cell + .cell.hasic::before{left:54px}',
-      '.side a.cell[aria-current="page"]{background:var(--hk-sel);color:#fff}',
-      '.side a.cell[aria-current="page"] .val,.side a.cell[aria-current="page"] .chev,.side a.cell[aria-current="page"] small{color:rgba(255,255,255,.8)}',
+      // THE ROW YOU ARE ON (iPadOS 26): a gray pill, its name in blue, its icon as it is -- no longer a blue fill
+      '.side a.cell[aria-current="page"]{background:var(--hk-fill);color:var(--hk-tint)}',
       '.side a.cell[aria-current="page"]::before,.side a.cell[aria-current="page"] + .cell::before{display:none}',
-      '.side a.cell[aria-current="page"] .tile{box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}',
+      // THE IPAD'S SIDEBAR (iPadOS 26): a panel of its own, 8 px in from the window, its rows straight on it -- no cards,
+      // no lines between them -- and the row you are on a pill. The iPhone's list keeps its cards, as iOS's does.
+      ':host([wide]) .side{width:320px;height:calc(100% - 16px);margin:8px 0 8px 8px;border-right:0;border-radius:26px;',
+      '  background:var(--hk-side);box-shadow:var(--hk-glass-edge);padding:0 12px calc(40px + env(safe-area-inset-bottom,0px))}',
+      ':host([wide]) .sidetop{background:var(--hk-side);padding-top:12px}',
+      ':host([wide]) .side .grp{margin-bottom:14px}',
+      ':host([wide]) .side .gh{font-size:13px;padding:0 12px 4px}',
+      ':host([wide]) .side .cells{background:none;border-radius:0;overflow:visible}',
+      ':host([wide]) .side .cell::before{display:none}',
+      ':host([wide]) .side a.cell{border-radius:12px;min-height:44px}',
+      // the person signed in, first: a round picture, as the Apple Account's
+      '.side .cell.acct .tile{width:44px;height:44px;border-radius:50%;--mdc-icon-size:28px}',
+      '.side .cell.acct{min-height:64px}',
+      '.side .cell.acct .lbl .t{font-size:17px;font-weight:600}',
+      ':host(:not([wide])) .side .cell.acct .tile{width:58px;height:58px;--mdc-icon-size:36px}',
+      ':host(:not([wide])) .side .cell.acct{min-height:76px}',
+      ':host(:not([wide])) .side .cell.acct .lbl .t{font-size:20px}',
       '.side .chev{display:none}',
       ':host(:not([wide])) .side .chev{display:block}',
       '.detail{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;position:relative}',
@@ -102,10 +118,11 @@
       '  padding:0 10px;background:var(--hk-bar);-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8);',
       '  border-bottom:.5px solid transparent;transition:border-color .2s}',
       '.bar.scrolled{border-bottom-color:var(--hk-sep)}',
-      '.bar .back{display:inline-flex;align-items:center;gap:3px;height:44px;max-width:100%;min-width:0;padding:0 8px 0 2px;border:0;',
-      '  background:none;color:var(--hk-tint);font-size:17px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.bar .back svg{width:12px;height:20px;flex:none}',
-      '.bar .back span{overflow:hidden;text-overflow:ellipsis}',
+      // BACK (iOS 26): a round glass button, the chevron alone; the page's name is its label for VoiceOver
+      '.bar .back{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;',
+      '  border:0;border-radius:50%;background:var(--hk-glass);box-shadow:var(--hk-glass-edge);color:var(--hk-label);cursor:pointer}',
+      '.bar .back svg{width:11px;height:19px;flex:none;margin-left:-2px}',
+      '.bar .back span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
       '.bar .mid{flex:1;min-width:0;text-align:center;font-weight:600;font-size:17px;opacity:0;transition:opacity .2s;',
       '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.bar.scrolled .mid{opacity:1}',
@@ -113,12 +130,10 @@
       '.bar .st.err{color:var(--hk-red)}',
       '.bar .st svg{width:13px;height:13px;color:var(--hk-green)}',
       '.bar .lead{flex:1 1 0;min-width:0;display:flex;align-items:center}',
-      '.bar .mid{flex:0 1 auto;max-width:50%}',
-      // the title shows in the bar only once the page scrolls (its large
-      // title gone): until then it takes no room, and the back button's label
-      // is not cut short beside an invisible one ("Living …", 2026-09-30)
-      '.bar:not(.scrolled) .mid{max-width:0}',
-      '.bar:not(.scrolled) .lead{flex:0 1 auto;max-width:calc(100% - 96px)}',
+      '.bar .mid{flex:0 1 auto;max-width:60%}',
+      // A SUB-PAGE'S TITLE IS IN THE BAR, always (iOS 26); a section page's shows there once its header card has
+      // scrolled away
+      '.bar.sub .mid{opacity:1}',
       '.scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;padding-top:52px}',
       '.page{max-width:680px;margin:0 auto;padding:6px 20px calc(80px + env(safe-area-inset-bottom,0px))}',
       // 32px between the columns only: between the title and the settings the
@@ -152,15 +167,17 @@
       '.pvcol.pin .seg{margin-top:8px}',
       // the bar's Preview button: a pin and a word (Pin, Pinned), as a
       // navigation bar's text buttons are; filled while the preview is pinned
-      '.bar .pvtoggle{flex:none;height:32px;margin-right:4px;padding:0 10px 0 7px;border:0;border-radius:16px;background:none;',
-      '  color:var(--hk-tint);display:flex;align-items:center;gap:3px;cursor:pointer;font:inherit;font-size:15px;white-space:nowrap}',
+      // (iOS 26's glass capsule; the word stays -- a pin alone did not say what it does)
+      '.bar .pvtoggle{flex:none;height:36px;margin-right:4px;padding:0 14px 0 11px;border:0;border-radius:18px;background:var(--hk-glass);',
+      '  box-shadow:var(--hk-glass-edge);color:var(--hk-tint);display:flex;align-items:center;gap:4px;cursor:pointer;font:inherit;',
+      '  font-size:15px;white-space:nowrap}',
       '.bar .pvtoggle hk-icon{--mdc-icon-size:18px;width:18px;height:18px;display:flex}',
-      '.bar .pvtoggle[aria-pressed="true"]{background:var(--hk-fill)}',
+      '.bar .pvtoggle[aria-pressed="true"]{background:var(--hk-tint);color:#fff}',
       // A HOST'S WAY OUT (settingsHost().back), over the sidebar's name
       '.hostback{display:inline-flex;align-items:center;gap:3px;height:36px;margin:4px 0 -4px -6px;padding:0 8px 0 2px;color:var(--hk-tint);',
       '  text-decoration:none;font-size:17px}',
       '.hostback svg{width:12px;height:20px;flex:none}',
-      '.code{margin:-14px 0 28px;padding:12px 16px;border-radius:10px;background:var(--hk-cell);color:var(--hk-label);',
+      '.code{margin:-14px 0 28px;padding:14px 20px;border-radius:20px;background:var(--hk-cell);color:var(--hk-label);',
       // YAML keeps its lines (wrapped, its indentation would lie): it scrolls
       // sideways, a size smaller on a phone so most lines fit
       '  font:13px/18px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow-x:auto;user-select:text}',
@@ -173,6 +190,20 @@
       // its 4 px alone put the group against the title (2026-10-31, the owner: "a lot of headings ... really close to
       // the first option" -- Screensaver Options over Same as All Screens)
       '.ph.bare{margin-bottom:20px}',
+      // A SECTION PAGE'S HEADER CARD (iOS 26, General's): its icon from the sidebar, its name, one line of what it is
+      '.ph.hc{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:6px 0 30px;padding:20px 20px 22px;',
+      '  border-radius:26px;background:var(--hk-cell)}',
+      '.ph.hc .hct{width:60px;height:60px;border-radius:14px}',
+      // (the icon's own class pins 22 px: the size has to be on it, as .big's)
+      '.ph.hc .hct .ic{--mdc-icon-size:36px;color:#fff}',
+      '.ph.hc h1.lt,:host([wide]) .ph.hc h1.lt{margin:6px 0 0;font-size:24px;line-height:30px}',
+      '.ph.hc .scope{margin:0}',
+      '.ph.hc .tline{width:100%}',
+      // A SUB-PAGE: its title is the bar's (the h1 stays, for VoiceOver and focus); what it is, a line in the footer's voice
+      '.ph.sub h1.lt{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
+      '.ph.sub{padding-top:8px}',
+      '.ph.sub .scope{margin:0 16px 22px;font-size:13px;line-height:18px}',
+      '.ph.sub.bare{margin-bottom:12px}',
       '.scope{margin:0 0 24px;font-size:15px;line-height:20px;color:var(--hk-label2)}',
       // A SCREEN'S NAME, with its pencil (renaming the dashboard): the pencil
       // beside the title, centered on its line; the field the same size as the
@@ -192,7 +223,7 @@
       '.renform .no{background:var(--hk-fill);color:var(--hk-label)}',
       '.renerr{margin:2px 0 8px;font-size:14px;line-height:18px;color:var(--hk-red)}',
       '.scope b{font-weight:600;color:var(--hk-label)}',
-      '.pvbox{position:relative;width:100%;aspect-ratio:16/10;margin:0 auto;border-radius:12px;overflow:hidden;background:#000;',
+      '.pvbox{position:relative;width:100%;aspect-ratio:16/10;margin:0 auto;border-radius:18px;overflow:hidden;background:#000;',
       '  box-shadow:0 0 0 .5px var(--hk-sep)}',
       // the size picker under the preview: the kit's segmented control, a glyph
       // over each name. A name never wraps: when one will not fit on its line
@@ -212,7 +243,7 @@
       '.pvdim{font-variant-numeric:tabular-nums}',
       '.pvbox iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;transform-origin:0 0;pointer-events:none}',
       '.pvhead{display:flex;align-items:baseline;justify-content:space-between;padding:0 4px 8px}',
-      '.pvhead span{font-size:13px;text-transform:uppercase;color:var(--hk-label2)}',
+      '.pvhead span{font-size:15px;font-weight:600;color:var(--hk-label2)}',
       '.pvhead a{font-size:15px;padding:12px 4px;margin:-12px -4px}',
       '.pvcol .gf{padding-left:4px}',
       '.accwrap{--acc-cell:var(--hk-cell);--acc-sep:var(--hk-sep);--acc-label:var(--hk-label);--acc-text:var(--hk-label);',
@@ -220,11 +251,11 @@
       '  --acc-seg:var(--hk-seg);--acc-seg-on:var(--hk-seg-on);--acc-glyph:var(--hk-fill);--acc-glyph-on-bg:var(--hk-tint);',
       '  --acc-glyph-on-fg:#fff;--acc-red:var(--hk-red);--acc-green:var(--hk-green);--acc-orange:var(--hk-orange);font-size:var(--hk-body)}',
       '.accwrap .acc{gap:26px}',
-      '.accwrap .acc .cap{padding:0 16px 7px;font-weight:400;letter-spacing:0}',
+      '.accwrap .acc .cap{padding:0 16px 8px;font-size:15px;font-weight:600;letter-spacing:-.01em;text-transform:none}',
       // (the kit's own .grp margin is not for this pane's groups: it doubled
       // every gap on an accessory's page)
-      '.accwrap .acc .grp{border-radius:10px;margin:0}',
-      '.accwrap .acc .row{min-height:44px}',
+      '.accwrap .acc .grp{border-radius:26px;margin:0}',
+      '.accwrap .acc .row{min-height:var(--hk-row)}',
       '.accwrap .acc .note{padding:0 16px}',
       '.dated{display:flex;gap:6px;flex:none}',
       '.dated .pop{background:var(--hk-fill);border-radius:7px;padding:5px 10px;color:var(--hk-label)}',

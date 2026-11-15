@@ -888,7 +888,7 @@ export function extend(where, c, ctx, tools) {
   const switched = settleImport(ctx, key);
   const m =/^mantel-photos:\/\/([0-9a-f]{16})$/.exec(String(ctx.photos || ''));
   const cur = m ? m[1] : '';
-  const opts = [['', 'The Home Assistant Folder (Above)']].concat(d.albums.map((a) => [a.id, a.name]));
+  const opts = [['', 'The Home Assistant Folder']].concat(d.albums.map((a) => [a.id, a.name]));
   if (m && !named(m[1])) opts.push([m[1], 'An Album That Was Deleted']);
   opts.push([NEW, 'New Album…']);
   const add = adder(cur);

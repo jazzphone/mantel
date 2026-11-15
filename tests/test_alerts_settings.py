@@ -173,7 +173,7 @@ out.apps = apps.kids.map((g) => g.rows.map((r) => [r.label, r.value]));
 // Me
 out.me = {};
 for (const [name, me] of [['owner', owner], ['admin', admin], ['adult', adult]]) {
-  const mine = await draw(me, ['mantel', 'me']);
+  const mine = await draw(me, ['mantel', 'me', 'notifications']);
   const t = find(mine.kids, 'System Alerts', 'toggle');
   out.me[name] = !!t;
   if (name === 'owner') {
@@ -227,9 +227,10 @@ def test_the_alerts_page_and_the_files_it_changes_parse(tmp_path):
 def test_alerts_sits_beside_connections_and_backups_for_owners_and_admins_only(run):
     for who in ("owner", "admin"):
         s = run["sidebar"][who]
-        assert s["routes"].index("mantel/alerts") == s["routes"].index("mantel/backups") + 1, who
+        # (phase 32: System Alerts is in Alerts & Activity, before the household and Mantel's own groups)
+        assert s["routes"].index("mantel/alerts") < s["routes"].index("mantel/connections"), who
         assert "mantel/alerts" in s["search"] and s["forward"] == "mantel/alerts"
-        assert s["titles"]["alerts"] == "Alerts" and s["titles"]["add"] == "Add Channel"
+        assert s["titles"]["alerts"] == "System Alerts" and s["titles"]["add"] == "Add Channel"
         assert s["titles"]["add/apprise"] == "Add Channel" and s["titles"]["channel/c1"] == "Channel"
         assert [s["titles"][k] for k in ("apps", "history", "advanced")] == ["Mantel Apps", "History", "Advanced"]
     a = run["sidebar"]["adult"]            # an address of a page the role may not use opens Me instead
@@ -238,8 +239,9 @@ def test_alerts_sits_beside_connections_and_backups_for_owners_and_admins_only(r
 
 def test_the_channels_list_shows_status_type_name_and_last_sent_or_the_last_error(run):
     m = run["main"]
-    assert "sealed end to end" in m["scope"] and "Discord, Telegram, Notifiarr" in m["scope"]
+    assert m["scope"].count(".") == 1 and "Home Assistant disconnecting" in m["scope"]          # what the page is, in one sentence
     channels = m["groups"][0]
+    assert "sealed end to end" in channels["footer"] and "Discord, Telegram, Notifiarr" in channels["footer"]
     assert channels["header"] == "Channels"
     rows = {r[0]: r for r in channels["rows"]}
     assert rows["House Chat"][2] == "Discord" and rows["House Chat"][1].startswith("Last sent ")

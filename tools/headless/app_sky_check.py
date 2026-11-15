@@ -41,6 +41,8 @@ SCREEN = 'app-sky'
 async def main():
     from aiohttp.test_utils import TestServer
     # (a still page: the ceiling fan off, or its tile spins and the page keeps its sky -- hk-sky-handover.js pageMoves)
+    # (its own Android tablets, Loft and Den, are in the living room: the gallery's Hallway there stays Fully Kiosk)
+    gallery.ANDROID_HALLWAY = False
     area, (_, attrs) = gallery.HOUSE['fan.bedroom_ceiling']
     gallery.HOUSE['fan.bedroom_ceiling'] = (area, ('off', {**attrs, 'percentage': 0}))
     gallery.SETTINGS['boards'][SCREEN] = {

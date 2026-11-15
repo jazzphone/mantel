@@ -1,7 +1,7 @@
 // mantel-settings.js -- Mantel's own pages in Mantel Settings (HK's settings panel with Mantel's host).
 //
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
-// "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Roles & Grants, Audit Log, Connections (Home
+// "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Roles & Permissions, Audit Log, Connections (Home
 // Assistant with Mantel Link, HK Frontend and Mantel Connect; Music Assistant), Cameras (RTSP cameras Mantel plays itself), Intercom (talk to the rooms; docs/phase17/INTERCOM.md), Alerts (where
 // Mantel sends what goes wrong), Timeline (what the House Timeline records), Your Files (with Photos,
 // mantel-photos.js), Service Accounts and Assistants (MCP), and Mantel's groups on HK's own wall tablet pages; every one drawn with HK Settings' own kit
@@ -18,7 +18,7 @@
 // @ts-check
 import { mantelUrl, base as BASE } from './base.js';
 import * as photos from './mantel-photos.js';
-import { api, C, cache, can, drafts, forgetFailed, manages, me, panel, refreshMe, roleLabel, ROUTE, setMe, setPanel, shown, ui }
+import { api, C, cache, can, K, drafts, forgetFailed, manages, me, panel, refreshMe, roleLabel, ROUTE, setMe, setPanel, shown, ui }
   from './settings/core.js';
 import { ensureStyle, stepUp } from './settings/kit.js';
 import { pMe } from './settings/me.js';
@@ -37,8 +37,7 @@ import { pConnections } from './settings/connections.js';
 import { pCameras } from './settings/cameras.js';
 import { pIntercom } from './settings/intercom.js';
 import { drawDirect, pressTablets } from './settings/tablets.js';
-import { drawAllTablets, drawTabletApp } from './settings/tablet-app.js';
-import { drawAppRelease } from './settings/tablet-release.js';
+import { androidRow, drawTabletApp, drawTabletAppAdvanced } from './settings/tablet-app.js';
 import { drawHaDashboard, drawWhere, pAddScreen } from './settings/ha-screens.js';
 import { pAudit } from './settings/audit.js';
 import { pSetup, setupOpen } from './settings/setup.js';
@@ -46,27 +45,30 @@ import { pGeneral } from './settings/general.js';
 import { pAbout } from './settings/about.js';
 export { api, manages };
 
-// the pages, in the sidebar's order: [section, title, icon, color, place, group header]
+// the pages, in the sidebar's order: [section, title, icon, color, place, group header]. Phase 32 (iOS 26 Settings'
+// order): each joins the panel's group of that name (HK's SIDE: Devices, Alerts & Activity, Household, Developer), or,
+// for Mantel's own, its group where the panel keeps a host's. 'none': a page with no row of its own -- Cameras is a
+// group on the Cameras page, Set Up Mantel leads the list while it has steps left.
 const PAGES = [
   ['me', 'Me', 'mdi:account-circle', C.gray, 'top'],
-  ['people', 'People', 'mdi:account', C.blue, 'end', 'People & Access'],
-  ['roles', 'Roles & Grants', 'mdi:shield-lock', C.indigo, 'end', 'People & Access'],
-  ['audit', 'Audit Log', 'mdi:history', C.gray, 'end', 'People & Access'],
+  ['intercom', 'Intercom', 'mdi:microphone', C.orange, 'end', 'Devices'],
+  ['alerts', 'System Alerts', 'mdi:alert-circle', C.red, 'end', 'Alerts & Activity'],
+  ['timeline', 'Timeline', 'mdi:timeline', C.orange, 'end', 'Alerts & Activity'],
+  ['people', 'People', 'mdi:account-multiple', C.blue, 'end', 'Household'],
+  ['roles', 'Roles & Permissions', 'mdi:shield-lock', C.indigo, 'end', 'Household'],
+  ['audit', 'Audit Log', 'mdi:history', C.gray, 'end', 'Household'],
   ['general', 'General', 'mdi:cog', C.gray, 'end', 'Mantel'],
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
-  ['cameras', 'Cameras', 'mdi:cctv', C.teal, 'end', 'Mantel'],
-  ['intercom', 'Intercom', 'mdi:microphone', C.orange, 'end', 'Mantel'],
-  ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
   ['backups', 'Backups', 'mdi:safe', C.blue, 'end', 'Mantel'],
-  ['alerts', 'Alerts', 'mdi:bell-ring', C.red, 'end', 'Mantel'],
-  ['timeline', 'Timeline', 'mdi:timeline', C.orange, 'end', 'Mantel'],
-  ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'end', 'Mantel'],
+  ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
   ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
-  ['service', 'Service Accounts', 'mdi:key-variant', C.brown, 'end', 'Advanced'],
-  ['assistants', 'Assistants (MCP)', 'mdi:robot', C.indigo, 'end', 'Advanced'],
+  ['service', 'Service Accounts', 'mdi:key-variant', C.brown, 'end', 'Developer'],
+  ['assistants', 'Assistants (MCP)', 'mdi:robot', C.indigo, 'end', 'Developer'],
+  ['cameras', 'Direct Cameras', 'mdi:cctv', C.teal, 'none'],
+  ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'none'],
 ];
 // Photos is inside Your Files (#/mantel/files/photos): its old addresses forward there. Devices is each wall tablet's
-// own page now (All Screens, Wall Tablets: extend 'tablet' and 'tablets', below); Mantel Connect is in Connections,
+// own page now (Wall Tablets: extend 'tablet' and 'tablets', below); Mantel Connect is in Connections,
 // Home Assistant. Their old addresses forward there (OLD_PAGES).
 const OLD_PAGES = { devices: 'house/tablets', connect: ROUTE + '/connections/ha/sidebar' };
 // The words Mantel puts on HK's own pages where Mantel differs (the panel's host notes)
@@ -114,15 +116,16 @@ export const host = {
   },
   // a wall tablet's Home Assistant user is Mantel's (its 'tablet' group), not HK's Tablet User; the font and
   // glyphs are in Your Files (Mantel's data), not HK Frontend's folder; HA's sidebar entry is HK Frontend's
-  get owns() { return { tablet_user: true, files: ROUTE + '/files', sidebar: true }; },
+  // (setup: Mantel's own checklist, Set Up Mantel, stands for HK's Setup Check -- phase 32)
+  get owns() { return { tablet_user: true, files: ROUTE + '/files', sidebar: true, setup: true }; },
   groups() {
     if (!me) return [];
     const out = [];
     const u = me.user;
     out.push({ place: 'top', rows: [{ route: ROUTE + '/me', label: u.name || u.username || 'Me', sub: roleLabel(u.role) + ' · Sign-In, Passkeys, Sessions',
-                                      tile: ['mdi:account-circle', C.gray], root: !manages() }] });
+                                      tile: ['mdi:account-circle', C.gray], root: !manages(), cls: 'acct' }] });
     // while setup is open it leads the list too, with how far it has got
-    if (setupOpen()) out.push({ place: 'top', rows: [{ route: ROUTE + '/setup', label: 'Set Up Mantel', sub: 'What Mantel still needs',
+    if (setupOpen()) out.push({ place: 'top', rows: [{ route: ROUTE + '/setup', label: 'Finish Setting Up Mantel', sub: 'What Mantel still needs',
                                                        tile: ['mdi:clipboard-check', C.green] }] });
     const heads = {};
     for (const [s, title, icon, color, place, header] of PAGES) {
@@ -148,6 +151,7 @@ export const host = {
   // /admin's addresses (#connections, #people ...) and the page's own first-run choice
   forward(path) {
     if (PAGES.some(([s]) => s === path)) return ROUTE + '/' + path;
+    // (Setup Check stays HK's page, reached from Set Up Mantel; the panel's own Overview row for it opens it as before)
     const old = /^(?:mantel\/)?(devices|connect)$/.exec(path);
     if (old) return OLD_PAGES[old[1]];
     // an alert's link to Advanced -> Features (feature.enabled, features/auto.py): HK's own page
@@ -177,13 +181,24 @@ export const host = {
   },
   extend(where, c, ctx, p) {
     if (p) { setPanel(p); ensureStyle(p.shadowRoot); }
-    if (where === 'tablet' && me && ctx && ctx.tablet) { let app = false; if (can('devices')) { drawTabletMantel(c, ctx); app = drawTabletApp(c, ctx); } if (!app && ctx.app !==
-      'android_app') drawDirect(c, ctx); }
-    if (where === 'tablets' && me && can('devices')) { drawAllTablets(c, ctx, p); drawAppRelease(c); drawTabletsMantel(c); }
+    // phase 32: a wall tablet's page is the same groups for every kiosk app; Mantel adds rows to them (Screen & Room, Display, Access, Reload,
+    // Sign Out) and its own groups to the tablet's Advanced page (the app's, or the kiosk app's Direct Connection)
+    if (where === 'tablet' && me && ctx && ctx.tablet && can('devices')) { drawTabletMantel(ctx); drawTabletApp(ctx); }
+    if (where === 'tablet-advanced' && me && ctx && ctx.tablet) {
+      const app = can('devices') && drawTabletAppAdvanced(c, ctx);
+      if (!app && ctx.app !== 'android_app') drawDirect(c, ctx);
+    }
+    if (where === 'tablets-pages' && me && can('devices') && ctx && Array.isArray(ctx.rows)) { const row = androidRow(); if (row) ctx.rows.push(row); }
+    if (where === 'tablets' && me && can('devices')) drawTabletsMantel(c);
     if (where === 'screen' && me && ctx && ctx.screen) { drawWhere(c, ctx); if (!ctx.where || ctx.where.where !== 'ha') drawHaDashboard(c, ctx); }
     if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);
     // phase 31: notifications on the Apple TVs, on HK's Notifications page and each notification's (settings/appletv.js)
     if (where === 'notify' && manages()) drawNotifyTv(c, ctx || {});
+    // phase 32: Mantel's direct cameras on HK's Cameras page (one Cameras in the sidebar)
+    if (where === 'page-cameras' && me && can('cameras')) {
+      c.appendChild(K().group({ header: 'Direct Cameras', footer: 'RTSP cameras Mantel plays itself, without Home Assistant in the middle.' },
+        [K().nav({ tile: ['mdi:cctv', C.teal], label: 'Direct Cameras', href: '#/' + ROUTE + '/cameras', fk: 'mx:page-cameras' })]));
+    }
     if (where === 'notify-item' && manages()) drawItemTv(c, ctx || {});
   },
   search() {
@@ -195,6 +210,8 @@ export const host = {
       : s === 'timeline' ? 'timeline history recorded doors locks garage alarm arrivals doorbell detections retention pictures morning summary digest clear' : s }));
     if (manages()) out.push({ label: 'Apple TV', route: ROUTE + '/' + APPLE_TV, where: 'Notifications',
                               words: 'apple tv notifications homekit camera picture television alerts corner' });
+    if (can('devices')) out.push({ label: 'Mantel for Android', route: ROUTE + '/devices/android', where: 'Wall Tablets',
+                                    words: 'android tablet app updates apk keep screen on scale airplay renderer fleet every tablet' });
     if (can('photos')) out.push({ label: 'Photos', route: ROUTE + '/' + photos.SECTION, where: 'Mantel → Your Files', words: 'photos albums upload screensaver pictures' });
     return out;
   },

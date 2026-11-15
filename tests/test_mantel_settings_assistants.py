@@ -72,6 +72,11 @@ const out = {};
 out.groups = m.host.groups.call ? (m._reset(data.me.owner), m.host.groups()) : null;
 let g = await open(data.me.owner, ['mantel', 'assistants']);
 out.owner = g;
+// off: the switch and its words, nothing that does nothing until it is on
+reads['/api/mcp'].settings = { ...reads['/api/mcp'].settings, mcp_enabled: false };
+out.off = await open(data.me.owner, ['mantel', 'assistants']);
+reads['/api/mcp'].settings.mcp_enabled = true;
+g = await open(data.me.owner, ['mantel', 'assistants']);
 await find(g, 'Allow Assistants').onChange(true);
 await find(g, 'Changes per Minute').onChange('120');
 await find(g, 'Revoke Claude Code…').onClick();
@@ -110,7 +115,7 @@ def me(uid, role):
             "connect_port": None, "ha_set_up": True}
 
 
-SETTINGS = {"mcp_enabled": False, "mcp_away": False, "mcp_commands": False, "mcp_write_rate": 60, "mcp_key_days": 30}
+SETTINGS = {"mcp_enabled": True, "mcp_away": False, "mcp_commands": False, "mcp_write_rate": 60, "mcp_key_days": 30}
 GRANTS = [{"id": "g1", "kind": "key", "user_id": "u1", "name": "Claude Code", "person": "Fictional owner",
            "scopes": ["read", "settings", "screens"], "away": False, "created": 0, "expires": 1e9, "last_used": None,
            "last_ip": None, "revoked": None, "state": "live"},
@@ -162,8 +167,8 @@ def labels(page):
     return [r["label"] for r in rows(page)]
 
 
-def test_it_is_under_advanced(got):
-    adv = [g for g in got["groups"] if g.get("header") == "Advanced"]
+def test_it_is_under_developer(got):
+    adv = [g for g in got["groups"] if g.get("header") == "Developer"]
     assert adv and [r["label"] for r in adv[0]["rows"]] == ["Service Accounts", "Assistants (MCP)"]
 
 
@@ -182,6 +187,15 @@ def test_an_owner_sets_the_switches_and_revokes(got):
     assert got["asked"] == ["Allow assistants?", "Revoke Claude Code?"]
     desktop = next(r for r in rows(page) if r["label"] == "Claude Desktop")
     assert "Signed in" in desktop["sub"] and "for Fictional admin" in desktop["sub"] and "from away too" in desktop["sub"]
+
+
+def test_with_assistants_off_only_the_switch_and_what_exists_are_drawn(got):
+    page = got["off"]
+    names = labels(page)
+    assert "Allow Assistants" in names
+    for gone in ("Signed-In Assistants from Away", "Assistants May Control the House", "Changes per Minute", "New Keys Last", "Address"):
+        assert gone not in names, gone
+    assert "Off, /mcp refuses everyone" in page["groups"][0]["footer"]
 
 
 def test_a_new_key_is_shown_once_with_its_command(got):

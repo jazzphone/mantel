@@ -1,8 +1,10 @@
 // settings/devices.js -- Mantel Settings, Devices: wall tablets and the devices signed in as them, enrolling this browser.
 import { mantelUrl } from '../base.js';
-import { act, ago, api, ask, cache, ERRORS, fmt, hh, K, load, me, redraw, roleLabel, ui } from './core.js';
-import { button, choose, clearDraft, draft, failed, field, group, info, nav, pending, result, screenPicker } from './kit.js';
+import { act, ago, api, ask, cache, ERRORS, fmt, hh, K, load, me, panel, redraw, roleLabel, ui } from './core.js';
+import { button, choose, clearDraft, draft, failed, field, flashRow, group, info, nav, pending, result, screenOptions, screenPicker } from './kit.js';
+import { drawAccess } from './access.js';
 import { haPeopleRead, standIn } from './people.js';
+import { pAndroid, pTabletScreen } from './tablet-app.js';
 
 // ============================================================================================ Devices
 const devicesRead = () => load('devices', () => api('GET', '/api/devices'));
@@ -38,13 +40,13 @@ function roomChoice(form, rooms, self, onTablet, makes = false) {
   const out = [
     group(
     { header: 'Which HK Tablet', footer: tablets.length ?
-    'Its touches and black screen reach Mantel as this HK tablet’s (All Screens, Wall Tablets). “In Use”: an enrolled device is already in its room.'
-    : makes ? 'HK has no wall tablets in Mantel’s settings yet: choose A New Tablet and its room.' : 'HK has no wall tablets in Mantel’s settings yet (All Screens, Wall Tablets).' }, rows)];
+    'Its touches and black screen reach Mantel as this HK tablet’s (Wall Tablets). “In Use”: an enrolled device is already in its room.'
+    : makes ? 'HK has no wall tablets in Mantel’s settings yet: choose A New Tablet and its room.' : 'HK has no wall tablets in Mantel’s settings yet (Wall Tablets).' }, rows)];
   if (d.other) {
     const areas = (rooms && rooms.areas) || [];
     if (d.room && !areas.some((a) => a.id === d.room)) d.room = '';
     out.push(group({ footer: !areas.length ? 'Home Assistant has not told Mantel about any areas yet.'
-      : makes ? 'Mantel adds an HK wall tablet in this room, named as below, so its idle return, screensaver and black screen work at once. Change them later in All Screens, Wall Tablets.'
+      : makes ? 'Mantel adds an HK wall tablet in this room, named as below, so its idle return, screensaver and black screen work at once. Change them later in Wall Tablets.'
       : 'With no HK tablet in its room, its touches and black screen won’t reach Mantel.' },
       areas.length ? [choose(form, 'room', 'Room', [['', 'Choose…']].concat(areas.map((a) => [a.id, a.name])), '')] : []));
   }
@@ -57,29 +59,55 @@ function roomBody(form) {
   if (d.other && d.room) return { room: d.room };
   return null;
 }
-// WALL TABLETS, ONE PLACE (All Screens, Wall Tablets): a wall tablet's page is HK's (its screen, room, kiosk app,
-// idle and sleep), and Mantel adds what is Mantel's to it (extend 'tablet'): the browser signed in to Mantel as
-// that tablet (an enrolled device: its credential, last seen, Sign Out), the Home Assistant user it is if it also
-// opens Home Assistant (people_ha.py, the tablet link), and its kiosk app's direct connection. The list of tablets
-// gets what belongs to none of them (extend 'tablets'): devices in a room no HK tablet has, and the signed-out ones.
+// WALL TABLETS, ONE PLACE (Wall Tablets): a wall tablet's page is HK's (its screen, room, kiosk app,
+// idle and sleep), and Mantel adds what is Mantel's to its groups (extend 'tablet', as ROWS in the page's own groups: Phase 32):
+// Screen & Room gets where it opens and what its grants reach; Access is the browser signed in to Mantel as it (an enrolled
+// device: its credential, last seen, its role and what that role can do, the Home Assistant user it is if it also opens
+// Home Assistant, Pair a Tablet App); Sign Out is red and last. The list of tablets gets what belongs to none of them
+// (extend 'tablets'): devices in a room no HK tablet has, the signed-out ones, and signing in this browser.
 // A device speaks for the HK tablets in its own room (devices.tablets_in: `hk_tablets`).
 const tabletRows = (tid) => ((devicesRead() || {}).data || { devices: [] }).devices.filter((d) => !d.revoked && (d.hk_tablets || []).includes(tid));
-export function drawTabletMantel(c, ctx) {
-  const got = devicesRead();
-  if (!got) { pending(c, 'Reading who is signed in as this tablet…'); return; }
-  if (got.err) { failed(c, got.err); return; }
-  const tid = ctx.tablet, key = 'tablet-mantel:' + tid, owner = me.user.role === 'owner';
-  const mine = tabletRows(tid);
-  result(c, key);
+// ONE ROOM (the owner, 2026-11-15, "no consistency"): a tablet's Room on its page is HK's and its Mantel device's, and the rooms its
+// grants reach (rbac scopes: what "their areas" means) follow it. Where the grants reach other rooms, the page says so and offers one tap.
+const scopeKey = (id) => 'scope:device:' + id;
+const scopeRead = (id) => load(scopeKey(id), () => api('GET', '/api/rbac/scopes/device/' + encodeURIComponent(id)));
+function roomRows(ctx, mine, key) {
   const rows = [];
   for (const dv of mine) {
-    rows.push(info(mine.length > 1 ? dv.name : 'Signed In to Mantel', ['last seen ' + ago(dv.last_seen), dv.source_ip, 'since ' + fmt(dv.created)].filter(Boolean).join(' · '),
-                   mine.length > 1 ? 'Signed In' : dv.name));
+    const sc = scopeRead(dv.id);
+    const areas = sc && sc.data && Array.isArray(sc.data.areas) ? sc.data.areas : [];
+    if (!areas.length || !ctx.room || (areas.length === 1 && areas[0] === ctx.room)) continue;
+    const names = areas.map((a) => panel && panel.areaName ? panel.areaName(a) : titleCase(a));
+    const here = panel && panel.areaName ? panel.areaName(ctx.room) : titleCase(ctx.room);
+    rows.push(info('Rooms in Its Grants' + (mine.length > 1 ? ' (' + dv.name + ')' : ''),
+                   '“Their areas” in a grant for it reaches ' + names.join(', ') + ', not only ' + here + '.', names.length + (names.length === 1 ? ' Room' : ' Rooms'), 'warn'));
+    rows.push(button('Make It Just ' + here, () => act(key, () => api('PUT', '/api/rbac/scopes/device/' + encodeURIComponent(dv.id), { areas: [ctx.room] }),
+      'Its grants reach ' + here + '.', scopeKey(dv.id)), { fk: 'mx:one-room:' + dv.id }));
+  }
+  return rows;
+}
+export function drawTabletMantel(ctx) {
+  const got = devicesRead();
+  const access = ctx.rows.access;
+  if (!got) { access.push(info('Signed In As', null, 'Reading…')); return; }
+  if (got.err) { access.push(info('Signed In As', got.err.message || 'It could not be read.', 'Not Read', 'warn')); return; }
+  const tid = ctx.tablet, key = 'tablet-mantel:' + tid, owner = me.user.role === 'owner';
+  const mine = tabletRows(tid);
+  const fl = flashRow(key);
+  if (fl) access.push(fl);
+  const many = mine.length > 1;
+  for (const dv of mine) {
+    const sfx = many ? ' (' + dv.name + ')' : '';
+    access.push(info('Signed In As' + sfx, ['last seen ' + ago(dv.last_seen), dv.source_ip, 'since ' + fmt(dv.created)].filter(Boolean).join(' · '), dv.name));
+    access.push(info('Role' + sfx, null, roleLabel(dv.role)));
+  }
+  // (What It Can Do: the same Access a person's page draws -- access.js -- for this device, its grants and rooms)
+  for (const dv of mine) {
+    access.push(nav('What It Can Do', 'devices/access/' + encodeURIComponent(dv.id), { sub: many ? dv.name : undefined }));
   }
   if (!mine.length) {
-    rows.push(info('Signed In to Mantel', null, 'Not Yet', 'warn'));
-    rows.push(me.door === 'lan' ? nav('Sign In This Browser as ' + (ctx.name || 'This Tablet') + '…', 'devices/enroll/' + encodeURIComponent(tid), { icon: 'mdi:tablet' })
-      : info('Sign In This Browser as This Tablet', null, 'Home Network Only'));
+    access.push(info('Signed In As', null, 'Not Yet', 'warn'));
+    if (me.door === 'lan') access.push(nav('Sign In This Browser as ' + (ctx.name || 'This Tablet') + '…', 'devices/enroll/' + encodeURIComponent(tid), { icon: 'mdi:tablet' }));
   }
   // the Home Assistant user it is, only if it also opens Home Assistant: one per tablet
   const hp = haPeopleRead(), users = (hp && hp.data && hp.data.users) || null;
@@ -87,11 +115,11 @@ export function drawTabletMantel(c, ctx) {
   if (haUsers) {
     for (const dv of mine) {
       const cur = users.find((u) => u.tablet && u.tablet.device_id === dv.id);
-      const label = 'Home Assistant User' + (mine.length > 1 ? ' (' + dv.name + ')' : '');
-      if (!owner) { rows.push(info(label, null, cur ? cur.name : 'None')); continue; }
+      const label = 'Home Assistant User' + (many ? ' (' + dv.name + ')' : '');
+      if (!owner) { access.push(info(label, null, cur ? cur.name : 'None')); continue; }
       const free = users.filter((u) => u === cur || (!u.admin && !u.tablet && (!u.person || standIn(u))));
       const opts = [['', 'None'], ...free.map((u) => [u.id, u.name + (u !== cur && standIn(u) ? ' (now a Wall Tablet account)' : '')])];
-      rows.push(K().select({ label, options: opts, value: cur ? cur.id : '', fk: 'mx:dev-ha:' + dv.id,
+      access.push(K().select({ label, sub: 'Only if the tablet also opens Home Assistant', options: opts, value: cur ? cur.id : '', fk: 'mx:dev-ha:' + dv.id,
         onChange: async (v) => {
           const was = users.find((u) => u.id === v);
           if (was && standIn(was) && !(await ask({ title: 'Make ' + was.name + ' this tablet’s?', message: 'It is linked to the Wall Tablet account “' + (was.person.name || was.name) +
@@ -101,31 +129,42 @@ export function drawTabletMantel(c, ctx) {
         } }));
     }
   }
-  // where it opens: its Screen above, unless a device was given its own (kept, so it can be put back)
-  const ds = load('dscreens', () => api('GET', '/api/default-screens'));
-  if (ds && ds.data) {
-    for (const dv of mine.filter((x) => ds.data.devices[x.id])) {
-      rows.push(screenPicker(key, 'Opens On' + (mine.length > 1 ? ' (' + dv.name + ')' : ''), 'Instead of its Screen, above', ds.data.devices[dv.id], ds.data.screens, 'Its Screen',
-                             (v) => api('PUT', '/api/devices/' + encodeURIComponent(dv.id) + '/default-screen', { screen: v })));
-    }
-  }
   // A TABLET APP PAIRED BY CODE (docs/phase26/ANDROID-APP.md): no password typed on the tablet; the code works once
-  if (me.user.role === 'owner' || me.user.role === 'admin') rows.push(button('Pair a Tablet App…', async () => {
+  if (me.user.role === 'owner' || me.user.role === 'admin') access.push(button('Pair a Tablet App…', async () => {
     const out = await act(key, () => api('POST', '/api/devices/claim-codes', { tablet: tid }), null);
     if (out && out.code) await ask({ title: 'Pairing Code: ' + out.code, ok: 'Done',
       message: 'On the tablet, enter it in Mantel for Android’s setup, or open ' + location.origin + mantelUrl('/device/claim') +
         ' in its browser. It works once, on the home network, for the next 10 minutes.' });
   }, { fk: 'mx:claim-code:' + tid }));
-  for (const dv of mine) rows.push(button('Sign Out ' + (mine.length > 1 ? dv.name : 'This Tablet') + '…', async () => {
+  // ONE ROOM: the device follows the tablet's Room, and so do the grants' rooms that were just its room
+  if (mine.length) {
+    ctx.onRoom.push((room, was) => {
+      if (!room) return;
+      for (const dv of mine) {
+        const sc = scopeRead(dv.id);
+        const areas = sc && sc.data && Array.isArray(sc.data.areas) ? sc.data.areas : [];
+        act(key, async () => {
+          await api('PATCH', '/api/devices/' + encodeURIComponent(dv.id), { room });
+          if (areas.length === 1 && areas[0] === was) await api('PUT', '/api/rbac/scopes/device/' + encodeURIComponent(dv.id), { areas: [room] });
+        }, null, 'devices', 'devrooms', scopeKey(dv.id));
+      }
+    });
+  }
+  ctx.rows.place.push(...roomRows(ctx, mine, key));
+  // where it opens: its Screen above, unless a device was given its own (kept, so it can be put back)
+  const ds = load('dscreens', () => api('GET', '/api/default-screens'));
+  if (ds && ds.data) {
+    for (const dv of mine.filter((x) => ds.data.devices[x.id])) {
+      ctx.rows.place.push(screenPicker(key, 'Opens On' + (many ? ' (' + dv.name + ')' : ''), 'Instead of its Screen, above', ds.data.devices[dv.id], ds.data.screens, 'Its Screen',
+                                       (v) => api('PUT', '/api/devices/' + encodeURIComponent(dv.id) + '/default-screen', { screen: v })));
+    }
+  }
+  for (const dv of mine) ctx.rows.danger.push(button('Sign Out ' + (many ? dv.name : 'This Tablet') + '…', async () => {
     if (!(await ask({ title: 'Sign out ' + dv.name + '?', message: 'Mantel refuses it at once. To use it again, sign it in here from the tablet itself.', ok: 'Sign Out', destructive: true }))) return;
     act(key, () => api('DELETE', '/api/devices/' + encodeURIComponent(dv.id)), dv.name + ' is signed out.', 'devices', 'devrooms', 'hapeople');
   }, { destructive: true, fk: 'mx:revoke-device:' + dv.id }));
-  c.appendChild(group({ header: 'Mantel', footer: (mine.length ? 'The browser on this tablet keeps its own credential, so nobody signs in at the tablet. '
-      : 'Open Mantel Settings on the tablet itself, signed in as an Owner or Admin, and sign it in from this page there. ') +
-    (haUsers ? 'Home Assistant User: only if the tablet also opens Home Assistant (Mantel in its sidebar), so Home Assistant’s user is known as this tablet.' +
-      (owner ? '' : ' Only an Owner can change it.') : '') }, rows));
 }
-// the list's own: devices no HK tablet has, and the signed-out ones (Clear List)
+// the list's own: devices no HK tablet has, the signed-out ones (Clear List), and signing in this browser
 export function drawTabletsMantel(c) {
   const got = devicesRead();
   if (!got || got.err) return;
@@ -133,29 +172,44 @@ export function drawTabletsMantel(c) {
   const lost = all.filter((d) => lostTablet(d, tablets));
   const gone = all.filter((d) => d.revoked);
   result(c, 'devices');
-  if (lost.length) c.appendChild(group({ header: 'Signed In to Mantel, Not on a Tablet',
+  if (lost.length) c.appendChild(group({ header: 'Signed In, Not on a Tablet',
     footer: hh('span', { class: 'mxerr', text: 'In a room no wall tablet above has, so their touches and black screen don’t reach Mantel. Open each to choose its tablet.' }) },
     lost.map((d) => nav(d.name, 'devices/' + encodeURIComponent(d.id), { sub: [d.room ? titleCase(d.room) : 'No room', 'last seen ' + ago(d.last_seen), d.source_ip].filter(Boolean).join(' · '),
       value: 'Choose Tablet', icon: 'mdi:tablet' }))));
+  if (me.door === 'lan') {
+    c.appendChild(group({ footer: 'On the tablet itself, signed in as an Owner or Admin: this browser becomes a wall tablet, and you are signed out here.' },
+      [nav('Sign In This Browser as a Wall Tablet…', 'devices/enroll', { icon: 'mdi:tablet' })]));
+  }
   if (gone.length) c.appendChild(group({ header: 'Signed Out', footer: 'Browsers signed out of Mantel as a tablet. They leave this list after 30 days; the Audit Log keeps them.' },
     gone.map((d) => info(d.name, [d.room ? titleCase(d.room) : null, 'signed out ' + fmt(d.revoked), d.revoked_reason && d.revoked_reason !== 'revoked' ? d.revoked_reason.replace(/_/g, ' ') :
       null].filter(Boolean).join(' · ')))
       .concat([button('Clear List', () => act('devices', () => api('DELETE', '/api/devices/revoked'), 'Cleared.', 'devices'), { fk: 'mx:devices-clear' })])));
-  c.appendChild(
-    group(
-    { footer: me.door === 'lan' ? 'On the tablet itself, signed in as an Owner or Admin: this browser becomes a wall tablet, for one of the tablets above or a new one, and you are signed out here.'
-      : 'A browser is signed in as a wall tablet on the home network only.' },
-    [me.door === 'lan' ? nav('Sign In This Browser as a Wall Tablet…', 'devices/enroll', { icon: 'mdi:tablet' }) : info('Sign In This Browser as a Wall Tablet', null, 'Home Network Only')]));
 }
 // #/mantel/devices: its tablets are in All Screens, Wall Tablets now; a device's own page and enrolling stay here
 export function pDevices(sub) {
+  if (sub[0] === 'android') return pAndroid();
+  if (sub[0] === 'screen' && sub[1]) return pTabletScreen(decodeURIComponent(sub[1]));
+  if (sub[0] === 'access' && sub[1]) return pDeviceAccess(decodeURIComponent(sub[1]));
   if (sub[0] === 'enroll') return pEnroll(sub[1] ? ['Wall Tablet', '#/house/tablets/' + encodeURIComponent(sub[1])] : undefined, sub[1]);
   if (sub[0]) return pDevice(sub[0]);
   return { title: 'Wall Tablets', top: true, body(c) {
     if (ui.enrolled) { drawEnrolled(c); return; }
-    c.appendChild(group({ footer: 'Each wall tablet is in one place now, with its screen, room and kiosk app: All Screens, Wall Tablets.' },
+    c.appendChild(group({ footer: 'Each wall tablet is in one place now, with its screen, room and kiosk app: Wall Tablets.' },
       [K().nav({ label: 'Wall Tablets', href: '#/house/tablets', icon: 'mdi:tablet', fk: 'mx:to-tablets' })]));
   } };
+}
+// WHAT A WALL TABLET CAN DO (phase 32, "One shape"): the Access component, as on a person's page
+function pDeviceAccess(id) {
+  const got = devicesRead();
+  const dv = got && got.data && got.data.devices.find((x) => x.id === id);
+  const tab = dv && (dv.hk_tablets || [])[0];
+  return { title: 'What It Can Do', back: tab ? [dv.name, '#/house/tablets/' + encodeURIComponent(tab)] : ['Wall Tablets', '#/house/tablets'],
+    body(c) {
+      if (!got) { pending(c); return; }
+      if (got.err) { failed(c, got.err); return; }
+      if (!dv) { failed(c, 'That wall tablet isn’t signed in to Mantel.'); return; }
+      drawAccess(c, { kind: 'device', id: dv.id, role: dv.role, name: dv.name });
+    } };
 }
 // ONE DEVICE: its HK tablet or room, changed in place (PATCH /api/devices/{id}; it keeps its credential)
 function pDevice(id) {
@@ -186,52 +240,70 @@ function pDevice(id) {
     }, { center: true, disabled: !body, fk: 'mx:move-device:' + id })]));
   } };
 }
+// MAKE THIS A WALL TABLET: Name, Screen, Room, Kiosk App, then the sign-in (its role) -- the fields of Add Tablet, in its order. The room says which HK
+// tablet it is: a room with one links to it (its screen and kiosk app are the tablet's own, on its page); a room without one has Mantel add the tablet
+// with the screen and kiosk app chosen here (an Owner or Admin).
 export function pEnroll(back = ['Wall Tablets', '#/house/tablets'], forTablet = null) {
   return { title: 'Make This a Wall Tablet', back, body(c) {
     result(c, 'enroll');
     if (ui.enrolled) { drawEnrolled(c); return; }
-    const rr = roomsRead();
+    const rr = roomsRead(), ds = load('dscreens', () => api('GET', '/api/default-screens'));
     if (!rr) { pending(c); return; }
     if (rr.err) { failed(c, rr.err); return; }
     const rooms = rr.data, tablets = tabletList(rooms);
     const u = me.user || {}, d = draft('device');
-    if (forTablet && d.tablet === undefined && rooms.tablets[forTablet]) {   // from that tablet's own page
-      d.tablet = forTablet; d.name = d.auto = rooms.tablets[forTablet].name;
+    const makes = ['owner', 'admin'].includes(u.role);
+    const apps = (window.hkSettingsModel && window.hkSettingsModel.TABLET_APPS) || [['android_app', 'Mantel for Android'], ['kiosk_satellite', 'Kiosk Satellite'], ['browser', 'Just a Browser']];
+    const appName = (a) => (window.hkSettingsModel && window.hkSettingsModel.tabletAppName ? window.hkSettingsModel.tabletAppName(a) : a[1]);
+    if (forTablet && d.room === undefined && rooms.tablets[forTablet]) {   // from that tablet's own page
+      d.room = rooms.tablets[forTablet].room || ''; d.name = d.auto = rooms.tablets[forTablet].name;
     }
     if (u.role === 'wall_tablet') {               // a Wall Tablet account names its own tablet: start from its name
       const label = u.name || (u.username || '').replace(/^./, (x) => x.toUpperCase());
       if (d.name === undefined && label) d.name = label;     // an account made with no name: its user name (loft → Loft)
-      if (d.tablet === undefined && label) {                 // and its HK tablet, by that name or that room
+      if (d.room === undefined && label) {                   // and its room, by that name or that room
         const rid = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
         const hit = tablets.find(([, t]) => String(t.name).toLowerCase() === label.toLowerCase()) || tablets.find(([, t]) => t.room === rid);
-        d.tablet = hit ? hit[0] : '';
+        d.room = hit ? hit[1].room : '';
       }
     }
-    const nothing = !tablets.length && !(rooms.areas || []).length;
-    if (nothing) c.appendChild(
-      group(
-      { header: 'Which HK Tablet',
-      footer: 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas. Enroll it now, and choose its tablet in All Screens, Wall Tablets once they are here.' }, []));
-    else {
-      for (const g of roomChoice('device', rooms, null, (t) => {   // the name follows the tablet picked, until it is typed
-        if (!d.name || d.name === d.auto) { d.name = t.name; d.auto = t.name; }
-      }, ['owner', 'admin'].includes(u.role))) c.appendChild(g);
-    }
-    c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Grants). Only on the home network.' }, [
+    if (d.room === undefined) d.room = '';
+    const areas = (rooms.areas || []).map((a) => [a.id, a.name]);
+    for (const [, t] of tablets) if (!areas.some(([id]) => id === t.room)) areas.push([t.room, titleCase(t.room)]);
+    areas.sort((a, b) => a[1].localeCompare(b[1]));
+    const there = tablets.find(([, t]) => t.room === d.room);          // the HK tablet in that room, if there is one
+    const screens = (ds && ds.data && ds.data.screens) || [];
+    if (d.screen === undefined) d.screen = '';
+    if (!d.app) d.app = (apps[0] || [])[0] || 'kiosk_satellite';
+    const nothing = !tablets.length && !areas.length;
+    c.appendChild(group({ header: 'Screen & Room', footer: nothing ? 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas.'
+      : there ? 'This room’s HK tablet is “' + there[1].name + '”: its screen and kiosk app are set on its page, and the browser takes its room.' +
+        ((there[1].served_by || []).length ? ' ' + there[1].served_by.map((x) => '“' + x.name + '”').join(', ') + ' is already signed in as it.' : '')
+      : d.room && makes ? 'No HK tablet is in this room yet: Mantel adds one, so its idle return, screensaver and black screen work at once.'
+      : d.room ? 'With no HK tablet in its room, its touches and black screen won’t reach Mantel.' : null }, [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
-      choose('device', 'role', 'Role', me.device_roles.map((r) => [r, roleLabel(r)]), 'wall_tablet')]));
+      there ? K().info({ label: 'Screen', sub: 'The tablet’s own', value: there[1].screen_title || 'None' })
+        : K().select({ label: 'Screen', options: screenOptions(screens, 'None'), value: d.screen, disabled: !makes, fk: 'mx:device:screen', onChange: (v) => { d.screen = v; } }),
+      K().select({ label: 'Room', options: [['', 'Choose…']].concat(areas), value: d.room, fk: 'mx:device:room',
+        onChange: (v) => { d.room = v; const hit = tablets.find(([, t]) => t.room === v); if (hit && (!d.name || d.name === d.auto)) { d.name = hit[1].name; d.auto = hit[1].name; } redraw(); } })]));
+    if (makes && !there && d.room) {
+      c.appendChild(group({ header: 'Kiosk App', footer: (apps.find((a) => a[0] === d.app) || [])[2] || null }, [
+        K().select({ label: 'Kiosk App', options: apps.map((a) => [a[0], appName(a)]), value: d.app, fk: 'mx:device:app', onChange: (v) => { d.app = v; redraw(); } })]));
+    }
+    c.appendChild(
+      group(
+      { header: 'Sign-In', footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Permissions). Only on the home network.' },
+      [choose('device', 'role', 'Role', me.device_roles.map((r) => [r, roleLabel(r)]), 'wall_tablet')]));
     c.appendChild(group({}, [button('Make This a Wall Tablet', async () => {
       const name = (d.name || '').trim();
-      const where = roomBody('device');
-      const makes = ['owner', 'admin'].includes(u.role);
-      if (!where && !nothing) { ui.flash = { key: 'enroll', text: d.other ? 'Choose its room.' : 'Choose its HK tablet, or ' + (makes ? 'A New Tablet' : 'Not One of These') + ' and its room.',
-        err: true }; redraw(); return; }
+      if (!d.room && !nothing) { ui.flash = { key: 'enroll', text: 'Choose its room.', err: true }; redraw(); return; }
       if (!name) { ui.flash = { key: 'enroll', text: 'Give the tablet a name.', err: true }; redraw(); return; }
       if (!(await ask({ title: 'Make this browser a wall tablet?', message: 'You will be signed out here. From now on this browser acts as the tablet “' + name + '”.',
         ok: 'Make It a Tablet' }))) return;
-      // a room with no HK tablet: an Owner or Admin gets that HK tablet made too, so nothing waits on All Screens
-      const make = d.other && where && makes ? { new_tablet: true } : {};
-      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, role: d.role, ...(where || {}), ...make }));
+      const where = there ? { tablet: there[0] } : d.room ? { room: d.room } : {};
+      // a room with no HK tablet: an Owner or Admin gets that HK tablet made too, with its screen and kiosk app, so nothing waits on All Screens
+      const make = !there && d.room && makes ? { new_tablet: true, ...(d.screen ? { screen: d.screen } : {}), app: d.app } : {};
+      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, role: d.role, ...where, ...make }));
       if (r) { ui.enrolled = r.device; clearDraft('device'); redraw(); }
     }, { center: true, fk: 'mx:enroll-device' })]));
   } };

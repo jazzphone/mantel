@@ -1,7 +1,7 @@
 // settings/setup.js -- Mantel Settings, Set Up Mantel: the first run's checklist.
 // @ts-check
 import { mantelUrl } from '../base.js';
-import { act, api, C, K, load, me, redraw, refreshMe, ROUTE } from './core.js';
+import { act, api, C, K, load, me, panel, redraw, refreshMe, ROUTE } from './core.js';
 import { button, failed, group, info, pending, result, secretCell } from './kit.js';
 import { drawImport } from './connections.js';
 
@@ -27,7 +27,7 @@ function setStep(id, state, okText) {
 export function pSetup(sub) {
   if (sub[0] === 'screens') return pSetupScreens();
   if (sub[0] === 'step' && sub[1]) return pSetupStep(sub[1]);
-  return { title: 'Set Up Mantel', top: true, scope: 'What Mantel needs before the household uses it. Each step opens the page that does it, and is done when the house says so.', body(c) {
+  return { title: 'Set Up Mantel', top: true, scope: 'What Mantel needs before the household uses it. Each step opens the page that does it.', body(c) {
     result(c, 'setup');
     const got = setupRead();
     if (!got) { pending(c, 'Looking at the house…'); return; }
@@ -36,11 +36,16 @@ export function pSetup(sub) {
     const needed = s.steps.filter((x) => !x.optional), optional = s.steps.filter((x) => x.optional);
     const left = needed.filter((x) => x.state === 'todo').length;
     c.appendChild(group({ header: 'Needed', footer: s.complete ? 'Mantel is set up. The optional steps can be done whenever you like.'
-      : left + (left === 1 ? ' step needs' : ' steps need') + ' doing. You can leave the ones marked Later.' }, needed.map(stepRow)));
+      : left + (left === 1 ? ' step needs' : ' steps need') + ' doing; a step marked Later can wait.' }, needed.map(stepRow)));
     c.appendChild(group({ header: 'Optional' }, optional.map(stepRow)));
+    // ONE CHECKLIST (phase 32): HK's Setup Check -- what the screens need from Home Assistant and from each tablet's
+    // kiosk app -- is part of this page, not a page of its own in the sidebar
+    const chk = panel && panel.checkLines ? panel.checkLines() : null, bad = chk ? chk.filter((l) => l.ok === false).length : null;
+    c.appendChild(group({}, [K().nav({ label: 'Home Assistant and Tablet Checks', tile: ['mdi:stethoscope', C.green], href: '#/check',
+      value: chk ? (bad ? bad + ' to Fix' : 'All Good') : 'Checking…', fk: 'mx:setup:check' })]));
     if (!s.can_edit) { c.appendChild(group({ footer: 'Only an Owner can mark steps for later.' }, [])); return; }
-    c.appendChild(group({ footer: s.dismissed ? 'Mantel Settings opens on its usual page. This list stays here, under Mantel.'
-      : 'Close the guide and Mantel Settings opens on its usual page; this list stays here, under Mantel.' }, [
+    c.appendChild(group({ footer: s.dismissed ? 'Mantel Settings opens on its usual page; this list stays under Mantel.'
+      : 'Mantel Settings then opens on its usual page; this list stays under Mantel.' }, [
       button(s.dismissed ? 'Open This Guide First Again' : 'Close the Guide', async () => {
         if (await act('setup', () => api('PUT', '/api/setup', { dismissed: !s.dismissed }), s.dismissed ? 'The guide opens first again.' : 'Closed.', 'setup')) {
           try { await refreshMe(); } catch (e) { /* drawn from the cache */ }
@@ -58,18 +63,17 @@ function pSetupStep(id) {
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     if (!s) { failed(c, 'That step isn’t part of this Mantel’s setup.'); return; }
-    c.appendChild(group({ footer: s.detail }, [info('Status', s.optional ? 'Optional' : null, STEP_SAYS[s.state], s.state === 'todo' ? 'warn' : '')]));
-    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: s.how_note ||
-      'An Owner turns them on in General (Allow Control of the House), after confirming it is them. The server’s kill switch can keep them off whatever that says.' },
-      [secretCell(s.how, 'mx-setup-how')]));
-    const rows = [];
+    const rows = [info('Status', s.optional ? 'Optional' : null, STEP_SAYS[s.state], s.state === 'todo' ? 'warn' : '')];
     if (s.route) rows.push(K().nav({ label: s.state === 'done' ? 'Open' : 'Do It Now', href: s.route, fk: 'mx:setup:go:' + id }));
     const edit = got.data.can_edit;
     if (edit && s.can_confirm && s.state !== 'done') rows.push(button('Looks Right', () => setStep(id, 'confirmed', 'Marked done.'), { fk: 'mx:setup:ok:' + id }));
     if (edit && s.can_confirm && s.state === 'done' && id !== 'screens') rows.push(button('Not Done Yet', () => setStep(id, null, 'Back on the list.'), { fk: 'mx:setup:undo:' + id }));
     if (edit && s.can_skip && s.state === 'todo') rows.push(button('Later', () => setStep(id, 'skipped', 'Left for later.'), { fk: 'mx:setup:skip:' + id }));
     if (edit && s.state === 'skipped') rows.push(button('Put Back on the List', () => setStep(id, null, 'Back on the list.'), { fk: 'mx:setup:unskip:' + id }));
-    if (rows.length) c.appendChild(group({}, rows));
+    c.appendChild(group({ footer: s.detail }, rows));
+    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: s.how_note ||
+      'An Owner turns them on in General (Allow Control of the House), after confirming it is them.' },
+      [secretCell(s.how, 'mx-setup-how')]));
   } };
 }
 // SCREENS: HK Frontend's, imported once, or the generated Home screen, opened and judged
@@ -89,8 +93,7 @@ function pSetupScreens() {
     }
     const rows = [K().nav({ label: 'Open the Home Screen', sub: 'In this browser; come back here afterwards', href: mantelUrl('/home'), icon: 'mdi:open-in-new', fk: 'mx:setup:home' })];
     if (edit && s.state !== 'done') rows.push(button('It Looks Right', () => setStep('screens', 'confirmed', 'Marked done.'), { fk: 'mx:setup:ok:screens' }));
-    c.appendChild(group({ header: 'The Generated Home Screen', footer: 'It builds itself from Home Assistant’s areas and devices, and follows them as they change. ' +
-      'Rooms with nothing in them stay off it. Name and arrange your areas in Home Assistant, or fine-tune the screen in its own settings under Screens.' }, rows));
+    c.appendChild(group({ header: 'The Generated Home Screen', footer: 'It builds itself from Home Assistant’s areas and devices and follows them as they change.' }, rows));
     if (s.hk_frontend && ['owner', 'admin'].includes(me.user.role)) drawImport(c, true);
   } };
 }

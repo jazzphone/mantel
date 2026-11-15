@@ -315,6 +315,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `settings-page.js` — Mantel Settings (served at /settings to every signed-in person, never to a wall tablet).
 - **web/shim/settings/**
   - `about.js` — settings/about.js -- Mantel Settings, About
+  - `access.js` — settings/access.js -- Mantel Settings, the Access component
   - `alerts.js` — settings/alerts.js -- Mantel Settings, Alerts (alerts/api.py; docs/phase14/SYSTEM-ALERTS.md "Mantel Settings → Alerts")
   - `appletv.js` — settings/appletv.js -- Notifications on the Apple TVs (docs/phase31/PLAN.md "In Settings"; features/tv_alerts.py).
   - `assistants.js` — settings/assistants.js -- Mantel Settings, Advanced → Assistants (MCP)
@@ -336,7 +337,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `performance.js` — settings/performance.js -- Mantel Settings, About, Performance (performance.py)
   - `protect.js` — settings/protect.js -- Mantel Settings, Connections, UniFi Protect
   - `proxy.js` — settings/proxy.js -- Mantel Settings, HTTPS and Your Proxy, and Home Assistant's frame.
-  - `roles.js` — settings/roles.js -- Mantel Settings, Roles & Grants
+  - `roles.js` — settings/roles.js -- Mantel Settings, Roles & Permissions
   - `secure.js` — settings/secure.js -- Mantel Settings, About, Secure Connection (about.py, page-health.js)
   - `service.js` — settings/service.js -- Mantel Settings, Service Accounts
   - `setup.js` — settings/setup.js -- Mantel Settings, Set Up Mantel

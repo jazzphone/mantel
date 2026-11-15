@@ -17,7 +17,7 @@ Mantel seals some values in its database with the **at-rest key** (`at_rest.key`
 
 **Mantel Settings** → **Backups** is for Owners and Admins; only the Owner makes, downloads, deletes and restores backups.
 
-- **Latest** shows when the last backup was made, whether it ran every night, and where backups are kept. **Back Up Now** makes one at once.
+- The first card shows when the last backup was made and whether it runs every night. **Back Up Now** makes one at once, and **Include Timeline Pictures** is there too.
 - **Saved Backups** lists them, newest first, each with **Download** and **Delete**. A downloaded backup is still encrypted: it needs the backup key to open.
 - **Save Keys…** saves the backup key and the at-rest key as `mantel-keys.json`. Keep it apart from the backups.
 - **Restore From a Backup…** uploads a `.mbk` file and checks it first: it is opened, its database checked and brought up to this version of Mantel, without changing anything. You see when it was made and what it holds. **Restore and Restart…** then puts it in place: Mantel restarts, puts the backup in place before it opens its database, and starts again. Screens and wall tablets reconnect by themselves. What was there before is moved aside in the data folder (`*.before-restore-<time>`), never deleted, and the result is in the audit log and at the top of the page.
@@ -74,7 +74,7 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 | The database | A consistent snapshot, safe to make while Mantel runs, checked before it is packed. It holds Mantel Settings' **General** too, but a restore never turns **Allow Control of the House** on by itself: if it was on in the backup, it is off after the restore (Mantel says so), until an Owner turns it on in General |
 | Your files and Mantel Photos | Apple's font and glyphs you uploaded, and the screensavers' photos |
 | The saved connections | Home Assistant's and Music Assistant's, still sealed with `at_rest.key` |
-| The alert channels | **Mantel Settings** → **Alerts**: each channel with its events and quiet hours, its secret still sealed with `at_rest.key` ([Alerts](Alerts.md)) |
+| The alert channels | **Mantel Settings** → **System Alerts**: each channel with its events and quiet hours, its secret still sealed with `at_rest.key` ([Alerts](Alerts.md)) |
 | [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |
 | The keys Mantel makes | The push key and the apps' identity key (`keys/`), so browsers keep their notifications and the iPhone and Mac apps their pairing after a restore |
 | The [Timeline](Timeline.md)'s pictures | Only with **Include Timeline Pictures** on (Settings → Backups; off by default). The Timeline's rows are in the database, so they are always in a backup; a restored row whose picture wasn't backed up says "Picture not kept" |

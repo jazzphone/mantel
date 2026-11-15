@@ -85,6 +85,64 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         want('the pane in ' + g, m, m && m.look === g && (blurs ? /blur/.test(m.blur) && m.alpha < 0.6 : !/blur/.test(m.blur) && m.alpha > 0.9) && m.titles);
         await shot(page, tag + '-look-' + g);
       }
+      // FLAT IS THE THEME'S (2026-11-15, the owner: "the side bar is still dark when flat is set to Light mode"): the
+      // pane was one dark plate in Flat whatever the theme, and its words took Light's dark ink from the page -- a
+      // clock nobody could read. Light: the menu's ivory under dark words; Dark: as it was; with a song's cover behind
+      // it, a dark media surface with white words in both; and the music's panel over it dark with white words too.
+      const flatPane = async (scr, theme) => {
+        cur = scr + '?hkglass=flat ' + theme;
+        await page.goto(input.origin + '/' + scr + '/home?hkglass=flat&hkflat_theme=' + theme);
+        await page.waitForFunction(() => window.__mantelReady === true);
+        await require('./grid_ready.cjs')(page);
+        await page.waitForTimeout(2500);
+        return page.evaluate(() => {
+          const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
+          if (!pane) return null;
+          const rgb = (c) => (/rgba?\(([^)]*)\)/.exec(c) || [0, '0,0,0'])[1].split(',').map(Number);
+          const lum = (c) => { const v = rgb(c).slice(0, 3).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+            return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+          const con = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+          const ground = lum(getComputedStyle(pane).backgroundColor);
+          // every word drawn straight on the pane (not a button's, a pill's or a person's disc: those have grounds of their own)
+          const words = [...p.shadowRoot.querySelectorAll('.secs *')].filter((e) => !e.closest('button,.pill,.ppl i,.cam2') &&
+            [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()) && e.getClientRects().length);
+          const worst = words.reduce((w, e) => Math.min(w, con(lum(getComputedStyle(e).color), ground)), 99);
+          return { look: p.getAttribute('look'), flat: p.getAttribute('hk-flat'), arted: p.hasAttribute('arted'), ground: +ground.toFixed(2),
+                   ink: +lum(getComputedStyle(p).color).toFixed(2), words: words.length, worst: +worst.toFixed(1),
+                   blur: getComputedStyle(pane).backdropFilter || getComputedStyle(pane).webkitBackdropFilter || 'none' };
+        });
+      };
+      {
+        const fl = await flatPane('pane-art-off', 'light');
+        want('Flat Light: the pane is light, its words dark and readable on it (4.5:1), no blur', fl,
+             fl && fl.look === 'flat' && fl.flat === 'light' && fl.ground > 0.8 && fl.ink < 0.1 && fl.words >= 3 && fl.worst >= 4.5 && !/blur/.test(fl.blur));
+        await shot(page, tag + '-look-flat-light');
+        {
+          // ...AND THE MUSIC'S PANEL OVER IT: a dark media surface, its words white (they were Light's dark ink on it)
+          await page.evaluate(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'), t = p.shadowRoot.querySelector('.np .tx');
+            const r = t.getBoundingClientRect(); window.__npAt = [r.left + 20, r.top + r.height / 2]; });
+          const at = await page.evaluate(() => window.__npAt);
+          await page.mouse.click(at[0], at[1]);
+          await page.waitForTimeout(1200);
+          const mp = await page.evaluate(() => {
+            const host = [...document.body.children].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.mpanel'));
+            const b = host && host.shadowRoot.querySelector('.mpmini .tx b');
+            return host ? { flat: host.getAttribute('hk-flat'), title: b ? getComputedStyle(b).color : null } : null;
+          });
+          want('Flat Light: the music\'s panel over the pane is a dark media surface with white words', mp,
+               mp && mp.flat === 'dark' && /rgb\((2[0-9]{2}), ?(2[0-9]{2}), ?(2[0-9]{2})\)/.test(mp.title || ''));
+          await shot(page, tag + '-look-flat-light-panel');
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(600);
+        }
+        const fd = await flatPane('pane-art-off', 'dark');
+        want('Flat Dark: the pane is dark, its words light and readable on it', fd,
+             fd && fd.ground < 0.1 && fd.ink > 0.8 && fd.words >= 3 && fd.worst >= 4.5);
+        const fa = await flatPane('pane-art-on', 'light');
+        want('Flat Light with a song\'s cover behind the pane: a dark media surface, white words', fa,
+             fa && fa.arted && fa.flat === 'dark' && fa.ground < 0.1 && fa.ink > 0.8);
+        await shot(page, tag + '-look-flat-light-art');
+      }
       // SLIDING OUT AND IN (2026-11-01, the owner: "animate/slide out of the way when I swipe between pages"): Home to
       // another page, the pane slides off past its edge (drawn while it goes) and the tab bar glides to its new middle;
       // back Home, the pane slides in

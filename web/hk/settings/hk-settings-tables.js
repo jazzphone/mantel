@@ -46,7 +46,7 @@
       // THE ORDER (2026-10-30 tidy-up): how screens look, how you move around,
       // what sits beside the page, what happens when idle, then the lists and
       // the devices -- a screen's own page follows the same order
-      ['menu', 'Menu', 'mdi:dock-left', C.orange],
+      ['menu', 'Menu & Navigation', 'mdi:dock-left', C.orange],
       // THE PAGES SCREEN (Phase J, 2026-10-30): every screen's that doesn't
       // choose its own
       ['pagesscreen', 'Pages Screen', 'mdi:view-grid', C.purple],
@@ -86,6 +86,31 @@
     var LIBRARY = [['accessories', 'Accessories', 'mdi:lightbulb-group', C.yellow], ['popups', 'Pop-ups', 'mdi:bell-ring', C.red],
                    ['pages', 'Custom Pages', 'mdi:file-document-multiple', C.teal], ['chips', 'Custom Chips', 'mdi:label-variant', C.orange]];
     var SYSTEM = [['advanced', 'Advanced', 'mdi:cog', C.gray], ['check', 'Setup Check', 'mdi:clipboard-check', C.green]];
+    // THE SIDEBAR (phase 32; the owner, 2026-11-15: iOS 26 Settings' order -- what a person changes, not where the code
+    // is): its groups in order, each with HK's own rows [route, name, icon, color, when]. A host's rows join
+    // the group they name, after HK's; a host's group named nowhere here goes where '@host' is. Each name once, each icon
+    // once. `when`: 'screens' (each screen, then Add Screen, drawn by the shell); 'nosetup' (only on a host with no
+    // setup checklist of its own -- HK Frontend in Home Assistant). Every page not listed is still reached from these.
+    var SIDE = [
+      ['Screens', [['@screens']]],
+      ['Look & Feel', [['house/appearance', 'Appearance', 'mdi:palette', C.indigo],
+                       ['house/appearance/sky', 'Background', 'mdi:image-filter-hdr', C.cyan],
+                       ['house/menu', 'Menu & Navigation', 'mdi:dock-left', C.orange],
+                       ['house/sidepane', 'Side Pane', 'mdi:format-list-bulleted-type', C.teal],
+                       ['house/nowplaying', 'Now Playing', 'mdi:music', C.pink],
+                       ['house/screensaver', 'Screensaver', 'mdi:image-multiple', C.purple]]],
+      ['Home', [['house/rooms', 'Rooms', 'mdi:sofa', C.brown], ['accessories', 'Accessories', 'mdi:lightbulb-group', C.yellow],
+                ['page', 'Pages', 'mdi:view-grid', C.blue], ['house/chips', 'Status Chips', 'mdi:label-multiple', C.green],
+                ['page/cameras', 'Cameras', 'mdi:cctv', C.gray]]],
+      ['Devices', [['house/tablets', 'Wall Tablets', 'mdi:tablet', C.blue]]],
+      ['Alerts & Activity', [['features/notify', 'Notifications', 'mdi:bell-badge', C.red],
+                             ['popups', 'Pop-ups', 'mdi:card-text', C.indigo]]],
+      ['Household', []],
+      ['@host', []],
+      ['Developer', [['pages', 'Custom Pages', 'mdi:file-document-multiple', C.teal], ['chips', 'Custom Chips', 'mdi:label-variant', C.orange],
+                     ['advanced', 'YAML & Advanced', 'mdi:code-braces', C.gray],
+                     ['check', 'Setup Check', 'mdi:clipboard-check', C.green, 'nosetup']]]
+    ];
     // THE PRODUCT'S NAME, Home Assistant's own things and places, and the
     // documentation, as the host says them (web/client/hk-host-shell.js): HK
     // Frontend and its wiki in Home Assistant, the host's own elsewhere.
@@ -208,7 +233,7 @@
     KIT.haName = haName; KIT.haPlace = haPlace; KIT.HOUSE = HOUSE; KIT.LAND_FILE = LAND_FILE; KIT.LIBRARY = LIBRARY;
     KIT.MIN = MIN; KIT.optGet = optGet; KIT.OPTION_PAGES = OPTION_PAGES; KIT.optSet = optSet;
     KIT.PAGE_ORDERS = PAGE_ORDERS; KIT.PAGE_SCOPE = PAGE_SCOPE; KIT.PENCIL = PENCIL; KIT.PN = PN;
-    KIT.SCENE_POOL = SCENE_POOL; KIT.SLEEP_LISTS = SLEEP_LISTS; KIT.SYSTEM = SYSTEM; KIT.TICK = TICK;
+    KIT.SCENE_POOL = SCENE_POOL; KIT.SLEEP_LISTS = SLEEP_LISTS; KIT.SYSTEM = SYSTEM; KIT.SIDE = SIDE; KIT.TICK = TICK;
     KIT.TILE_DOMAINS = TILE_DOMAINS; KIT.TILE_FOOT = TILE_FOOT;
   };
 })();

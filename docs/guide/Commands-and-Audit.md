@@ -6,7 +6,7 @@ Mantel starts **read-only**: the screens show your home, but nothing you tap is 
 
 A new Mantel can't change anything in your home. Screens show live state, but a tap that would change something shows **Commands are disabled in Mantel (read-only)**, and nothing is sent or recorded.
 
-**Mantel Settings** → **About** → **House Commands** says **Off** or **On**.
+**Mantel Settings** → **General** → **Allow Control of the House** says **Off** or **On**.
 
 Saving settings works either way: Mantel keeps its own settings, so an Owner or Admin can set up screens before turning commands on.
 
@@ -111,7 +111,7 @@ Entries made before an update may show **Confirm**: those are from an earlier ve
 
 The data sent with a command (it can carry an alarm code), passwords, PINs, codes and tokens are never in the audit log.
 
-Sign-ins aren't recorded, successful or not. Entries can't be deleted for a year, and anyone who can reach the sign-in page can fail to sign in, so recording failures would let a stranger fill the log. Instead, **Me** → **My Sessions** shows each sign-in that is still active (browser, home or away, how, and from which address), and wrong passwords are limited and lock the account ([Signing In](Signing-In.md#passwords)).
+Sign-ins aren't recorded, successful or not. Entries can't be deleted for a year, and anyone who can reach the sign-in page can fail to sign in, so recording failures would let a stranger fill the log. Instead, **Me** → **Devices** shows each sign-in that is still active (browser, home or away, how, and from which address), and wrong passwords are limited and lock the account ([Signing In](Signing-In.md#passwords)).
 
 A change that can't be recorded isn't made: Mantel answers **The audit log is unavailable, so nothing was changed**.
 

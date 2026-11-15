@@ -50,6 +50,12 @@
         // always up on a wall tablet); the slow tablets' Flat the same
         ':host([look="frosted"]) .pane{background:rgba(34,38,56,0.95);-webkit-backdrop-filter:none;backdrop-filter:none}',
         ':host([look="tinted"]) .pane,:host([look="flat"]) .pane{background:rgba(24,24,28,0.93);-webkit-backdrop-filter:none;backdrop-filter:none}',
+        // FLAT LIGHT IS LIGHT (2026-11-15, the owner: "the side bar is still dark when flat is set to Light mode" -- and
+        // its words, in Light's dark ink from the page, could not be read on it): the docked menu's ivory
+        // (hk-menu-drawer.js .mat, --hk-flat-menu), Flat's hairline and its small shadow toward the page. Under a
+        // song's cover it is a dark media surface in both themes, as the Music page's Now Playing is: the host is
+        // toned dark then (hk-sidepane-pane.js _tone), so this rule and Light's ink leave together.
+        ':host([look="flat"][hk-flat="light"]) .pane{background:var(--hk-flat-menu);box-shadow:var(--hk-flat-elevated-shadow)}',
         // Bright Glass: the white wash over its light blur, the rim on the page side
         ':host([look="bright"]) .pane{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
         '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08)}',

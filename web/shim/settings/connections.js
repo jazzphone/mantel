@@ -48,9 +48,7 @@ export function pConnections(sub) {
   if (sub[0] === 'protect') return pProtect(sub.slice(1));
   if (sub[0] === 'push') return pPushRelay();
   return { title: 'Connections', top: true,
-    scope:
-    'How Mantel reaches Home Assistant and Music Assistant, and how browsers and the app reach Mantel. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never ' +
-    'shown again and never leave the server; a change applies at once.', body(c) {
+    scope: 'How Mantel reaches Home Assistant and Music Assistant, and how browsers and the app reach Mantel. Tokens are kept sealed and never shown again.', body(c) {
     result(c, 'connections');
     const pid = new URLSearchParams(location.search).get('connection');
     if (pid) drawPending(c, pid);
@@ -71,8 +69,8 @@ export function pConnections(sub) {
     };
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null },
       [row('ha'), row('ma'), row('homepod'), row('airplay_groups'), protectRow()].filter(Boolean)));
-    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel, and how Mantel’s notifications reach the Mantel app on iPhone and iPad.' }, [
-      nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock', sub: 'Mantel’s Caddy, your own proxy, the Home Assistant App or a Cloudflare tunnel' }),
+    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel, and how its notifications reach the Mantel app.' }, [
+      nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock', sub: 'Caddy, your own proxy, the Home Assistant App or a tunnel' }),
       nav('Notifications to the App', 'connections/push', { icon: 'mdi:bell', sub: 'The push relay, your own, or none' })]));
   } };
 }
@@ -86,7 +84,7 @@ function drawInHa(c, x) {
   if (got.err) { failed(c, got.err); return; }
   const d = got.data, app = x && x.source === 'app';
   const rows = [nav('Mantel Link', 'connections/ha/link', { icon: 'mdi:link-variant', value: d.ml.length ? 'Connected' : 'Not Linked',
-                                                             sub: 'Mantel’s own integration: the tablets and the house as entities, actions, notifications' })];
+                                                             sub: 'Mantel’s own integration: the tablets and house as entities and actions' })];
   if (d.hkThere) rows.push(nav('HK Frontend', 'connections/ha/hk-frontend', { icon: 'mdi:view-dashboard', value: d.hk.length ? 'Connected' : 'Not Linked',
                                                                              sub: 'HK’s dashboards inside Home Assistant, drawn with Mantel’s settings' }));
   if (can('connect')) {
@@ -95,14 +93,14 @@ function drawInHa(c, x) {
     rows.push(nav('Sidebar (Mantel Connect)', 'connections/ha/sidebar', { icon: 'mdi:dock-left', value: paired === null ? undefined : paired ? 'Paired' : 'Not Paired',
                                                                          sub: 'Mantel in Home Assistant’s sidebar and the Companion app' }));
   }
-  c.appendChild(group({ header: 'Mantel in Home Assistant', footer: (app ? 'Mantel Link needs no code here: Home Assistant offers it under Settings, Devices & Services, Discovered. ' : '') +
-      'Each one says what to do in Home Assistant.' }, rows));
+  c.appendChild(group({ header: 'Mantel in Home Assistant', footer: app ? 'Home Assistant offers Mantel Link under Settings, Devices & Services, Discovered.'
+      : 'Each one says what to do in Home Assistant.' }, rows));
   // only while there is something to move: HK Frontend in Home Assistant, or a tablet it still runs. Once every
   // tablet is Mantel's, the house is next, and the row says so (Set Up Mantel too: setup_guide.py "house")
   const tabs = (d.tablets || []).filter(Boolean), houseNext = d.hkThere && d.house && d.house.owner !== 'mantel' && tabs.every((t) => t.owner === 'mantel');
   if (d.hkThere || tabs.some((t) => t.owner !== 'mantel')) c.appendChild(group({ footer: houseNext
-      ? 'Every wall tablet is Mantel’s: move the house next (Advanced, The House), so Mantel runs Seasonal Decorations, the Alarm PIN keypad and Live TV too.'
-      : 'Who runs each wall tablet and the house, and HK’s settings imported once. Only while a house moves from HK Frontend to Mantel.' },
+      ? 'Every wall tablet is Mantel’s: move the house next, so Mantel runs its decorations, the Alarm PIN keypad and Live TV too.'
+      : 'Who runs each wall tablet and the house, and HK’s settings imported once.' },
     [nav('Moving from HK Frontend', houseNext ? 'connections/ha/moving/advanced' : 'connections/ha/moving',
          { icon: 'mdi:transfer', value: houseNext ? 'Move the House' : undefined })]));
 }
@@ -165,13 +163,11 @@ export function drawImport(c, haSet) {
       redraw();
     }, { disabled: !haSet, fk: 'mx:settings-import' }));
   }
-  const what = 'your looks, rooms, screens, tablets, pop-ups, custom pages, chips and accessories, and the settings of HK’s features';
+  const what = 'HK Frontend’s looks, rooms, screens, tablets and feature settings from Home Assistant';
   const footer = rec
     ? 'Imported once. Running it again changes nothing; a change made in HK Settings inside Home Assistant doesn’t reach Mantel.'
-    : 'Copies HK Frontend’s settings from Home Assistant once: ' + what + '. Nothing is written to Home Assistant. ' +
-      'Running it again changes nothing, and anything already changed in Mantel is left alone. ' +
-      (!owner ? 'Only an Owner can import them. ' : !haSet ? 'Connect Home Assistant first. ' : '') +
-      'No HK Frontend in Home Assistant? Nothing to import: Mantel’s generated Home screen builds itself from your rooms and devices.';
+    : 'Copies ' + what + ' once. Nothing is written to Home Assistant, and running it again changes nothing. ' +
+      (!owner ? 'Only an Owner can import them.' : !haSet ? 'Connect Home Assistant first.' : 'Without HK Frontend, the generated Home screen builds itself from your rooms.');
   c.appendChild(group({ header: 'Import from HK Frontend', footer }, rows));
 }
 function drawPending(c, pid) {
@@ -221,27 +217,27 @@ function pConnection(kind) {
     if (x.dashboard) rows.push(button(PAGE_LABEL[kind] || 'Open Its Page', () => { window.open(x.dashboard, '_blank', 'noopener'); }, { fk: 'mx:dashboard-' + kind }));
     const notes = [];
     if (set && !now.connected && now.error) notes.push('Not connected: ' + now.error);
-    if (x.source === 'install') notes.push('This comes from the installation’s secret file' + (x.install.file ? ' (' + x.install.file + ')' : '') +
-      '. Replace saves Mantel’s own copy, which then wins; disconnecting that copy goes back to the file.');
-    if (x.install && x.install.overridden) notes.push('The installation also has a file for this; Mantel’s saved copy wins over it.');
+    if (x.source === 'install') notes.push('Set by the installation’s secret file' + (x.install.file ? ' (' + x.install.file + ')' : '') +
+      '. Replace saves Mantel’s own copy, which then wins.');
+    else if (x.install && x.install.overridden) notes.push('The installation also has a file for this; Mantel’s saved copy wins.');
     if (x.unreadable) notes.push('Mantel’s saved copy could not be opened (was the at-rest key changed?). Set it up again.');
-    if (!x.editable) notes.push('Mantel runs as a Home Assistant App and uses the App’s own access to Home Assistant. Nothing to set up here.');
-    c.appendChild(group({ footer: notes.join(' ') || null }, rows));
-    if (!x.editable || !can) return;
+    if (!x.editable) notes.push('Mantel runs as a Home Assistant App and uses its own access. Nothing to set up here.');
     const out = shown['test:' + kind];
     const d = draft('conn-' + kind);
-    if (set && !d.open) {
-      const acts = [button('Replace…', () => { d.open = true; redraw(); }, { fk: 'mx:replace-' + kind })];
-      if (x.source === 'mantel' || x.unreadable) acts.push(button('Disconnect…', async () => {
+    const editing = x.editable && can, disc = [];
+    if (editing && set && !d.open) {                       // Replace and Disconnect sit under the status, in its card
+      rows.push(button('Replace…', () => { d.open = true; redraw(); }, { fk: 'mx:replace-' + kind }));
+      if (x.source === 'mantel' || x.unreadable) disc.push(button('Disconnect…', async () => {
         const back2 = x.install && x.install.present ? ' Mantel goes back to the installation’s file.' : ' Mantel stops using ' + x.label + ' until it is set up again.';
         const revoke = kind === 'ha' ? ' To revoke the token in Home Assistant as well: that user’s profile, Security, Long-lived access tokens.' : '';
         const forgets = x.token === false ? 'Mantel forgets its address.' : 'Mantel forgets its saved token.';
         if (!(await ask({ title: 'Disconnect ' + x.label + '?', message: forgets + back2 + revoke, ok: 'Disconnect', destructive: true }))) return;
         act('conn-' + kind, () => api('DELETE', '/api/connections/' + kind), x.label + ' disconnected.', 'connections');
       }, { destructive: true, fk: 'mx:disconnect-' + kind }));
-      c.appendChild(group({}, acts));
-      return;
     }
+    c.appendChild(group({ footer: notes.join(' ') || null }, rows));
+    if (disc.length) c.appendChild(group({}, disc));          // red and alone
+    if (!editing || (set && !d.open)) return;
     const body = (mode) => {
       const b = { url: (d.url || '').trim() };
       if (mode === 'login') { b.username = (d.username || '').trim(); b.password = d.password || ''; } else if (mode === 'token') b.token = (d.token || '').trim();
@@ -271,8 +267,7 @@ function pConnection(kind) {
         placeholder: PLACEHOLDER[kind] })]));
     if (kind === 'airplay_groups') {
       // AIRPLAY GROUPS: ma-airplay-groups' status page, an address only (it takes no token; Mantel only reads /status.json)
-      c.appendChild(group({ footer: 'The status page ma-airplay-groups serves on the Music Assistant computer, port 54398. It takes no token: ' +
-        'Mantel only reads what it shows, and never uses its AirPlay password box.' }, [
+      c.appendChild(group({ footer: 'The status page ma-airplay-groups serves on the Music Assistant computer, port 54398. It takes no token.' }, [
         button('Test', test('address'), { fk: 'mx:airplay-groups-test' }), button('Save', save('address'), { fk: 'mx:airplay-groups-save' })]));
       if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
       if (set) c.appendChild(group({}, [button('Cancel', () => { clearDraft('conn-' + kind); delete shown['test:' + kind]; redraw(); }, { fk: 'mx:replace-cancel' })]));
@@ -280,9 +275,7 @@ function pConnection(kind) {
     }
     if (kind === 'homepod') {
       // THE HOMEPOD TIMER READER (phase 28): its address and the token from its page's Token card, nothing else
-      c.appendChild(group({ header: 'Its Token', footer:
-        'Open the reader’s page and copy the token from its Token card. Reading needs none; pausing a timer or turning an alarm off does. Keep the reader on the home network: it speaks plain HTTP.'
-          }, [
+      c.appendChild(group({ header: 'Its Token', footer: 'Copy it from the reader’s Token card. Reading needs none; pausing a timer or turning an alarm off does.' }, [
         field('conn-homepod', 'token', 'Token', { type: 'password', maxlength: 4096 }),
         button('Test', test('token'), { fk: 'mx:homepod-token-test' }), button('Save', save('token'), { fk: 'mx:homepod-token-save' })]));
       if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
@@ -293,9 +286,7 @@ function pConnection(kind) {
       c.appendChild(
         group(
         { header: 'Sign In to Home Assistant',
-        footer:
-        'Home Assistant opens its sign-in page. Sign in there as the Home Assistant user Mantel should act as: a dedicated administrator (for example one named mantel-server), not your own ' +
-        'account. Mantel then makes a long-lived token for that user and keeps it sealed.' },
+        footer: 'Sign in as the Home Assistant user Mantel should act as, a dedicated administrator and not your own account. Mantel keeps its token sealed.' },
         [button('Connect to Home Assistant…', async () => {
           try { const r = await api('POST', '/api/connections/ha/oauth/start', { url: (d.url || '').trim() }); location.assign(r.authorize_url); }
           catch (e) { shown['test:ha'] = { text: e.message, err: true }; redraw(); }
@@ -345,9 +336,7 @@ function drawMaPage(c, can) {
   c.appendChild(
     group(
     { header: 'Browse Music Page',
-    footer:
-    'HK’s Browse Music page shows Music Assistant’s own web app. With a token here, Mantel signs that page in to Music Assistant as an ordinary MA user (never an administrator), so nobody has to ' +
-    'sign in to MA on each screen. The token stays sealed in Mantel; the page never sees it.' },
+    footer: 'With a token here, Mantel signs HK’s Browse Music page in to Music Assistant as an ordinary user, so no screen asks. The token stays sealed in Mantel.' },
     [page.set && page.saved ? info('Signs In As', 'Since ' + fmt(page.saved.since) + (page.saved.expires ? '; expires ' + fmt(page.saved.expires) : ''), (page.saved.user && page.saved.user.name) ||
       'An MA User')
       : info('Signs In As', page.unreadable ? 'The saved token could not be opened (was the at-rest key changed?).' : 'Not set: the page shows Music Assistant’s own sign-in.', 'Nobody')]));

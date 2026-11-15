@@ -34,7 +34,7 @@ const asked = [];
 window.hkSettingsKit = {
   group: (o, rows) => ({ kind: 'group', header: o.header || null, footer: plain(o.footer), rows: rows.filter(Boolean) }),
   info: row('info'), toggle: row('toggle'), text: row('text'), select: row('select'), nav: row('nav'), button: row('button'),
-  check: row('check'), confirm: async (root, o) => { asked.push(o.title); return true; },
+  check: row('check'), seg: row('seg'), confirm: async (root, o) => { asked.push(o.title); return true; },
   h: (tag, attrs) => ({ _text: (attrs && attrs.text) || '' }),
 };
 const data = JSON.parse(readFileSync(process.argv[3], 'utf8'));
@@ -73,8 +73,9 @@ const out = {};
 const owner = data.me.owner, admin = data.me.admin, linked = data.me.linked;
 
 // Me: a Mantel account has Change Password; a Home Assistant user has none
-out.me_owner = await open(owner, ['mantel', 'me']);
-out.me_linked = await open(linked, ['mantel', 'me']);
+out.me_main = await open(owner, ['mantel', 'me']);
+out.me_owner = await open(owner, ['mantel', 'me', 'sign-in']);
+out.me_linked = await open(linked, ['mantel', 'me', 'sign-in']);
 out.me_linked_password = (await open(linked, ['mantel', 'me', 'password'])).title;
 // Change Password: too short and not matching are refused on the page, then sent once
 let g = await open(owner, ['mantel', 'me', 'password']);
@@ -173,7 +174,10 @@ DATA = {
               "/api/default-screens": {"users": {}, "screens": [], "house": None}, "/api/phones": {"linked": False},
               "/api/auth/passkeys": {"passkeys": []}, "/api/push/targets": {"targets": []}, "/api/app/devices": {"apps": []},
               "/api/admin/overview": OWNER, "/api/devices": {"devices": []},
-              "/api/audit": {"rows": AUDIT, "next": None, "retention_days": 365}},
+              "/api/audit": {"rows": AUDIT, "next": None, "retention_days": 365},
+              "/api/rbac/roles": {"roles": {"owner": {"name": "owner", "grants": [], "overridden": False, "tunnel_sensitive": True},
+                                            "adult": {"name": "adult", "grants": [], "overridden": False, "tunnel_sensitive": True}}},
+              "/api/rbac/grants": {"grants": []}, "/api/areas": []},
     "answers": {"POST /api/users/u2/password": {"status": 200, "body": {"ok": True, "sessions_ended": 2}},
                 "POST /api/users/u3/password": {"status": 400, "body": {"error": "password_contains_name",
                                                                         "message": "the password must not contain the user name"}}},
@@ -209,6 +213,13 @@ def footers(page):
     return " ".join(g.get("footer") or "" for g in groups)
 
 
+def test_me_is_one_group_of_rows_and_sign_out_alone(got):
+    page = got["me_main"]
+    assert [g.get("header") for g in page["groups"] if g.get("rows")] == [None, None, None]
+    assert labels(page) == ["Sign-In & Security", "Notifications", "Devices", "Privacy", "Opens On", "Sign Out"]
+    assert [r for r in rows(page) if r["label"] == "Sign Out"][0]["kind"] == "button"
+
+
 def test_me_offers_change_password_to_a_mantel_account_only(got):
     [nav] = [r for r in rows(got["me_owner"]) if r["label"] == "Change Password…"]
     assert nav["kind"] == "nav" and nav["href"].endswith("/mantel/me/password")
@@ -232,7 +243,7 @@ def test_change_password_checks_on_the_page_then_sends_once(got):
     assert "The two passwords do not match." in json.dumps(got["mismatch"])
     assert got["sent_change"] == [{"method": "POST", "path": "/api/account/password",
                                    "body": {"current": "the old passphrase", "new": "a much better passphrase"}}]
-    assert got["went_change"] == ["#/mantel/me"]
+    assert got["went_change"] == ["#/mantel/me/sign-in"]
 
 
 def test_a_persons_page_offers_a_new_password_within_the_rules(got):

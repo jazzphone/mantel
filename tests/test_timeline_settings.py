@@ -125,35 +125,43 @@ for (const [name, me] of [['owner', owner], ['admin', admin], ['adult', adult]])
   m._reset(me);
   out.sidebar[name] = { routes: m.host.groups().flatMap((g) => g.rows.map((r) => r.route)), search: m.host.search().map((r) => r.route),
                         forward: m.host.forward('timeline'), titles: {} };
-  for (const sub of [[], ['recorded'], ['not-recorded']]) out.sidebar[name].titles[sub.join('/') || 'timeline'] = m.host.page(['mantel', 'timeline', ...sub], null).title;
+  for (const sub of [[], ['families'], ['wall'], ['morning'], ['recorded'], ['not-recorded']]) {
+    out.sidebar[name].titles[sub.join('/') || 'timeline'] = m.host.page(['mantel', 'timeline', ...sub], null).title;
+  }
 }
 
 // the main page, for an Owner
 const main = await draw(owner, ['mantel', 'timeline']);
+// the main page's own rows open four pages: What's Recorded (with the entities), Wall Tablets, Morning Summary; `all` is what they hold together
+const drawSubs = async (who) => { const l = []; for (const sub of ['families', 'wall', 'morning']) l.push(await draw(who, ['mantel', 'timeline', sub])); return l; };
+const subs = await drawSubs(owner);
+const all = { pg: main.pg, kids: [...main.kids, ...subs.flatMap((x) => x.kids)] };
+out.subs = Object.fromEntries(['families', 'wall', 'morning'].map((n, i) => [n, { title: subs[i].pg.title, back: subs[i].pg.back,
+  groups: subs[i].kids.map((g) => ({ header: g.header, footer: g.footer, rows: g.rows.map((r) => [r.kind, r.label, r.sub, r.value, r.on, r.disabled, r.href]) })) }]));
 out.main = { scope: main.pg.scope, top: main.pg.top,
              groups: main.kids.map((g) => ({ header: g.header, footer: g.footer, rows: g.rows.map((r) => [r.kind, r.label, r.sub, r.value, r.on, r.disabled, r.href]) })) };
 out.main.selects = Object.fromEntries(rows(main.kids).filter((r) => r.kind === 'select').map((r) => [r.label, r.options]));
-const sw = (label) => find(main.kids, label, 'toggle');
+const sw = (label) => find(all.kids, label, 'toggle');
 await sw('Windows').onChange(true);
 await tick();
 out.familyPut = puts().slice();
 calls.length = 0;
-await find(main.kids, 'Keep Rows For', 'select').onChange('90');
-await find(main.kids, 'Picture Budget', 'select').onChange('1000');
-await find(main.kids, 'Pictures per Detection', 'select').onChange('3');
+await find(all.kids, 'Keep Rows For', 'select').onChange('90');
+await find(all.kids, 'Picture Budget', 'select').onChange('1000');
+await find(all.kids, 'Pictures per Detection', 'select').onChange('3');
 await tick();
 out.settingsPuts = puts().map((c) => c[2]);
 calls.length = 0;
 // the wall tablets: the families it shows, and Show Pictures for the one tablet that has none
-const wall = rows(main.kids).filter((r) => r.kind === 'toggle' && ['Garage', 'Alarm'].includes(r.label));
+const wall = rows(all.kids).filter((r) => r.kind === 'toggle' && ['Garage', 'Alarm'].includes(r.label));
 await wall[wall.length - 1].onChange(true);        // (Garage and Alarm appear in the families first, then in the wall tablets: the last of each is the tablet's)
-await find(main.kids, 'Hall Tablet', 'toggle').onChange(true);
-await find(main.kids, 'Kitchen Tablet', 'toggle').onChange(false);
+await find(all.kids, 'Hall Tablet', 'toggle').onChange(true);
+await find(all.kids, 'Kitchen Tablet', 'toggle').onChange(false);
 await tick();
 out.wallPuts = puts().map((c) => c[2]);
 calls.length = 0;
 // the Morning Summary: a time typed, a bad one ignored, Send Test
-const at = find(main.kids, 'Sent At', 'text'), from = find(main.kids, 'Covers From', 'text');
+const at = find(all.kids, 'Sent At', 'text'), from = find(all.kids, 'Covers From', 'text');
 out.digestFields = [at.type, at.value, from.value];
 await at.onCommit('06:30');
 await from.onCommit('25:99');
@@ -162,19 +170,19 @@ await tick();
 out.digestPuts = puts().map((c) => c[2]);
 calls.length = 0;
 script.reads['POST /api/timeline/digest/test'] = { sent: 0 };
-await find(main.kids, 'Send Test', 'button').onClick();
+await find(all.kids, 'Send Test', 'button').onClick();
 out.testNone = { flash: core.ui.flash, calls: puts().map((c) => c[1]) };
 script.reads['POST /api/timeline/digest/test'] = { sent: 2 };
-await find(main.kids, 'Send Test', 'button').onClick();
+await find(all.kids, 'Send Test', 'button').onClick();
 out.testSent = core.ui.flash;
 calls.length = 0;
-out.clearButton = (() => { const b = find(main.kids, 'Clear Timeline…', 'button'); return b ? { destructive: true } : null; })();
+out.clearButton = (() => { const b = find(all.kids, 'Clear Timeline…', 'button'); return b ? { destructive: true } : null; })();
 
 // a refused change is put back (the page is drawn again from what it held) and says why
 calls.length = 0;
 // (the step-up dialog needs a DOM: a plain 400 stands in for any refusal)
 script.reads['PUT /api/timeline/settings'] = { status: 400, body: { error: 'invalid_retention' } };
-await find(main.kids, 'Keep Rows For', 'select').onChange('7');
+await find(all.kids, 'Keep Rows For', 'select').onChange('7');
 await tick();
 out.refused = core.ui.flash;
 script.reads['PUT /api/timeline/settings'] = script.page;
@@ -201,7 +209,8 @@ out.notRecordedPuts = puts().map((c) => c[2]);
 
 // an Admin reads
 script.reads['GET /api/timeline/settings'] = script.readonly;
-const ro = await draw(admin, ['mantel', 'timeline']);
+const ro0 = await draw(admin, ['mantel', 'timeline']);
+const ro = { kids: [...ro0.kids, ...(await drawSubs(admin)).flatMap((x) => x.kids)] };
 out.readOnly = { groups: ro.kids.map((g) => [g.header, g.footer, g.rows.map((r) => [r.kind, r.label, r.value, r.disabled])]), labels: rows(ro.kids).map((r) => r.label) };
 const roRec = await draw(admin, ['mantel', 'timeline', 'recorded']);
 out.readOnlyRecorded = rows(roRec.kids).every((r) => r.disabled);
@@ -215,7 +224,8 @@ out.away = away.kids[0].footer;
 script.reads['GET /api/timeline/settings'] = script.page;
 // no pictures kept at all (usage null) and no tablets
 script.reads['GET /api/timeline/settings'] = { ...script.page, usage: null, tablets: [], members: [], candidates: [], overrides: {} };
-const bare = await draw(owner, ['mantel', 'timeline']);
+const bare0 = await draw(owner, ['mantel', 'timeline']);
+const bare = { kids: [...bare0.kids, ...(await drawSubs(owner)).flatMap((x) => x.kids)] };
 out.bare = { labels: rows(bare.kids).map((r) => r.label), footers: bare.kids.map((g) => g.footer) };
 const bareRec = await draw(owner, ['mantel', 'timeline', 'recorded']);
 out.bareRecorded = bareRec.kids.map((g) => g.footer);
@@ -226,11 +236,12 @@ script.reads['GET /api/timeline/settings'] = script.page;
 // Me
 out.me = {};
 for (const [name, me] of [['owner', owner], ['admin', admin], ['adult', adult], ['child', script.child], ['wall', script.wall]]) {
-  const mine = await draw(me, ['mantel', 'me']);
-  const g = mine.kids.find((x) => x.header === 'Timeline');
-  out.me[name] = g ? { footer: g.footer, rows: g.rows.map((r) => [r.kind, r.label, r.sub, r.value, r.on, r.disabled]) } : null;
+  const mine = await draw(me, ['mantel', 'me', 'privacy']);
+  const g = mine.kids.find((x) => (x.rows || []).some((r) => r.label === 'Morning Summary'));
+  const clear = mine.kids.flatMap((x) => x.rows || []).filter((r) => r.label === 'Clear My Arrivals…');
+  out.me[name] = g ? { footer: g.footer, rows: g.rows.concat(clear).map((r) => [r.kind, r.label, r.sub, r.value, r.on, r.disabled]) } : null;
 }
-const mine = await draw(adult, ['mantel', 'me']);
+const mine = await draw(adult, ['mantel', 'me', 'privacy']);
 calls.length = 0;
 // turning Keep My Arrivals Private on asks first, with the count; no deletes the switch's change
 answer.value = false; asked.length = 0;
@@ -248,14 +259,14 @@ await tick();
 out.switches = { asked: asked.length, puts: puts().map((c) => [c[0], c[1], c[2]]) };
 // with nothing recorded there is nothing to delete, so turning it on asks nothing
 script.reads['GET /api/timeline/me'] = { private: false, summary: false, may_private: true, arrivals: 0, tz: 'America/Chicago' };
-const none = await draw(adult, ['mantel', 'me']);
+const none = await draw(adult, ['mantel', 'me', 'privacy']);
 asked.length = 0; calls.length = 0;
 await find(none.kids, 'Keep My Arrivals Private', 'toggle').onChange(true);
 await tick();
 out.privateNone = { asked: asked.length, puts: puts().map((c) => c[2]), clearDisabled: find(none.kids, 'Clear My Arrivals…', 'button').disabled };
 script.reads['GET /api/timeline/me'] = script.mine;
 // Clear My Arrivals asks first, then deletes
-const again = await draw(adult, ['mantel', 'me']);
+const again = await draw(adult, ['mantel', 'me', 'privacy']);
 calls.length = 0; asked.length = 0; answer.value = false;
 await find(again.kids, 'Clear My Arrivals…', 'button').onClick();
 out.clearNo = { asked: asked.map((a) => [a.title, a.message, a.ok, a.destructive]), puts: puts().length };
@@ -265,8 +276,8 @@ await tick();
 out.clearYes = { asked: asked.length, puts: puts().map((c) => [c[0], c[1]]), flash: core.ui.flash };
 // someone who may not hide theirs (the Owner decides for a Child) has no switch
 script.reads['GET /api/timeline/me'] = { private: false, summary: true, may_private: false, arrivals: 3, tz: null };
-const kid = await draw(adult, ['mantel', 'me']);
-const kg = kid.kids.find((x) => x.header === 'Timeline');
+const kid = await draw(adult, ['mantel', 'me', 'privacy']);
+const kg = kid.kids.find((x) => (x.rows || []).some((r) => r.label === 'Morning Summary'));
 out.noPrivate = { labels: kg.rows.map((r) => r.label), footer: kg.footer };
 process.stdout.write(JSON.stringify(out));
 """
@@ -366,7 +377,8 @@ def test_timeline_sits_beside_alerts_for_owners_and_admins_only(run):
         s = run["sidebar"][who]
         assert s["routes"].index("mantel/timeline") == s["routes"].index("mantel/alerts") + 1, who
         assert "mantel/timeline" in s["search"] and s["forward"] == "mantel/timeline"
-        assert s["titles"] == {"timeline": "Timeline", "recorded": "Recorded Entities", "not-recorded": "Not Recorded"}
+        assert s["titles"] == {"timeline": "Timeline", "families": "What’s Recorded", "wall": "Wall Tablets", "morning": "Morning Summary",
+                               "recorded": "Recorded Entities", "not-recorded": "Not Recorded"}
     a = run["sidebar"]["adult"]            # an address of a page the role may not use opens Me instead
     assert "mantel/timeline" not in a["routes"] and set(a["titles"].values()) == {"Fictional adult"}
 
@@ -374,26 +386,33 @@ def test_timeline_sits_beside_alerts_for_owners_and_admins_only(run):
 def test_the_main_page_has_the_sections_in_order(run):
     m = run["main"]
     assert m["top"] is True and "doors, locks" in m["scope"]
-    assert [g["header"] for g in m["groups"]] == ["What’s Recorded", "Entities", "Retention", "Pictures", "Wall Tablets: What They Show",
-                                                   "Wall Tablets: Pictures", "Morning Summary", None]
-    recorded = m["groups"][0]
+    assert [g["header"] for g in m["groups"]] == [None, "Retention", "Pictures", None, None]
+    first = m["groups"][0]["rows"]
+    assert first == [["nav", "What’s Recorded", None, "11 of 12", None, False, "#/mantel/timeline/families"],
+                     ["nav", "Wall Tablets", None, "2 of 6", None, False, "#/mantel/timeline/wall"]]
+    assert m["groups"][3]["rows"][0][:2] == ["nav", "Morning Summary"] and m["groups"][3]["rows"][0][3] == "7:00 AM"
+    assert m["groups"][4]["rows"][0][1] == "Clear Timeline…"                                       # red, alone, last
+    fam = run["subs"]["families"]
+    assert fam["title"] == "What’s Recorded" and fam["back"] == ["Timeline", "#/mantel/timeline"]
+    recorded = fam["groups"][0]
     assert [r[1] for r in recorded["rows"]] == ["Doors", "Windows", "Locks", "Garage", "Alarm", "Arrivals & Departures", "Doorbell",
                                                 "Camera Detections", "Motion", "Safety", "System", "Refused Commands"]
     assert {r[1]: r[4] for r in recorded["rows"]}["Windows"] is False and {r[1]: r[4] for r in recorded["rows"]}["Doors"] is True
     assert {r[1]: r[2] for r in recorded["rows"]}["Motion"] == "Cameras without smart detection"
     assert all(r[0] == "toggle" and r[5] is False for r in recorded["rows"])
-    ents = m["groups"][1]["rows"]
+    ents = fam["groups"][1]["rows"]
     assert ents == [["nav", "Recorded Entities", None, "4", None, False, "#/mantel/timeline/recorded"],
                     ["nav", "Not Recorded", None, "4", None, False, "#/mantel/timeline/not-recorded"]]   # 2 sensors to add and 2 turned off by hand
+    assert all(len(g.get("footer") or "") < 220 for g in m["groups"] + fam["groups"])                       # footers are a sentence or two
 
 
 def test_retention_pictures_and_the_usage_line(run):
     m = run["main"]
     assert m["selects"]["Keep Rows For"] == [["7", "7 Days"], ["30", "30 Days"], ["90", "90 Days"], ["365", "1 Year"]]
     assert m["selects"]["Picture Budget"][3] == ["1000", "1 GB"] and m["selects"]["Pictures per Detection"] == [["1", "1 Picture"], ["2", "2 Pictures"], ["3", "3 Pictures"]]
-    retention = {r[1]: r for r in m["groups"][2]["rows"]}
+    retention = {r[1]: r for r in m["groups"][1]["rows"]}
     assert retention["Keep Rows For"][3] == "30" and retention["Rows Kept"][3] == "12,430"
-    pictures = {r[1]: r for r in m["groups"][3]["rows"]}
+    pictures = {r[1]: r for r in m["groups"][2]["rows"]}
     assert pictures["Used"][2:4] == ["4,210 pictures", "312 MB of 500 MB"]
     assert pictures["Picture Budget"][3] == "500" and pictures["Pictures per Detection"][3] == "2"
 
@@ -404,7 +423,9 @@ def test_a_switch_sends_only_what_changed_and_the_server_answers_with_the_page(r
 
 
 def test_wall_tablets_choose_the_families_and_show_pictures_per_tablet(run):
-    wall, pics = run["main"]["groups"][4], run["main"]["groups"][5]
+    page = run["subs"]["wall"]
+    assert page["title"] == "Wall Tablets" and [g["header"] for g in page["groups"]] == [None, "What They Show", "Pictures"]
+    wall, pics = page["groups"][1], page["groups"][2]
     assert [r[1] for r in wall["rows"]] == ["Doors", "Locks", "Garage", "Alarm", "Doorbell", "Camera Detections"]
     assert [r[4] for r in wall["rows"]] == [True, True, False, False, False, False]
     assert [(r[1], r[2], r[4]) for r in pics["rows"]] == [("Kitchen Tablet", "Show Pictures", True), ("Hall Tablet", "Show Pictures", False)]
@@ -426,7 +447,7 @@ def test_a_refused_change_says_why(run):
 
 def test_recorded_entities_turn_off_one_by_one(run):
     r = run["recorded"]
-    assert r["title"] == "Recorded Entities" and r["back"] == ["Timeline", "#/mantel/timeline"]
+    assert r["title"] == "Recorded Entities" and r["back"] == ["What’s Recorded", "#/mantel/timeline/families"]
     assert r["groups"] == [["Doors", [["Back Door", True], ["Side Door", True]]], ["Locks", [["Front Door", True]]], ["Garage", [["Garage", True]]]]
     assert "Turn it off to stop recording that one" in r["footer"]
     assert run["recordedPut"] == [["PUT", "/api/timeline/overrides", {"overrides": {
@@ -453,7 +474,7 @@ def test_an_admin_reads_with_disabled_controls_the_note_and_no_clear_timeline(ru
     assert controls and all(row[3] for row in controls)
     assert "Clear Timeline…" not in r["labels"] and "Send Test" not in r["labels"]
     assert "Only an Owner can change the Timeline." in r["groups"][0][1]
-    morning = {row[1]: row for g in r["groups"] if g[0] == "Morning Summary" for row in g[2]}
+    morning = {row[1]: row for g in r["groups"] for row in g[2] if row[1] in ("Sent At", "Covers From")}
     assert morning["Sent At"][:3] == ["info", "Sent At", "7:00 AM"] and morning["Covers From"][2] == "9:00 PM"          # read as words, not boxes
     assert run["readOnlyRecorded"] is True and run["readOnlyNotRecorded"] is True
 
@@ -505,7 +526,7 @@ def test_clear_my_arrivals_asks_first_then_deletes_and_says_how_many(run):
 
 def test_a_person_who_may_not_hide_theirs_has_no_switch_for_it(run):
     n = run["noPrivate"]
-    assert n["labels"] == ["Morning Summary", "Recorded Arrivals and Departures", "Clear My Arrivals…"]
+    assert n["labels"] == ["Morning Summary", "Recorded Arrivals and Departures"]
     assert "Keep My Arrivals Private" not in n["labels"]
 
 

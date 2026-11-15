@@ -102,13 +102,13 @@ def test_an_owner_gets_the_house_and_every_mantel_page(run):
     o = run["owner"]
     assert o["title"] == "Mantel Settings" and o["house"] is True and o["first"] is None
     assert o["groups"][0] == {"place": "top", "header": None, "routes": ["mantel/me"]}
-    # wall tablets are each one's own page in All Screens (Devices is gone), Mantel Connect is in Connections'
-    # Home Assistant, and Service Accounts is Advanced
+    # wall tablets are each one's own page under Wall Tablets, Mantel Connect is in Connections' Home Assistant; since
+    # phase 32 each row names the panel's group it joins (Household, Developer) or Mantel's own
     assert routes(o)[1:] == ["mantel/people", "mantel/roles", "mantel/audit", "mantel/connections", "mantel/files",
                              "mantel/service"]
-    assert [g["header"] for g in o["groups"][1:]] == ["People & Access", "Mantel", "Advanced"]
+    assert [g["header"] for g in o["groups"][1:]] == ["Household", "Mantel", "Developer"]
     assert all(g["place"] == "end" for g in o["groups"][1:])
-    assert o["pages"]["roles"] == "Roles & Grants" and o["pages"]["service"] == "Service Accounts"
+    assert o["pages"]["roles"] == "Roles & Permissions" and o["pages"]["service"] == "Service Accounts"
 
 
 def test_an_admin_gets_the_house_without_roles_or_service_accounts(run):
@@ -516,7 +516,7 @@ def test_connections_offers_an_owner_the_one_time_import_and_shows_its_record(tm
     assert [(r["kind"], r["label"], r.get("value"), r["disabled"]) for r in g["rows"]] == [
         ("info", "HK’s Settings", "Not Imported", False), ("button", "Import HK’s Settings from Home Assistant", None, False)]
     assert "once" in g["footer"] and "Nothing is written to Home Assistant" in g["footer"]
-    assert "Running it again changes nothing" in g["footer"] and "generated Home screen" in g["footer"]
+    assert "running it again changes nothing" in g["footer"] and "generated Home screen" in g["footer"]
     assert out["owner"]["sent"] == [{"method": "POST", "path": "/api/settings/import", "csrf": "fictional-csrf"}]
     assert out["owner"]["reloaded"] is True                           # HK's own pages read the imported settings
     after = import_group(out["owner"]["after"])

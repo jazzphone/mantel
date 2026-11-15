@@ -20,45 +20,67 @@ export function pMe(sub) {
   if (sub[0] === 'password' && hasMantelPassword(u)) return pMyPassword();
   if (sub[0] === 'enroll') return pEnroll(['Me', '#/' + ROUTE + '/me']);
   if (sub[0] === 'sessions' && sub[1]) return pSessions(decodeURIComponent(sub[1]));
-  return { title: u.name || u.username || 'Me', top: true, scope: roleLabel(u.role) + ' · ' +
-    (u.kind === 'ha_linked' ? 'Signed in with Home Assistant' : 'Mantel account') + (u.username ? ' · ' + u.username : ''),
+  if (sub[0] === 'sign-in') return pMeSub('Sign-In & Security', drawSignIn);
+  if (sub[0] === 'notifications') return pMeSub('Notifications', (c) => { drawNotifications(c); drawSystemAlerts(c); });
+  if (sub[0] === 'devices') return pMeSub('Devices', drawDevices);
+  if (sub[0] === 'privacy' && mayTimeline()) return pMeSub('Privacy', drawTimeline);
+  return { title: u.name || u.username || 'Me', top: true, scope: personLine(u),
   body(c) {
     result(c, 'me');
-    c.appendChild(group({ header: 'Account' }, [info('Name', null, u.name || u.username || u.id), info('Role', null, roleLabel(u.role)),
-      info('Signs In With', null, u.kind === 'ha_linked' ? 'Home Assistant' : 'User Name and Password'),
-      info('Here From', null, me.door === 'lan' ? 'Home Network' : 'Outside the Home')]));
-    // a Mantel account's own password (accounts.change_password); a Home Assistant user's is Home Assistant's
-    if (hasMantelPassword(u)) {
-      c.appendChild(group({ footer: 'Every other browser signed in as you is signed out when it changes.' },
-        [nav(u.has_password ? 'Change Password…' : 'Set a Password…', 'me/password')]));
+    const rows = [];
+    // a Wall Tablet account sees only this page, and may make its own tablet (devices.enroll): the way in for a
+    // tablet that cannot use Sign in with Home Assistant (trusted_networks signs it in as itself; 2026-10-19)
+    if (u.role === 'wall_tablet') {
+      rows.push(me.door === 'lan' ? nav('Make This Browser a Wall Tablet…', 'me/enroll', { icon: 'mdi:tablet' })
+        : info('Make This Browser a Wall Tablet', null, 'Home Network Only'));
     }
+    rows.push(nav('Sign-In & Security', 'me/sign-in', { icon: 'mdi:shield-key' }));
+    rows.push(nav('Notifications', 'me/notifications', { icon: 'mdi:bell' }));
+    rows.push(nav('Devices', 'me/devices', { icon: 'mdi:cellphone-link' }));
+    if (mayTimeline()) rows.push(nav('Privacy', 'me/privacy', { icon: 'mdi:hand-back-right' }));
+    c.appendChild(group({}, rows));
     const ms = load('myscreen', () => api('GET', '/api/default-screen'));
     if (ms && ms.data) {
       const d = ms.data;
-      c.appendChild(group({ header: 'Default Screen', footer: 'Where Mantel opens for you.' + (d.at_tablet ? ' At a wall tablet it opens the tablet’s own screen.' : '') },
-        [screenPicker('me', 'Opens On', null, d.screen, d.screens, 'House Default (' + houseTitle(d) + ')',
-                      (v) => api('PUT', '/api/default-screen', { screen: v }))]));
+      c.appendChild(group({}, [screenPicker('me', 'Opens On', d.at_tablet ? 'At a wall tablet it opens the tablet’s own screen.' : null, d.screen, d.screens, 'House Default (' + houseTitle(d) + ')',
+                             (v) => api('PUT', '/api/default-screen', { screen: v }))]));
     }
-    const ss = load('sessions', () => api('GET', '/api/sessions'));
-    if (!ss) pending(c); else if (ss.err) failed(c, ss.err);
-    else drawSessions(c, ss.data.sessions);
-    if (u.role === 'wall_tablet') {
-      // a Wall Tablet account sees only this page, and may make its own tablet (devices.enroll): the way in for a
-      // tablet that cannot use Sign in with Home Assistant (trusted_networks signs it in as itself; 2026-10-19)
-      c.appendChild(group({ footer: me.door === 'lan' ? 'On the tablet itself: this browser becomes the wall tablet, and this account is signed out here.'
-        : 'Devices can only be enrolled on the home network.' }, [me.door === 'lan' ? nav('Make This Browser a Wall Tablet…', 'me/enroll', { icon: 'mdi:tablet' })
-        : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
-    }
-    drawNotifications(c);
-    drawSystemAlerts(c);
-    drawTimeline(c);
-    drawApps(c);
-    drawPasskeys(c);
-    drawTotp(c);
-    c.appendChild(group({ footer: 'Optional, and not used for now: the only PIN is the house Alarm PIN, for the alarm.' }, [nav('My PIN', 'me/pin')]));
     // through Home Assistant's Ingress Home Assistant holds the sign-in: nothing to sign out of here
-    if (!BASE) c.appendChild(group({ footer: 'Ends this browser’s session.' }, [button('Sign Out', signOut, { destructive: true, center: true, fk: 'mx:signout' })]));
+    if (!BASE) c.appendChild(group({}, [button('Sign Out', signOut, { destructive: true, center: true, fk: 'mx:signout' })]));
   } };
+}
+// "Adult · Signs in with Home Assistant": a person's one line, on their page and on Me
+export const personLine = (u) => roleLabel(u.role) + ' · ' + (u.kind === 'ha_linked' ? 'Signs in with Home Assistant' : 'Mantel account' + (u.username ? ' · ' + u.username : ''));
+const mayTimeline = () => ['owner', 'admin', 'adult'].includes(me.user.role);
+// a sub-page of Me: its title in the bar, Back to Me
+function pMeSub(title, draw) {
+  return { title, back: ['Me', '#/' + ROUTE + '/me'], body(c) { result(c, 'me'); draw(c); } };
+}
+// SIGN-IN & SECURITY: how they sign in, then passkeys and the authenticator app. A person's page (people.js) shows the
+// same facts read-only (signInFacts).
+export function signInFacts(u) {
+  const how = (u.kind === 'ha_linked' ? 'Home Assistant' : 'User Name and Password');
+  return [info('Signs In With', null, how),
+    ...(u.totp !== undefined ? [info('Authenticator App', null, u.totp ? 'On' : 'Off')] : []),
+    ...(u.passkeys !== undefined ? [info('Passkeys', null, u.passkeys ? String(u.passkeys) : 'None')] : [])];
+}
+function drawSignIn(c) {
+  const u = me.user;
+  const rows = [info('Signs In With', null, u.kind === 'ha_linked' ? 'Home Assistant' : 'User Name and Password'),
+    info('Here From', null, me.door === 'lan' ? 'Home Network' : 'Outside the Home')];
+  // a Mantel account's own password (accounts.change_password); a Home Assistant user's is Home Assistant's
+  if (hasMantelPassword(u)) rows.push(nav(u.has_password ? 'Change Password…' : 'Set a Password…', 'me/password'));
+  rows.push(nav('My PIN', 'me/pin'));
+  c.appendChild(group({ footer: hasMantelPassword(u) ? 'A new password signs every other browser out. The PIN is optional, and not used for now.' : null }, rows));
+  drawPasskeys(c);
+  drawTotp(c);
+}
+// DEVICES: this person's browsers and the Mantel app on their phones
+function drawDevices(c) {
+  const ss = load('sessions', () => api('GET', '/api/sessions'));
+  if (!ss) pending(c); else if (ss.err) failed(c, ss.err);
+  else drawSessions(c, ss.data.sessions);
+  drawApps(c);
 }
 // MY SESSIONS (2026-10-28): one row per kind of browser -- "Safari on Mac", on the home network or from outside --
 // not one per sign-in, with how many and when one was last used; a row opens its sessions, each with its own Sign
@@ -93,7 +115,7 @@ function drawSessions(c, list) {
       { sub: `${sessWhere(s)} · last seen ${ago(s.last_seen)}`, value: g.list.length > 1 ? String(g.list.length) : undefined }));
   }
   const others = groups.reduce((n, g) => n + g.list.length, 0);
-  c.appendChild(group({ header: 'My Sessions', footer: 'Every browser signed in as you, by kind. A browser that signs in again replaces its last session. The Mantel app is under Mantel App, below.' },
+  c.appendChild(group({ header: 'Browsers', footer: 'Every browser signed in as you, by kind. The Mantel app is below.' },
     rows.length ? rows : [info('No active sessions')]));
   if (others) {
     c.appendChild(group({ footer: 'Signs out every other browser (' + others + ' session' + (others > 1 ? 's' : '') + '). This one stays signed in, and so does the Mantel app.' },
@@ -108,7 +130,7 @@ function pSessions(key) {
   const ss = load('sessions', () => api('GET', '/api/sessions'));
   const g = ss && ss.data ? sessGroups(ss.data.sessions).find((x) => x.key === key) : null;
   const title = key.split('|')[0];
-  return { title, back: ['Me', '#/' + ROUTE + '/me'], scope: g ? sessWhere(g.list[0]) + ' · ' + g.list.length + ' session' + (g.list.length > 1 ? 's' : '') : '',
+  return { title, back: ['Devices', '#/' + ROUTE + '/me/devices'], scope: g ? sessWhere(g.list[0]) + ' · ' + g.list.length + ' session' + (g.list.length > 1 ? 's' : '') : '',
   body(c) {
     result(c, 'me');
     if (!ss) return pending(c);
@@ -128,7 +150,7 @@ function pSessions(key) {
         for (const s of g.list) { try { await api('DELETE', '/api/sessions/' + encodeURIComponent(s.id)); n++; } catch (e) { /* gone already */ } }
         forget('sessions');
         ui.flash = { key: 'me', text: n + ' session' + (n > 1 ? 's' : '') + ' signed out.' };
-        location.hash = '#/' + ROUTE + '/me';
+        location.hash = '#/' + ROUTE + '/me/devices';
       }, { destructive: true, center: true, fk: 'mx:revoke-group' })]));
     }
   } };
@@ -185,7 +207,7 @@ function drawSystemAlerts(c) {
     group({ header: 'System Alerts', footer: 'Mantel’s own alerts (Home Assistant disconnected, a backup failed, an update) on your Mantel apps and browsers. Where else they go is in Alerts.' }, [
     K().toggle({ label: 'System Alerts', on: got.data.system_alerts, fk: 'mx:system-alerts',
       onChange: (on) => act('me', () => api('PUT', '/api/alerts/me', { system_alerts: on }), on ? 'System alerts turned on.' : 'System alerts turned off.', 'myalerts', 'alerts') }),
-    nav('Alerts', 'alerts', { icon: 'mdi:bell-ring' })]));
+    nav('System Alerts', 'alerts', { icon: 'mdi:alert-circle' })]));
 }
 // TIMELINE (timeline/api.py, docs/phase19/HOUSE-TIMELINE.md "Who sees what"): this person's own switches. Keep My Arrivals
 // Private (not for a Child: the Owner decides) stops recording their arrivals and departures and deletes the past
@@ -193,7 +215,7 @@ function drawSystemAlerts(c) {
 // For the people who have the Timeline by default (an Owner, an Admin, an Adult).
 const putTimeline = (body, ok) => act('me', () => api('PUT', '/api/timeline/me', body), ok, 'mytimeline');
 function drawTimeline(c) {
-  if (!['owner', 'admin', 'adult'].includes(me.user.role)) return;
+  if (!mayTimeline()) return;
   const got = load('mytimeline', () => api('GET', '/api/timeline/me'));
   if (!got) { pending(c); return; }
   if (got.err) { failed(c, got.err); return; }
@@ -209,14 +231,14 @@ function drawTimeline(c) {
   rows.push(K().toggle({ label: 'Morning Summary', sub: 'A summary of the night on your Mantel apps at 7:00 AM', on: t.summary, fk: 'mx:timeline-summary',
     onChange: (on) => putTimeline({ summary: on }, on ? 'You’ll get the Morning Summary.' : 'No more Morning Summary for you.') }));
   rows.push(info('Recorded Arrivals and Departures', null, t.private ? 'None Kept' : String(n)));
-  rows.push(button('Clear My Arrivals…', async () => {
+  c.appendChild(group({ footer: (t.may_private ? (t.private ? 'Your arrivals and departures aren’t recorded. ' :
+    'Turn on Keep My Arrivals Private and your arrivals and departures aren’t recorded. ')
+    + 'Doors, locks and cameras are about the house and are still recorded.' : 'Your Owner decides whether your arrivals and departures are recorded.') }, rows));
+  c.appendChild(group({}, [button('Clear My Arrivals…', async () => {
     if (!(await ask({ title: 'Clear Your Arrivals?', message: 'Delete your ' + arrivalsWord(n) + '? Nothing else in the Timeline changes.', ok: 'Clear', destructive: true }))) return;
     await act('me', async () => { const r = await api('DELETE', '/api/timeline/mine/presence');
       ui.flash = { key: 'me', text: r && r.deleted ? 'Cleared ' + arrivalsWord(r.deleted) + '.' : 'Nothing to clear.' }; }, null, 'mytimeline');
-  }, { destructive: true, disabled: n === 0, fk: 'mx:timeline-clear-mine' }));
-  c.appendChild(group({ header: 'Timeline', footer: (t.may_private ? (t.private ? 'Your arrivals and departures aren’t recorded. ' :
-    'Turn on Keep My Arrivals Private and your arrivals and departures aren’t recorded. ')
-    + 'Doors, locks and cameras are about the house and are still recorded.' : 'Your Owner decides whether your arrivals and departures are recorded.') }, rows));
+  }, { destructive: true, center: true, disabled: n === 0, fk: 'mx:timeline-clear-mine' })]));
 }
 // APPS (app_auth.py; docs/phase10/APPLE-APPS.md §2): Mantel for iPhone, iPad and Mac signed in as this person, and
 // the pairing QR code (a one-time code, ten minutes, home network only) that signs a new one in without typing.
@@ -296,7 +318,7 @@ function drawTotp(c) {
     : on ? 'Replacing it turns the old app off until the new code is confirmed.' : null }, rows));
 }
 function pMyPin() {
-  return { title: 'My PIN', back: ['Me', '#/' + ROUTE + '/me'], body(c) {
+  return { title: 'My PIN', back: ['Sign-In & Security', '#/' + ROUTE + '/me/sign-in'], body(c) {
     result(c, 'pin');
     const got = load('pin', () => api('GET', '/api/account/pin'));
     if (!got) { pending(c); return; }
@@ -340,7 +362,7 @@ function passwordProblem(d) {
 const pwField = (form, name, label, auto) => field(form, name, label, { type: 'password', maxlength: 1024, autocomplete: auto });
 function pMyPassword() {
   const has = !!me.user.has_password;
-  return { title: has ? 'Change Password' : 'Set a Password', back: ['Me', '#/' + ROUTE + '/me'], body(c) {
+  return { title: has ? 'Change Password' : 'Set a Password', back: ['Sign-In & Security', '#/' + ROUTE + '/me/sign-in'], body(c) {
     result(c, 'password');
     c.appendChild(group({ footer: PASSWORD_RULES + ' Every other browser signed in as you is signed out; this one stays.' },
       [has ? pwField('password', 'current', 'Current Password', 'current-password') : null,
@@ -354,7 +376,7 @@ function pMyPassword() {
       if (!(await act('password', () => api('POST', '/api/account/password', body), null, 'sessions'))) return;
       try { await refreshMe(); } catch (e) { /* the page still says it worked */ }
       ui.flash = { key: 'me', text: (has ? 'Password changed.' : 'Password set.') + ' Your other sessions have ended.' };
-      panel.go('#/' + ROUTE + '/me');
+      panel.go('#/' + ROUTE + '/me/sign-in');
     }, { center: true, fk: 'mx:change-password' })]));
   } };
 }

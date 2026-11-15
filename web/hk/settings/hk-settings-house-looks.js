@@ -72,7 +72,7 @@
         }
         var npSel = function (key, label, list, hv) {
           var own = b[key];
-          return K.select({ label: label, sk: 'b:' + key, sub: own ? 'Just This Screen' : 'Same as All Screens', value: own || '',
+          return K.select({ label: label, sk: 'b:' + key, sub: own ? 'Just This Screen' : null, value: own || '',
             options: [['', 'Same as All Screens (' + lab(list, hv) + ')', lab(list, hv)]].concat(list),
             onChange: function (v) { var o = {}; o[key] = v || null; set(o); } });
         };
@@ -349,7 +349,7 @@
         var only = x.generated ? this.onlyOf(b) : null;
         var gl = M.glassOf(b, look), app = [];
         app.push(K.nav({ label: 'Appearance Style', href: base + '/glass', sk: 'b:glass',
-          sub: gl.own ? 'Just This Screen' : 'Same as All Screens', value: M.glassShort(gl.own ? gl.value : gl.house) }));
+          sub: gl.own ? 'Just This Screen' : null, value: M.glassShort(gl.own ? gl.value : gl.house) }));
         var amt = function (k) {
           var a = M.amountOf(b, look, k);
           return { value: a.value, own: a.own, house: a.house,
@@ -383,7 +383,7 @@
         var colors = [this.accentNav(x, b, base + '/accent')];
         if (gl.effective === 'flat') {
           var fsc = this.flatScope('screen', x, b), fown = fsc.own();
-          colors.push(this.flatColorsNav(fsc, { sub: fown.off_tint != null || fown.pages != null ? 'Just This Screen' : 'Same as All Screens' }));
+          colors.push(this.flatColorsNav(fsc, { sub: fown.off_tint != null || fown.pages != null ? 'Just This Screen' : null }));
         }
         // a page screen: what its pages actually show (one page: its background
         // by name), never a "Same as All Screens" that reaches nothing
@@ -406,7 +406,7 @@
       // the Appearance row on a screen's page: its style, and whose it is
       appearanceSays(b) {
         var gl = M.glassOf(b, this.data.settings.look);
-        return gl.own ? 'Just This Screen' : 'Same as All Screens';
+        return gl.own ? 'Just This Screen' : null;
       }
       // ALL SCREENS' SKY / BACKGROUND (under Appearance since 2026-10-29)
       // ALL SCREENS -> APPEARANCE's pages (p_house): Style, Accent, Background, Flat Colors, Page Pills, the page itself
@@ -444,7 +444,7 @@
                                   onSet: function (v) { self.setH({ 'sky.landscape': v }); } });
         });
         if (sub[0] === 'pages') return mk('Background', function (c) { self.h_sky(c); });
-        if (sub[0] === 'lively') return mk('Each Occasion', function (c) { self.livelyList(c, null); });
+        if (sub[0] === 'lively') return mk('Each Occasion', function (c) { self.livelyList(c, null); }, ['Seasonal Decorations', base + '/decorations']);
         // FLAT'S OWN: its page while All Screens wears another look, and its
         // pages' -- and a page's while All Screens wears Flat
         var fbase = sub[0] === 'flat' ? base + '/flat' : base;
@@ -465,15 +465,17 @@
           var ws = M.WOODLAND.filter(function (w) { return w[0] === sub[1]; })[0];
           if (ws) return mk(ws[1], function (c) { self.h_season(c, ws); }, ['Woodland Between Occasions', base + '/woodland']);
         }
-        if (sub[0] === 'woodland') return mk('Woodland Between Occasions', function (c) { self.h_woodland(c); });
+        if (sub[0] === 'woodland') return mk('Woodland Between Occasions', function (c) { self.h_woodland(c); }, ['Seasonal Decorations', base + '/decorations']);
         if (sub[0] === 'night') return mk('Night Sky', function (c) { self.h_nightSky(c); });
         // THE SKY'S PREVIEW: today's sky on the Sky page, a theme's on its
         // own page (skyPreview), on the house's Home screen
         var spv = M.skyPreviewScreen(this.data.dashboards, this.data.boards);
         var withSky = function (pg, theme) { if (spv) { pg.preview = spv; pg.sky = { theme: theme }; } return pg; };
         var th = M.SKY_THEMES.filter(function (x) { return x.id === sub[0]; })[0];
-        if (th) return withSky(mk(th.label, function (c) { self.h_theme(c, th); }), th.id);
-        return withSky({ title: title, back: ['Appearance', '#/house/appearance'], scope: scope, body: function (c) { self.h_sky(c); } }, null);
+        if (th) return withSky(mk(th.label, function (c) { self.h_theme(c, th); }, ['Seasonal Decorations', base + '/decorations']), th.id);
+        if (sub[0] === 'decorations') return withSky(mk('Seasonal Decorations', function (c) { self.h_skyDecor(c); }), null);
+        // (its own row in the sidebar since phase 32: a section page, its header card the sidebar's icon)
+        return withSky({ title: title, top: true, scope: 'The live sky, a color or a picture behind the cards, on every screen.', body: function (c) { self.h_sky(c); } }, null);
       }
       // EVERY PAGE PILL, each a way to its look
       h_pills(c) {
@@ -494,7 +496,7 @@
         var self = this, house = known((this.data.settings.look || {}).tile_style) ? this.data.settings.look.tile_style : 'auto';
         var own = !!b && known(b.tile_style);
         var rows = [K.seg({ label: 'Tile Style', sk: b ? 'b:tile_style' : 'look.tile_style', value: own ? b.tile_style : house, options: M.TILE_STYLES,
-          sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null,
+          sub: b ? (own ? 'Just This Screen' : null) : null,
           onChange: function (v) { if (b) self.setB(path, { tile_style: v }); else self.setH({ 'look.tile_style': v }); } })];
         if (own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_STYLES, house) + ')', sk: 'b:tile_style:reset',
           onClick: function () { self.setB(path, { tile_style: null }); } }));
@@ -506,7 +508,7 @@
           var houseI = knownI((this.data.settings.look || {}).tile_icons) ? this.data.settings.look.tile_icons : 'auto';
           var ownI = !!b && knownI(b.tile_icons);
           rows.push(K.seg({ label: 'Icons', sk: b ? 'b:tile_icons' : 'look.tile_icons', value: ownI ? b.tile_icons : houseI, options: M.TILE_ICONS,
-            sub: b ? (ownI ? 'Just This Screen' : 'Same as All Screens') : 'Automatic: white on Bright Glass, in color otherwise',
+            sub: b ? (ownI ? 'Just This Screen' : null) : 'Automatic: white on Bright Glass, in color otherwise',
             onChange: function (v) { if (b) self.setB(path, { tile_icons: v }); else self.setH({ 'look.tile_icons': v }); } }));
           if (ownI) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_ICONS, houseI) + ')', sk: 'b:tile_icons:reset',
             onClick: function () { self.setB(path, { tile_icons: null }); } }));
@@ -529,7 +531,7 @@
           // gray badge until 2026-10-30)
           // (the preview's glass follows it as it moves, 2026-11-01, as the Side Pane's Dim does)
           rows.push(K.slider({ label: label, sk: skp + key, value: a.value, unit: '%', step: 5,
-            sub: a.house == null ? null : (a.own ? 'Just This Screen' : 'Same as All Screens'),
+            sub: a.house == null ? null : (a.own ? 'Just This Screen' : null),
             onInput: function (n) { self.pvAmount(key, n); }, onChange: a.onChange }));
           if (a.own) rows.push(K.button({ label: 'Reset to All Screens (' + a.house + '%)', sk: skp + key + ':reset', onClick: a.reset }));
         };
@@ -537,7 +539,7 @@
           amount('frost', 'Frost');
           var t = v.tint;
           rows.push(K.toggle({ label: 'Tint from Background', sk: skp + 'frost_tint', on: t.on,
-            sub: t.house == null ? null : (t.own ? 'Just This Screen' : 'Same as All Screens'), onChange: t.onChange }));
+            sub: t.house == null ? null : (t.own ? 'Just This Screen' : null), onChange: t.onChange }));
           if (t.own) rows.push(K.button({ label: 'Reset to All Screens (' + (t.house ? 'On' : 'Off') + ')', sk: skp + 'frost_tint:reset',
             onClick: t.reset }));
         }
@@ -550,7 +552,7 @@
         if (uses.bright && v.brightDim) {
           var bd = v.brightDim;
           rows.push(K.slider({ label: 'Dim', sk: skp + 'bright_dim', value: bd.value, min: 0, max: M.BRIGHT_DIM_MAX, step: 5, unit: '%',
-            sub: bd.house == null ? null : (bd.own ? 'Just This Screen' : 'Same as All Screens'),
+            sub: bd.house == null ? null : (bd.own ? 'Just This Screen' : null),
             onInput: function (n) { self.pvAmount('bright_dim', n); }, onChange: bd.onChange }));
           if (bd.own) rows.push(K.button({ label: 'Reset to All Screens (' + bd.house + '%)', sk: skp + 'bright_dim:reset', onClick: bd.reset }));
         }
@@ -559,14 +561,14 @@
         if (uses.bright && v.brightPages) {
           var bp = v.brightPages;
           rows.push(K.seg({ label: 'Bright Glass On', sk: skp + 'bright_pages', value: bp.value, options: M.BRIGHT_PAGES,
-            sub: bp.house == null ? 'Home Only: Home and the Pages screen; the other pages in Blur' : (bp.own ? 'Just This Screen' : 'Same as All Screens'), onChange: bp.onChange }));
+            sub: bp.house == null ? 'Home Only: Home and the Pages screen; the other pages in Blur' : (bp.own ? 'Just This Screen' : null), onChange: bp.onChange }));
           if (bp.own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.BRIGHT_PAGES, bp.house) + ')', sk: skp + 'bright_pages:reset', onClick: bp.reset }));
         }
         if (uses.tint && v.dark) {
           amount('dark', 'Darkness', 'tint');
           var w = v.well;
           rows.push(K.seg({ label: 'Icon Circles', sk: skp + 'well', value: w.value, options: M.TINT_WELLS,
-            sub: w.house == null ? null : (w.own ? 'Just This Screen' : 'Same as All Screens'), onChange: w.onChange }));
+            sub: w.house == null ? null : (w.own ? 'Just This Screen' : null), onChange: w.onChange }));
           if (w.own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TINT_WELLS, w.house) + ')',
             sk: skp + 'well:reset', onClick: w.reset }));
         }
@@ -580,7 +582,7 @@
       motionRows(b, look, path) {
         var self = this, own = !!b && typeof b.motion === 'boolean', house = look.motion !== false;
         var rows = [K.toggle({ label: 'Motion', sk: b ? 'b:motion' : 'look.motion', on: own ? b.motion : house,
-          sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null,
+          sub: b ? (own ? 'Just This Screen' : null) : null,
           onChange: function (on) { if (b) self.setB(path, { motion: on }); else self.setH({ 'look.motion': on }); } })];
         if (own) rows.push(K.button({ label: 'Reset to All Screens (' + (house ? 'On' : 'Off') + ')', sk: 'b:motion:reset',
           onClick: function () { self.setB(path, { motion: null }); } }));
@@ -591,7 +593,7 @@
         var house = look.flat_theme === 'light' ? 'light' : 'dark';
         var rows = [K.seg({ label: 'Theme', sk: b ? 'b:flat_theme' : 'look.flat_theme',
           value: own ? b.flat_theme : house, options: [['light', 'Light'], ['dark', 'Dark']],
-          sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null,
+          sub: b ? (own ? 'Just This Screen' : null) : null,
           onChange: function (v) { if (b) self.setB(path, { flat_theme: v }); else self.setH({ 'look.flat_theme': v }); } })];
         if (own) rows.push(K.button({ label: 'Reset Theme to All Screens', sk: 'b:flat_theme:reset',
           onClick: function () { self.setB(path, { flat_theme: null }); } }));
@@ -690,19 +692,17 @@
           this.skyResetGroup(c, null, null);
           return;
         }
-        // RAIN & SNOW only while there is weather to fall; PAUSE WHEN NOT IN
-        // FOCUS only while anything moves (2026-10-10)
+        // LIVE SKY (phase 32): Animations, and what depends on it only while it is on; Weather, Rain & Snow only while there is
+        // weather to fall; Pause When Not in Focus only while anything moves (2026-10-10)
         var bg = [
           K.toggle({ label: 'Animations', sub: 'The moving parts — drifting clouds, falling rain and snow, the seasons, and a running fan’s spinning icon.',
             sk: 'sky.animations', on: sky.animations !== false, onChange: function (on) { self.setH({ 'sky.animations': on }); } })];
         if (sky.animations !== false) {
-          bg.push(K.toggle({ label: 'Pause When Not in Focus', sub: 'On a computer, everything holds still while another window is in front, ' +
-              'and picks up where it left off when you come back. Saves most of the work the dashboard does while you aren’t looking.',
+          bg.push(K.toggle({ label: 'Pause When Not in Focus', sub: 'On a computer, everything holds still while another window is in front. Saves ' +
+            'most of the work the dashboard does while you aren’t looking.',
             sk: 'sky.focus_pause', on: sky.focus_pause !== false, onChange: function (on) { self.setH({ 'sky.focus_pause': on }); } }));
-          bg.push(K.seg({ label: 'Moving Things', sub: 'Rain and snow, falling leaves, bats and birds, flybys and confetti. ' +
-              'In front, they cross over the cards — taps still go straight through to them. Fireworks, fog and clouds stay behind.',
-            sk: 'sky.moving', value: sky.moving || 'behind', options: M.SKY_MOVING, stack: !this.hasAttribute('wide'),
-            onChange: function (v) { self.setH({ 'sky.moving': v }); } }));
+          bg.push(K.select({ label: 'Moving Things', sub: 'Rain and snow, falling leaves, bats and birds, flybys and confetti. Fireworks, fog and clouds stay behind.',
+            sk: 'sky.moving', value: sky.moving || 'behind', options: M.SKY_MOVING, onChange: function (v) { self.setH({ 'sky.moving': v }); } }));
         }
         bg.push(K.toggle({ label: 'Weather', sub: 'Clouds, rain, snow and fog. The sun, moon and stars stay.',
             sk: 'sky.weather', on: sky.weather !== false, onChange: function (on) { self.setH({ 'sky.weather': on }); } }));
@@ -721,7 +721,17 @@
             onChange: function (v) { self.setH({ 'sky.daytime': v }); } }),
           K.nav({ label: 'Sky Colors', sub: 'The live sky’s own colors, with its weather and decorations', value: this.backdropLabel(sky.gradient),
                   href: '#/house/appearance/sky/backdrop', sk: 'sky.gradient' })])));
+        // SEASONAL DECORATIONS: one row ("11 On"), their page has the rest
+        var themesOn = (sky.themes || []).length;
+        c.appendChild(K.group({}, [K.nav({ label: 'Seasonal Decorations', value: sky.decorations === false ? 'Off' : themesOn + ' On',
+          href: '#/house/appearance/sky/decorations', sk: 'sky.decorations' })]));
         this.skyPagesGroup(c, null, null);
+        c.appendChild(K.group({}, [K.nav({ label: 'Advanced', sub: 'Hemisphere, sources, the Sky Switch, what decorations need', href: '#/house/appearance/sky/advanced' })]));
+        this.skyResetGroup(c, null, null);
+      }
+      // ALL SCREENS' SEASONAL DECORATIONS (phase 32): the switch, their style, the woodland between occasions, each occasion, and how lively they are
+      h_skyDecor(c) {
+        var self = this, sky = this.data.settings.sky;
         var rows = [K.toggle({ label: 'Seasonal Decorations', sk: 'sky.decorations', on: sky.decorations !== false,
                                onChange: function (on) { self.setH({ 'sky.decorations': on }); } })];
         rows.push(K.seg({ label: 'Decoration Style', sub: 'Holidays, seasons and special occasions', sk: 'sky.decoration_style',
@@ -729,15 +739,14 @@
           onChange: function (v) { self.setH({ 'sky.decoration_style': v }); } }));
         rows.push(K.nav({ label: 'Woodland Between Occasions', sub: 'New Decorations, on days with no holiday',
           value: M.woodlandSummary(sky.woodland), href: '#/house/appearance/sky/woodland', sk: 'sky.woodland' }));
+        c.appendChild(K.group({ footer: 'What the live sky dresses up for. This is the same switch as Seasonal Decorations on the ' + haName('HK Frontend device') + '.' +
+          (sky.seasonal ? ' They also need ' + this.name(sky.seasonal) + ' to be on (Advanced).' : '') }, rows));
         if (sky.decorations !== false) {
-          M.SKY_THEMES.forEach(function (t) {
+          c.appendChild(K.group({ header: 'Occasions' }, M.SKY_THEMES.map(function (t) {
             var on = (sky.themes || []).indexOf(t.id) >= 0;
-            rows.push(K.nav({ label: t.label, value: on ? self.livelyValue(t.id) : 'Off', href: '#/house/appearance/sky/' + t.id, sk: 'sky:' + t.id }));
-          });
+            return K.nav({ label: t.label, value: on ? self.livelyValue(t.id) : 'Off', href: '#/house/appearance/sky/' + t.id, sk: 'sky:' + t.id });
+          })));
         }
-        var gate = sky.seasonal ? ' They also need ' + this.name(sky.seasonal) + ' to be on (Advanced).' : '';
-        c.appendChild(K.group({ header: 'Seasonal Decorations', footer: 'What the live sky dresses up for. This is the same switch as Seasonal Decorations on the ' + haName('HK Frontend device') +
-          '.' + gate }, rows));
         // LIVELINESS (2026-10-09): one preset for every holiday, occasion,
         // season and the Night Sky, or Custom -- each its own (Each Occasion)
         if (this.livelyMoves()) {
@@ -747,14 +756,8 @@
             lrows.push(K.nav({ label: 'Each Occasion', sub: 'Every holiday, occasion, season and the Night Sky', href: '#/house/appearance/sky/lively',
                                sk: 'sky.liveliness', value: 'Custom' }));
           }
-          c.appendChild(K.group({ footer: 'Liveliness: the decorations’ little moving things — bats, leaves, snow, ' +
-              'fireflies — and the Night Sky’s stars. Custom sets each occasion its own. Each screen can choose its own.' }, lrows));
+          c.appendChild(K.group({ footer: 'The decorations’ little moving things — bats, leaves, snow, fireflies — and the Night Sky’s stars. Each screen can choose its own.' }, lrows));
         }
-        c.appendChild(K.group({ header: 'Sky Switch', footer: 'While this helper is off, no generated screen shows the live sky. A screen written in YAML names its own.' }, [
-          this.entityRow({ label: 'Sky Switch', sk: 'look.sky_switch', value: look.sky_switch, none: 'None (Always On)',
-                           filter: { domains: ['input_boolean', 'switch'] }, onPick: function (v) { self.setH({ 'look.sky_switch': v }); } })]));
-        c.appendChild(K.group({}, [K.nav({ label: 'Advanced', sub: 'Hemisphere, sources, what decorations need', href: '#/house/appearance/sky/advanced' })]));
-        this.skyResetGroup(c, null, null);
       }
       // RESET TO DEFAULTS (2026-10-14, the owner's ask): every setting on this
       // Sky / Background page goes back -- All Screens' to HK's defaults
@@ -907,14 +910,14 @@
         if (o.saver) return;
         // MOTION (2026-10-30): the picture drifts, or a theme's layers move, at a speed
         var mOwn = o.motionHouse !== undefined && !!o.motion;
-        var mRows = [K.seg({ label: 'Motion', sub: o.motionHouse === undefined ? null : (mOwn ? 'Just This Screen' : 'Same as All Screens'),
+        var mRows = [K.seg({ label: 'Motion', sub: o.motionHouse === undefined ? null : (mOwn ? 'Just This Screen' : null),
           sk: o.sk.replace('wallpaper', 'wallpaper_motion'), value: mEff, options: M.WALLPAPER_MOTION, onChange: function (v) { o.onMotion(v); } })];
         if (mOwn) mRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_MOTION, o.motionHouse) + ')',
           sk: o.sk.replace('wallpaper', 'wallpaper_motion') + ':reset', onClick: function () { o.onMotion(null); } }));
         c.appendChild(K.group({ footer: 'A wallpaper drifts, sways or turns slowly; a motion theme moves its own way. It stops while the screen is dark or hidden, ' +
           'when Animations are off, and for Reduce Motion.' }, mRows));
         var nOwn = o.nightHouse !== undefined && !!o.night, nEff = o.night || o.nightHouse || 'auto';
-        var nRows = [K.seg({ label: 'Night Version', sub: o.nightHouse === undefined ? null : (nOwn ? 'Just This Screen' : 'Same as All Screens'),
+        var nRows = [K.seg({ label: 'Night Version', sub: o.nightHouse === undefined ? null : (nOwn ? 'Just This Screen' : null),
           sk: o.sk.replace('wallpaper', 'wallpaper_night'), value: nEff, options: M.WALLPAPER_NIGHT, onChange: function (v) { o.onNight(v); } })];
         if (nOwn) nRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_NIGHT, o.nightHouse) + ')',
           sk: o.sk.replace('wallpaper', 'wallpaper_night') + ':reset', onClick: function () { o.onNight(null); } }));

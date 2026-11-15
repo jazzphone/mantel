@@ -73,17 +73,17 @@ export function pAlerts(sub) {
   if (sub[0] === 'apps') return pApps();
   if (sub[0] === 'history') return pHistory();
   if (sub[0] === 'advanced') return pAdvanced();
-  return { title: 'Alerts', top: true,
-    scope: 'Discord, Telegram, Notifiarr and your mail provider can read an alert’s text. The Mantel apps’ alerts are sealed end to end.',
+  return { title: 'System Alerts', top: true,
+    scope: 'Where Mantel sends what goes wrong, such as Home Assistant disconnecting or a failed backup.',
     body(c) {
       withPage(c, 'alerts', (page) => {
         const list = page.channels;
         const adds = page.senders.some((s) => s.available && !s.advanced);
-        c.appendChild(group({ header: 'Channels', footer: list.length ? readOnly(page)
-            : 'No channels yet. Add one to hear about Home Assistant disconnecting, a failed backup, an update and more. ' + (readOnly(page) || '') },
+        c.appendChild(group({ header: 'Channels', footer: [list.length ? null : 'No channels yet.',
+            'Discord, Telegram, Notifiarr and email can read an alert’s text; the Mantel apps’ alerts are sealed end to end.', readOnly(page)].filter(Boolean).join(' ') },
           list.map((ch) => channelRow(page, ch)).concat(page.can_edit && adds ? [nav('Add Channel', 'alerts/add', { icon: 'mdi:plus' })] : [])));
         c.appendChild(group({}, [
-          nav('Mantel Apps', 'alerts/apps', { icon: 'mdi:cellphone', value: String(page.app.people.length), sub: 'Who gets system alerts on iPhone, iPad, Mac and browsers' }),
+          nav('Mantel Apps', 'alerts/apps', { icon: 'mdi:cellphone', value: String(page.app.people.length), sub: 'Who gets alerts on iPhone, iPad, Mac and browsers' }),
           nav('History', 'alerts/history', { icon: 'mdi:history', sub: 'The last 30 days' }),
           nav('Advanced', 'alerts/advanced', { icon: 'mdi:cog', sub: 'Holds, the heartbeat and Apprise' })]));
       });
@@ -101,7 +101,7 @@ function setupRows(form, kind, ch) {
   const d = draft(form), cfg = (ch && ch.config) || {}, keep = ch ? KEEP : '';
   if (kind === 'discord') {
     return { rows: [field(form, 'url', 'Webhook URL', { type: 'password', maxlength: 512, placeholder: sealed(ch, 'https://discord.com/api/webhooks/…') })],
-      footer: 'In Discord: the channel’s settings, Integrations, Webhooks, Copy Webhook URL. Anyone with the URL can post to that channel, so Mantel keeps it sealed.' + keep };
+      footer: 'In Discord: the channel’s settings, Integrations, Webhooks, Copy Webhook URL. Mantel keeps it sealed.' + keep };
   }
   if (kind === 'telegram') {
     if (d.chat_id === undefined) { d.chat_id = cfg.chat_id === undefined ? '' : cfg.chat_id; d.chat_name = cfg.chat_name || ''; }
@@ -110,14 +110,12 @@ function setupRows(form, kind, ch) {
       button('Find My Chat', () => findChats(form, ch), { fk: 'mx:' + form + ':chats' })];
     drawChats(rows, form);
     return { rows,
-      footer:
-      'Make a bot with BotFather in Telegram and paste its token. Then open your bot in Telegram, send it /start, and press Find My Chat. For a group, add the bot to the group and send /start ' +
-      'there.' + keep };
+      footer: 'Make a bot with BotFather and paste its token, then send it /start in Telegram and press Find My Chat.' + keep };
   }
   if (kind === 'notifiarr') {
     return { rows: [field(form, 'api_key', 'API Key', { type: 'password', maxlength: 200, placeholder: sealed(ch, 'Global API key') }),
       field(form, 'channel', 'Discord Channel ID', { value: cfg.channel === undefined ? '' : String(cfg.channel), inputmode: 'numeric', maxlength: 30, placeholder: '123456789012345678' })],
-      footer: 'Use your Notifiarr account’s global API key, not an integration key. The channel ID is the number Discord shows when Developer Mode is on: right-click the channel, Copy Channel ID.' +
+      footer: 'Use your Notifiarr account’s global API key. The channel ID is what Discord shows for Copy Channel ID, with Developer Mode on.' +
         keep };
   }
   if (kind === 'email') {
@@ -129,12 +127,12 @@ function setupRows(form, kind, ch) {
       field(form, 'password', 'Password', { type: 'password', maxlength: 1024, placeholder: sealed(ch, 'Required') }),
       field(form, 'from', 'From', { value: cfg.from || '', maxlength: 254, inputmode: 'email', placeholder: 'mantel@example.com' }),
       field(form, 'to', 'To', { value: Array.isArray(cfg.to) ? cfg.to.join(', ') : '', maxlength: 1000, inputmode: 'email', placeholder: 'you@example.com' })];
-    return { rows, footer: 'Gmail and iCloud need an app password, not your usual one. Separate several addresses in To with commas. The server’s certificate is checked.' +
-      (d.security === 'none' ? ' None sends the password and the alert unprotected: use it only for a mail server on your home network.' : '') + keep };
+    return { rows, footer: 'Gmail and iCloud need an app password. Separate several addresses in To with commas.' +
+      (d.security === 'none' ? ' None sends the password unprotected: only for a mail server on your home network.' : '') + keep };
   }
   if (kind === 'apprise') {
     return { rows: [field(form, 'urls', 'Apprise URLs', { type: 'password', maxlength: 4000, placeholder: sealed(ch, 'ntfy://my-topic') })],
-      footer: 'One or more Apprise URLs for ntfy, Pushover, Gotify, Slack, Matrix and about a hundred more, separated by spaces. A URL can send anywhere, which is why this is for Owners only.' +
+      footer: 'One or more Apprise URLs, separated by spaces. A URL can send anywhere, so only an Owner adds one.' +
         keep };
   }
   return { rows: [], footer: null };
@@ -180,7 +178,7 @@ function drawChats(rows, form) {
 
 // ---------------------------------------------------------------------------------------- Add Channel
 function pNewChannel(fixed) {
-  const back = fixed ? ['Advanced', HOME + '/advanced'] : ['Alerts', HOME];
+  const back = fixed ? ['Advanced', HOME + '/advanced'] : ['System Alerts', HOME];
   return { title: 'Add Channel', back, body(c) {
     withPage(c, 'alert:new', (page) => {
       if (!page.can_edit) { c.appendChild(group({ footer: 'Only an Owner can add channels.' }, [])); return; }
@@ -218,7 +216,7 @@ async function change(ch, patch) {
 function pChannel(id) {
   const got = readPage();
   const known = got && got.data && got.data.channels.find((x) => x.id === id);
-  return { title: known ? known.name : 'Channel', back: ['Alerts', HOME], body(c) {
+  return { title: known ? known.name : 'Channel', back: ['System Alerts', HOME], body(c) {
     const key = 'alert:' + id;
     withPage(c, key, (page) => {
       const ch = page.channels.find((x) => x.id === id);
@@ -248,8 +246,7 @@ function pChannel(id) {
         K().select({ label: 'Send', options: LEVELS, value: ch.min_level, fk: 'mx:alert:level', onChange: (v) => change(ch, { min_level: v }) })]));
       const time = (name, label) => K().text({ label, type: 'time', value: q[name], maxlength: 5, fk: 'mx:alert:quiet-' + name,
         onCommit: (v) => { if (/^\d{2}:\d{2}$/.test(v)) change(ch, { quiet: { ...q, [name]: v } }); else redraw(); } });
-      c.appendChild(group({ header: 'Quiet Hours', footer: 'In the house’s time zone. Info and Warning alerts wait until quiet hours end and arrive together; whatever cleared meanwhile is left out.' +
-          (q.on ? ' Critical alerts, such as Home Assistant disconnecting, go through right away when the last switch is on.' : '') },
+      c.appendChild(group({ header: 'Quiet Hours', footer: 'In the house’s time zone. Info and Warning alerts wait until quiet hours end and arrive together.' },
         [K().toggle({ label: 'Quiet Hours', on: q.on, fk: 'mx:alert:quiet', onChange: (on) => change(ch, { quiet: { ...q, on } }) })]
           .concat(q.on ? [time('from', 'From'), time('to', 'To'),
             K().toggle({ label: 'Critical Alerts Ignore Quiet Hours', on: q.critical, fk: 'mx:alert:quiet-critical', onChange: (on) => change(ch, { quiet: { ...q, critical: on } }) })] : [])));
@@ -262,11 +259,11 @@ function pChannel(id) {
         if (out) { clearDraft(form); delete shown['chats:' + form]; redraw(); }
       }, { fk: 'mx:' + form + ':save' }));
       c.appendChild(group({ header: 'Setup', footer: setup.footer }, setup.rows));
-      c.appendChild(group({ footer: 'Sends a real message with the saved settings. If it doesn’t arrive, Mantel shows what the service answered.' }, [
+      c.appendChild(group({ footer: 'Sends a real message with the saved settings.' }, [
         button('Send Test', () => act(key, async () => {
           try { await api('POST', '/api/alerts/channels/' + encodeURIComponent(ch.id) + '/test', {}); } finally { forget('alerts'); }
         }, 'Test sent. Look for it in ' + kindName(page, ch.kind) + '.'), { fk: 'mx:alert:test' })]));
-      c.appendChild(group({ footer: 'Mantel stops sending alerts there and forgets its saved secret. Nothing changes on the service itself.' }, [
+      c.appendChild(group({ footer: 'Mantel stops sending there and forgets its saved secret.' }, [
         button('Delete Channel…', async () => {
           if (!(await ask({ title: 'Delete ' + ch.name + '?', message: 'Mantel stops sending alerts to this channel and forgets its saved secret.', ok: 'Delete', destructive: true }))) return;
           if (!(await act(key, () => api('DELETE', '/api/alerts/channels/' + encodeURIComponent(ch.id)), null, 'alerts'))) return;
@@ -280,16 +277,16 @@ function pChannel(id) {
 
 // ---------------------------------------------------------------------------------------- Mantel Apps
 function pApps() {
-  return { title: 'Mantel Apps', back: ['Alerts', HOME], body(c) {
+  return { title: 'Mantel Apps', back: ['System Alerts', HOME], body(c) {
     withPage(c, 'alerts', (page) => {
       const people = page.app.people, n = page.app.devices;
       c.appendChild(
         group(
         { header: 'Who Gets System Alerts',
-        footer: 'Owners and Admins who turn on System Alerts in Me get Mantel’s own alerts on their Mantel apps and browsers. They’re sealed end to end: only the app can read them.' },
+        footer: 'Owners and Admins who turn on System Alerts in Me get them on their Mantel apps and browsers, sealed end to end.' },
         (people.length ? people.map((p) => info(p.name, null, p.role === 'owner' ? 'Owner' : 'Admin')) : [info('Nobody has System Alerts on')])
           .concat([info('Devices', null, String(n))])));
-      c.appendChild(group({ footer: 'Each person turns System Alerts on or off for themselves. The Companion app’s alerts go through Home Assistant, so they can’t carry “Home Assistant disconnected”.'
+      c.appendChild(group({ footer: 'Each person turns System Alerts on or off for themselves.'
         },
         [nav('Me', 'me', { icon: 'mdi:account-circle' })]));
     });
@@ -298,7 +295,7 @@ function pApps() {
 
 // ---------------------------------------------------------------------------------------- History
 function pHistory() {
-  return { title: 'History', back: ['Alerts', HOME], body(c) {
+  return { title: 'History', back: ['System Alerts', HOME], body(c) {
     withPage(c, 'alerts-log', (page) => {
       const d = draft('alert-history'), grp = d.group || '';
       c.appendChild(group({}, [K().select({ label: 'Show', options: [['', 'All Events']].concat(page.groups.map((g) => [g.id, g.name])), value: grp, fk: 'mx:alert-history:group',
@@ -311,7 +308,7 @@ function pHistory() {
         const to = x.sent_to.length ? 'Sent to ' + x.sent_to.map((id) => names[id] || 'A deleted channel').join(', ') : 'Not sent';
         return info(x.title, fmt(x.at) + ' · ' + (x.up ? 'Raised' : 'Back') + ' · ' + to, LEVEL[x.level] || x.level, x.up && x.level !== 'info' ? 'warn' : '');
       });
-      c.appendChild(group({ footer: 'Newest first, for the last 30 days. “Not sent” means no channel wanted it, it cleared while it was held, or it came during quiet hours.' },
+      c.appendChild(group({ footer: 'Newest first, for the last 30 days. “Not sent” means no channel wanted it, it cleared first, or it came in quiet hours.' },
         rows.length ? rows : [info('Nothing yet')]));
     });
   } };
@@ -321,7 +318,7 @@ function pHistory() {
 const HOLDS = [0, 60, 120, 300, 600, 900, 1800, 3600];
 const BEATS = [60, 120, 300, 600, 900, 1800, 3600];
 function pAdvanced() {
-  return { title: 'Advanced', back: ['Alerts', HOME], body(c) {
+  return { title: 'Advanced', back: ['System Alerts', HOME], body(c) {
     withPage(c, 'alerts-advanced', (page) => {
       const can = page.can_edit, now = {};
       for (const [g, v] of Object.entries(page.holds || {})) if (typeof v === 'number') now[g] = v;
@@ -333,7 +330,7 @@ function pAdvanced() {
         return K().select({ label: g.name, sub: 'Usually ' + minutes(page.default_holds[g.id]), options: opts, value: String(cur), fk: 'mx:alert-hold:' + g.id,
           onChange: (v) => act('alerts-advanced', async () => { const r = await api('PUT', '/api/alerts/settings', { holds: { ...now, [g.id]: Number(v) } }); Object.assign(page, r); return r; }) });
       });
-      c.appendChild(group({ header: 'Holds', footer: 'How long something must stay wrong before Mantel tells anyone. A blip that clears inside the hold is never sent. ' + (readOnly(page) || '') },
+      c.appendChild(group({ header: 'Holds', footer: 'How long something must stay wrong before Mantel tells anyone; a blip that clears inside the hold is never sent. ' + (readOnly(page) || '') },
         rows));
       drawHeartbeat(c, page);
       drawApprise(c, page);
@@ -371,15 +368,14 @@ function drawHeartbeat(c, page) {
   c.appendChild(
     group(
     { header: 'Heartbeat',
-    footer:
-    'Mantel calls this address every few minutes. A service such as healthchecks.io, or an Uptime Kuma push monitor, alerts you when the calls stop: the only way to hear that Mantel itself is ' +
-    'down. The address is kept sealed and never shown again.' + (can ? ' Leave it blank to keep the saved one.' : '') }, rows));
+    footer: 'Mantel calls this address every few minutes, and a service such as healthchecks.io alerts you when the calls stop. It is kept sealed.' +
+      (can ? ' Leave it blank to keep the saved one.' : '') }, rows));
 }
 // APPRISE: only an Owner sets it up, and only where it is installed
 function drawApprise(c, page) {
   const s = page.senders.find((x) => x.kind === 'apprise');
   if (!s || !s.available) return;
   const mine = page.channels.filter((ch) => ch.kind === 'apprise');
-  c.appendChild(group({ header: 'Apprise', footer: 'One URL, about a hundred services: ntfy, Pushover, Gotify, Slack, Matrix and more. A URL can send anywhere, so only an Owner adds one.' },
+  c.appendChild(group({ header: 'Apprise', footer: 'One URL, about a hundred services: ntfy, Pushover, Gotify, Slack and more. Only an Owner adds one.' },
     mine.map((ch) => channelRow(page, ch)).concat(page.can_edit ? [nav('Add Apprise Channel', 'alerts/add/apprise', { icon: 'mdi:plus' })] : [])));
 }

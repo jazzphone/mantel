@@ -75,7 +75,7 @@ something is refused.
 1. Open Mantel on a phone or computer ([Signing In](Signing-In.md)) and compare
    its screens with HK Frontend's.
 2. Fix what looks wrong in **Mantel Settings**. It is HK Settings, plus
-   Mantel's own pages (People, Roles & Grants, Connections, Audit
+   Mantel's own pages (People, Roles & Permissions, Connections, Audit
    Log and more).
 3. Set up people and roles ([People and Roles](People-and-Roles.md)).
 
