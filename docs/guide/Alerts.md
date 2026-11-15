@@ -2,7 +2,7 @@
 
 Mantel can tell you when something goes wrong: Home Assistant stops answering, a backup fails, a wall tablet goes dark, a new version is out. These are **system alerts**. They go where you say: a Discord channel, Telegram, Notifiarr, email, any of about a hundred services through Apprise, and the Mantel apps on your phone, iPad and browsers. This page covers what Mantel tells you, how it keeps from nagging, and how to set up each place to send to.
 
-![Mantel Settings → Alerts, with a Discord channel and an email channel](../images/settings-alerts.webp)
+![Mantel Settings → System Alerts, with a Discord channel and an email channel](../images/settings-alerts.webp)
 
 ## What system alerts are
 
@@ -61,15 +61,15 @@ Each channel has its own quiet hours, in the house's time zone: **Quiet Hours** 
 - **Info** and **Warning** alerts wait, and arrive together as one message when quiet hours end. An alert that cleared in the meantime is left out.
 - **Critical** alerts, such as Home Assistant disconnecting, go through right away when **Critical Alerts Ignore Quiet Hours** is on. It is on for a new channel. Turn it off to hold everything until morning.
 
-## Mantel Settings → Alerts
+## Mantel Settings → System Alerts
 
-**Mantel Settings** → **Alerts** is for Owners and Admins. It lists your **Channels**: a dot (green for working, red when the last try failed, gray when it is off or hasn't sent yet), the name, when it last sent or what went wrong, and its type. Below are **Mantel Apps**, **History** and **Advanced**.
+**Mantel Settings** → **System Alerts** is for Owners and Admins. It lists your **Channels**: a dot (green for working, red when the last try failed, gray when it is off or hasn't sent yet), the name, when it last sent or what went wrong, and its type. Below are **Mantel Apps**, **History** and **Advanced**.
 
 A channel is one place to send to. You can have up to 20.
 
 ### Add a channel
 
-1. **Mantel Settings** → **Alerts** → **Add Channel**.
+1. **Mantel Settings** → **System Alerts** → **Add Channel**.
 2. Choose the **Type**, give it a **Name** (such as `Family Discord`), and fill in the **Setup** boxes for that type ([below](#set-up-each-channel)).
 3. Select **Add Channel**. Mantel opens the new channel's page.
 4. Select **Send Test**. A real message goes to the channel. If it doesn't arrive, Mantel shows what the service answered, for example `Discord said 401: the webhook was deleted`.
@@ -146,7 +146,7 @@ Mantel checks the server's certificate. A server with a self-signed one is refus
 
 [Apprise](https://github.com/caronc/apprise/wiki) sends to about a hundred services (ntfy, Pushover, Gotify, Slack, Matrix and more) from one address for each. Only an Owner can add it, under **Advanced**, because an Apprise address can send anywhere.
 
-1. **Mantel Settings** → **Alerts** → **Advanced** → **Add Apprise Channel**.
+1. **Mantel Settings** → **System Alerts** → **Advanced** → **Add Apprise Channel**.
 2. Paste one or more **Apprise URLs**, separated by spaces (up to 10). For example:
 
    | Service | URL |
@@ -168,19 +168,19 @@ System alerts also go to the Mantel app on iPhone and iPad, and to web browsers 
 - **Who gets them.** Owners and Admins who turn on **System Alerts** in **Mantel Settings** → **Me**. It is on for the Owner until they turn it off, and off for an Admin until they turn it on. Everyone else never gets them.
 - **Which alerts.** The events that are on for a new channel. Quiet hours and levels belong to channels, not to the apps: use the phone's own Focus and notification settings.
 - **How they look.** On the phone, system alerts are grouped in their own **System** thread, apart from the doorbell and leaks. **Critical** alerts are time-sensitive: they can come through a Focus. **Warning** alerts arrive as an ordinary notification. **Info** alerts are passive: they go to the notification list without lighting the screen or making a sound. A "back" message replaces its "lost" one.
-- **The list.** **Mantel Settings** → **Alerts** → **Mantel Apps** lists who gets them and how many devices that is.
+- **The list.** **Mantel Settings** → **System Alerts** → **Mantel Apps** lists who gets them and how many devices that is.
 - **Companion app phones** get them too, through Home Assistant, but they can't carry **Home Assistant Disconnected** or **Mantel Link Not Answering**: the message would go through the very thing that is down.
 - **The Mac app** shows them too, in the same System group, once notifications are on in its ⋯ menu ([iPhone and Mac Apps](iPhone-and-Mac-Apps.md)).
 
 ## History
 
-**Mantel Settings** → **Alerts** → **History** lists the last 30 days, newest first: what was raised or came back, its level, and which channels it went to. **Show** narrows it to one group. **Not sent** means no channel wanted it, it cleared while it was held, or it came during quiet hours.
+**Mantel Settings** → **System Alerts** → **History** lists the last 30 days, newest first: what was raised or came back, its level, and which channels it went to. **Show** narrows it to one group. **Not sent** means no channel wanted it, it cleared while it was held, or it came during quiet hours.
 
 ![Alerts → History, with what was sent and where](../images/settings-alerts-history.webp)
 
 ## Advanced
 
-**Mantel Settings** → **Alerts** → **Advanced**, for Owners to change and Admins to read.
+**Mantel Settings** → **System Alerts** → **Advanced**, for Owners to change and Admins to read.
 
 - **Holds.** How long a problem must last before it is sent, for each group that has a hold (Connections, Backups and Mantel): **Right Away** up to **60 Minutes**. The usual is 5 minutes for connections and 10 for the rest. A longer hold means fewer alerts about blips. A shorter one means you hear sooner. Tablets keep their own.
 - **Heartbeat.** See below.

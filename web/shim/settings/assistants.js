@@ -23,9 +23,7 @@ const scopeText = (list) => list.map((s) => (SCOPE_WORDS[s] || [s])[0]).join(', 
 export function pAssistants(sub) {
   if (sub[0] === 'add') return pAddKey();
   return { title: 'Assistants (MCP)', top: true,
-    scope:
-    'An assistant (Claude Code, Claude Desktop or another MCP client) can read the house, change settings and build screens and Home Grid layouts for you. It acts as you: your role decides what it ' +
-    'may do, every change is planned and shown first, and the Audit Log shows each one as yours, through the assistant. It is never given the Alarm PIN.', body(c) {
+    scope: 'An assistant such as Claude Code can read the house and change settings and screens as you. Your role limits it, and every change is in the Audit Log.', body(c) {
     result(c, 'assistants');
     const got = state();
     if (!got) { pending(c); return; }
@@ -37,7 +35,7 @@ export function pAssistants(sub) {
       c.appendChild(
         group(
         { header: 'Key for ' + t.assistant.name,
-        footer: 'This is the only time it is shown. Mantel keeps only a hash. In Claude Code, run the command below; for another client, give it the address and the key as a Bearer token.' },
+        footer: 'This is the only time it is shown. Run the command in Claude Code, or give another client the address and key as a Bearer token.' },
         [secretCell(t.token, 'mcp-token'), copyButton(t.token, 'Copy Key'), secretCell(cmd, 'mcp-command'), copyButton(cmd, 'Copy Claude Code Command'),
          button('I Have Saved It', () => { delete shown.assistant; redraw(); }, { fk: 'mx:mcp-dismiss' })]));
     }
@@ -54,7 +52,7 @@ export function pAssistants(sub) {
     } })];
     rows.push(K().toggle({ label: 'Signed-In Assistants from Away', sub: 'Personal keys always work on the home network only', on: s.mcp_away, disabled: !can, fk: 'mx:mcp-away',
       onChange: (want) => putSetting('mcp_away', want) }));
-    rows.push(K().toggle({ label: 'Assistants May Control the House', sub: d.commands_on ? 'Only signed-in assistants you allowed it, never with a key' : 'Needs Allow Control of the House (General)',
+    rows.push(K().toggle({ label: 'Assistants May Control the House', sub: d.commands_on ? 'Only signed-in assistants, never with a key' : 'Needs Allow Control of the House (General)',
       on: s.mcp_commands, disabled: !can, fk: 'mx:mcp-commands',
       onChange: async (want) => {
         if (want && !(await ask({ title: 'Let assistants control the house?', message:
@@ -62,24 +60,26 @@ export function pAssistants(sub) {
           ok: 'Allow' }))) { redraw(); return; }
         putSetting('mcp_commands', want);
       } }));
-    rows.push(K().select({ label: 'Changes per Minute', options: withValue(RATES, s.mcp_write_rate, String).map(([v, l]) => [String(v), l]), value: String(s.mcp_write_rate), disabled: !can,
-                           fk: 'mx:mcp-rate', onChange: (v) => putSetting('mcp_write_rate', Number(v)) }));
-    rows.push(K().select({ label: 'New Keys Last', options: withValue(DAYS, s.mcp_key_days, (x) => x + ' Days').map(([v, l]) => [String(v), l]), value: String(s.mcp_key_days), disabled: !can,
-                           fk: 'mx:mcp-days', onChange: (v) => putSetting('mcp_key_days', Number(v)) }));
-    c.appendChild(group({ header: 'Assistants', footer: can ? 'Off: /mcp refuses everyone. Changes per minute keeps a looping assistant from flooding the settings history; plans don’t count.' :
-      'Only an Owner can change these.' }, rows));
+    const limits = [K().select({ label: 'Changes per Minute', options: withValue(RATES, s.mcp_write_rate, String).map(([v, l]) => [String(v), l]), value: String(s.mcp_write_rate), disabled: !can,
+                           fk: 'mx:mcp-rate', onChange: (v) => putSetting('mcp_write_rate', Number(v)) }),
+      K().select({ label: 'New Keys Last', options: withValue(DAYS, s.mcp_key_days, (x) => x + ' Days').map(([v, l]) => [String(v), l]), value: String(s.mcp_key_days), disabled: !can,
+                           fk: 'mx:mcp-days', onChange: (v) => putSetting('mcp_key_days', Number(v)) })];
+    const off = !s.mcp_enabled;
+    if (off) rows.length = 1;                                 // the switch alone until assistants are allowed
+    c.appendChild(group({ footer: !can ? 'Only an Owner can change these.' : off ? 'Off, /mcp refuses everyone. Keys and sign-ins are kept for when you turn it on.'
+      : 'Personal keys always work on the home network only.' }, rows));
+    if (!off) c.appendChild(group({ footer: 'Changes per minute keeps a looping assistant from flooding the settings history.' }, limits));
     // how to connect
-    c.appendChild(
+    if (!off) c.appendChild(
       group(
       { header: 'Connect',
-      footer:
-      'Claude Code: add the address with the key below, or add just the address and sign in from Claude Code (/mcp) when it asks. Claude Desktop: add it to claude_desktop_config.json through ' +
-      'mcp-remote with the key. Connect on the home network.' },
+      footer: 'Claude Code: add the address, then sign in with /mcp or use a key. Claude Desktop: add it through mcp-remote with a key.' },
       [info('Address', null, d.endpoint), copyButton(d.endpoint, 'Copy Address'),
-       s.mcp_enabled && me.door === 'lan' ? nav('New Personal Key…', 'assistants/add', { icon: 'mdi:plus' }) :
-         info('New Personal Key', s.mcp_enabled ? 'On the home network only' : 'Allow assistants first')]));
+       me.door === 'lan' ? nav('New Personal Key…', 'assistants/add', { icon: 'mdi:plus' }) :
+         info('New Personal Key', 'On the home network only')]));
     // the assistants
     const all = d.assistants || [];
+    if (off && !all.length) return;
     const live = all.filter((a) => a.state === 'live'), gone = all.filter((a) => a.state !== 'live');
     const row = (a) => info(a.name, [a.kind === 'key' ? 'Personal key' : 'Signed in', d.me !== a.user_id ? 'for ' + a.person : null, scopeText(a.scopes),
                                      a.away ? 'from away too' : null, 'last used ' + ago(a.last_used) + (a.last_ip ? ' from ' + a.last_ip : ''),

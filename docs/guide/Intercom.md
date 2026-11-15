@@ -27,18 +27,18 @@ HK Frontend inside Home Assistant doesn't have the Intercom. Its block says
 
 ## Turn it on
 
-Mantel Settings → **Intercom** (Owners and Admins):
+Mantel Settings → **Intercom** (Owners and Admins). The page opens with the **Intercom** switch alone; the rest appears once it is on and Music Assistant is connected.
 
-1. **Address for Music Assistant.** The address Music Assistant uses to fetch
+1. Switch the **Intercom** on.
+2. Open **Music Assistant** (the last row) and set the **Address for Music Assistant**. The address Music Assistant uses to fetch
    what you say from Mantel, such as `http://<this server's address>:8767`.
    Mantel suggests one when you opened Settings by a private address. It has
    to be a private address on your home network, or a `.local`, `.lan` or
    `.home.arpa` name, and never a public one.
-2. Press **Check Reach**. Mantel asks Music Assistant to read a short, silent
+3. Press **Check Reach**. Mantel asks Music Assistant to read a short, silent
    link. Nothing plays. The page says "Music Assistant fetched it" or "Music
    Assistant could not reach this address".
-3. Switch the **Intercom** on.
-4. Turn on the **rooms** that may be spoken to. Every room starts off, so a new
+4. Back on the Intercom page, turn on the **rooms** that may be spoken to. Every room starts off, so a new
    way to make sound in a bedroom is always your choice. **Enable All** turns
    them all on at once.
 5. If you like, press **Send Test** on a room (Owners only). It plays a soft

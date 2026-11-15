@@ -239,8 +239,9 @@ def test_alerts_sits_beside_connections_and_backups_for_owners_and_admins_only(r
 
 def test_the_channels_list_shows_status_type_name_and_last_sent_or_the_last_error(run):
     m = run["main"]
-    assert "sealed end to end" in m["scope"] and "Discord, Telegram, Notifiarr" in m["scope"]
+    assert m["scope"].count(".") == 1 and "Home Assistant disconnecting" in m["scope"]          # what the page is, in one sentence
     channels = m["groups"][0]
+    assert "sealed end to end" in channels["footer"] and "Discord, Telegram, Notifiarr" in channels["footer"]
     assert channels["header"] == "Channels"
     rows = {r[0]: r for r in channels["rows"]}
     assert rows["House Chat"][2] == "Discord" and rows["House Chat"][1].startswith("Last sent ")

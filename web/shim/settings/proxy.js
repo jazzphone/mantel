@@ -37,7 +37,7 @@ export function pProxy() {
       if (r) { shown.doorKey = r.door_key.value; redraw(); }
     }, { destructive: true, fk: 'mx:door-key-rotate' }));
     acts.push(K().nav({ label: 'Open the Full Check', href: mantelUrl('/proxy-check'), fk: 'mx:proxy-page' }));
-    c.appendChild(group({ footer: owner ? 'The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.' :
+    c.appendChild(group({ footer: owner ? 'The test checks your proxy’s HTTPS, door header and WebSockets from this browser, and says what to change.' :
       'Only an Owner can run the test.' }, acts));
     const res = shown.proxy;
     if (res && res.running) pending(c, 'Checking…');
@@ -77,13 +77,15 @@ function drawFrames(c, s) {
   };
   for (const a of got.data.ha_addresses || []) offer(a.kind === 'internal' ? 'Home Assistant at Home' : 'Home Assistant Away', origin(a.url), 'its ' + a.kind + ' URL');
   offer('This Page', framedBy(), 'Home Assistant is open here now');
-  c.appendChild(group({ header: 'Home Assistant’s Frame', footer: 'A screen in Home Assistant’s sidebar shows only when Home Assistant is opened at one of ' +
-    'these addresses; at any other the browser shows a blank page. Home Assistant’s own internal and external URL are allowed by themselves.' +
-    (owner ? ' Allow every other address you open Home Assistant at.' : ' An Owner allows others.') }, rows));
+  c.appendChild(
+    group(
+    { header: 'Home Assistant’s Frame',
+    footer: 'A screen in Home Assistant’s sidebar shows only at one of these addresses, and a blank page at any other. Home Assistant’s own URLs are allowed already.' +
+    (owner ? '' : ' An Owner allows others.') }, rows));
   const approved = listed.filter((x) => x.source === 'approved');
   if (owner) {
     const typed = draft('frames').addr || '';
-    c.appendChild(group({ footer: 'Like https://homeassistant.example.com or http://homeassistant.local:8123: the address in the browser when Home Assistant is open, without the page after it.' }, [
+    c.appendChild(group({ footer: 'The address in the browser when Home Assistant is open, such as https://homeassistant.example.com.' }, [
       K().text({ label: 'Allow an Address', value: typed, placeholder: 'https://homeassistant.example.com', maxlength: 300, inputmode: 'url',
                  fk: 'mx:frames:addr', onCommit: (v) => { draft('frames').addr = v.trim(); redraw(); } }),
       button('Allow', async () => {

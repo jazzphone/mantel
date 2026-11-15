@@ -6,7 +6,7 @@ Mantel starts **read-only**: the screens show your home, but nothing you tap is 
 
 A new Mantel can't change anything in your home. Screens show live state, but a tap that would change something shows **Commands are disabled in Mantel (read-only)**, and nothing is sent or recorded.
 
-**Mantel Settings** → **About** → **House Commands** says **Off** or **On**.
+**Mantel Settings** → **General** → **Allow Control of the House** says **Off** or **On**.
 
 Saving settings works either way: Mantel keeps its own settings, so an Owner or Admin can set up screens before turning commands on.
 

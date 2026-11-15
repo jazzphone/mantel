@@ -63,6 +63,7 @@ export function addressProblem(text) {
 // ============================================================================================ Intercom
 export function pIntercom(sub) {
   if (sub[0] === 'room' && sub[1]) return pRoom(decodeURIComponent(sub[1]));
+  if (sub[0] === 'address') return pAddress();
   return { title: 'Intercom', top: true,
     scope: 'Talk to the rooms of the house from a tablet or a phone. Mantel gives Music Assistant a link to your voice, and its speakers play it.',
     body(c) {
@@ -72,12 +73,27 @@ export function pIntercom(sub) {
       if (got.err) { failed(c, got.err); return; }
       const page = got.data, S = page.settings;
       drawSwitch(c, page, S);
-      drawAddress(c, page, S);
+      if (!S.enabled || !page.ma) return;       // nothing else matters until the Intercom is on and Music Assistant is there
       drawRooms(c, page, S);
       drawTalk(c, S);
-      drawSound(c, S);
+      drawVolume(c, S);
       drawQuiet(c, S);
+      drawAddressRow(c, page, S);
     } };
+}
+// the address Music Assistant fetches the audio from: its own page, since it is set once
+function pAddress() {
+  return { title: 'Music Assistant', back: ['Intercom', HOME], body(c) {
+    result(c, 'intercom');
+    const got = readPage();
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    drawAddress(c, got.data, got.data.settings);
+  } };
+}
+function drawAddressRow(c, page, S) {
+  c.appendChild(group({}, [nav('Music Assistant', 'intercom/address', { icon: 'mdi:music-box', sub: 'Where it fetches the audio from',
+    value: !page.stream_port ? 'Not Set Up' : !S.stream_base ? 'Needs an Address' : page.listening ? 'Listening' : 'Not Listening' })]));
 }
 
 // a house setting, saved at once: the server's answer replaces the copy; a refusal says why and the page goes back to what was saved
@@ -85,8 +101,8 @@ const saveHouse = (patch, okText) => act('intercom', async () => { const r = awa
 
 function drawSwitch(c, page, S) {
   const rows = [K().toggle({ label: 'Intercom', on: !!S.enabled, fk: 'mx:intercom:enabled', onChange: (on) => saveHouse({ enabled: on }) })];
-  let footer = 'Off, nobody can announce and Mantel listens for nothing. No room speaks until you turn it on below.';
-  if (!page.ma) footer = 'Music Assistant is not connected, so nothing can be played yet. Connect it in Connections. ' + footer;
+  let footer = S.enabled ? 'Rooms speak only when you turn them on.' : 'Off, nobody can announce and Mantel listens for nothing.';
+  if (!page.ma) footer = 'Music Assistant is not connected, so nothing can be played yet. Connect it in Connections, then set the Intercom up here.';
   c.appendChild(group({ footer }, rows));
 }
 
@@ -120,10 +136,7 @@ function drawAddress(c, page, S) {
     const on = !!page.listening;
     rows.push(info('Listener', 'Port ' + page.stream_port, on ? 'Listening' : S.enabled ? 'Not Listening' : 'Off', S.enabled && !on ? 'warn' : ''));
   }
-  c.appendChild(group({ header: 'Music Assistant',
-    footer:
-      'Music Assistant fetches the audio from this address, such as http://<this server’s address>:8767. It must be on your home network. Check Reach has Music Assistant read a silent clip;' +
-      ' nothing is played.' }, rows));
+  c.appendChild(group({ footer: 'Music Assistant fetches the audio from this address, on your home network. Check Reach has it read a silent clip; nothing is played.' }, rows));
 }
 async function checkReach(S, d) {
   await saving;
@@ -149,15 +162,14 @@ function roomSub(r, st) {
 function drawRooms(c, page, S) {
   const rooms = page.rooms || [];
   const off = rooms.filter((r) => !roomOf(S, r.room).enabled);
+  if (!rooms.length) return;
   const rows = [];
   if (rooms.length) rows.push(button('Enable All', () => enableAll(off), { disabled: !off.length, fk: 'mx:intercom:all' }));
   for (const r of rooms) {
     const st = roomOf(S, r.room);
     rows.push(nav(r.name, 'intercom/room/' + encodeURIComponent(r.room), { sub: roomSub(r, st), value: st.enabled ? 'On' : 'Off' }));
   }
-  c.appendChild(group({ header: 'Rooms', footer: rooms.length
-    ? 'A room starts off, so a bedroom does not speak by surprise. Turn on the ones that should. Open a room for its volume, quiet hours and tablets.'
-    : 'No rooms yet. Rooms are your Music Assistant speakers, set up in Connections.' }, rows));
+  c.appendChild(group({ header: 'Rooms', footer: 'A room starts off, so a bedroom does not speak by surprise. Open one for its volume, quiet hours and tablets.' }, rows));
 }
 async function enableAll(off) {
   if (!off.length) return;
@@ -183,19 +195,16 @@ function drawTalk(c, S) {
     onChange: (v) => saveHouse({ max_message_s: v }) }));
   rows.push(K().slider({ label: 'Longest Live Talk', min: 15, max: 120, step: 5, unit: ' s', value: S.max_live_s, fk: 'mx:intercom:max-live',
     onChange: (v) => saveHouse({ max_live_s: v }) }));
-  c.appendChild(group({ header: 'Talking', footer: 'A Message is recorded, then played. ' + (proven
-    ? 'Live plays as you speak, a few seconds behind; a room that is playing music gets the Message when you finish.'
-    : 'Live needs a one-time test of how far behind the speakers run, and it has not been done yet.') }, rows));
-}
-function drawSound(c, S) {
   const chime = Object.assign({ message: true, live: false }, S.chime);
   const chimes = () => Object.assign({ message: true, live: false }, latest(S).chime);
-  c.appendChild(group({ header: 'Sound', footer: 'The chime plays before the voice. It is on for Messages and off for Live, where it would only add to the delay.' }, [
-    K().toggle({ label: 'Chime Before a Message', on: !!chime.message, fk: 'mx:intercom:chime-message', onChange: (on) => saveHouse({ chime: { ...chimes(), message: on } }) }),
-    K().toggle({ label: 'Chime Before Live', on: !!chime.live, fk: 'mx:intercom:chime-live', onChange: (on) => saveHouse({ chime: { ...chimes(), live: on } }) })]));
-  c.appendChild(
-    group({ footer: 'Volume is how loud a room on Automatic plays the Intercom, whatever its speaker is set to. No room plays louder than the Highest Volume. A room can have its own, on its page.' },
-    [
+  rows.push(K().toggle({ label: 'Chime Before a Message', on: !!chime.message, fk: 'mx:intercom:chime-message', onChange: (on) => saveHouse({ chime: { ...chimes(), message: on } }) }));
+  rows.push(K().toggle({ label: 'Chime Before Live', on: !!chime.live, fk: 'mx:intercom:chime-live', onChange: (on) => saveHouse({ chime: { ...chimes(), live: on } }) }));
+  c.appendChild(group({ header: 'Talking', footer: proven
+    ? 'A Message is recorded, then played; Live plays as you speak, a few seconds behind. The chime is off for Live, where it only adds delay.'
+    : 'A Message is recorded, then played. Live needs a one-time test of how far behind the speakers run, which has not been done yet.' }, rows));
+}
+function drawVolume(c, S) {
+  c.appendChild(group({ header: 'Volume', footer: 'How loud a room on Automatic plays, whatever its speaker is set to, and never above the Highest Volume. A room can have its own.' }, [
     K().slider({ label: 'Volume', min: 10, max: 100, step: 5, unit: '%', value: S.volume || 40, fk: 'mx:intercom:volume',
       onChange: (v) => saveHouse({ volume: v }) }),
     K().slider({ label: 'Highest Volume', min: 10, max: 100, step: 5, unit: '%', value: S.max_volume, fk: 'mx:intercom:max-volume',
@@ -211,7 +220,7 @@ function drawQuiet(c, S) {
     rows.push(timeBox('From', q.from, 'mx:intercom:quiet-from', (v) => saveHouse({ quiet_default: { ...qNow(), from: v } })));
     rows.push(timeBox('To', q.to, 'mx:intercom:quiet-to', (v) => saveHouse({ quiet_default: { ...qNow(), to: v } })));
   }
-  c.appendChild(group({ header: 'Quiet Hours', footer: 'In the house’s time zone. A room in quiet hours is skipped. An Owner, Admin or Adult can send anyway. A room can have hours of its own.' },
+  c.appendChild(group({ header: 'Quiet Hours', footer: 'In the house’s time zone. A room in quiet hours is skipped, unless an Owner, Admin or Adult sends anyway.' },
     rows));
 }
 
@@ -238,7 +247,7 @@ function pRoom(entity) {
     if (!r.ma) c.appendChild(group({ footer: 'Music Assistant does not list this speaker, so nothing can be played in this room yet.' }, []));
     c.appendChild(group({}, [K().toggle({ label: 'On', on: !!st.enabled, fk: 'mx:intercom-room:on', onChange: (on) => change({ enabled: on }) })]));
     drawLive(c, r, S, st, change);
-    drawVolume(c, S, st, change);
+    drawRoomVolume(c, S, st, change);
     drawRoomQuiet(c, S, st, change);
     drawTablets(c, page, entity, st, change);
     drawTest(c, r, st);
@@ -252,7 +261,7 @@ function drawLive(c, r, S, st, change) {
     button('Try Live Again', () => change({ reset_live: true }), { fk: 'mx:intercom-room:reset-live' })]
     : [K().toggle({ label: 'Live', on: !!st.live, fk: 'mx:intercom-room:live', onChange: (on) => change({ live: on }) })]));
 }
-function drawVolume(c, S, st, change) {
+function drawRoomVolume(c, S, st, change) {
   const cur = st.volume === null || st.volume === undefined ? '' : String(st.volume);
   const opts = [['', 'Automatic']].concat(VOLUMES.concat(cur && !VOLUMES.includes(Number(cur)) ? [Number(cur)] : []).sort((a, b) => a - b).map((v) => [String(v), v + '%']));
   c.appendChild(group({ footer: 'Automatic uses the Intercom page’s Volume, ' + Math.min(S.volume || 40, S.max_volume) + '%. Never louder than ' + S.max_volume +

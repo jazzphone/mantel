@@ -13,12 +13,12 @@ const ASSET_SLOTS = [
 ];
 export function pFiles(sub) {
   if (sub[0] === 'photos' && can('photos')) return photos.page(sub.slice(1), photoTools);
-  return { title: 'Your Files', top: true, scope: 'Your home’s own files, kept in Mantel’s data and its encrypted backups: the screensavers’ photos, and Apple’s font and glyphs.', body(c) {
+  return { title: 'Your Files', top: true, scope: 'Your home’s own files, kept in Mantel’s data and backups: the screensavers’ photos, and Apple’s font and glyphs.', body(c) {
     result(c, 'files');
     if (can('photos')) {
       c.appendChild(
         group(
-        { header: 'Photos', footer: 'Albums of photos for the screensavers: upload them here, then pick an album on a screen’s Screensaver Options, or for every screen on All Screens → Screensaver.' }
+        { header: 'Photos', footer: 'Albums for the screensavers. Pick one on a screen’s Screensaver Options.' }
         ,
         [photos.filesRow(photoTools)]));
     }
@@ -28,7 +28,8 @@ export function pFiles(sub) {
     const inf = got.data;
     const have = { woff2: inf.fonts.find((f) => f.name === 'SF-Pro.woff2'), ttf: inf.fonts.find((f) => f.name === 'SF-Pro.ttf'),
                    glyphs: inf.glyphs.present ? { size: inf.glyphs.size } : null };
-    ASSET_SLOTS.forEach((slot, i) => {
+    const rows = [], gone = [], inputs = [];
+    for (const slot of ASSET_SLOTS) {
       const cur = have[slot.id];
       const input = hh('input', { type: 'file', accept: slot.accept, class: 'mxfile', 'aria-label': 'Choose ' + slot.label, 'data-fk': 'mx:file-' + slot.id });
       input.addEventListener('change', () => {
@@ -38,19 +39,20 @@ export function pFiles(sub) {
         fd.append('file', input.files[0], input.files[0].name);
         act('files', () => api('POST', '/api/user-files/' + slot.kind, fd), slot.label + ' saved.', 'files');
       });
-      const rows = [info(slot.label, slot.hint, cur ? 'In Place · ' + kb(cur.size) : 'Missing', cur ? '' : 'warn'),
-        button((cur ? 'Replace ' : 'Upload ') + slot.label + '…', () => input.click(), { fk: 'mx:upload-' + slot.id })];
-      if (cur) rows.push(button('Remove ' + slot.label + '…', async () => {
+      inputs.push(input);
+      // one row per file: its state is the value, and a tap chooses the file to upload (or to replace it)
+      const row = K().nav({ label: slot.label, sub: slot.hint, value: cur ? kb(cur.size) : 'Missing', href: '#', fk: 'mx:upload-' + slot.id });
+      row.addEventListener('click', (e) => { e.preventDefault(); input.click(); });
+      rows.push(row);
+      if (cur) gone.push(button('Remove ' + slot.label + '…', async () => {
         if (!(await ask({ title: 'Remove ' + slot.label + '?', message: 'Screens fall back to the system font or plain icons until you add it again.', ok: 'Remove', destructive: true }))) return;
         act('files', () => api('DELETE', '/api/user-files/' + slot.kind + '/' + slot.name), slot.label + ' removed.', 'files');
       }, { destructive: true, fk: 'mx:remove-' + slot.id }));
-      const g = group(i ? {} : { header: 'Font and Glyphs' }, rows);
-      g.appendChild(input);
-      c.appendChild(g);
-    });
-    c.appendChild(group({ footer: 'SF Pro and the SF Symbols glyph set are Apple’s, so they can’t ship with Mantel: each home adds its own copy once. ' +
-      `Used ${kb(inf.usage)} of ${kb(inf.quota)}. They are kept in Mantel’s data, included in its encrypted backups, and nothing here is ever run as code. ` +
-      'On a Home Assistant install they are under /config/www/hk (fonts/ and iconset/). From the command line: mantel files import-assets <folder>.' }, []));
+    }
+    const g = group({ header: 'Font and Glyphs', footer: 'Apple’s, so each home adds its own copy once. Kept in Mantel’s backups; used ' + kb(inf.usage) + ' of ' + kb(inf.quota) + '.' }, rows);
+    inputs.forEach((i) => g.appendChild(i));
+    c.appendChild(g);
+    if (gone.length) c.appendChild(group({}, gone));
   } };
 }
 
