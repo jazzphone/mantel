@@ -464,8 +464,27 @@
       var self = this;
       clearTimeout(this._soonT);
       this._soonT = setTimeout(function () {
-        self.reload().then(function () { self.render(true); }).catch(function () { /* next change */ });
+        var was = self.drawn();
+        self.reload().then(function () { if (self.drawn() !== was) self.render(true); }).catch(function () { /* next change */ });
       }, 450);
+    }
+    // WHAT THE PAGE IS DRAWN FROM, as one string: a save's answer, and the settings read again after it, draw the page
+    // again only when they change it (2026-11-15, the Settings audit: a switch drew the whole page three times -- the
+    // change, the answer, the settings feed's echo -- each a page of new rows under the finger)
+    // (its keys sorted -- an answer may list them in another order -- and without `versions`, the grid editor's count of
+    // writes, which no page draws)
+    drawn() {
+      var f = {}, feats = this.feats || {};
+      Object.keys(feats).forEach(function (k) { f[k] = [feats[k].data, feats[k].error]; });
+      var d = Object.assign({}, this.data);
+      delete d.versions;
+      var sorted = function (k, v) {
+        if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
+        var o = {};
+        Object.keys(v).sort().forEach(function (x) { o[x] = v[x]; });
+        return o;
+      };
+      try { return JSON.stringify([d, f], sorted); } catch (e) { return String(Math.random()); }
     }
 
     // ---------------------------------------------------------- routing
@@ -720,9 +739,10 @@
       this.status('saving');
       try {
         var r = await this.actions().callWS(msg);
+        var was = this.drawn();
         apply(r);
         this.status('saved');
-        this.render();
+        if (this.drawn() !== was) this.render();
         this.soon();
         return true;
       } catch (e) {
@@ -1215,7 +1235,7 @@
       var items = d.dashboards.filter(function (x) { return x.item; });
       var nAcc = Object.keys((d.accessories && d.accessories.entities) || {}).length;
       side.appendChild(K.group({}, [K.nav({ tile: ['mdi:home-heart', C.orange], label: 'Overview',
-        sub: items.length + ' Screens · ' + nAcc + ' Accessories', href: '#/overview',
+        sub: items.length + (items.length === 1 ? ' Screen · ' : ' Screens · ') + nAcc + (nAcc === 1 ? ' Accessory' : ' Accessories'), href: '#/overview',
         current: wide && (here === '' || here === 'overview'), fk: 'side:overview' })]));
       var rows = items.map(function (x) {
         // A SCREEN OF ONLY SOME PAGES says so, with a glyph of its own: it

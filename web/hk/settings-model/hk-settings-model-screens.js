@@ -376,7 +376,7 @@
       "sky_wallpaper_color", "sky_animations", "sky_weather", "sky_precipitation", "sky_moving", "sky_decorations", "sky_liveliness", "swipe_pages", "side_pane", "screensaver", "screensaver_options",
       "camera_live_video", "home_style", "home_grid"];
     var LOOKS = [
-      {"id": "homeview", "name": "HomeView", "about": "Square tiles, centred, over a slow-moving wallpaper in Bright Glass, with the Side Pane and the Analog Numbers clock.",
+      {"id": "homeview", "name": "HomeView", "about": "Square tiles, centered, over a slow-moving wallpaper in Bright Glass, with the Side Pane and the Analog Numbers clock.",
         "art": ["#1f4b8d", "#375b91", "#0b285d", "#ff9500"], "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]},
         "settings": {"flat": false, "glass": "bright", "accent": "orange", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "wallpaper", "sky_wallpaper": "ribbons",
         "sky_wallpaper_color": "blue", "sky_wallpaper_night": "auto", "sky_wallpaper_motion": "slow", "swipe_pages": "on",
@@ -398,13 +398,13 @@
         "settings": {"flat": false, "glass": "blur", "accent": "orange", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "live", "sky_animations": true,
         "sky_decorations": true, "sky_liveliness": "festive", "sky_moving": "front", "swipe_pages": "auto", "screensaver": true},
         "saver": {"show": "day", "clock_style": "scattered", "day_look": "auto", "holiday_slide": true}},
-      {"id": "weather", "name": "Active Weather", "about": "The live sky with its weather moving -- clouds, rain and snow -- the weather large in the Side Pane and Big Weather in the screensaver.",
+      {"id": "weather", "name": "Active Weather", "about": "The live sky with its weather moving — clouds, rain and snow — the weather large in the Side Pane and Big Weather in the screensaver.",
         "art": ["#3a6ea8", "#7fa6c9", "#2c4a6b", "#32ade6"], "layout": {"cell": "tile", "starters": ["C", "A"]},
         "settings": {"flat": false, "glass": "blur", "accent": "cyan", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "live", "sky_animations": true,
         "sky_weather": true, "sky_precipitation": true, "sky_moving": "behind", "swipe_pages": "auto",
         "side_pane": {"side": "right", "headings": false, "dashboard": {"show": "home", "sections": [{"kind": "weather", "size": "full"}, {"kind": "calendar", "size": "less"}]}}, "screensaver": true},
         "saver": {"show": "forecast", "forecast_layout": "big"}},
-      {"id": "calm", "name": "Calming Backgrounds", "about": "Soft violet petals drifting slowly in Bright Glass, muted colours, and the Liquid clock.",
+      {"id": "calm", "name": "Calming Backgrounds", "about": "Soft violet petals drifting slowly in Bright Glass, muted colors, and the Liquid clock.",
         "art": ["#3c3283", "#524999", "#211a5e", "#5e5ce6"], "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]},
         "settings": {"flat": false, "glass": "bright", "accent": "indigo", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "wallpaper", "sky_wallpaper": "petals",
         "sky_wallpaper_color": "violet", "sky_wallpaper_night": "auto", "sky_wallpaper_motion": "slow", "swipe_pages": "on", "screensaver": true},
@@ -414,7 +414,7 @@
         "settings": {"flat": false, "glass": "tinted", "accent": "red", "tab_bar_glass": "tinted", "tile_style": "home", "sky": true, "sky_background": "color", "sky_color": "midnight",
         "sky_animations": false, "swipe_pages": "on", "side_pane": {"dashboard": {"show": "off", "sections": []}}, "screensaver": true},
         "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still", "clock_night": "night"}},
-      {"id": "photos", "name": "Photo Frame", "about": "The landscapes behind the cards, and your photos soon after you stop -- their titles, the time behind their subject where it can be.",
+      {"id": "photos", "name": "Photo Frame", "about": "The landscapes behind the cards, and your photos soon after you stop — their titles, the time behind their subject where it can be.",
         "art": ["#4a6a3a", "#8aa070", "#2a3a22", "#ff375f"], "layout": {"cell": "tile", "starters": ["Q", "A"]},
         "settings": {"flat": false, "glass": "blur", "accent": "pink", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "landscapes", "swipe_pages": "auto",
         "screensaver": true}, "saver": {"show": "photos", "starts_after": 60, "photo_titles": true, "time_behind": true}}

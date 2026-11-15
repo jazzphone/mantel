@@ -38,7 +38,7 @@ PANE_OFF = {"dashboard": {"show": "off", "sections": []}}
 # (hk-grid-editor.js SQUARE_STARTERS, NIGHTSTAND, STARTERS) in the order it tries them for the screen's type.
 LOOKS: tuple[dict[str, Any], ...] = (
     {"id": "homeview", "name": "HomeView",
-     "about": "Square tiles, centred, over a slow-moving wallpaper in Bright Glass, with the Side Pane and the "
+     "about": "Square tiles, centered, over a slow-moving wallpaper in Bright Glass, with the Side Pane and the "
               "Analog Numbers clock.",
      "art": ["#1f4b8d", "#375b91", "#0b285d", "#ff9500"],
      "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]},
@@ -72,7 +72,7 @@ LOOKS: tuple[dict[str, Any], ...] = (
                   "sky_liveliness": "festive", "sky_moving": "front", "swipe_pages": "auto", "screensaver": True},
      "saver": {"show": "day", "clock_style": "scattered", "day_look": "auto", "holiday_slide": True}},
     {"id": "weather", "name": "Active Weather",
-     "about": "The live sky with its weather moving -- clouds, rain and snow -- the weather large in the Side Pane "
+     "about": "The live sky with its weather moving — clouds, rain and snow — the weather large in the Side Pane "
               "and Big Weather in the screensaver.",
      "art": ["#3a6ea8", "#7fa6c9", "#2c4a6b", "#32ade6"],
      "layout": {"cell": "tile", "starters": ["C", "A"]},
@@ -82,7 +82,7 @@ LOOKS: tuple[dict[str, Any], ...] = (
                   "screensaver": True},
      "saver": {"show": "forecast", "forecast_layout": "big"}},
     {"id": "calm", "name": "Calming Backgrounds",
-     "about": "Soft violet petals drifting slowly in Bright Glass, muted colours, and the Liquid clock.",
+     "about": "Soft violet petals drifting slowly in Bright Glass, muted colors, and the Liquid clock.",
      "art": ["#3c3283", "#524999", "#211a5e", "#5e5ce6"],
      "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]},
      "settings": {"flat": False, "glass": "bright", "accent": "indigo", "tab_bar_glass": "house", "tile_style": "auto",
@@ -99,7 +99,7 @@ LOOKS: tuple[dict[str, Any], ...] = (
                   "swipe_pages": "on", "side_pane": PANE_OFF, "screensaver": True},
      "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still", "clock_night": "night"}},
     {"id": "photos", "name": "Photo Frame",
-     "about": "The landscapes behind the cards, and your photos soon after you stop -- their titles, the time "
+     "about": "The landscapes behind the cards, and your photos soon after you stop — their titles, the time "
               "behind their subject where it can be.",
      "art": ["#4a6a3a", "#8aa070", "#2a3a22", "#ff375f"],
      "layout": {"cell": "tile", "starters": ["Q", "A"]},

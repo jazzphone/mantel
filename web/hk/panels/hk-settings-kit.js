@@ -161,6 +161,14 @@
     '.sw[aria-checked="true"]{background:var(--hk-green)}',
     '.sw[aria-checked="true"]::after{transform:translateX(20px)}',
     '.sw:disabled{opacity:.4;cursor:default}',
+    // (a switch drawn mid-slide: toggle()'s FLIPS)
+    '.sw.flip{animation:hkswbg .22s var(--swd,0ms) both}.sw.flip[aria-checked="false"]{animation-name:hkswbgoff}',
+    '.sw.flip::after{animation:hkswon .22s cubic-bezier(.32,.72,0,1) var(--swd,0ms) both}',
+    '.sw.flip[aria-checked="false"]::after{animation-name:hkswoff}',
+    '@keyframes hkswon{from{transform:none}to{transform:translateX(20px)}}',
+    '@keyframes hkswoff{from{transform:translateX(20px)}to{transform:none}}',
+    '@keyframes hkswbg{from{background:var(--hk-off)}to{background:var(--hk-green)}}',
+    '@keyframes hkswbgoff{from{background:var(--hk-green)}to{background:var(--hk-off)}}',
     // SEGMENTED
     // equal segments, each as wide as the widest (Apple's own rule)
     '.seg{flex:none;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;position:relative;padding:2px;',
@@ -350,15 +358,22 @@
     return o.value !== undefined && o.value !== null && o.value !== '' ? watchRow(a) : a;
   }
   // A SWITCH ROW: the whole row toggles; o.on, o.onChange(bool), o.disabled
+  // A SWITCH SLIDES, AS IOS'S DOES, THOUGH THE PAGE IS DRAWN AGAIN UNDER IT (2026-11-15, the Settings audit): a change
+  // draws the page again in the very click, so the switch tapped was gone before its knob moved and the new one stood
+  // already over. A switch flipped in the last moment (FLIPS, by its key) is drawn mid-slide instead: `flip`, its
+  // animation started as long ago as the tap (--swd), however many times the page is drawn meanwhile.
+  var FLIPS = {}, FLIP_MS = 220;
   function toggle(o) {
-    var lid = id('l');
-    var sw = h('button', { class: 'sw', type: 'button', role: 'switch', 'aria-checked': o.on ? 'true' : 'false',
-                           'aria-labelledby': lid, disabled: !!o.disabled, 'data-fk': o.fk || o.sk,
-                           'aria-describedby': o.describedby });
+    var lid = id('l'), key = o.fk || o.sk, ago = key && FLIPS[key] ? performance.now() - FLIPS[key] : Infinity;
+    var sw = h('button', { class: 'sw' + (ago < FLIP_MS ? ' flip' : ''), type: 'button', role: 'switch',
+                           'aria-checked': o.on ? 'true' : 'false', 'aria-labelledby': lid, disabled: !!o.disabled,
+                           'data-fk': key, 'aria-describedby': o.describedby,
+                           style: ago < FLIP_MS ? '--swd:-' + Math.round(ago) + 'ms' : null });
     var flip = function () {
       if (sw.disabled) return;
       var on = sw.getAttribute('aria-checked') !== 'true';
       sw.setAttribute('aria-checked', on ? 'true' : 'false');
+      if (key) FLIPS[key] = performance.now();
       o.onChange(on);
     };
     sw.addEventListener('click', function (e) { e.stopPropagation(); flip(); });
@@ -380,6 +395,16 @@
     [].forEach.call(r.getClientRects(), function (x) { tops[Math.round(x.top)] = 1; });
     return Object.keys(tops).length > String(t.textContent || '').trim().split(/\s+/).length;
   }
+  // ...or onto a second line at all: a label beside a segmented control keeps its one line, as iOS's does, or the
+  // control goes under it ("Tile Style" broke a word a line beside its choices on an iPhone, which broken() let pass:
+  // two lines for two words, 2026-11-15)
+  function wraps(t) {
+    if (!t || !document.createRange) return false;
+    var r = document.createRange(), tops = {};
+    r.selectNodeContents(t);
+    [].forEach.call(r.getClientRects(), function (x) { tops[Math.round(x.top)] = 1; });
+    return Object.keys(tops).length > 1;
+  }
   function spills(box) { return [].some.call(box.children, function (b) { return b.scrollWidth > b.clientWidth + 1; }); }
   function fitSeg(cell) {
     if (!cell.isConnected) { SEG_RO.unobserve(cell); return; }
@@ -391,7 +416,7 @@
     if (!cell._stackAlways) {
       cell.classList.remove('stack');
       var cr = cell.getBoundingClientRect(), br = box.getBoundingClientRect();
-      if (br.right > cr.right - 8 || spills(box) || broken(lbl && lbl.querySelector('.t'))) cell.classList.add('stack');
+      if (br.right > cr.right - 8 || spills(box) || wraps(lbl && lbl.querySelector('.t'))) cell.classList.add('stack');
     }
     // stacked: equal segments, as Apple draws them -- unless a choice is
     // then too wide for its share ("Photos & Forecast"): each as its words
