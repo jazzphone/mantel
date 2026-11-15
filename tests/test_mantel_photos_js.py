@@ -499,7 +499,7 @@ def test_the_screensaver_pickers_save_a_screens_album_and_the_houses():
     assert g["rows"][2]["fk"] == "mx:files/photos"
     assert out["saverSent"] == [{"method": "PUT", "path": "/api/photos/screens/dashboard-kitchen", "body": {"album": A}}]
     house = out["house"][0]["rows"][0]
-    assert house["value"] == A and house["options"][0][1] == "The Home Assistant Folder (Above)"
+    assert house["value"] == A and house["options"][0][1] == "The Home Assistant Folder"
     assert out["houseSet"] == ["media-source://media_source/local/photos"]
     assert out["adultSaver"] == []                                  # no Photos section: nothing drawn
 
