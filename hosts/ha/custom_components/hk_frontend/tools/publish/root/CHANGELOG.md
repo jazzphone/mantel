@@ -9,12 +9,24 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **A phone with a side strip (the iPhone Duo) had one tile to a row in the Home Assistant app**: Home Assistant 2026.11 keeps its views clear of a side safe area itself, and the page kept clear of it again, so the Duo's front screen lost its strip twice -- under the room two tiles need, every grid one tile to a row and the scenes squeezed. The page now keeps only the room Home Assistant hasn't, and is as wide as in the Mantel app: two tiles across on every page, and the sideways rows run under the strip to the screen's edge again.
 - **A notification on a sensor whose state is words could only go off when it Changes**: Goes Off When now offers Changes To each value it's known to take, and Changes To Another Value… to type one.
 - **Settings' switches jumped back for seconds**: a feature's change (a notification's Important or Wakes the Screen, Stays On Screen, Do Not Disturb, any option of Notifications or Energy) showed its old value until the save was answered. It shows at once now; a refused save reads the page again.
+- **Pages bounced back on a wall tablet's swipe**: Android places a moving finger a little past where it stops, and the lift's step back read as a flick back. A real turn back still flicks back.
+- **Pre-rendered glass**: no longer shows the last page's blur on the next one, flickers on the tab bar at a page change, or changes twice with a moving wallpaper; on an Android tablet it no longer frosts the whole screen or draws a box over a Home Grid's gaps, and a block with pages (the Swipe card, a paged room, thermostat, scenes or accessories block) inside a Home Grid wears the picture instead of blurring live.
+- **The Laundry and Vacuum drawings and the Power page's moving light** follow Sky / Background → Animations: off stills them too.
+- **A moving wallpaper no longer costs a page its GPU memory** (frosted boxes and missing cards where a device ran short).
+- **A page swipe's landing does less work**, and the tab bar, the menu and the Side Pane stop measuring the window on every page change.
 
 **Changed**
+- **HomeView's Home Grid has no wells**: Security, Doors & Locks, Recent, House Status, On Now and Alert draw their glyphs bare in their own colors; an entry that needs a look sits on a white tile. Generated pages and sheets keep the Home app's wells.
+- **Speakers, the AirPlay way**: no wells; a picked room is light with Apple's check. In the Speakers panel a room in the music fills to its volume and a drag across it sets it, All Speakers on top moves them together; the Volume tab is gone.
+- **The Side Pane goes with its page in a swipe**, as part of it, and fades with it where pages cross-fade.
 - **A moving wallpaper costs a wall tablet far less**: the whole picture's motion steps a few times a second instead of every frame (it reads the same; the glass over it was blurring it again every frame: 1.6 cores at rest on a Galaxy Tab A9+, 0.9 after).
 - **Mantel for Android** is a Kiosk App choice in a wall tablet's Setup.
 
 **Added**
+- **Motion, its own switch** (Appearance → Motion): on in every look unless switched off, a screen's own over All Screens'. Flat no longer stops the cards' animations, and Motion off holds them still in any look; the Background's Animations stays a switch of its own.
+- **The Home block** (Home Grid; Small, Wide, Tall, Large, Extra Large): Apple's Home symbol, and from Tall up House Status's headline, the categories and the rooms. A tap opens the generated Home page in a sheet -- the chips, the cameras, Scenes, Favorites and the rooms; a chip or Cameras goes to its page, a room opens inside the sheet. Its **Sheet** option: Same as Screen, Flat, Glass, Frosted or Tinted.
+- **Energy Rings Small shows its figures**: a tap lays each ring's figure in a box over the rings, or **Figures → Always** keeps it there; the period sits in the upper left.
+- **HomeView blocks: Glyphs, Color or White** (Security, Doors & Locks, Recent, House Status, On Now and Alert).
 - **Mantel for Android counts as the kiosk app**: a wall tablet running it (the same entities as Kiosk Satellite, through ESPHome) is driven by Sleep Screen and checked by the tablet alerts as a Kiosk Satellite tablet is; its own package in front counts as the kiosk's.
 
 ## 1.59.3 - 2026-11-11
