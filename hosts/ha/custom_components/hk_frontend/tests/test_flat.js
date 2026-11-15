@@ -74,6 +74,8 @@ ok('fade 0 is clear, 100 near-opaque',/,0\.000\)$/.test(C.flatFade(0,'dark'))&&/
 ok('chart cards keep their motion',!/::after\{animation:none/.test(C.flatCss(null,true))&&/::after\{animation:none/.test(C.flatCss())&&/backdrop-filter:none/.test(C.flatCss(null,true)));
 ok('a clear active well keeps its glyph color (Chrome transparent, Safari none)',/\.well:not\(\[style\*="transparent"\]\):not\(\[style\*="background: none"\]\) \.icon\{color:white/.test(C.flatCss()));
 ok('a script-focused sheet gets no ring',/:focus-visible:not\(\[tabindex="-1"\]\)/.test(C.flatCss()));
+// (2026-11-15, the owner: "Whats up with the Square boxes around the speakers?" -- Light kept the well the AirPlay way dropped)
+ok('Flat Light draws no box behind a speaker\'s glyph in the Speakers panel',!/\.mproom \.ri\{background/.test(read(HK_ROOT+'/frontend/cards/hk-music.js')));
 ok('off tiles stay distinct from raised cards; controls share the configuration tone',C.FLAT.light['--hk-tile-off']!==C.FLAT.light['--hk-glass-plate']&&C.FLAT.light['--hk-look-well']===
     C.FLAT.light['--acc-cell']);
 ok('Calendar and Weather keep a tone of their own; Home takes the background',C.flatOwnGround('calendar')&&C.flatOwnGround('weather')&&C.flatOwnGround('energy')&&C.flatOwnGround('climate')&&

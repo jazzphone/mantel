@@ -6,6 +6,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Fixed**
+- **In Flat Light each speaker's glyph sat in a gray square** in the Music page's Speakers panel: Light still painted the well the panel dropped when it went the AirPlay way. The glyphs stand bare now, as in every other look.
 - **The screensaver wears no Appearance**: under Flat it put Flat's ground behind everything and changed its own options -- photos weren't drawn (a Flat Light screen showed white words on a light ground), the clock was Classic on black, the forecast had no sky and nothing faded. It is now the same in every look; Motion still decides what moves on it.
 
 ## 1.61.0 - 2026-11-15

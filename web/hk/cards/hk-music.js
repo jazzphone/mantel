@@ -195,7 +195,6 @@
       L + '.mpchip.clr{background:var(--hk-key)}',
       L + '.mproom{background:var(--hk-glass-plate)}',
       L + '.mproom.sel{background:var(--hk-key)}',
-      L + '.mproom .ri{background:var(--hk-key-strong)}',
       L + '.mproom .ri hk-icon,' + L + '.mppill hk-icon{color:var(--hk-glyph)}',
       L + '.mproom .mpck{box-shadow:inset 0 0 0 2px var(--hk-line-strong)}',
       L + '.mproom.sel .mpck{background:var(--hk-ink)}',
