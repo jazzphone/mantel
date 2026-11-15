@@ -1,7 +1,7 @@
 // mantel-settings.js -- Mantel's own pages in Mantel Settings (HK's settings panel with Mantel's host).
 //
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
-// "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Roles & Grants, Audit Log, Connections (Home
+// "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Roles & Permissions, Audit Log, Connections (Home
 // Assistant with Mantel Link, HK Frontend and Mantel Connect; Music Assistant), Cameras (RTSP cameras Mantel plays itself), Intercom (talk to the rooms; docs/phase17/INTERCOM.md), Alerts (where
 // Mantel sends what goes wrong), Timeline (what the House Timeline records), Your Files (with Photos,
 // mantel-photos.js), Service Accounts and Assistants (MCP), and Mantel's groups on HK's own wall tablet pages; every one drawn with HK Settings' own kit
@@ -18,7 +18,7 @@
 // @ts-check
 import { mantelUrl, base as BASE } from './base.js';
 import * as photos from './mantel-photos.js';
-import { api, C, cache, can, drafts, forgetFailed, manages, me, panel, refreshMe, roleLabel, ROUTE, setMe, setPanel, shown, ui }
+import { api, C, cache, can, K, drafts, forgetFailed, manages, me, panel, refreshMe, roleLabel, ROUTE, setMe, setPanel, shown, ui }
   from './settings/core.js';
 import { ensureStyle, stepUp } from './settings/kit.js';
 import { pMe } from './settings/me.js';
@@ -46,24 +46,27 @@ import { pGeneral } from './settings/general.js';
 import { pAbout } from './settings/about.js';
 export { api, manages };
 
-// the pages, in the sidebar's order: [section, title, icon, color, place, group header]
+// the pages, in the sidebar's order: [section, title, icon, color, place, group header]. Phase 32 (iOS 26 Settings'
+// order): each joins the panel's group of that name (HK's SIDE: Devices, Alerts & Activity, Household, Developer), or,
+// for Mantel's own, its group where the panel keeps a host's. 'none': a page with no row of its own -- Cameras is a
+// group on the Cameras page, Set Up Mantel leads the list while it has steps left.
 const PAGES = [
   ['me', 'Me', 'mdi:account-circle', C.gray, 'top'],
-  ['people', 'People', 'mdi:account', C.blue, 'end', 'People & Access'],
-  ['roles', 'Roles & Grants', 'mdi:shield-lock', C.indigo, 'end', 'People & Access'],
-  ['audit', 'Audit Log', 'mdi:history', C.gray, 'end', 'People & Access'],
+  ['intercom', 'Intercom', 'mdi:microphone', C.orange, 'end', 'Devices'],
+  ['alerts', 'System Alerts', 'mdi:alert-circle', C.red, 'end', 'Alerts & Activity'],
+  ['timeline', 'Timeline', 'mdi:timeline', C.orange, 'end', 'Alerts & Activity'],
+  ['people', 'People', 'mdi:account-multiple', C.blue, 'end', 'Household'],
+  ['roles', 'Roles & Permissions', 'mdi:shield-lock', C.indigo, 'end', 'Household'],
+  ['audit', 'Audit Log', 'mdi:history', C.gray, 'end', 'Household'],
   ['general', 'General', 'mdi:cog', C.gray, 'end', 'Mantel'],
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
-  ['cameras', 'Cameras', 'mdi:cctv', C.teal, 'end', 'Mantel'],
-  ['intercom', 'Intercom', 'mdi:microphone', C.orange, 'end', 'Mantel'],
-  ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
   ['backups', 'Backups', 'mdi:safe', C.blue, 'end', 'Mantel'],
-  ['alerts', 'Alerts', 'mdi:bell-ring', C.red, 'end', 'Mantel'],
-  ['timeline', 'Timeline', 'mdi:timeline', C.orange, 'end', 'Mantel'],
-  ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'end', 'Mantel'],
+  ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
   ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
-  ['service', 'Service Accounts', 'mdi:key-variant', C.brown, 'end', 'Advanced'],
-  ['assistants', 'Assistants (MCP)', 'mdi:robot', C.indigo, 'end', 'Advanced'],
+  ['service', 'Service Accounts', 'mdi:key-variant', C.brown, 'end', 'Developer'],
+  ['assistants', 'Assistants (MCP)', 'mdi:robot', C.indigo, 'end', 'Developer'],
+  ['cameras', 'Direct Cameras', 'mdi:cctv', C.teal, 'none'],
+  ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'none'],
 ];
 // Photos is inside Your Files (#/mantel/files/photos): its old addresses forward there. Devices is each wall tablet's
 // own page now (All Screens, Wall Tablets: extend 'tablet' and 'tablets', below); Mantel Connect is in Connections,
@@ -114,15 +117,16 @@ export const host = {
   },
   // a wall tablet's Home Assistant user is Mantel's (its 'tablet' group), not HK's Tablet User; the font and
   // glyphs are in Your Files (Mantel's data), not HK Frontend's folder; HA's sidebar entry is HK Frontend's
-  get owns() { return { tablet_user: true, files: ROUTE + '/files', sidebar: true }; },
+  // (setup: Mantel's own checklist, Set Up Mantel, stands for HK's Setup Check -- phase 32)
+  get owns() { return { tablet_user: true, files: ROUTE + '/files', sidebar: true, setup: true }; },
   groups() {
     if (!me) return [];
     const out = [];
     const u = me.user;
     out.push({ place: 'top', rows: [{ route: ROUTE + '/me', label: u.name || u.username || 'Me', sub: roleLabel(u.role) + ' · Sign-In, Passkeys, Sessions',
-                                      tile: ['mdi:account-circle', C.gray], root: !manages() }] });
+                                      tile: ['mdi:account-circle', C.gray], root: !manages(), cls: 'acct' }] });
     // while setup is open it leads the list too, with how far it has got
-    if (setupOpen()) out.push({ place: 'top', rows: [{ route: ROUTE + '/setup', label: 'Set Up Mantel', sub: 'What Mantel still needs',
+    if (setupOpen()) out.push({ place: 'top', rows: [{ route: ROUTE + '/setup', label: 'Finish Setting Up Mantel', sub: 'What Mantel still needs',
                                                        tile: ['mdi:clipboard-check', C.green] }] });
     const heads = {};
     for (const [s, title, icon, color, place, header] of PAGES) {
@@ -148,6 +152,7 @@ export const host = {
   // /admin's addresses (#connections, #people ...) and the page's own first-run choice
   forward(path) {
     if (PAGES.some(([s]) => s === path)) return ROUTE + '/' + path;
+    // (Setup Check stays HK's page, reached from Set Up Mantel; the panel's own Overview row for it opens it as before)
     const old = /^(?:mantel\/)?(devices|connect)$/.exec(path);
     if (old) return OLD_PAGES[old[1]];
     // an alert's link to Advanced -> Features (feature.enabled, features/auto.py): HK's own page
@@ -184,6 +189,11 @@ export const host = {
     if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);
     // phase 31: notifications on the Apple TVs, on HK's Notifications page and each notification's (settings/appletv.js)
     if (where === 'notify' && manages()) drawNotifyTv(c, ctx || {});
+    // phase 32: Mantel's direct cameras on HK's Cameras page (one Cameras in the sidebar)
+    if (where === 'page-cameras' && me && can('cameras')) {
+      c.appendChild(K().group({ header: 'Direct Cameras', footer: 'RTSP cameras Mantel plays itself, without Home Assistant in the middle.' },
+        [K().nav({ tile: ['mdi:cctv', C.teal], label: 'Direct Cameras', href: '#/' + ROUTE + '/cameras', fk: 'mx:page-cameras' })]));
+    }
     if (where === 'notify-item' && manages()) drawItemTv(c, ctx || {});
   },
   search() {

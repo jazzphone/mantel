@@ -162,8 +162,8 @@ def labels(page):
     return [r["label"] for r in rows(page)]
 
 
-def test_it_is_under_advanced(got):
-    adv = [g for g in got["groups"] if g.get("header") == "Advanced"]
+def test_it_is_under_developer(got):
+    adv = [g for g in got["groups"] if g.get("header") == "Developer"]
     assert adv and [r["label"] for r in adv[0]["rows"]] == ["Service Accounts", "Assistants (MCP)"]
 
 

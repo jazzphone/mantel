@@ -457,17 +457,22 @@
           if (wiki(item.anchor).length) c.appendChild(K.group({}, wiki(item.anchor)));
         } };
       }
+      // THE CHECK'S LINES, read once (null while it runs): its page, and a host's own checklist
+      checkLines() {
+        var self = this;
+        if (!this._check && !this._checking) {
+          this._checking = true;
+          this.client.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) { self._check = r.lines; self._checking = false; self.render(); },
+            function (e) { self._checking = false; self._check = [{ ok: false, title: 'Setup check failed', detail: String(e && e.message || e) }]; self.render(); });
+        }
+        return this._check || null;
+      }
       p_check() {
         var self = this;
         return { title: 'Setup Check', top: true, scope: 'What these pages need from this Home Assistant, and how to fix what’s missing.', body: function (c) {
-          var lines = self._check;
+          var lines = self.checkLines();
           if (!lines) {
             c.appendChild(K.group({}, [K.info({ label: 'Checking…' })]));
-            if (!self._checking) {
-              self._checking = true;
-              self.client.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) { self._check = r.lines; self._checking = false; self.render(); },
-                function (e) { self._checking = false; self._check = [{ ok: false, title: 'Setup check failed', detail: String(e && e.message || e) }]; self.render(); });
-            }
             return;
           }
           var ic = function (ok) { return ok === true ? ['mdi:check', C.green] : ok === false ? ['mdi:exclamation', C.orange] : ['mdi:information-variant', C.gray]; };

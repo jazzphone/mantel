@@ -426,7 +426,8 @@ def test_the_intercom_page_and_the_entry_that_lists_it_parse(tmp_path):
 def test_intercom_sits_after_cameras_for_owners_and_admins_only(run):
     for who in ("owner", "admin"):
         s = run["sidebar"][who]
-        assert s["routes"].index("mantel/intercom") == s["routes"].index("mantel/cameras") + 1, who
+        # (phase 32: Intercom is in Devices, before the household and Mantel's own groups)
+        assert s["routes"].index("mantel/intercom") < s["routes"].index("mantel/connections"), who
         assert s["search"] == ["Intercom"] and s["forward"] == "mantel/intercom"
         assert (s["title"], s["room"]) == ("Intercom", "Room")      # (a room's title is its name once the page is read)
     a = run["sidebar"]["adult"]

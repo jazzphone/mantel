@@ -1,7 +1,7 @@
 // settings/setup.js -- Mantel Settings, Set Up Mantel: the first run's checklist.
 // @ts-check
 import { mantelUrl } from '../base.js';
-import { act, api, C, K, load, me, redraw, refreshMe, ROUTE } from './core.js';
+import { act, api, C, K, load, me, panel, redraw, refreshMe, ROUTE } from './core.js';
 import { button, failed, group, info, pending, result, secretCell } from './kit.js';
 import { drawImport } from './connections.js';
 
@@ -38,6 +38,11 @@ export function pSetup(sub) {
     c.appendChild(group({ header: 'Needed', footer: s.complete ? 'Mantel is set up. The optional steps can be done whenever you like.'
       : left + (left === 1 ? ' step needs' : ' steps need') + ' doing. You can leave the ones marked Later.' }, needed.map(stepRow)));
     c.appendChild(group({ header: 'Optional' }, optional.map(stepRow)));
+    // ONE CHECKLIST (phase 32): HK's Setup Check -- what the screens need from Home Assistant and from each tablet's
+    // kiosk app -- is part of this page, not a page of its own in the sidebar
+    const chk = panel && panel.checkLines ? panel.checkLines() : null, bad = chk ? chk.filter((l) => l.ok === false).length : null;
+    c.appendChild(group({}, [K().nav({ label: 'Home Assistant and Tablet Checks', tile: ['mdi:stethoscope', C.green], href: '#/check',
+      value: chk ? (bad ? bad + ' to Fix' : 'All Good') : 'Checking…', fk: 'mx:setup:check' })]));
     if (!s.can_edit) { c.appendChild(group({ footer: 'Only an Owner can mark steps for later.' }, [])); return; }
     c.appendChild(group({ footer: s.dismissed ? 'Mantel Settings opens on its usual page. This list stays here, under Mantel.'
       : 'Close the guide and Mantel Settings opens on its usual page; this list stays here, under Mantel.' }, [

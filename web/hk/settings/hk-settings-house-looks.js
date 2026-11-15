@@ -473,7 +473,8 @@
         var withSky = function (pg, theme) { if (spv) { pg.preview = spv; pg.sky = { theme: theme }; } return pg; };
         var th = M.SKY_THEMES.filter(function (x) { return x.id === sub[0]; })[0];
         if (th) return withSky(mk(th.label, function (c) { self.h_theme(c, th); }), th.id);
-        return withSky({ title: title, back: ['Appearance', '#/house/appearance'], scope: scope, body: function (c) { self.h_sky(c); } }, null);
+        // (its own row in the sidebar since phase 32: a section page, its header card the sidebar's icon)
+        return withSky({ title: title, top: true, scope: 'The live sky, a color or a picture behind the cards, on every screen.', body: function (c) { self.h_sky(c); } }, null);
       }
       // EVERY PAGE PILL, each a way to its look
       h_pills(c) {

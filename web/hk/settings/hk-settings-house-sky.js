@@ -1174,15 +1174,17 @@
           c.appendChild(K.group({ header: 'Menu on Each Screen', sk: 'menu:screens',
             footer: 'On tablets and computers, then on phones. Each screen chooses its own, on its page.' }, rows));
         }
+        // (phase 32: the Pages Screen is a way around too, so it is here rather than a row of its own in the sidebar; the
+        // rooms and the header in one group, not two of a row each)
+        var ps = this.psCtx({ house: true, base: '#/house/pagesscreen' }).value;
         c.appendChild(K.group({ header: 'Navigation', footer: 'Everything about each, for every screen that uses it.' },
           M.MENU_KINDS.map(function (k) {
             return K.nav({ label: k[1], value: M.usedBy(M.kindUsers(k[0], bd, titleOf)), href: '#/house/menu/' + k[0], sk: 'menu:' + k[0] });
-          })));
+          }).concat([K.nav({ label: 'Pages Screen', value: M.choiceLabel(M.PAGES_SCREEN_SHOW, ps.show || 'off'), href: '#/house/pagesscreen', sk: 'menu:pagesscreen' })])));
         this.swipePagesGroup(c, null, null);
-        c.appendChild(K.group({ header: 'In the Menu', footer: 'Which rooms the side menu and the tab bar’s More list show, and in what order.' }, [
-          K.nav({ label: 'Rooms in the Menu', href: '#/house/rooms', sk: 'menu:rooms' })]));
         var hv = M.houseMenuAsBoard(this.data.settings.menu);
-        c.appendChild(K.group({ header: 'Header', footer: 'The header on every page but Home. It sits with each screen’s other header settings.' }, [
+        c.appendChild(K.group({ header: 'Rooms and Header', footer: 'Which rooms the menus list, and the header on every page but Home.' }, [
+          K.nav({ label: 'Rooms in the Menu', href: '#/house/rooms', sk: 'menu:rooms' }),
           K.nav({ label: 'Back Button & Title', value: M.choiceLabel(M.PAGE_HEADERS, hv.page_header || 'current'), href: '#/house/menu/header', sk: 'menu.page_header' })]));
       }
     };

@@ -73,7 +73,7 @@ export function pAlerts(sub) {
   if (sub[0] === 'apps') return pApps();
   if (sub[0] === 'history') return pHistory();
   if (sub[0] === 'advanced') return pAdvanced();
-  return { title: 'Alerts', top: true,
+  return { title: 'System Alerts', top: true,
     scope: 'Discord, Telegram, Notifiarr and your mail provider can read an alert’s text. The Mantel apps’ alerts are sealed end to end.',
     body(c) {
       withPage(c, 'alerts', (page) => {
@@ -180,7 +180,7 @@ function drawChats(rows, form) {
 
 // ---------------------------------------------------------------------------------------- Add Channel
 function pNewChannel(fixed) {
-  const back = fixed ? ['Advanced', HOME + '/advanced'] : ['Alerts', HOME];
+  const back = fixed ? ['Advanced', HOME + '/advanced'] : ['System Alerts', HOME];
   return { title: 'Add Channel', back, body(c) {
     withPage(c, 'alert:new', (page) => {
       if (!page.can_edit) { c.appendChild(group({ footer: 'Only an Owner can add channels.' }, [])); return; }
@@ -218,7 +218,7 @@ async function change(ch, patch) {
 function pChannel(id) {
   const got = readPage();
   const known = got && got.data && got.data.channels.find((x) => x.id === id);
-  return { title: known ? known.name : 'Channel', back: ['Alerts', HOME], body(c) {
+  return { title: known ? known.name : 'Channel', back: ['System Alerts', HOME], body(c) {
     const key = 'alert:' + id;
     withPage(c, key, (page) => {
       const ch = page.channels.find((x) => x.id === id);
@@ -280,7 +280,7 @@ function pChannel(id) {
 
 // ---------------------------------------------------------------------------------------- Mantel Apps
 function pApps() {
-  return { title: 'Mantel Apps', back: ['Alerts', HOME], body(c) {
+  return { title: 'Mantel Apps', back: ['System Alerts', HOME], body(c) {
     withPage(c, 'alerts', (page) => {
       const people = page.app.people, n = page.app.devices;
       c.appendChild(
@@ -298,7 +298,7 @@ function pApps() {
 
 // ---------------------------------------------------------------------------------------- History
 function pHistory() {
-  return { title: 'History', back: ['Alerts', HOME], body(c) {
+  return { title: 'History', back: ['System Alerts', HOME], body(c) {
     withPage(c, 'alerts-log', (page) => {
       const d = draft('alert-history'), grp = d.group || '';
       c.appendChild(group({}, [K().select({ label: 'Show', options: [['', 'All Events']].concat(page.groups.map((g) => [g.id, g.name])), value: grp, fk: 'mx:alert-history:group',
@@ -321,7 +321,7 @@ function pHistory() {
 const HOLDS = [0, 60, 120, 300, 600, 900, 1800, 3600];
 const BEATS = [60, 120, 300, 600, 900, 1800, 3600];
 function pAdvanced() {
-  return { title: 'Advanced', back: ['Alerts', HOME], body(c) {
+  return { title: 'Advanced', back: ['System Alerts', HOME], body(c) {
     withPage(c, 'alerts-advanced', (page) => {
       const can = page.can_edit, now = {};
       for (const [g, v] of Object.entries(page.holds || {})) if (typeof v === 'number') now[g] = v;

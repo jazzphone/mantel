@@ -65,6 +65,16 @@
         return { kinds: this.data.kinds || {}, alarm: this.hs('security.alarm'), cameras: n('camera'), calendars: n('calendar'), weather: n('weather') };
       }
       pagesListed() { return M.pagesListed(this.pageHas()); }
+      // PAGES (phase 32): one row in the sidebar, the house's pages listed here, each with what it says under its name
+      p_pagesList() {
+        var self = this;
+        return { title: 'Pages', top: true, scope: 'Each page’s own settings: its header, what’s on it, its look and the screens it’s on.',
+                 body: function (c) {
+                   c.appendChild(K.group({}, self.pagesListed().map(function (p) {
+                     return K.nav({ tile: [p[2], p[3]], label: p[1], sub: self.pageSays(p[0]), href: '#/page/' + p[0], fk: 'pages:' + p[0] });
+                   })));
+                 } };
+      }
       // a page's line under its name in the sidebar
       pageSays(key) {
         var S = this.data.settings || {}, bits = [];
@@ -112,7 +122,9 @@
         }
         if (key === 'calendar' && s0) return mk(self.name(s0), function (c) { self.h_calendarOne(c, s0); });
         if (s0) return this.p_page(key, []);
-        return { title: title, top: true, scope: PAGE_SCOPE[key] || 'This page’s settings, on every screen that shows it.',
+        // (a section page with its own icon; reached from Pages, which it goes back to, unless the sidebar lists it)
+        return { title: title, top: true, tile: [t[2], t[3]], back: ['Pages', '#/page'],
+                 scope: PAGE_SCOPE[key] || 'This page’s settings, on every screen that shows it.',
                  body: function (c) { self.h_page(c, key); } };
       }
       // a feature's own settings page, drawn here (its top page's body)
@@ -262,6 +274,9 @@
         }
         if (key === 'weather') rel.push(K.nav({ label: 'Screensaver', sub: 'Its forecast and weather screen read these too', icon: 'mdi:image-multiple', href: '#/house/screensaver',
           fk: 'page:rel:saver' }));
+        // (a host's own cameras, its direct ones, belong to this page: one Cameras in the sidebar, phase 32)
+        var hxc = key === 'cameras' ? this.host() : null;
+        if (hxc && typeof hxc.extend === 'function') { try { hxc.extend('page-cameras', c, {}, this); } catch (e) { /* the host's own group */ } }
         if (rel.length) c.appendChild(K.group({ header: key === 'cameras' ? 'Also' : 'Related' }, rel));
       }
       p_house(page, sub) {

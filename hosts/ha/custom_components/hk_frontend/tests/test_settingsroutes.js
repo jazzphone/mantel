@@ -450,12 +450,13 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   });
   ok('opening every one of them wrote nothing', writes.length, 0);
   // the old addresses open the new pages
-  ok('Background (Sky / Background before) opens under Appearance', go('#/house/sky').title === 'Background' && go('#/house/sky').back[1] === '#/house/appearance', true);
+  // (a section of its own in the sidebar since phase 32)
+  ok('Background (Sky / Background before) opens as its own section', go('#/house/sky').title === 'Background' && go('#/house/sky').top === true, true);
   ok('...and its pages too', go('#/house/sky/woodland').back[1], '#/house/appearance/sky');
   ok('the sidebar has no Sky entry', /\['sky',/.test(read(HK_ROOT + '/frontend/panels/hk-settings.js').split('var HOUSE = [')[1].split('];')[0]), false);
   ok('the Highlight Color is the Accent Color', go('#/house/menu/accent').title, 'Accent Color');
   ok('...a screen’s too, whether its menu follows or not', go('#/screens/dashboard-k/menu/accent').title, 'Accent Color');
-  ok('the device pages open Menu', go('#/house/menu/tablets').title, 'Menu');
+  ok('the device pages open Menu & Navigation', go('#/house/menu/tablets').title, 'Menu & Navigation');
   ok('...a button style the Side Menu’s', go('#/house/menu/tablets/style').title === 'Button Style' && go('#/house/menu/tablets/style').back[1] === '#/house/menu/side', true);
   ok('a screen’s device page opens its Menu', go('#/screens/dashboard-k/menu/phones').title, 'Menu');
   // All Screens -> Appearance

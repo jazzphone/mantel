@@ -336,7 +336,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `performance.js` — settings/performance.js -- Mantel Settings, About, Performance (performance.py)
   - `protect.js` — settings/protect.js -- Mantel Settings, Connections, UniFi Protect
   - `proxy.js` — settings/proxy.js -- Mantel Settings, HTTPS and Your Proxy, and Home Assistant's frame.
-  - `roles.js` — settings/roles.js -- Mantel Settings, Roles & Grants
+  - `roles.js` — settings/roles.js -- Mantel Settings, Roles & Permissions
   - `secure.js` — settings/secure.js -- Mantel Settings, About, Secure Connection (about.py, page-health.js)
   - `service.js` — settings/service.js -- Mantel Settings, Service Accounts
   - `setup.js` — settings/setup.js -- Mantel Settings, Set Up Mantel

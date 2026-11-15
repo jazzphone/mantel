@@ -26,24 +26,20 @@
       //         preview (a dashboard path), body(container) }
 
       // ---------------------------------------------------------- overview
+      // THE PAGE BESIDE THE SIDEBAR ON AN IPAD (phase 32: no longer a row of its own): what each group is for, and the
+      // checks while something needs doing
       p_overview() {
         var self = this, d = this.data;
-        return { title: 'Overview', top: true, scope: 'Settings for the ' + PN() + ' dashboards in this home.', body: function (c) {
-          c.appendChild(K.group({ header: 'Where Settings Live' }, [
-            K.info({ tile: ['mdi:tablet-dashboard', C.blue], label: 'Screens',
-                     sub: 'Each screen’s own menu, Home page, pages, appearance and behavior.' }),
-            K.info({ tile: ['mdi:home', C.gray], label: 'All Screens',
-                     sub: 'What every screen shares. Where a screen can choose for itself, it says “Same as All Screens” until it does.' }),
-            K.info({ tile: ['mdi:file-document-multiple', C.teal], label: 'Pages',
-                     sub: 'Each page’s own settings — its header, status row, what’s on it and its background — on one page each: Climate, Security, Energy, Weather …' }),
-            K.info({ tile: ['mdi:lightbulb-group', C.yellow], label: 'Accessories',
-                     sub: 'Names, icons and rooms: the same on every screen.' })]));
-          var check = self._check;
-          var bad = check ? check.filter(function (l) { return l.ok === false; }).length : null;
-          c.appendChild(K.group({ header: 'Setup' }, [
-            K.nav({ label: 'Setup Check', href: '#/check',
-                    value: check ? (bad ? bad + ' to Fix' : 'Ready') : 'Checking…' }),
-            K.nav({ label: 'Setup Assistant', href: '#/setup' })]));
+        return { title: PN() + ' Settings', top: true, tile: ['mdi:cog', C.gray],
+                 scope: 'Your screens, how they look and move, and the home they show. Choose a section in the list.', body: function (c) {
+          var row = function (tile, label, sub, href) { return K.nav({ tile: tile, label: label, sub: sub, href: href }); };
+          c.appendChild(K.group({}, [
+            row(['mdi:palette', C.indigo], 'Look & Feel', 'Appearance, the background, the menu, the Side Pane, Now Playing and the screensaver: every screen that doesn’t choose its own.',
+              '#/house/appearance'),
+            row(['mdi:sofa', C.brown], 'Home', 'Rooms, accessories, each page’s own settings, the status chips and the cameras.', '#/house/rooms'),
+            row(['mdi:tablet', C.blue], 'Devices', 'The wall tablets: what each shows, when it sleeps, and the app on it.', '#/house/tablets')]));
+          var bad = self.checkLines() ? self.checkLines().filter(function (l) { return l.ok === false; }).length : null;
+          if (bad) c.appendChild(K.group({}, [K.nav({ tile: ['mdi:clipboard-check', C.green], label: 'Setup Check', value: bad + ' to Fix', href: '#/check' })]));
           c.appendChild(K.group({ header: 'In This Home' }, [
             K.info({ label: 'Screens', value: String(d.dashboards.filter(function (x) { return x.item; }).length) }),
             K.nav({ label: 'Customized Accessories', value: String(Object.keys(d.accessories.entities || {}).length), href: '#/accessories' }),
@@ -51,12 +47,6 @@
             K.nav({ label: 'Custom Pages', value: String((d.custom_pages || []).length), href: '#/pages' })]));
           var hn = self.hostNote('overview');
           if (hn) c.appendChild(K.group({ footer: hn }, []));
-          if (!check && !self._checking) {
-            self._checking = true;
-            self.client.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) {
-              self._check = r.lines; self._checking = false; self.render(true);
-            }, function () { self._checking = false; });
-          }
         } };
       }
 

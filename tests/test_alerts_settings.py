@@ -227,9 +227,10 @@ def test_the_alerts_page_and_the_files_it_changes_parse(tmp_path):
 def test_alerts_sits_beside_connections_and_backups_for_owners_and_admins_only(run):
     for who in ("owner", "admin"):
         s = run["sidebar"][who]
-        assert s["routes"].index("mantel/alerts") == s["routes"].index("mantel/backups") + 1, who
+        # (phase 32: System Alerts is in Alerts & Activity, before the household and Mantel's own groups)
+        assert s["routes"].index("mantel/alerts") < s["routes"].index("mantel/connections"), who
         assert "mantel/alerts" in s["search"] and s["forward"] == "mantel/alerts"
-        assert s["titles"]["alerts"] == "Alerts" and s["titles"]["add"] == "Add Channel"
+        assert s["titles"]["alerts"] == "System Alerts" and s["titles"]["add"] == "Add Channel"
         assert s["titles"]["add/apprise"] == "Add Channel" and s["titles"]["channel/c1"] == "Channel"
         assert [s["titles"][k] for k in ("apps", "history", "advanced")] == ["Mantel Apps", "History", "Advanced"]
     a = run["sidebar"]["adult"]            # an address of a page the role may not use opens Me instead

@@ -253,7 +253,7 @@
     });
   }
   // ------------------------------------------------------------ end of the parts loader
-  var BACK, C, CSS, HOUSE, LIBRARY, PENCIL, SYSTEM, TICK;
+  var BACK, C, CSS, HOUSE, LIBRARY, PENCIL, SIDE, SYSTEM, TICK;
 
   class HkSettingsPanel extends /** @type {HkLooseElementConstructor} */ (HTMLElement) {
     constructor() {
@@ -912,7 +912,9 @@
       var back = pg.back || (parts.length && !wide ? [this.title(), '#/'] : null);
       var came = this.from[hashOf(location.hash || '#/')];
       if (came && (!back || hashOf(back[1]) !== came)) back = [this.labelOf(came), came];
-      if (back && (!(wide && pg.top) || came)) {
+      // (beside the sidebar a page it lists needs no Back; a section page it doesn't list -- a page under Pages -- does)
+      var listed = pg.top && !!this.sideTile(parts.join('/'));
+      if (back && (!(wide && listed) || came)) {
         var b = h('button', { class: 'back', type: 'button', 'aria-label': 'Back to ' + back[0] });
         b.innerHTML = BACK + '<span>' + K.esc(back[0]) + '</span>';
         b.addEventListener('click', function () { self.back(back[1]); });
@@ -922,8 +924,15 @@
       // THE PAGE. A screen's preview stays put while its settings redraw (a
       // moved iframe would load the whole dashboard again).
       // (a title with no line under it: .bare, its own room before the first group)
-      var head = h('div', { class: 'ph' + (pg.scope ? '' : ' bare') }, [pg.rename ? this.titleLine(pg) : h('h1', { class: 'lt', tabindex: '-1', text: pg.title || '' }),
-        pg.scope ? h('p', { class: 'scope', html: pg.scope }) : null]);
+      // A SECTION PAGE (one the sidebar lists: pg.top) opens with its header card, its icon the sidebar's; a sub-page has
+      // its title in the bar and no large one (iOS 26, phase 32)
+      var tile = pg.top ? (pg.tile || this.sideTile(parts.join('/'))) : null;
+      var title = pg.rename ? this.titleLine(pg) : h('h1', { class: 'lt', tabindex: '-1', text: pg.title || '' });
+      var head = pg.top
+        ? h('div', { class: 'ph hc' }, [tile ? h('span', { class: 'tile hct', style: 'background:' + tile[1], 'aria-hidden': 'true' }, K.icon(tile[0], '')) : null,
+            title, pg.scope ? h('p', { class: 'scope', html: pg.scope }) : null])
+        : h('div', { class: 'ph sub' + (pg.scope ? '' : ' bare') }, [title, pg.scope ? h('p', { class: 'scope', html: pg.scope }) : null]);
+      this.bar.classList.toggle('sub', !pg.top);
       var content = h('div', { class: 'pc' });
       try { pg.body(content); } catch (e) {
         console.error('[hk-settings]', e);
@@ -1225,49 +1234,83 @@
         if (!hx || typeof hx.groups !== 'function') return;
         (hx.groups() || []).filter(function (g) { return (g.place || 'end') === place; }).forEach(function (g) {
           side.appendChild(K.group({ header: g.header || null }, (g.rows || []).map(function (r) {
-            return K.nav({ tile: r.tile || null, label: r.label, sub: r.sub || null, value: r.value, href: '#/' + r.route,
+            return K.nav({ tile: r.tile || null, label: r.label, sub: r.sub || null, value: r.value, href: '#/' + r.route, cls: r.cls || null,
                            current: wide && (at(r.route) || (!here && r.root)), fk: 'side:' + r.route });
           })));
         });
       };
       hostGroups('top');
       if (this.hostOnly) { hostGroups('end'); return; }
-      var items = d.dashboards.filter(function (x) { return x.item; });
-      var nAcc = Object.keys((d.accessories && d.accessories.entities) || {}).length;
-      side.appendChild(K.group({}, [K.nav({ tile: ['mdi:home-heart', C.orange], label: 'Overview',
-        sub: items.length + (items.length === 1 ? ' Screen · ' : ' Screens · ') + nAcc + (nAcc === 1 ? ' Accessory' : ' Accessories'), href: '#/overview',
-        current: wide && (here === '' || here === 'overview'), fk: 'side:overview' })]));
-      var rows = items.map(function (x) {
-        // A SCREEN OF ONLY SOME PAGES says so, with a glyph of its own: it
-        // must never pass for a whole screen
-        var only = x.generated ? self.onlyOf(d.boards[x.path]) : null;
-        // WHERE IT IS DRAWN (`where`, from a host that draws screens of its own: {text, icon, also: drawn here too}) -- HK in Home
-        // Assistant sends none, and its list is as it always was
-        var where = x.where && typeof x.where.text === 'string' ? x.where : null;
-        return K.nav({ tile: [only ? 'mdi:file-document-multiple-outline' : where && where.icon ? where.icon : x.generated ? 'mdi:view-dashboard-variant' : 'mdi:tablet-dashboard',
-                              only ? C.teal : where && where.also ? C.blue : x.generated ? C.indigo : C.blue],
-                       label: x.title, sub: only ? only.text : where ? where.text : null, href: '#/screens/' + encodeURIComponent(x.path),
-                       current: wide && at('screens/' + x.path), fk: 'side:s:' + x.path });
-      });
-      rows.push(K.nav({ tile: ['mdi:plus', C.gray], label: 'Add Screen', href: '#/add-screen', current: wide && at('add-screen'),
-                        fk: 'side:add' }));
-      side.appendChild(K.group({ header: 'Screens' }, rows));
-      // PAGES (2026-10-16): every page the house has, each its own settings
-      // -- a feature's pages (#/features/energy/devices) count as its page's
-      var pageHere = M.pageOfRoute(here);
-      side.appendChild(K.group({ header: 'Pages' }, this.pagesListed().map(function (p) {
-        return K.nav({ tile: [p[2], p[3]], label: p[1], href: '#/page/' + p[0], current: wide && pageHere === p[0], fk: 'side:page:' + p[0] });
-      })));
-      var list = function (header, arr, pre) {
-        side.appendChild(K.group({ header: header }, arr.filter(function (p) { return p[4] !== 'unlisted'; }).map(function (p) {
-          var r = p[5] || (pre || '') + p[0];
-          return K.nav({ tile: [p[2], p[3]], label: p[1], href: '#/' + r, current: wide && at(r), fk: 'side:' + r });
+      this.sideGroups(here).forEach(function (g) {
+        side.appendChild(K.group({ header: g.header }, g.rows.map(function (r) {
+          return K.nav(Object.assign({}, r, { current: wide && r.current }));
         })));
+      });
+    }
+    // THE SIDEBAR'S GROUPS (phase 32): SIDE's order, each screen in Screens, a host's rows in the group they name (or
+    // where SIDE says '@host'), every row {route, tile, label, sub, href, fk, cls}, and `current` on the one row whose
+    // route is the longest this address is in (Background over Appearance, Cameras over Pages). Read by paintSide and by
+    // a section page's header card (sideTile), so the two never disagree on an icon.
+    sideGroups(here) {
+      var d = this.data, self = this, hx = this.host(), out = [], byHead = {}, all = [];
+      var row = function (route, label, tile, o) {
+        var r = Object.assign({ route: route, label: label, tile: tile, href: '#/' + route, fk: 'side:' + route }, o || {});
+        all.push(r);
+        return r;
       };
-      list('All Screens', HOUSE, 'house/');
-      list('Library', LIBRARY);
-      list('System', SYSTEM);
-      hostGroups('end');
+      var hostRows = hx && typeof hx.groups === 'function'
+        ? (hx.groups() || []).filter(function (g) { return (g.place || 'end') === 'end'; }) : [];
+      var hostSetup = !!(hx && hx.owns && hx.owns.setup);
+      SIDE.forEach(function (sg) {
+        var g = { header: sg[0], rows: [] };
+        if (sg[0] === '@host') { out.push(g); return; }
+        sg[1].forEach(function (p) {
+          if (p[0] === '@screens') {
+            d.dashboards.filter(function (x) { return x.item; }).forEach(function (x) {
+              // A SCREEN OF ONLY SOME PAGES says so, with a glyph of its own: it must never pass for a whole screen
+              var only = x.generated ? self.onlyOf(d.boards[x.path]) : null;
+              // WHERE IT IS DRAWN (`where`, from a host that draws screens of its own: {text, icon, also: drawn here too})
+              var where = x.where && typeof x.where.text === 'string' ? x.where : null;
+              g.rows.push(row('screens/' + encodeURIComponent(x.path), x.title,
+                [only ? 'mdi:file-document-multiple-outline' : where && where.icon ? where.icon : x.generated ? 'mdi:view-dashboard-variant' : 'mdi:tablet-dashboard',
+                 only ? C.teal : where && where.also ? C.blue : x.generated ? C.indigo : C.blue],
+                { sub: only ? only.text : where ? where.text : null, fk: 'side:s:' + x.path }));
+            });
+            g.rows.push(row('add-screen', 'Add Screen', ['mdi:plus', C.gray], { fk: 'side:add' }));
+            return;
+          }
+          if (p[4] === 'nosetup' && hostSetup) return;
+          g.rows.push(row(p[0], p[1], [p[2], p[3]]));
+        });
+        byHead[sg[0]] = g;
+        out.push(g);
+      });
+      var spare = out.filter(function (g) { return g.header === '@host'; })[0];
+      var at = out.indexOf(spare);
+      hostRows.forEach(function (hg) {
+        var rows = (hg.rows || []).map(function (r) {
+          return row(r.route, r.label, r.tile || null, { sub: r.sub || null, value: r.value, cls: r.cls || null });
+        });
+        if (hg.header && byHead[hg.header]) byHead[hg.header].rows = byHead[hg.header].rows.concat(rows);
+        else out.splice(at++, 0, { header: hg.header || null, rows: rows });
+      });
+      var best = /** @type {any} */ (null);
+      all.forEach(function (r) {
+        var rt = decodeURIComponent(r.route);
+        if ((here === rt || here.indexOf(rt + '/') === 0) && (!best || rt.length > decodeURIComponent(best.route).length)) best = r;
+      });
+      if (best) best.current = true;
+      return out.filter(function (g) { return g.header !== '@host' && g.rows.length; });
+    }
+    // the icon of the sidebar's row for this page, for its header card (null: none there)
+    sideTile(here) {
+      if (this.hostOnly || !this.data) return null;
+      var hit = null, hx = this.host();
+      var top = hx && typeof hx.groups === 'function' ? (hx.groups() || []).filter(function (g) { return g.place === 'top'; }) : [];
+      top.forEach(function (g) { (g.rows || []).forEach(function (r) { if (r.route === here && r.tile) hit = r.tile; }); });
+      if (hit) return hit;
+      this.sideGroups(here).forEach(function (g) { g.rows.forEach(function (r) { if (decodeURIComponent(r.route) === here) hit = r.tile; }); });
+      return hit;
     }
     searchResults() {
       var d = this.data, self = this, hx = this.host();
@@ -1519,7 +1562,7 @@
       if (fw) return this.resolve(fw.split('/'));
       var a = parts[0];
       if (a === 'overview') return this.p_overview();
-      if (a === 'page') return parts[1] ? this.p_page(parts[1], parts.slice(2)) : this.p_overview();
+      if (a === 'page') return parts[1] ? this.p_page(parts[1], parts.slice(2)) : this.p_pagesList();
       // no screen named: the Overview (the list of screens is the menu) --
       // not "There's no dashboard at /undefined"
       if (a === 'screens') return parts[1] ? this.p_screen(parts[1], parts.slice(2)) : this.p_overview();
@@ -1591,7 +1634,7 @@
     var KIT = kit();
     PARTS.forEach(function (file) { window.hkSettingsParts[partKey(file)](KIT); });
     BACK = KIT.BACK; C = KIT.C; CSS = KIT.CSS; HOUSE = KIT.HOUSE; LIBRARY = KIT.LIBRARY; PENCIL = KIT.PENCIL;
-    SYSTEM = KIT.SYSTEM; TICK = KIT.TICK;
+    SIDE = KIT.SIDE; SYSTEM = KIT.SYSTEM; TICK = KIT.TICK;
     bindLate();
   }
 

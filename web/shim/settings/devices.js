@@ -217,7 +217,8 @@ export function pEnroll(back = ['Wall Tablets', '#/house/tablets'], forTablet = 
         if (!d.name || d.name === d.auto) { d.name = t.name; d.auto = t.name; }
       }, ['owner', 'admin'].includes(u.role))) c.appendChild(g);
     }
-    c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Grants). Only on the home network.' }, [
+    c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Permissions). Only on the home network.' },
+      [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
       choose('device', 'role', 'Role', me.device_roles.map((r) => [r, roleLabel(r)]), 'wall_tablet')]));
     c.appendChild(group({}, [button('Make This a Wall Tablet', async () => {

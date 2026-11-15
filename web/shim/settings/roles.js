@@ -1,4 +1,4 @@
-// settings/roles.js -- Mantel Settings, Roles & Grants: what each role may do, and each person's rooms.
+// settings/roles.js -- Mantel Settings, Roles & Permissions: what each role may do, and each person's rooms.
 // @ts-check
 import { mantelUrl } from '../base.js';
 import { act, api, ask, fmt, K, load, me, panel, redraw, roleLabel, ROUTE, ui } from './core.js';
@@ -28,7 +28,7 @@ export function pRoles(sub) {
   if (sub[0] === 'role' && sub[1]) return pRole(sub[1]);
   if (sub[0] === 'add-grant') return pAddGrant();
   if (sub[0] === 'rooms') return pRooms();
-  return { title: 'Roles & Grants', top: true, scope: 'What each role may do by default, and the grants that add to or take away from it. Owners always keep every permission.', body(c) {
+  return { title: 'Roles & Permissions', top: true, scope: 'What each role may do by default, and the grants that add to or take away from it. Owners always keep every permission.', body(c) {
     result(c, 'roles');
     const rr = load('roles', () => api('GET', '/api/rbac/roles'));
     if (!rr) pending(c); else if (rr.err) failed(c, rr.err);
@@ -53,7 +53,7 @@ export function pRoles(sub) {
   } };
 }
 function pRole(name) {
-  return { title: roleLabel(name), back: ['Roles & Grants', '#/' + ROUTE + '/roles'], body(c) {
+  return { title: roleLabel(name), back: ['Roles & Permissions', '#/' + ROUTE + '/roles'], body(c) {
     const rr = load('roles', () => api('GET', '/api/rbac/roles'));
     if (!rr) { pending(c); return; }
     if (rr.err) { failed(c, rr.err); return; }
@@ -66,7 +66,7 @@ function pRole(name) {
   } };
 }
 function pAddGrant() {
-  const back = ['Roles & Grants', '#/' + ROUTE + '/roles'];
+  const back = ['Roles & Permissions', '#/' + ROUTE + '/roles'];
   return { title: 'Add a Grant', back, body(c) {
     result(c, 'grant');
     const gg = load('grants', () => Promise.all([api('GET', '/api/rbac/grants'), api('GET', '/api/users'), api('GET', '/api/devices')]));
@@ -116,7 +116,7 @@ function pAddGrant() {
   } };
 }
 function pRooms() {
-  return { title: 'Rooms', back: ['Roles & Grants', '#/' + ROUTE + '/roles'], body(c) {
+  return { title: 'Rooms', back: ['Roles & Permissions', '#/' + ROUTE + '/roles'], body(c) {
     result(c, 'rooms');
     const base = load('rooms-base', () => Promise.all([api('GET', '/api/users'), api('GET', '/api/devices'),
       fetch(mantelUrl('/api/areas'), { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : []))]));

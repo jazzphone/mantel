@@ -185,7 +185,7 @@ function drawSystemAlerts(c) {
     group({ header: 'System Alerts', footer: 'Mantel’s own alerts (Home Assistant disconnected, a backup failed, an update) on your Mantel apps and browsers. Where else they go is in Alerts.' }, [
     K().toggle({ label: 'System Alerts', on: got.data.system_alerts, fk: 'mx:system-alerts',
       onChange: (on) => act('me', () => api('PUT', '/api/alerts/me', { system_alerts: on }), on ? 'System alerts turned on.' : 'System alerts turned off.', 'myalerts', 'alerts') }),
-    nav('Alerts', 'alerts', { icon: 'mdi:bell-ring' })]));
+    nav('System Alerts', 'alerts', { icon: 'mdi:alert-circle' })]));
 }
 // TIMELINE (timeline/api.py, docs/phase19/HOUSE-TIMELINE.md "Who sees what"): this person's own switches. Keep My Arrivals
 // Private (not for a Child: the Owner decides) stops recording their arrivals and departures and deletes the past
