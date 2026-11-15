@@ -226,7 +226,7 @@ def test_add_camera_is_filled_tested_and_added_with_the_login_sent_once(got):
     # a sensor already linked to another camera is not on offer; one with an area says it
     assert [o[1] for o in by["Motion"]["options"]] == ["None", "Driveway Motion (Porch)", "Driveway Person"]
     foot = group(p, "Notify For")["footer"]
-    assert "Frigate" in foot and "doorbell pop-up" in foot and "Sensors whose names begin with the camera’s are suggested" in foot
+    assert "doorbell pop-up" in foot and "Sensors named like the camera are suggested" in foot
     # Test sent what was typed, with no sensors, and showed the picture
     sent = body_of(res, "Test", "POST")
     assert sent == {"name": "Driveway", "area_id": None, "address": f"rtsp://{HOST}:554/stream1", "low_address": "", "snapshot_address": "", "username": "viewer",

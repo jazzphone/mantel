@@ -516,7 +516,7 @@ def test_connections_offers_an_owner_the_one_time_import_and_shows_its_record(tm
     assert [(r["kind"], r["label"], r.get("value"), r["disabled"]) for r in g["rows"]] == [
         ("info", "HK’s Settings", "Not Imported", False), ("button", "Import HK’s Settings from Home Assistant", None, False)]
     assert "once" in g["footer"] and "Nothing is written to Home Assistant" in g["footer"]
-    assert "Running it again changes nothing" in g["footer"] and "generated Home screen" in g["footer"]
+    assert "running it again changes nothing" in g["footer"] and "generated Home screen" in g["footer"]
     assert out["owner"]["sent"] == [{"method": "POST", "path": "/api/settings/import", "csrf": "fictional-csrf"}]
     assert out["owner"]["reloaded"] is True                           # HK's own pages read the imported settings
     after = import_group(out["owner"]["after"])

@@ -31,9 +31,7 @@ export function protectRow() {
 export function pProtect(sub) {
   if (sub[0] === 'cameras') return sub[1] ? pCamera(sub[1]) : pCameras();
   return { title: 'UniFi Protect', back: BACK,
-    scope:
-    'Mantel talks to your UniFi Protect console itself: its cameras, their stills, the doorbell, its speaker and what each camera detects. The API key is kept sealed in Mantel’s data, never shown ' +
-    'again and never leaves the server.', body(c) {
+    scope: 'Mantel talks to your UniFi Protect console itself: its cameras, stills, doorbell and detections. The API key is kept sealed.', body(c) {
     result(c, 'protect');
     const got = load('protect', () => api('GET', '/api/protect'));
     if (!got) { pending(c); return; }
@@ -93,8 +91,8 @@ function drawTrust(c, p) {
     group(
     { header: 'The Console’s Certificate Changed',
     footer:
-    'Mantel stopped talking to the console: its certificate is not the one Mantel trusted. If you replaced or reset the console, compare the fingerprint with the one UniFi OS shows and trust it. ' +
-    'If you did not, do not.' }, rows));
+      'Mantel stopped talking to the console because its certificate is not the one it trusted. If you replaced or reset the console, compare the fingerprint with UniFi OS’s and trust it;' +
+      ' if you did not, do not.' }, rows));
 }
 
 function drawEdit(c, p, needsFresh) {
@@ -145,19 +143,17 @@ function drawEdit(c, p, needsFresh) {
   c.appendChild(
     group(
     { header: 'Console',
-    footer:
-    'Recommended: in UniFi OS, make a local user named Mantel (Admins & Users), sign in to UniFi OS as that user, and make the key there: Settings, Control Plane, Integrations, Create API Key. ' +
-    'Your own account then never signs in for Mantel. Whether a key stops working when its user is removed is not confirmed yet, so to cut Mantel off, delete the key.' }, [
+    footer: 'Recommended: make a local UniFi OS user named Mantel, sign in as it, and create the key under Settings, Control Plane, Integrations. To cut Mantel off, delete the key.' }, [
     field('protect', 'host', 'Address', { maxlength: 255, inputmode: 'url', value: (p.saved && p.saved.host) || '', placeholder: 'unifi.local' }),
     field('protect', 'key', 'API Key', { type: 'password', maxlength: 4096 })]));
   const adv = [K().toggle({ label: 'Advanced: a Local User', sub: 'Off unless a feature needs it; nothing does today', on: !!d.advanced, fk: 'mx:protect-adv',
     onChange: (v) => { d.advanced = v; redraw(); } })];
   if (d.advanced) adv.push(field('protect', 'user', 'User Name', { maxlength: 128 }), field('protect', 'password', 'Password', { type: 'password', maxlength: 1024 }));
   c.appendChild(
-    group({ footer: 'A local UniFi OS user only: UI.com cloud accounts and accounts with MFA can’t be used. It is kept sealed beside the key and used by nothing yet; the API key is all Mantel needs.'
+    group({ footer: 'A local UniFi OS user only, kept sealed beside the key. Nothing uses it yet; the API key is all Mantel needs.'
     }, adv));
   c.appendChild(
-    group({ footer: 'Connect checks, in order: the address answers as a UniFi OS console, its certificate (trusted the first time, then held to), the key, and UniFi Protect 7.2.105 or later.' +
+    group({ footer: 'Connect checks the console’s address, its certificate, the key and UniFi Protect 7.2.105 or later.' +
     (needsFresh ? ' From outside the home network you will be asked to confirm it is you first.' : '') },
     [button('Test', test, { fk: 'mx:protect-test' }), button('Connect', save, { fk: 'mx:protect-save' })]));
   if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
@@ -219,9 +215,7 @@ function pCamera(id) {
       c.appendChild(
         group(
         { header: 'Also in Home Assistant',
-        footer:
-        'Shown once, as Home Assistant’s camera, with its name and room, and the same people may see it. Direct plays it and draws its stills from the console through Mantel;' +
-        ' Home Assistant plays it through Home Assistant as before.' }, [
+        footer: 'Shown once, as Home Assistant’s camera. Direct plays it through Mantel; Home Assistant plays it as before.' }, [
         info('Home Assistant’s Camera', null, x.matched),
         K().select({ label: 'Video From', options: [['direct', 'Direct'], ['ha', 'Home Assistant']], value: x.video_from, fk: 'mx:protect-video',
           onChange: (v) => set({ video_from: v }, 'Saved.') })]));
@@ -236,11 +230,10 @@ function pCamera(id) {
         ok: 'Turn On' }))) return;
       act('protect-cam', () => api('POST', '/api/protect/cameras/' + encodeURIComponent(id) + '/turn-on', { types: [k] }), 'Turned on in UniFi Protect.', 'protect-cams');
     }, { fk: 'mx:protect-turn-on:' + k }));
-    c.appendChild(group({ header: 'Notify For', footer: (x.motion_only ? 'This camera has no smart detection: its own motion detection is what it reports. ' :
-      'The camera’s own detection, nothing of Mantel’s. ') +
-      'Which of these become notifications and doorbell pop-ups follows Notifications (Doorbells, Packages, Cameras). Zones, sensitivity and privacy masks are set in UniFi Protect’s app.' }, notify));
+    c.appendChild(group({ header: 'Notify For', footer: (x.motion_only ? 'This camera has no smart detection, so its motion detection is reported. ' : '') +
+      'Which become notifications follows Notifications. Zones and sensitivity are set in UniFi Protect’s app.' }, notify));
     if (x.talk_speaker) c.appendChild(group({ header: 'Talking at the Door', footer:
-      'Mantel talks to the doorbell itself. Name this speaker in the doorbell pop-up’s settings to talk from the doorbell sheet. Talking needs HTTPS: see About, Secure Connection.' },
+      'Name this speaker in the doorbell pop-up’s settings to talk from its sheet. Talking needs HTTPS (About, Secure Connection).' },
       [info('Speaker', null, x.talk_speaker)]));
   } };
 }

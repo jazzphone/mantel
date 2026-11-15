@@ -97,12 +97,12 @@ A lock or the garage left open leads the list. A quiet night is one line, so sil
 
 Owners and Admins find **Timeline** in Mantel Settings, next to Alerts. The Owner changes it; Admins can look.
 
-- **What's Recorded**: a switch per kind, the entities recorded, and a **Not Recorded** list of plain sensors you can add by hand (a contact sensor with no type set, say).
+- **What's Recorded** (says how many kinds are on, such as "11 of 12"): a switch per kind, then the entities recorded, and a **Not Recorded** list of plain sensors you can add by hand (a contact sensor with no type set, say).
+- **Wall Tablets**: what the limited view shows, and pictures per tablet.
 - **Retention**: 7 days, 30 days (the default), 90 days or 1 year.
 - **Pictures**: the budget, pictures per detection, and how much is used.
-- **Wall Tablets**: what the limited view shows, and pictures per tablet.
 - **Morning Summary**: when, from when, and **Send Test**.
-- **Clear Timeline**: deletes every row and picture. You type CLEAR to confirm, and Mantel asks you to sign in again first.
+- **Clear Timeline**: deletes every row and picture, red and alone at the bottom. You type CLEAR to confirm, and Mantel asks you to sign in again first.
 
 Every change is written to the [audit](Commands-and-Audit.md) before it's made. Reading the Timeline isn't.
 

@@ -48,21 +48,24 @@ export function pBackups() {
     }
     // ---- the state
     const last = b.backups[0];
-    const rows = [info('Last Backup', st.last_error ? 'The last try failed: ' + st.last_error : null,
+    const sched = b.nightly ? 'Every night at ' + b.time + ' in the house’s time zone, and with Back Up Now' : 'Made with Back Up Now';
+    const rows = [info('Last Backup', st.last_error ? 'The last try failed: ' + st.last_error : sched,
       last ? when(last.created) : 'None Yet', st.last_error ? 'warn' : '')];
-    rows.push(info('Made', b.nightly ? 'Every night at ' + b.time + ', in the house’s time zone, and with Back Up Now' : 'With Back Up Now',
-      null));
-    rows.push(info('Kept In', b.local ? 'Mantel’s data folder. Download them to keep a copy off this machine.' : b.target, null));
     if (owner) {
       rows.push(button('Back Up Now', () => act('backups', () => api('POST', '/api/backup/run'), 'Backup made.', 'backups'),
         { fk: 'mx:backup-run' }));
     }
+    // ---- the Timeline's pictures (docs/phase19/HOUSE-TIMELINE.md "Backup and restore"): off by default
+    if (b.timeline) {
+      rows.push(K().toggle({ label: 'Include Timeline Pictures', sub: 'Its rows are always in a backup; its pictures only with this on', on: !!b.timeline_pictures,
+        fk: 'mx:backup-timeline', disabled: !owner,
+        onChange: (on) => act('backups', () => api('PUT', '/api/timeline/settings', { backup_pictures: on }),
+          on ? 'Timeline pictures will be in the next backup.' : 'Timeline pictures are left out of backups.', 'backups') }));
+    }
     const keep = 'Mantel keeps the newest backup of each of the last ' + b.keep_daily + ' days and ' + b.keep_weekly + ' weeks.';
-    c.appendChild(group({ header: 'Latest', footer: !b.local ? keep : b.ha_app
-      ?
-        'Home Assistant’s own backups already include Mantel (Settings → System → Backups). These are Mantel’s own copies, to download or to move to another Mantel, and aren’t added to Home ' +
-        'Assistant’s backups. ' + keep
-      : 'No backup folder is set, so nothing is backed up at night: give Mantel one to back up nightly (see Backups in the guide). ' + keep }, rows));
+    c.appendChild(group({ footer: !b.local ? 'Kept in ' + b.target + '. ' + keep : b.ha_app
+      ? 'Home Assistant’s own backups already include Mantel. ' + keep
+      : 'No backup folder is set, so nothing is backed up at night (Backups in the guide). ' + keep }, rows));
     // ---- the list
     if (b.backups.length) {
       c.appendChild(group({ header: 'Saved Backups' }, b.backups.map((x) => {
@@ -81,14 +84,6 @@ export function pBackups() {
         return cell;
       })));
     }
-    // ---- the Timeline's pictures (docs/phase19/HOUSE-TIMELINE.md "Backup and restore"): off by default
-    if (b.timeline) {
-      c.appendChild(group({ footer: 'The Timeline’s rows are always in a backup. Its pictures (up to the budget set in Timeline, 30 days old and replaceable) are added only with this on.' },
-        [K().toggle({ label: 'Include Timeline Pictures', on: !!b.timeline_pictures, fk: 'mx:backup-timeline',
-          disabled: !owner,
-          onChange: (on) => act('backups', () => api('PUT', '/api/timeline/settings', { backup_pictures: on }),
-            on ? 'Timeline pictures will be in the next backup.' : 'Timeline pictures are left out of backups.', 'backups') })]));
-    }
     if (!owner) {
       c.appendChild(group({ footer: 'Only the Owner makes, downloads and restores backups.' }, []));
       return;
@@ -97,9 +92,7 @@ export function pBackups() {
     c.appendChild(
       group(
       { header: 'Keys',
-      footer:
-      'A backup is locked with Mantel’s backup key, and some values inside it (authenticator codes, saved connections) with its at-rest key. Neither is in the backup. Save both as one small file, ' +
-      'and keep it apart from the backups, for example in your password manager: without it a backup can only be restored on this Mantel.' },
+      footer: 'Neither key is in a backup. Save them as one small file and keep it apart from the backups: without it a backup restores only on this Mantel.' },
       [info('Backup Key', null, b.key_present ? 'Made' : 'Made With the First Backup'),
        button('Save Keys…', async () => {
          const k = await act('backups', () => api('GET', '/api/backup/keys'), null);
@@ -139,9 +132,7 @@ function drawRestore(c, b) {
     c.appendChild(
       group(
       { header: 'Restore',
-      footer:
-      'Mantel restarts to put it in place; screens and wall tablets reconnect by themselves within a minute. What is here now is moved aside in the data folder, not deleted. You may need to sign ' +
-      'in again.' }, [
+      footer: 'Mantel restarts to put it in place and wall tablets reconnect within a minute. What is here now is moved aside, not deleted.' }, [
       info('Checked and Ready', what, null),
       button('Restore and Restart…', async () => {
         if (!(await ask({ title: 'Restore this backup?', message: 'Everything Mantel keeps goes back to how it was on ' + when(p.created) + '. Mantel restarts now.' + control, ok: 'Restore',
@@ -188,9 +179,9 @@ function drawRestore(c, b) {
     chosen.keys = keys.files[0] || null;
     if (chosen.keys) { ui.flash = { key: 'backups', text: 'Keys file chosen: now choose the backup.' }; redraw(); file.click(); }
   });
-  const g = group({ header: 'Restore', footer: 'Choose a backup (.mbk) to check it first; nothing changes until you restore it. A backup from another Mantel also needs that Mantel’s keys file.' }, [
-    button('Restore From a Backup…', () => file.click(), { fk: 'mx:backup-upload' }),
-    button('Restore From Another Mantel…', () => keys.click(), { fk: 'mx:backup-upload-other' })]);
+  const g = group({ header: 'Restore', footer: 'A backup (.mbk) is checked first; nothing changes until you restore it. One from another Mantel also needs that Mantel’s keys file.' }, [
+    button('Restore From a Backup…', () => file.click(), { fk: 'mx:backup-upload', destructive: true }),
+    button('Restore From Another Mantel…', () => keys.click(), { fk: 'mx:backup-upload-other', destructive: true })]);
   g.appendChild(file);
   g.appendChild(keys);
   c.appendChild(g);

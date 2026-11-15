@@ -126,38 +126,50 @@ const putOverrides = (page, map) => save(page, () => api('PUT', '/api/timeline/o
 export function pTimeline(sub = []) {
   if (sub[0] === 'recorded') return pRecorded();
   if (sub[0] === 'not-recorded') return pNotRecorded();
+  if (sub[0] === 'families') return pFamilies();
+  if (sub[0] === 'wall') return pWall();
+  if (sub[0] === 'morning') return pMorning();
   return { title: 'Timeline', top: true,
     scope: 'What Mantel keeps about the house: doors, locks, the garage, the alarm, arrivals and what the cameras saw.',
     body(c) {
       withPage(c, 'timeline', (page) => {
-        const can = page.can_edit;
-        c.appendChild(group({ header: 'What’s Recorded',
-          footer: [readOnly(page),
-            'Windows are off for a new house. System and Refused Commands are shown to Owners and Admins only. Turning one off stops new rows; the rows already kept stay until they age out.']
-            .filter(Boolean).join(' ') },
-        FAMILIES.map(([id, name, sub2]) => K().toggle({ label: name, sub: sub2, on: !!page.families[id], disabled: !can, fk: 'mx:timeline-family:' + id,
-          onChange: (on) => putSettings(page, { families: { [id]: on } }) }))));
-        drawEntities(c, page);
+        const on = FAMILIES.filter(([id]) => page.families[id]).length;
+        c.appendChild(group({ footer: readOnly(page) }, [
+          nav('What’s Recorded', 'timeline/families', { icon: 'mdi:eye', value: on + ' of ' + FAMILIES.length }),
+          nav('Wall Tablets', 'timeline/wall', { icon: 'mdi:tablet', value: wallValue(page) })]));
         drawRetention(c, page);
         drawPictures(c, page);
-        drawWall(c, page);
-        drawDigest(c, page);
-        if (can) drawClear(c, page);
+        c.appendChild(group({}, [nav('Morning Summary', 'timeline/morning', { icon: 'mdi:weather-sunset-up', value: clockText((page.digest || { at: '07:00' }).at) })]));
+        if (page.can_edit) drawClear(c, page);
       });
     } };
+}
+const wallValue = (page) => { const w = page.wall || { families: [] }; return w.families.length + ' of ' + (page.wall_families || []).length; };
+
+// What's Recorded: a switch per family, then the entities one by one
+function pFamilies() {
+  return { title: 'What’s Recorded', back: ['Timeline', HOME], body(c) {
+    withPage(c, 'timeline', (page) => {
+      const can = page.can_edit;
+      c.appendChild(group({ footer: [readOnly(page), 'Turning one off stops new rows; the rows already kept stay until they age out.'].filter(Boolean).join(' ') },
+        FAMILIES.map(([id, name, sub2]) => K().toggle({ label: name, sub: sub2, on: !!page.families[id], disabled: !can, fk: 'mx:timeline-family:' + id,
+          onChange: (on) => putSettings(page, { families: { [id]: on } }) }))));
+      drawEntities(c, page);
+    });
+  } };
 }
 
 // what is recorded one by one: the two pages under "Entities"
 function drawEntities(c, page) {
   const off = turnedOff(page);
-  c.appendChild(group({ header: 'Entities', footer: 'Stop recording one door or camera, or add a sensor Mantel doesn’t recognize as a door, a window or motion.' }, [
+  c.appendChild(group({ footer: 'Stop recording one door or camera, or add a sensor Mantel doesn’t recognize as a door, a window or motion.' }, [
     nav('Recorded Entities', 'timeline/recorded', { icon: 'mdi:eye', value: count(page.members.length) }),
     nav('Not Recorded', 'timeline/not-recorded', { icon: 'mdi:eye-off', value: count(page.candidates.length + off.length) })]));
 }
 function drawRetention(c, page) {
   const can = page.can_edit;
   const opts = page.retentions.map((d) => [String(d), retentionLabel(d)]);
-  c.appendChild(group({ header: 'Retention', footer: 'Rows older than this are deleted. Pictures follow their own budget, below.' }, [
+  c.appendChild(group({ header: 'Retention', footer: 'Rows older than this are deleted. Pictures follow their own budget.' }, [
     K().select({ label: 'Keep Rows For', options: opts, value: String(page.retention_days), disabled: !can, fk: 'mx:timeline-retention',
       onChange: (v) => putSettings(page, { retention_days: Number(v) }) }),
     info('Rows Kept', null, count(page.rows))]));
@@ -172,19 +184,25 @@ function drawPictures(c, page) {
       onChange: (v) => putSettings(page, { pictures: { frames: Number(v) } }) })];
   if (use) rows.push(info('Used', use.sub, use.value));
   c.appendChild(
-    group({ header: 'Pictures', footer: 'Snapshots from the cameras, kept with the row they belong to. Past the budget the oldest pictures go first and their rows stay. They are never sent anywhere.'
+    group({ header: 'Pictures', footer: 'Camera snapshots kept with their rows. Past the budget the oldest pictures go first, and none are sent anywhere.'
     }, rows));
 }
 function drawWall(c, page) {
   const can = page.can_edit, wall = page.wall || { families: [], pictures: [] };
-  c.appendChild(group({ header: 'Wall Tablets: What They Show', footer: 'A wall tablet with nobody signed in shows the last 12 hours of these, without names, and nothing else.' },
+  c.appendChild(group({ header: 'What They Show', footer: 'A tablet with nobody signed in shows the last 12 hours of these, without names.' },
     page.wall_families.map((f) => K().toggle({ label: familyName(f), on: wall.families.includes(f), disabled: !can, fk: 'mx:timeline-wall:' + f,
       onChange: (on) => putSettings(page, { wall: { families: toggled(wall.families, f, on) } }) }))));
   const tablets = page.tablets || [];
-  c.appendChild(group({ header: 'Wall Tablets: Pictures', footer: tablets.length ? 'Pictures are off for a wall tablet unless you turn them on here, because anyone in the room can read the screen.'
+  c.appendChild(group({ header: 'Pictures', footer: tablets.length ? 'Pictures are off for a tablet until you turn them on, because anyone in the room can read the screen.'
     : 'No wall tablets yet. Add one in Devices, and it shows up here.' },
   tablets.length ? tablets.map((t) => K().toggle({ label: t.name || 'Wall Tablet', sub: 'Show Pictures', on: wall.pictures.includes(t.id), disabled: !can, fk: 'mx:timeline-wall-pics:' + t.id,
     onChange: (on) => putSettings(page, { wall: { pictures: toggled(wall.pictures, t.id, on) } }) })) : [info('No wall tablets')]));
+}
+function pWall() {
+  return { title: 'Wall Tablets', back: ['Timeline', HOME], body(c) { withPage(c, 'timeline', (page) => { c.appendChild(group({ footer: readOnly(page) }, [])); drawWall(c, page); }); } };
+}
+function pMorning() {
+  return { title: 'Morning Summary', back: ['Timeline', HOME], body(c) { withPage(c, 'timeline', (page) => drawDigest(c, page)); } };
 }
 function drawDigest(c, page) {
   const can = page.can_edit, d = page.digest || { at: '07:00', from: '21:00' };
@@ -196,13 +214,11 @@ function drawDigest(c, page) {
     const r = await api('POST', '/api/timeline/digest/test', {});
     ui.flash = { key: 'timeline', text: r && r.sent ? 'Test sent.' : 'Nothing was sent: no alert channel has House turned on, and nobody has Morning Summary on.', err: !(r && r.sent) };
   }), { fk: 'mx:timeline-digest-test' }));
-  c.appendChild(group({ header: 'Morning Summary',
-    footer:
-      'The night in a few lines, from the time under Covers From to the time it is sent. Alert channels with House turned on get the house version, without names or arrivals;' +
-      ' Mantel apps get a personal one for each person who turns on Morning Summary in Me.' }, rows));
+  c.appendChild(group({ footer: 'The night in a few lines, from Covers From to when it is sent. Alert channels with House on get the house version; each person who turns it on in Me gets their own.' }
+    , rows));
 }
 function drawClear(c, page) {
-  c.appendChild(group({ footer: 'Deletes every row and every picture, for good. Mantel asks you to confirm it is you, then to type CLEAR.' }, [
+  c.appendChild(group({ footer: 'Deletes every row and picture, for good. Mantel asks you to confirm it is you, then to type CLEAR.' }, [
     button('Clear Timeline…', async () => {
       if (!(await typedConfirm({ title: 'Clear the Timeline?', message: 'Type CLEAR to delete every row and picture.', word: CLEAR_WORD, ok: 'Clear Timeline' }))) return;
       const out = await act('timeline', () => api('DELETE', '/api/timeline?confirm=clear'), null, 'timeline');
@@ -212,7 +228,7 @@ function drawClear(c, page) {
 
 // ---------------------------------------------------------------------------------------- Recorded Entities
 function pRecorded() {
-  return { title: 'Recorded Entities', back: ['Timeline', HOME], body(c) {
+  return { title: 'Recorded Entities', back: ['What’s Recorded', HOME + '/families'], body(c) {
     withPage(c, 'timeline', (page) => {
       const can = page.can_edit;
       const groups = byFamily(page.members);
@@ -229,7 +245,7 @@ function pRecorded() {
 
 // ---------------------------------------------------------------------------------------- Not Recorded
 function pNotRecorded() {
-  return { title: 'Not Recorded', back: ['Timeline', HOME], body(c) {
+  return { title: 'Not Recorded', back: ['What’s Recorded', HOME + '/families'], body(c) {
     withPage(c, 'timeline', (page) => {
       const can = page.can_edit, off = turnedOff(page);
       const options = [['', 'Not Recorded']].concat(RECORD_AS.map(([f, name]) => [f, 'Record as ' + name]));

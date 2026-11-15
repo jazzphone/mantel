@@ -45,7 +45,7 @@ ROOMS = [room("media_player.kitchen", "Kitchen", "Downstairs"), room("media_play
 
 
 def settings(**kw):
-    s = {"enabled": False, "live_allowed": False, "default_mode": "message", "max_live_s": 60, "max_message_s": 30,
+    s = {"enabled": True, "live_allowed": False, "default_mode": "message", "max_live_s": 60, "max_message_s": 30,
          "chime": {"message": True, "live": False}, "stream_base": "", "lag_ms": None, "max_volume": 70,
          "quiet_default": {"schedule": True, "from": "21:00", "to": "07:00", "while": []},
          "rooms": {"media_player.kitchen": room_settings(enabled=True, volume=40),
@@ -140,6 +140,8 @@ for (const [name, me] of [['owner', owner], ['admin', admin], ['adult', adult]])
 const main = await draw(owner, ['mantel', 'intercom']);
 out.main = { scope: main.pg.scope, top: main.pg.top, groups: main.kids.map((g) => ({ header: g.header, footer: g.footer, rows: g.rows.map((r) => [r.kind, r.label, r.sub, r.value, r.on, r.disabled, r.href]) })) };
 out.main.noLive = !find(main.kids, 'Live Allowed');
+const ap = await draw(owner, ['mantel', 'intercom', 'address']);
+out.addressPage = { title: ap.pg.title, back: ap.pg.back, rows: ap.kids.flatMap((g) => g.rows).map((r) => [r.kind, r.label, r.sub, r.value]) };
 out.main.modes = find(main.kids, 'Starts As', 'select').options.map((o) => o[0]);
 out.main.sliders = rows(main.kids).filter((r) => r.kind === 'slider').map((r) => [r.label, r.min, r.max, r.step, r.unit, r.value]);
 
@@ -183,7 +185,7 @@ for (const a of ['', 'http://10.0.0.5:8767', 'https://10.255.1.1', 'http://172.1
 
 // ---- typing an address: a private one saves, a public one is warned about (and the server's refusal is shown)
 fresh();
-let addr = await draw(owner, ['mantel', 'intercom']);
+let addr = await draw(owner, ['mantel', 'intercom', 'address']);
 reset();
 await find(addr.kids, 'Address for Music Assistant', 'text').onCommit(' http://10.0.0.5:8767 ');
 await settle();
@@ -211,7 +213,7 @@ out.public.checkNotes = notes(await redraw(addr).then((a) => a.kids));
 
 // ---- the suggestion fills the address in one tap; a blank address is not checked
 fresh();
-let sug = await draw(owner, ['mantel', 'intercom']);
+let sug = await draw(owner, ['mantel', 'intercom', 'address']);
 reset();
 await find(sug.kids, 'Check Reach', 'button').onClick();
 await settle();
@@ -226,12 +228,12 @@ out.suggest.gone = !rows(sug.kids).some((r) => String(r.label).startsWith('Use '
 out.suggest.field = find(sug.kids, 'Address for Music Assistant', 'text').value;
 // no suggestion offered when the server has none
 fresh((l) => { l.suggested_base = null; });
-out.suggest.noneOffered = !rows((await draw(owner, ['mantel', 'intercom'])).kids).some((r) => String(r.label).startsWith('Use '));
+out.suggest.noneOffered = !rows((await draw(owner, ['mantel', 'intercom', 'address'])).kids).some((r) => String(r.label).startsWith('Use '));
 
 // ---- Check Reach reads the address as last saved, not as the page was drawn: a button drawn before the save still checks it
 fresh();
 checkAnswer = { ok: true, message: 'Music Assistant fetched it.' };
-const stale = await draw(owner, ['mantel', 'intercom']);          // drawn with a blank address
+const stale = await draw(owner, ['mantel', 'intercom', 'address']);          // drawn with a blank address
 const staleCheck = find(stale.kids, 'Check Reach', 'button');
 reset();
 await find(stale.kids, 'Use http://10.0.0.5:8767', 'button').onClick();
@@ -249,7 +251,7 @@ for (const [name, answer] of [['ok', { ok: true, message: 'Music Assistant fetch
                               ['down', { status: 503, body: { error: 'music_assistant_off', message: 'Music Assistant is not connected.' } }],
                               ['audit', { status: 503, body: { error: 'audit_unavailable' } }]]) {
   checkAnswer = answer;
-  const p = await draw(owner, ['mantel', 'intercom']);
+  const p = await draw(owner, ['mantel', 'intercom', 'address']);
   reset();
   await find(p.kids, 'Check Reach', 'button').onClick();
   await settle();
@@ -261,7 +263,7 @@ out.listener = {};
 for (const [name, patch] of [['off', { port: 8767, listening: false, enabled: false }], ['up', { port: 8767, listening: true, enabled: true }],
                              ['down', { port: 8767, listening: false, enabled: true }], ['none', { port: 0, listening: false, enabled: true }]]) {
   fresh((l) => { l.stream_port = patch.port; l.listening = patch.listening; l.settings.enabled = patch.enabled; });
-  const r = find((await draw(owner, ['mantel', 'intercom'])).kids, 'Listener', 'info');
+  const r = find((await draw(owner, ['mantel', 'intercom', 'address'])).kids, 'Listener', 'info');
   out.listener[name] = [r.sub, r.value, r.valueCls];
 }
 
@@ -293,7 +295,14 @@ out.enableAll.refused = { puts: puts().length, flash: core.ui.flash };
 refuse = null;
 // a house with no rooms
 fresh((l) => { l.rooms = []; });
-out.noRooms = (await draw(owner, ['mantel', 'intercom'])).kids.find((g) => g.header === 'Rooms').footer;
+out.noRooms = (await draw(owner, ['mantel', 'intercom'])).kids.some((g) => g.header === 'Rooms');
+// off, or with Music Assistant away, the switch and its words are all there is
+fresh((l) => { l.settings.enabled = false; });
+const offp = await draw(owner, ['mantel', 'intercom']);
+out.off = { groups: offp.kids.map((g) => [g.header, g.footer, g.rows.map((r) => r.label)]) };
+fresh((l) => { l.ma = false; });
+const noma = await draw(owner, ['mantel', 'intercom']);
+out.noMa = { groups: noma.kids.map((g) => [g.header, g.footer, g.rows.map((r) => r.label)]) };
 
 // ---- one room: Kitchen (on, volume 40, house quiet hours, a tablet listens)
 fresh();
@@ -438,12 +447,18 @@ def test_intercom_sits_after_cameras_for_owners_and_admins_only(run):
 def test_the_main_page_has_the_switch_the_address_the_rooms_and_the_settings(run):
     m = run["main"]
     assert m["top"] is True and "Music Assistant" in m["scope"]
-    assert [g["header"] for g in m["groups"]] == [None, "Music Assistant", "Rooms", "Talking", "Sound", None, "Quiet Hours"]
+    assert [g["header"] for g in m["groups"]] == [None, "Rooms", "Talking", "Volume", "Quiet Hours", None]       # six groups at most
     flat = {r[1]: r for g in m["groups"] for r in g["rows"] if r[1]}
-    assert flat["Intercom"][0] == "toggle" and flat["Intercom"][4] is False
-    assert flat["Address for Music Assistant"][0] == "text" and flat["Check Reach"][0] == "button"
+    assert flat["Intercom"][0] == "toggle" and flat["Intercom"][4] is True
+    assert flat["Music Assistant"][0] == "nav" and flat["Music Assistant"][6] == "#/mantel/intercom/address" and flat["Music Assistant"][3] == "Needs an Address"
     assert "Chime Before a Message" in flat and "Chime Before Live" in flat and flat["Quiet Hours"][4] is True
-    assert flat["Listener"][3] == "Off" and flat["Listener"][2] == "Port 8767"
+    a = run["addressPage"]
+    assert a["title"] == "Music Assistant" and a["back"] == ["Intercom", "#/mantel/intercom"]
+    assert a["rows"][0][:2] == ["text", "Address for Music Assistant"] and "Check Reach" in [r[1] for r in a["rows"]]
+    for who in ("off", "noMa"):
+        g = run[who]["groups"]
+        assert len(g) == 1 and g[0][2] == ["Intercom"], who                      # nothing else until it is on and Music Assistant is there
+    assert "not connected" in run["noMa"]["groups"][0][1] and "Off" in run["off"]["groups"][0][1]
 
 
 def test_live_allowed_is_drawn_only_when_the_house_has_measured_its_lag(run):
@@ -547,7 +562,7 @@ def test_the_rooms_list_shows_each_room_and_enable_all_turns_on_the_ones_that_ar
     assert e["declinedPuts"] == []                       # a no on the question sends nothing
     assert e["refused"]["puts"] == 1 and e["refused"]["flash"]["err"] is True       # one refusal stops the rest
     assert "audit log is unavailable" in e["refused"]["flash"]["text"]
-    assert "No rooms yet" in run["noRooms"]
+    assert run["noRooms"] is False                      # no empty Rooms group
 
 
 def test_a_room_page_has_on_live_volume_quiet_hours_tablets_and_send_test(run):

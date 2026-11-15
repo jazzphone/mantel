@@ -2,7 +2,7 @@
 
 Apple's SF Pro font and the SF Symbols glyphs give the screens Apple's look. Apple's license doesn't let Mantel ship them, so each home adds its own copy once, in **Mantel Settings → Your Files**. Owners and Admins see it. The same page holds the screensavers' [Photos](Photos.md).
 
-Without the font and glyphs, every screen still works: text uses the system font, and icons are drawn as the Material Design icon of the same name. **Setup Check** (Mantel Settings → **Overview**) says whether each one is in place.
+Without the font and glyphs, every screen still works: text uses the system font, and icons are drawn as the Material Design icon of the same name. **Home Assistant and Tablet Checks** (Mantel Settings → **Finish Setting Up Mantel**) says whether each one is in place.
 
 ## The three files
 
@@ -12,7 +12,7 @@ Without the font and glyphs, every screen still works: text uses the system font
 | **SF Pro (ttf)** | `SF-Pro.ttf` | The same font; only needed if you have no woff2 |
 | **HK Glyphs** | `hk-glyphs.js` | Every `hk:` icon, and the multicolor weather symbols |
 
-Choose **Upload** on a row to add its file, **Replace** to swap in a newer one, or **Remove** to go back to the plain look. The files are kept in Mantel's data and its encrypted [backups](Backups.md), and they are only ever read as data, never run.
+Each row says whether its file is in place. Tap a row to choose a file to add, or to swap in a newer one; **Remove**, in red at the bottom, goes back to the plain look. The files are kept in Mantel's data and its encrypted [backups](Backups.md), and they are only ever read as data, never run.
 
 From the command line, `mantel files import-assets <folder>` picks all three out of a folder in one go.
 
