@@ -35,6 +35,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     await context.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
     await context.route('**/*', (route) => new URL(route.request().url()).origin === input.origin ? route.continue() : route.abort());
     const page = await context.newPage();
+    // (waits on the page, not the clock: settle.cjs -- each ceiling the fixed wait it replaced, 2026-11-15)
+    const settle = require('./settle.cjs')(page);
     const errors = [];
     let cur = '';
     // (the browser's benign "ResizeObserver loop" note is no error, as the other checks have it; nor is WebKit's
@@ -50,7 +52,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/' + scr + '/' + (view || 'home'));
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2500);
+      await settle.loaded(2500);
     };
     const tag = W + 'x' + H, phone = W < 640, upright = H > W;
     const want = (name, l, ok) => { if (!ok) fails.push(tag + ' ' + name + ': ' + JSON.stringify(l)); else notes.push(tag + ' ' + name + ' ok'); };
@@ -72,7 +74,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         await page.goto(input.origin + '/pane-home-right/home?hkglass=' + g);
         await page.waitForFunction(() => window.__mantelReady === true);
         await require('./grid_ready.cjs')(page);
-        await page.waitForTimeout(2000);
+        await settle.loaded(2000);
         const m = await page.evaluate(() => {
           const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
           if (!pane) return null;
@@ -94,7 +96,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         await page.goto(input.origin + '/' + scr + '/home?hkglass=flat&hkflat_theme=' + theme);
         await page.waitForFunction(() => window.__mantelReady === true);
         await require('./grid_ready.cjs')(page);
-        await page.waitForTimeout(2500);
+        await settle.loaded(2500);
         return page.evaluate(() => {
           const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
           if (!pane) return null;
@@ -150,7 +152,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/pane-home-right/home');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2500);
+      await settle.loaded(2500);
       const midway = await page.evaluate(async () => {
         const p = document.querySelector('hk-side-pane[mode="dash"]');
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
@@ -188,7 +190,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/pane-swipe/home');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2500);
+      await settle.loaded(2500);
       const sw = () => page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
           for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
@@ -345,7 +347,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/pane-swipe/playmusic');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2000);
+      await settle.loaded(2000);
       const volAt = () => page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
           for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
@@ -368,7 +370,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/pane-swipe/home');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2000);
+      await settle.loaded(2000);
       const dial = await page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
           for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
@@ -390,7 +392,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/pane-swipe/security');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2000);
+      await settle.loaded(2000);
       await page.evaluate(() => { const v = window.hkShell.view(window.hkShell.viewSlot(null));
         ['height', 'min-height', 'max-height'].forEach((k) => v.style.setProperty(k, '300px', 'important')); });
       await page.waitForTimeout(300);
@@ -420,7 +422,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/dashboard-home/home?hk_tablet=kitchen');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2000);
+      await settle.loaded(2000);
       const tabletSet = (screen) => page.evaluate(async (sc) => {
         const c = window.hkHostClient.current(), a = (c && c.actions) || c;
         try { await a.callWS({ type: 'hk_frontend/tablet/set', tablet: 'kitchen', changes: { screen: sc } }); return true; } catch (e) { return String(e); }
@@ -451,7 +453,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         await tp.goto(input.origin + '/pane-swipe/pages');
         await tp.waitForFunction(() => window.__mantelReady === true);
         await require('./grid_ready.cjs')(tp);
-        await tp.waitForTimeout(2000);
+        await require('./settle.cjs')(tp).loaded(2000);
         const at = (x) => [{ x, y: Math.round(H * 0.5), id: 1, radiusX: 4, radiusY: 4, force: 1 }];
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(Math.round(W * 0.75)) });
         for (let k = 1; k <= 14; k++) {
@@ -475,7 +477,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.goto(input.origin + '/pane-home-dim/home?hkglass=bright');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
-      await page.waitForTimeout(2000);
+      await settle.loaded(2000);
       const dimmed = await shade();
       want('Dim High shades the pane', dimmed, /rgba\(0, 0, 0, 0\.45\)/.test(String(dimmed)));
       // (a slider since that afternoon: the Settings page's preview follows it as it moves, before it is saved)
@@ -494,7 +496,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         await page.goto(input.origin + '/pane-home-' + side + '/home?hkglass=' + g);
         await page.waitForFunction(() => window.__mantelReady === true);
         await require('./grid_ready.cjs')(page);
-        await page.waitForTimeout(3500);
+        await settle.loaded(3500);
         const a = await page.evaluate(async () => {
           const p = document.querySelector('hk-side-pane[mode="dash"]'), sr = p && p.shadowRoot;
           if (!sr) return null;
@@ -533,7 +535,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
           window.hkCards.menu.npGrace = () => 0;
           return window.hkCards.client().actions.callService('media_player', 'media_play_pause', {}, { entity_id: 'media_player.living_room' });
         });
-        await page.waitForTimeout(3500);
+        await page.waitForFunction(() => !document.querySelector('hk-side-pane[mode="dash"]').hasAttribute('arted'), null, { timeout: 3500 }).catch(() => {});
         const stopped = await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').hasAttribute('arted'));
         want('...stopped, the screen\'s glass again', stopped, stopped === false);
         // (and playing again, for the next screen's)
@@ -559,7 +561,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // (a page with no weather of its own: Lights, else the first that isn't Home or Weather)
       const away = views0.indexOf('lights') >= 0 ? 'lights' : views0.filter((v) => v !== 'home' && v !== 'weather')[0];
       await open('pane-every-page', away);
-      await page.waitForTimeout(4500);            // the page narrows (web/home.js), then the pane draws again
+      await settle(4500, { quiet: 1000 });            // the page narrows (web/home.js), then the pane draws again
       const d = await drawn('hk-side-pane[mode="dash"]');
       want('every page: its dividers drawn and its second ink grey', d, d && (upright || (d.lines > 0 && d.ruled)) && d.sub && d.sub !== 'rgb(255, 255, 255)');
       want('...the weather still there on a narrowed page (' + away + ')', d, d && d.weather && /\d°/.test(d.weather) && d.weather.indexOf('No weather') < 0);
@@ -568,7 +570,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     // AT THE TOP AND AT THE FOOT, AND A TAP ON EACH (2026-10-30)
     if (!phone && !upright) {
       await open('pane-placed');
-      await page.waitForTimeout(1500);
+      await settle(1500);
       const pl = await page.evaluate(() => {
         const p = document.querySelector('hk-side-pane[mode="dash"]'), sr = p.shadowRoot, pr = p.getBoundingClientRect();
         const mp = sr.querySelector('[data-k="now_playing"]'), card = sr.querySelector('hk-music-pane-card');
@@ -613,7 +615,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const art = {};
       for (const k of ['on', 'off']) {
         await open('pane-art-' + k);
-        await page.waitForTimeout(2500);
+        await settle(2500);
         art[k] = await page.evaluate(() => { const p = document.querySelector('hk-side-pane[mode="dash"]');
           return { arted: p.hasAttribute('arted'), layers: p.shadowRoot.querySelectorAll('.artbg b').length }; });
         await shot(page, tag + '-art-' + k);
@@ -639,7 +641,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // sheet; the player rises to the pane's top, the tabs under it)
       for (const how of ['panel', 'flip', 'auto']) {
         await open(how === 'auto' ? 'pane-art-on' : 'pane-tap-' + how);
-        await page.waitForTimeout(2000);
+        await settle(2000);
         await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('[data-k="now_playing"] .np .tx b').click());
         if (how !== 'panel') { await page.waitForTimeout(140); await shot(page, tag + '-tap-' + how + '-moving'); }
         await page.waitForTimeout(900);
@@ -648,6 +650,12 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
              st.open && st.inPane && /Speakers.*Queue.*Browse/i.test(st.tabs) && !/Volume/.test(st.tabs) && (how !== 'flip' || st.shown === 'hidden') &&
              (how === 'flip' || (st.drawer && st.playerFirst)));
         await shot(page, tag + '-tap-' + how);
+        // ...AND THE PANE DRAWN AGAIN UNDER IT (2026-11-15: its sections are drawn again when what they show changes, a
+        // song's time or a minute gone, and the new Now Playing section stood in full view where the old one had turned
+        // away -- about one run in six of this check failed on it, whatever it waited): the section still away
+        await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').redraw());
+        const again = await panelState();
+        want('...the pane drawn again under the open panel: its Now Playing section still away', again, again.open && again.shown === 'hidden');
         await page.keyboard.press('Escape');
         await page.waitForTimeout(1200);
         const back = await panelState();
@@ -655,7 +663,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       }
       // THE COVER: the screensaver's music, full screen (2026-11-01); a screen with none, the drawer (above)
       await open('pane-cover');
-      await page.waitForTimeout(2000);
+      await settle(2000);
       await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('[data-k="now_playing"] .art').click());
       await page.waitForTimeout(1500);
       const full = await page.evaluate(() => ({ on: window.hkSaver.running(), music: window.hkSaver.stats().musicSlide }));
@@ -681,7 +689,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const looks = {};
       for (const k of upright ? ['D'] : input.looks) {
         await open('pane-clock-' + k.toLowerCase());
-        await page.waitForTimeout(1500);
+        await settle(1500);
         looks[k] = await readClock();
         await shot(page, tag + '-clock-' + k);
       }
@@ -712,7 +720,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       };
       page.on('response', onRes);
       await open('pane-camera');
-      await page.waitForTimeout(2500);
+      await settle(2500);
       const cam = await page.evaluate(() => {
         const sr = document.querySelector('hk-side-pane[mode="dash"]').shadowRoot;
         return [...sr.querySelectorAll('.cam2[data-k="camera"]')].map((n) => {
@@ -926,7 +934,11 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.setViewportSize({ width: 1440, height: 1000 });
       cur = 'settings/house/sidepane';
       await page.goto(input.origin + '/settings#/house/sidepane');
-      await page.waitForTimeout(6000);
+      await page.waitForFunction(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+        const fr = deep(document).find((e) => e.tagName === 'IFRAME' && e.closest && e.closest('.pvbox'));
+          return !!(fr && fr.contentWindow && fr.contentWindow.hkSidePane && fr.contentWindow.hkSidePane.pane()); },
+        null, { timeout: 6000 }).catch(() => {});
+      await settle(1500);
       const frameOf = () => page.evaluate(() => {
         const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
         const fr = deep(document).find((e) => e.tagName === 'IFRAME' && e.closest && e.closest('.pvbox'));
@@ -944,14 +956,17 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         location.hash = '#/house';
         setTimeout(() => { location.hash = '#/house/sidepane'; }, 300);
       });
-      await page.waitForTimeout(6000);
+      await page.waitForFunction(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+        const fr = deep(document).find((e) => e.tagName === 'IFRAME' && e.closest && e.closest('.pvbox')), P = fr && fr.contentWindow && fr.contentWindow.hkSidePane, pane = P && P.pane();
+        return !!(pane && Array.isArray(pane.own) && pane.own.length === 0); }, null, { timeout: 6000 }).catch(() => {});
+      await settle(1500);
       const house = await frameOf();
       want('...and with every screen its own, the first screen drawing All Screens\' pane', house, !!house && Array.isArray(house.own) && house.own.length === 0);
       await shot(page, tag + '-settings-sidepane');
       // A STATUS'S SETTINGS (2026-11-06): what it says, its rule in words (the Screensaver's Shows When), its sizes
       cur = 'settings/screens/pane-status/sidepane/section/dashboard/1';
       await page.goto(input.origin + '/settings#/screens/pane-status/sidepane/section/dashboard/1');
-      await page.waitForTimeout(5000);
+      await settle(5000, { quiet: 800, floor: 800 });
       const sset = await page.evaluate(() => {
         const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
         const all = deep(document), panel = all.find((e) => e.tagName === 'HK-SETTINGS-PANEL');

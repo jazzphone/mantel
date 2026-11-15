@@ -46,7 +46,7 @@
       if (HC && HC.flatSurface) HC.flatSurface(host, 'music');
       var scrim = document.createElement('div'); scrim.className = 'scrim';
       sr.appendChild(scrim);
-      var me = { host: host, doneT: null };
+      var me = { host: host, doneT: null, pane: pane };
       me.p = P.create({
         tabs: ['speakers', 'queue', 'browse'],
         client: function () { return clientNow(); },
@@ -91,6 +91,18 @@
         me.how = how;
         if (drawer) drawerAnim(me, true); else turnAnim(me, true);
       }
+    }
+    // THE SECTION IT ROSE FROM, DRAWN AGAIN (2026-11-15). The pane draws its sections again whenever what they show
+    // changes -- the song's time, a minute gone -- and with the panel open that put a new Now Playing section, in full
+    // view, where the one that had turned away was: the old one was hidden, and closing found nothing to turn back
+    // to. (About one tap in twenty in side_pane_check, whatever it waited.) The new section takes the old one's place.
+    function musicKept(pane) {
+      var me = mpnl;
+      if (!me || me.pane !== pane || !me.from || me.from.isConnected) return;
+      var root = pane.shadowRoot, sec = root && root.querySelector('[data-k="now_playing"]');
+      if (!sec) return;
+      me.from = sec;
+      sec.style.visibility = 'hidden';
     }
     function closeMusicPanel() {
       var me = mpnl;
@@ -195,6 +207,6 @@
     }
 
     // what the shell and the later parts use of this one
-    K.musicFlag = musicFlag; K.musicPanel = musicPanel;
+    K.musicFlag = musicFlag; K.musicKept = musicKept; K.musicPanel = musicPanel;
   };
 })();

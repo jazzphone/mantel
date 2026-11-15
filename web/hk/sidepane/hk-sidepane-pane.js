@@ -834,6 +834,8 @@
         this._cams();
         this._fit = got;
         this._queue(c);
+        // (the music's panel open over a section that has just been drawn again: hk-sidepane-music.js musicKept)
+        if (K.musicKept) K.musicKept(this);
       }
       // More uses only the space left after every section has fitted. The preview
       // never makes another section shrink or disappear; its rows open the full queue.
