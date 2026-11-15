@@ -781,6 +781,8 @@
         return;
       }
       if (background && this.typing()) { this._dirty = true; return; }
+      // (each drawing counted: what a page reads many times while it draws -- accIds -- is read once a drawing)
+      this._drawGen = (this._drawGen || 0) + 1;
       var self = this, parts = this.parts(), key = parts.join('/');
       var wide = this.hasAttribute('wide');
       var active = this.shadowRoot.activeElement;

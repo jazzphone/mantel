@@ -203,4 +203,10 @@ Steps 4-6 touch separate files once 1-3 are on main, so they may run side by sid
   as "Finish Setting Up Mantel" and carries HK's Setup Check as a row (`checkLines`), which leaves the sidebar where
   the host has a checklist (`owns.setup`). Roles & Grants is Roles & Permissions, Alerts is System Alerts. DESIGN.md
   (hk_house 3b2adefa) records the look.
+- **Step 7, measured on the house's own data (2026-11-15).** A wall tablet never opens Settings (the page refuses
+  them), so the measure is Settings over the house's own settings and states (`house_twin.py pull`, 326 KB of
+  settings, 4,752 states) in Chromium at 4x CPU. Before the audit a tap drew its page three times (Appearance 28+29+26
+  ms, Accessories 320+303+308 ms); now once (Appearance 17 ms). Accessories walked every state once per type, about 30
+  times a drawing: `accIds` is read once a drawing (`_drawGen`) and the laundry finder once a set of states, 360 ms a
+  drawing to about 120. `house_twin.py` reads states past aiohttp's 4 MB and finds the running Mantel by its image.
 

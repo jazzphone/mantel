@@ -50,10 +50,16 @@ def house() -> dict:
     return json.loads((CONF / "house.json").read_text())
 
 
+# THE RUNNING MANTEL, by its image rather than its name: a hotfix can leave the server under another container name (on
+# 2026-11-15 the house's ran as "mantel-announce", a stopped "mantel-server" beside it)
+RUNNING = ("c=$(docker ps --filter status=running --format '{{.Names}} {{.Image}}' | awk '$2 ~ /mantel-server/ {print $1; exit}'); "
+           "[ -n \"$c\" ] || { echo 'no running Mantel container' >&2; exit 3; }; ")
+
+
 def pull_settings() -> list[dict]:
     h = house()
     out = subprocess.run(["ssh", "-i", os.path.expanduser(h["lxc_key"]), "-o", "BatchMode=yes", h["lxc_ssh"],
-                          "docker exec -i mantel-server python -"], input=DUMP, capture_output=True, text=True, timeout=60)
+                          RUNNING + "docker exec -i \"$c\" python -"], input=DUMP, capture_output=True, text=True, timeout=60)
     if out.returncode:
         raise SystemExit(f"house_twin: reading the settings failed: {out.stderr.strip()[-300:]}")
     return json.loads(out.stdout)
@@ -66,7 +72,8 @@ async def pull_ha() -> dict:
         async with s.get(url + "/api/states") as r:
             r.raise_for_status()
             states = await r.json()
-        async with s.ws_connect(url.replace("http", "ws", 1) + "/api/websocket") as ws:
+        # (no size limit: the house's states passed aiohttp's 4 MB default, 2026-11-15)
+        async with s.ws_connect(url.replace("http", "ws", 1) + "/api/websocket", max_msg_size=0) as ws:
             await ws.receive_json()
             await ws.send_json({"type": "auth", "access_token": token})
             if (await ws.receive_json()).get("type") != "auth_ok":
