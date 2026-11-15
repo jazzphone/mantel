@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.61.0 - 2026-11-15
+
 **Changed**
 - **HK Settings look and work like iOS 26's Settings**: rounder cards, taller rows, Title Case group headers, capsule segmented controls and search; on an iPad the sidebar is a panel in groups with the page you're on as a gray pill, and each section opens with a header card. The screen's page, Background (Seasonal Decorations on a page of its own), the Screensaver (Photos as one row, Also Show, Slideshow), the Pages' own pages (Security leads with its Security System) and Wall Tablets (the same groups for every kiosk app) were reworked in that shape, with short footers; a value that follows All Screens shows that value in gray, and Reset to All Screens sits on one you changed.
 - **A switch slides once**: a change drew the whole page three times and replaced the switch mid-tap; it now redraws only when something it shows changed. A row whose label wraps puts its control underneath. Accessories draws in about a third of the time on a large house.
