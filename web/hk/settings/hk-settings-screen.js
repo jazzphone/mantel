@@ -290,6 +290,17 @@
               K.nav({ label: 'Wall Tablets', href: '#/house/tablets' })]));
           });
         }
+        if (s === 'screensaver' && (sub[1] === 'photos' || sub[1] === 'layout' || sub[1] === 'forecast')) {
+          var sbk2 = ['Screensaver Options', base + '/screensaver'], sfollow = M.saverFollows(b);
+          var sown = M.saverOptions(sfollow && sub[1] !== 'photos' ? self.hs('look.saver') : b.screensaver_options);
+          var sput = self.saverPutB(path);
+          var spg2 = sub[1] === 'photos'
+            ? mk('Photos', function (c) { self.saverPhotosPage(c, M.saverOptions(b.screensaver_options), sput, false, { screen: path, title: x.title }, sfollow); }, sbk2)
+            : sub[1] === 'layout' ? mk('Photo Layout', function (c) { self.saverLayoutPage(c, sown, sput); }, sbk2)
+            : mk('Forecast Look', function (c) { self.saverForecastPage(c, sown, sput); }, sbk2);
+          spg2.saverPreview = true;
+          return spg2;
+        }
         if (s === 'screensaver' && sub[1] === 'weather') {
           var wpg = mk('Weather', function (c) { self.saverWeather(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
                        ['Screensaver Options', base + '/screensaver']);

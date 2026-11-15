@@ -366,6 +366,16 @@
             return this.saverEditorPage('house', { house: true, path: pv || '', previewPath: pv, title: 'All Screens', back: [title, '#/house/screensaver'],
               options: this.hs('look.saver') });
           }
+          if (sub[0] === 'photos' || sub[0] === 'layout' || sub[0] === 'forecast') {
+            var hcur2 = M.saverOptions(this.hs('look.saver')), hput = self.saverPutH();
+            var hpg2 = sub[0] === 'photos'
+              ? mk('Photos', function (c) { self.saverPhotosPage(c, hcur2, hput, true, { photos: self.hs('look.photos'), set: function (v) { return self.setH({ 'look.photos': v }); } }); },
+                   [title, base])
+              : sub[0] === 'layout' ? mk('Photo Layout', function (c) { self.saverLayoutPage(c, hcur2, hput); })
+              : mk('Forecast Look', function (c) { self.saverForecastPage(c, hcur2, hput); });
+            if (pv) { hpg2.preview = pv; hpg2.saverPreview = true; hpg2.saverHouse = true; }
+            return hpg2;
+          }
           if (sub[0] === 'weather') {
             var wcur = M.saverOptions(this.hs('look.saver'));
             var hwpg = mk('Weather', function (c) { self.saverWeather(c, wcur, self.saverPutH()); });
