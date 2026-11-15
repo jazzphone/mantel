@@ -78,7 +78,15 @@
           a.media_content_type === 'announcement' || id.indexOf('media-source://tts/') === 0 ||
           /^https?:\/\/[^/]+\/api\/tts_proxy\//.test(id);
       }
-      function active(st) { return !!st && !ignored(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
+      // A HomePod's LEFTOVER AirPlay session (2026-11-15): after a stream ends without a goodbye (Music Assistant
+      // restarted mid-song) a HomePod can keep a paused, untitled session named after its own AirPlay receiver. Not
+      // playing, titled "com.apple.tvairplayd", no artist: nothing is playing there. Playing, it is real AirPlay audio
+      // from an app that sends no details, and stays music (ma-airplay-groups 0.3.3 hides it upstream too).
+      function leftover(st) {
+        var a = st.attributes || {};
+        return st.state !== 'playing' && a.media_title === 'com.apple.tvairplayd' && !a.media_artist;
+      }
+      function active(st) { return !!st && !ignored(st) && !leftover(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
       // MUSIC STOPPED AFTER A PAUSE (2026-11-01, hk_core/music/resume.py): Music
       // Assistant stops a queue paused for 30 s, keeping its song and where it
       // was; the integration lists those players (`resumable`), and they read
