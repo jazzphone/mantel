@@ -315,6 +315,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `settings-page.js` — Mantel Settings (served at /settings to every signed-in person, never to a wall tablet).
 - **web/shim/settings/**
   - `about.js` — settings/about.js -- Mantel Settings, About
+  - `access.js` — settings/access.js -- Mantel Settings, the Access component
   - `alerts.js` — settings/alerts.js -- Mantel Settings, Alerts (alerts/api.py; docs/phase14/SYSTEM-ALERTS.md "Mantel Settings → Alerts")
   - `appletv.js` — settings/appletv.js -- Notifications on the Apple TVs (docs/phase31/PLAN.md "In Settings"; features/tv_alerts.py).
   - `assistants.js` — settings/assistants.js -- Mantel Settings, Advanced → Assistants (MCP)

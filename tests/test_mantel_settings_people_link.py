@@ -70,7 +70,7 @@ def test_people_lists_home_assistant_s_people_once_linked_to_existing_people(tmp
 
 def test_without_home_assistant_s_users_people_keeps_the_link_command(tmp_path):
     got = run(tmp_path, {"users": [], "people": [], "devices": [], "error": "Home Assistant’s users are read inside Home Assistant."})
-    assert "mantel-server link" in footers(got["people"])
+    assert "mantel-server link" in footers(got["people"]) and len(footers(got["people"])) < 200, "one short sentence"
 
 
 def test_the_picker_offers_a_person_once_and_tablet_accounts_move_to_their_tablets(tmp_path):
@@ -86,5 +86,6 @@ def test_the_picker_offers_a_person_once_and_tablet_accounts_move_to_their_table
     rows = {r["label"]: r for r in g["rows"]}
     assert "loft" not in rows, "a tablet is not a person"
     assert [o[0] for o in rows["claude"]["options"]] == ["", "u2"], "Avery is u1 already; a Wall Tablet account never"
-    moving = next(x for x in page if isinstance(x, dict) and x.get("header") == "Wall Tablets Signed In as People")
-    assert [(r["label"], r.get("value")) for r in moving["rows"]] == [("loft", "→ Loft"), ("Move Them to Their Tablets…", None)]
+    assert "Wall Tablets Signed In as People" not in {x.get("header") for x in page if isinstance(x, dict)}, "no longer on People itself"
+    [row] = [r for g in page if isinstance(g, dict) for r in g.get("rows", []) if r["label"] == "Wall Tablets Signed In as People"]
+    assert row["kind"] == "nav" and row["href"].endswith("/mantel/people/stand-ins") and row["value"] == "1", "one row, its page behind it"
