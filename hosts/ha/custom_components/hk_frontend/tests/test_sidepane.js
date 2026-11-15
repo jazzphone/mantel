@@ -391,6 +391,20 @@ Promise.resolve().then(function () { return Promise.resolve(); }).then(function 
   X.CAL.busy = false;
   X.calLoad({ states: {} }, 3, function () {});
   ok('...no calendars known yet: nothing read, nothing kept', reads === 2 && X.CAL.evs === null, [reads, X.CAL.evs]);
+  // ...AND ASKED AGAIN BY ITSELF (2026-11-15, the owner: "It says 'reading calendars'"): a quiet pane is drawn only when
+  // what it shows changes, so the read that was lost is asked again on the pane's own timer, not at a draw that may not come
+  var fire = function () { var id = X.CAL.retry, t = id && __timers[id - 1]; if (t) { __timers[id - 1] = null; X.CAL.retry = 0; t.fn(); } return !!t; };
+  if (X.CAL.retry) { clearTimeout(X.CAL.retry); X.CAL.retry = 0; }
+  var drawsAgain = 0, pend = 0;
+  window.hkCalendar = { ids: function () { return ['calendar.family']; }, load: function () { pend++; return new Promise(function () {}); } };
+  X.CAL.evs = null; X.CAL.busy = false; X.CAL.failAt = 0;
+  X.calLoad({ states: {} }, 3, function () { drawsAgain++; });
+  ok('...a read with no answer leaves one timer of its own, past LOST', pend === 1 && !!X.CAL.retry && __timers[X.CAL.retry - 1].ms > X.LOST, [pend, X.CAL.retry]);
+  X.CAL.busy = Date.now() - X.LOST - 1;
+  ok('...which draws the pane again with nothing else changing', fire() && drawsAgain === 1, drawsAgain);
+  X.calLoad({ states: {} }, 3, function () { drawsAgain++; });
+  ok('...and that draw asks again', pend === 2, pend);
+  if (X.CAL.retry) { clearTimeout(X.CAL.retry); X.CAL.retry = 0; }
   window.hkCalendar = K0;
   var sv = JSON.parse(saved); X.CAL.evs = sv[0]; X.CAL.at = sv[1]; X.CAL.busy = false; X.CAL.failAt = 0;
   var tw = 0, tcl = { states: { 'todo.chores': { state: '2', last_updated: 'a' } }, callWS: function () { tw++; return Promise.reject({ code: 'gone' }); } };
@@ -402,6 +416,24 @@ Promise.resolve().then(function () { return Promise.resolve(); }).then(function 
     X.todoOf(tcl, 'todo.chores', false, function () {});
     ok('...but after LOST, with the list unchanged', tw === 2, tw);
     delete X.TODO['todo.chores'];
+  });
+}).then(function () {
+  // (the calendar's retry, on promises: a failed read leaves a timer to ask again; events in, no timer left)
+  var K0 = window.hkCalendar, saved = [X.CAL.evs, X.CAL.at], failNow = null;
+  if (X.CAL.retry) { clearTimeout(X.CAL.retry); X.CAL.retry = 0; }
+  window.hkCalendar = { ids: function () { return ['calendar.family']; }, load: function () { return new Promise(function (res, rej) { failNow = rej; }); } };
+  X.CAL.evs = null; X.CAL.busy = false; X.CAL.failAt = 0;
+  X.calLoad({ states: {} }, 3, function () {});
+  failNow(new Error('gone'));
+  return Promise.resolve().then(function () {}).then(function () {
+    ok('the calendar: a failed read leaves a timer to ask again, none read yet', !!X.CAL.retry && X.CAL.failAt > 0 && X.CAL.evs === null, [X.CAL.retry, X.CAL.failAt]);
+    if (X.CAL.retry) { clearTimeout(X.CAL.retry); X.CAL.retry = 0; }
+    window.hkCalendar = { ids: function () { return ['calendar.family']; }, load: function () { return Promise.resolve({ evs: [] }); } };
+    X.CAL.busy = false; X.CAL.failAt = 0;
+    X.calLoad({ states: {} }, 3, function () {});
+  }).then(function () {}).then(function () {
+    ok('...events come: no timer left (nothing runs at rest)', X.CAL.evs !== null && !X.CAL.retry, [X.CAL.evs, X.CAL.retry]);
+    window.hkCalendar = K0; X.CAL.evs = saved[0]; X.CAL.at = saved[1]; X.CAL.busy = false; X.CAL.failAt = 0;
   });
 }).then(function () {
   print(fail ? '  ' + fail + ' SIDE PANE TESTS FAILED' : '  ALL ' + pass + ' SIDE PANE TESTS PASS');

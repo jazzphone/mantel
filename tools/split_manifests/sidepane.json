@@ -66,6 +66,7 @@
         "statusOf",
         "LOST",
         "CAL",
+        "calRetry",
         "calLoad",
         "evStart",
         "evEnd",

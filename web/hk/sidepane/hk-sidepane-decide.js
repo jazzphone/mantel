@@ -322,8 +322,17 @@
     // is given up -- one sent as the connection was made again never answers, and kept busy the pane never asked
     // again -- its late answer ignored; a failed read is tried again after LOST, not at every draw; and no
     // calendars known yet is no answer to keep for five minutes.
-    var LOST = 30000;
-    var CAL = { evs: null, at: 0, busy: false, days: 0, n: 0, failAt: 0 };
+    var LOST = 30000, CODE_WAIT = 2000;
+    var CAL = { evs: null, at: 0, busy: false, days: 0, n: 0, failAt: 0, retry: 0 };
+    // ASKED AGAIN BY ITSELF UNTIL THE FIRST EVENTS COME (2026-11-15, the owner: "the calendar isn't always loading in the
+    // side pane ... It says 'reading calendars'"): a lost read was given up and a failed one tried again only at the
+    // pane's next draw -- and since a card is drawn only when what it reads changes (2026-11-14), a quiet pane waited on
+    // "Reading the calendars" for as long as nothing it shows changed. While there are no events yet, one timer at a time
+    // draws the pane again when the read can be asked again (calLoad is the draw's); none once they have come.
+    function calRetry(done, ms) {
+      if (CAL.retry || CAL.evs) return;
+      CAL.retry = setTimeout(function () { CAL.retry = 0; if (!CAL.evs) done(); }, Math.max(250, ms));
+    }
     function calLoad(c, days, done) {
       var K = window.hkCalendar;
       if (!K && !CAL.asked && typeof document !== 'undefined' && document.addEventListener) {
@@ -337,17 +346,26 @@
       }
       var now = Date.now();
       if (CAL.busy && now - CAL.busy > LOST) CAL.busy = false;
-      if (!K || !K.load || !c || CAL.busy || now - CAL.failAt < LOST || (CAL.evs && now - CAL.at < 300000 && CAL.days >= days)) return;
+      // (its code still coming -- the parts not run when the import's promise said so: asked again shortly)
+      if (!K || !K.load) { if (CAL.asked) calRetry(done, CODE_WAIT); return; }
+      if (!c) return;
+      if (CAL.busy) { calRetry(done, LOST - (now - CAL.busy) + 50); return; }
+      if (now - CAL.failAt < LOST) { calRetry(done, LOST - (now - CAL.failAt) + 50); return; }
+      if (CAL.evs && now - CAL.at < 300000 && CAL.days >= days) return;
       var ids = K.ids(c);
       if (!ids.length) return;
       var n = ++CAL.n;
       CAL.busy = now;
       var from = new Date(); from.setHours(0, 0, 0, 0);
       var to = new Date(from.getTime() + Math.max(2, days) * 86400000);
+      // (a read with no answer: the pane is drawn again once it's given up, and asks again)
+      calRetry(done, LOST + 50);
       K.load(c, ids, from, to).then(function (got) {
         if (n !== CAL.n) return;
-        CAL.evs = (got && got.evs) || []; CAL.at = Date.now(); CAL.days = Math.max(2, days); CAL.busy = false; CAL.failAt = 0; done();
-      }, function () { if (n !== CAL.n) return; CAL.busy = false; CAL.failAt = Date.now(); });
+        CAL.evs = (got && got.evs) || []; CAL.at = Date.now(); CAL.days = Math.max(2, days); CAL.busy = false; CAL.failAt = 0;
+        if (CAL.retry) { clearTimeout(CAL.retry); CAL.retry = 0; }
+        done();
+      }, function () { if (n !== CAL.n) return; CAL.busy = false; CAL.failAt = Date.now(); calRetry(done, LOST + 50); });
     }
     // (hkCalendar's events: {cal, uid, title, allDay, start, end} -- Dates)
     function evStart(e) { return new Date(e.start); }
