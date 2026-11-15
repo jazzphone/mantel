@@ -35,6 +35,9 @@ SCREEN = "dashboard-home"
 GRID_SCREEN = "dashboard-wall"          # the second screen: Home Grid, as a wall display uses it
 OWNER = "Avery Rivera"                  # the fictional Owner every shot is signed in as
 NOW = time.time()
+# THE HALLWAY RUNS MANTEL FOR ANDROID (phase 32: a tablet's page for each kind of kiosk app). A check of its own Android
+# tablets in the same room (app_sky_check) turns it off, so the page it draws is only ever its own tablets'.
+ANDROID_HALLWAY = True
 
 FLOORS = [{"floor_id": "main", "name": "Main Floor", "level": 0}, {"floor_id": "upstairs", "name": "Upstairs", "level": 1},
           {"floor_id": "outside", "name": "Outside", "level": 2}]
@@ -698,8 +701,9 @@ async def seed_people(app, owner_id: str) -> None:
         for tid, name, room in (("kitchen", "Kitchen", "kitchen"), ("hallway", "Hallway", "living_room")):
             # (the Hallway runs Mantel for Android, the Kitchen Fully Kiosk: a tablet's page for each kind of kiosk app)
             service.store.write([("tablet", tid, {"name": name, "room": room, "screen": SCREEN,
-                                                  "app": "android_app" if tid == "hallway" else "fully",
+                                                  "app": "android_app" if tid == "hallway" and ANDROID_HALLWAY else "fully",
                                                   "uid": f"tablet_{tid}"})], actor=Actor(label="gallery"))
+    if service is not None and ANDROID_HALLWAY:
         # the Hallway's app, as it reports itself (apps/tablet_app.py): connected, so its controls are drawn live
         from types import SimpleNamespace as NS
         from mantel_server.apps import tablet_app as TA

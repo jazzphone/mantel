@@ -209,4 +209,16 @@ Steps 4-6 touch separate files once 1-3 are on main, so they may run side by sid
   ms, Accessories 320+303+308 ms); now once (Appearance 17 ms). Accessories walked every state once per type, about 30
   times a drawing: `accIds` is read once a drawing (`_drawGen`) and the laundry finder once a set of states, 360 ms a
   drawing to about 120. `house_twin.py` reads states past aiohttp's 4 MB and finds the running Mantel by its image.
+- **Steps 3-6 (2026-11-15): every page reworked, by four builders side by side** (branches p32-household,
+  p32-tablets, p32-hkpages, p32-mantelpages, merged here). Household: the Access component (`web/shim/settings/access.js`)
+  on a person's, a role's, a service account's and a wall tablet's page (`#/mantel/devices/access/<id>`); Me in four
+  rows, Opens On and Sign Out; People by role; Roles & Permissions with a one-line summary each and every grant once.
+  Wall Tablets: a list with each tablet's state, All Tablets and Mantel for Android pages, and one order on every
+  tablet's page (Screen & Room, When Nobody's Using It, Display, Access, Advanced, then Reload and the red actions); one
+  Room for HK and Mantel. HK's pages: a screen's page with More for This Screen, Screensaver in five groups with Photos
+  and Photo Layout pages, Background with Seasonal Decorations as one row, the Tab Bar only while used, four-choice
+  controls as choice pages, inherited values shown as values. Mantel's pages: Timeline, Intercom, About, Backups, Your
+  Files, Connections and the rest to the same rules. The gallery's Hallway runs Mantel for Android (`ANDROID_HALLWAY`;
+  a check of its own Android tablets turns it off), counted as connected through `tablet_app.sessions_of`, never as a
+  page in the hub's sessions. `tools/ci.py full` passed (87 run, 12 carried).
 
