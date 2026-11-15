@@ -568,10 +568,20 @@
   // every layout pass (preCheck), so a layer caught mid-move blurs live for
   // that while, then wears the picture again. (The frost picture is worn out
   // of line too: live blur would show the tablet app's sky sharp.)
+  // ...NOR THE HOME GRID'S OWN FIT, WHERE THE PICTURE IS PLACED BY HAND (2026-11-14, the owner, the Kitchen's tablet in
+  // Pre-rendered: "this TV card doesn't respect the ... render mode correctly ... when [I] change the background, it
+  // immediately changed while the other cards around it, hadn't hit their 2min interval yet"). A Home Grid scales itself
+  // to fit (hk-layout-home-grid.js _measure: always a transform, `scale(1)` too), so every layer inside it that is not
+  // the page's own -- a block with pages, whose layer lives in its pager's track (the Swipe card around that TV block,
+  // a paged room, thermostat, scenes or accessories block), and a row scrolled sideways -- read as out of line and
+  // blurred live: 6 of a test screen's 7 layers, on the tablets that chose Pre-rendered because live blur is what they
+  // can't afford. Placed by hand (frostPlace: from where the layer is on the screen, its scale counted) the picture is
+  // in line under that fit, and follows its scroller (the layer's own scroll listener, above). Android only, where every picture
+  // is placed by hand and rides with its page; elsewhere such a layer still blurs live, as it did.
   function lined(img) {
     if (FROST) return true;
     for (var n = flatParent(img.parentNode || img); n && n.nodeType === 1 && n !== document.documentElement; n = flatParent(n)) {
-      if (n.__hkAlong) continue;
+      if (n.__hkAlong || (BY_HAND && n.__hkFit)) continue;
       var t = getComputedStyle(n).transform;
       if (t && t !== 'none') return false;
     }

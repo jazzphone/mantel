@@ -131,6 +131,15 @@ async def main(argv=None) -> int:
                 print('FAIL pager_edges_check: the browser half ended with ' + str(proc.returncode))
         seen = 0
         for line in got.decode().splitlines():
+            if line.startswith('PRE '):
+                # (Pre-rendered on an Android tablet: the paged blocks' layers wear the picture, none blurs live)
+                pre = json.loads(line[4:])
+                ok = (pre['glass'] == 'blur_pre' and pre['pre'] is True and not pre['liveOnes'] and pre['pictured'] >= 3
+                      and pre['tracks'] == [True, True])
+                fails += not ok
+                print(('PASS ' if ok else 'FAIL ') + 'Pre-rendered on an Android tablet: every paged block wears the picture, no layer of the page blurs live'
+                      + ('' if ok else f'  got {pre}'))
+                continue
             if not line.startswith('{'):
                 print(line)
                 continue

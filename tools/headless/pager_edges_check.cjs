@@ -73,5 +73,40 @@ const FIND = () => {
         await ctx.close();
       }
     }
+    // PRE-RENDERED, ON AN ANDROID TABLET: A PAGED BLOCK WEARS THE PICTURE (2026-11-14, the owner, the Kitchen's tablet:
+    // a TV block in a Swipe card "immediately changed" with the background "while the other cards around it, hadn't hit
+    // their 2min interval yet"). A Home Grid scales itself to fit, and a layer inside it -- every pager's track -- read
+    // as out of line and blurred live. As a tablet (its pictures placed by hand), the look's Pre-rendered: no layer live.
+    const glassy = input.screens.find((s) => s.look !== 'flat');
+    if (glassy) {
+      const [W, H] = input.sizes[0].split('x').map(Number);
+      const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: true,
+        userAgent: 'Mozilla/5.0 (Linux; Android 16; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36' });
+      await ctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
+      await ctx.route('**/*', r => new URL(r.request().url()).origin === input.origin ? r.continue() : r.abort());
+      const page = await ctx.newPage();
+      await page.goto(input.origin + '/' + glassy.screen + '/home?hkglass=blur_pre');
+      await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 60000 });
+      await require('./grid_ready.cjs')(page);
+      await page.evaluate(FIND);
+      await page.waitForFunction(() => { const p = pagerOf('lock'); return !!(p && p._pages && p._pages.length === 2 && p._els && p._els[0]); }, null, { timeout: 45000 });
+      await page.waitForFunction(() => window.hkGlass && window.hkGlass.stats().pictured > 0, null, { timeout: 20000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      const pre = await page.evaluate(() => {
+        const st = window.hkGlass.stats(), tracks = ['lock', 'group'].map((id) => { const p = pagerOf(id), L = p && p._track && p._track.querySelector(':scope>[data-hk-glass-layer]');
+          return L ? !!L._hkPre : null; });
+        // (the layers of the page shown that blur live, each by where it lives and why. A page waiting beside this one,
+        // never shown yet, has no picture of its own until it is: that one is as it should be)
+        const inHome = (L) => { for (let n = L; n; n = n.parentNode || n.host) if (n.localName === 'hk-home-grid-view') return true; return false; };
+        const liveOnes = deep(document, '[data-hk-glass-layer]').filter((L) => !L._hkPre && inHome(L)).map((L) => {
+          const up = L.parentNode && L.parentNode.host ? L.parentNode.host : L.parentNode;
+          return (up && up.localName ? up.localName + (up.id ? '#' + up.id : '') + (typeof up.className === 'string' && up.className ? '.' + up.className.split(' ')[0] : '') : '?') +
+            (L._hkOverlay ? ' overlay' : '') + (L._hkNoPic ? ' out-of-line' : '');
+        });
+        return { glass: window.hkSettings.glass(), pre: st.pre, pictured: st.pictured, live: st.live, layers: st.layers, tracks: tracks, liveOnes: liveOnes };
+      });
+      console.log('PRE ' + JSON.stringify(pre));
+      await ctx.close();
+    }
   } finally { await browser.close(); }
 })().catch(e => { console.error('FAIL pager_edges_check: ' + (e && e.stack || e)); process.exit(1); });

@@ -306,6 +306,8 @@
         root.style.left = pl + Math.max(0, (cw - w * scale) / 2) + 'px';
         root.style.top = Math.max(0, (this.clientHeight - h * scale) / 2) + 'px';
         root.style.transform = 'scale(' + scale + ')';
+        // (the grid's own fit, still between layouts: hk-glass.js lined -- a picture placed by hand inside it is in line)
+        root.__hkFit = true;
         root.style.setProperty('--g-w', w + 'px');
         // the views' dots in the middle of the grid's foot margin
         if (this._dots && g.views > 1) this._dots.style.top = Math.round(parseFloat(root.style.top) + (h - pad / 2) * scale - 9) + 'px';
