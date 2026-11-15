@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.61.1 - 2026-11-15
+
 **Fixed**
 - **The Side Pane's calendar could stay on "Reading the calendars…"**: a read that got no answer (or failed) was asked again only at the pane's next draw, and a quiet pane is drawn only when something it shows changes. It now asks again by itself after 30 seconds until the events come.
 - **In Flat a page swipe didn't fade the background**: each page's own ground (its accent's tint, or a chosen color) was painted for the next page with the colors of the page you were on, so the fade went from one color to the same color and the new one cut in as it landed. The next page's ground now fades in with the finger, as in the other looks.
