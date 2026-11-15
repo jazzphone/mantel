@@ -128,7 +128,14 @@
         // its choice a stone well on Light (white on Dark, where it reads)
         '--hk-seg-raised-track': plate, '--hk-seg-raised-on': light ? key : '#FFFFFF', '--hk-seg-raised-on-shadow': 'none',
         '--hk-battery-shell': light ? '#B9B6B0' : 'rgba(255,255,255,.42)', '--hk-battery-mark': light ? '#77777C' : 'rgba(255,255,255,.85)',
-        '--hk-not-backed': light ? '#C9C6BF' : 'rgba(255,255,255,0.55)'
+        '--hk-not-backed': light ? '#C9C6BF' : 'rgba(255,255,255,0.55)',
+        // THE CHOOSE AND CONFIRM DIALOGS (confirmSheet, chooseSheet): Apple's alert in the theme -- on Light the elevated
+        // white with Light's ink, its hairlines and Apple's light-mode blue and red; Dark keeps the alert gray (each
+        // dialog's fallback, the Glass looks' too). The box was the gray in Light, under Light's dark ink (2026-11-15).
+        '--hk-alert-bg': light ? elevated : 'rgba(42,42,44,0.94)', '--hk-alert-sep': light ? '#D8D5CD' : 'rgba(255,255,255,0.18)',
+        '--hk-alert-press': light ? 'rgba(28,26,22,0.06)' : 'rgba(255,255,255,0.08)',
+        '--hk-alert-key': light ? '#007AFF' : '#0a84ff', '--hk-alert-red': light ? '#FF3B30' : '#ff453a',
+        '--hk-alert-shadow': light ? '0 24px 64px rgba(28,26,22,0.28),0 2px 10px rgba(28,26,22,0.16)' : '0 24px 64px rgba(0,0,0,0.55),0 2px 10px rgba(0,0,0,0.35)'
       };
       ['sm','lg','pill','tall','scene','chip'].forEach(function (k) { t['--hk-glass-shadow-' + k] = shadow; });
       return t;
@@ -470,9 +477,8 @@
           // which on a wall reads as text that only just fits rather than a
           // deliberate button.
           '#hk-confirm .box{width:340px;border-radius:16px;overflow:hidden;' +
-          '  background:rgba(42,42,44,0.94);color:' + v('ink') + ';text-align:center;' +
-          '  box-shadow:0 24px 64px rgba(0,0,0,0.55),' +
-          '             0 2px 10px rgba(0,0,0,0.35)}' +
+          '  background:var(--hk-alert-bg,rgba(42,42,44,0.94));color:' + v('ink') + ';text-align:center;' +
+          '  box-shadow:var(--hk-alert-shadow,0 24px 64px rgba(0,0,0,0.55),0 2px 10px rgba(0,0,0,0.35))}' +
           '#hk-confirm .txt{padding:22px 24px 18px;font-size:15px;font-weight:600;' +
           '  line-height:1.35;color:' + v('ink') + '}' +
           // A second line for WHAT the question is about -- the rooms and what
@@ -491,8 +497,8 @@
           // centred in their halves, so a wider sheet gives them more air
           // without changing what the sheet is.
           '#hk-confirm .row{display:grid;grid-template-columns:1fr 1fr;' +
-          '  border-top:0.5px solid rgba(255,255,255,0.18)}' +
-          '#hk-confirm button{appearance:none;border:0;background:none;color:#0a84ff;' +
+          '  border-top:0.5px solid var(--hk-alert-sep,rgba(255,255,255,0.18))}' +
+          '#hk-confirm button{appearance:none;border:0;background:none;color:var(--hk-alert-key,#0a84ff);' +
           '  font-family:inherit;font-size:17px;padding:14px 12px;cursor:pointer;' +
           '  white-space:nowrap}' +
           // NO BOLD ON EITHER BUTTON. The iOS convention emboldens the
@@ -500,10 +506,10 @@
           // -- often the destructive one. The divider separates them and the
           // words say what they do, so both buttons are one weight everywhere
           // and nothing is being recommended by typography.
-          '#hk-confirm button + button{border-left:0.5px solid rgba(255,255,255,0.18)}' +
+          '#hk-confirm button + button{border-left:0.5px solid var(--hk-alert-sep,rgba(255,255,255,0.18))}' +
           // `destructive: true`: the action that takes something away is red
           // (Apple's destructive style), never bold
-          '#hk-confirm[data-red] [data-yes]{color:#ff453a}' +
+          '#hk-confirm[data-red] [data-yes]{color:var(--hk-alert-red,#ff453a)}' +
           '</style>' +
           '<div class="box" role="alertdialog" aria-modal="true">' +
           '<div class="txt"></div><div class="det"></div>' +

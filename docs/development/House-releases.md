@@ -976,3 +976,12 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - The tablets' refresh failed in the tool (Home Assistant's entity registry list is 4.2 MB, past aiohttp's 4 MB
   message cap; the cap raised in `tools/release_house.py`), then `refresh-kiosks`: the 4 Kiosk Satellite tablets'
   cache cleared (4) and the page reloaded (living room, master bathroom, master bedroom, office).
+
+## Mantel 0.1.167 (2026-11-15)
+
+- Mantel 0.1.167, release commit `3f77fcd`, tagged `v0.1.167`; the LXC 0.1.166 -> 0.1.167 (build `996858a1df89cf82`).
+- Images run 43749543218 (stage=images), promote run 43750258385, GitHub Release `v0.1.167`.
+- Strict health 200, all services healthy, mantel-server built from `3f77fcd`, Home Assistant connected for 63 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 4 s, release commit on main 228 s, images run started 3 s, images built and pushed 259 s, the LXC updated and healthy 183 s, Linux suite passed 2 s, tagged 4 s, promoted (latest, ha-apps) 76 s, GitHub Release 2 s; 12.7 minutes in all.
+- The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (living room, master bathroom, master bedroom, office).

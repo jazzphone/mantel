@@ -897,7 +897,10 @@
           ':host(:is([size=L],[size=XL])) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:clip}',
           // (one line, 2026-11-10: two lines pushed the cover against the block's top; a long one drifts instead -- _marquee)
           ':host(:is([size=L],[size=XL])) .np .title .mqt{display:inline-block;padding-right:2px}',
-          ':host(:is([size=L],[size=XL])) .np .title.mq{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}',
+          // (the mask on the content box: the title stands beside the cover by its padding, which overflow:hidden does not clip,
+          // so a drifting title passed over the cover -- 2026-11-15, the owner, in Flat; every look did it)
+          ':host(:is([size=L],[size=XL])) .np .title.mq{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);',
+          '  -webkit-mask-clip:content-box;mask-clip:content-box;-webkit-mask-origin:content-box;mask-origin:content-box}',
           '@media (prefers-reduced-motion:no-preference){:host(:is([size=L],[size=XL])) .np .title.mq .mqt{animation:hk-np-mq var(--mqt,14s) ease-in-out 3s infinite}}',
           '@keyframes hk-np-mq{0%,22%{transform:translateX(0)}50%,64%{transform:translateX(var(--mqd,0px))}92%,100%{transform:translateX(0)}}',
           // XL (mockup 12i, 2026-11-09, the owner: "this player should work more like the Large card (vertical style
