@@ -262,7 +262,11 @@ def test_a_screensaver_saved_before_draws_as_it_did():
     assert {k: got[k] for k in ("forecast_big", "tb_size", "tb_top", "tb_dim")} == \
         {"forecast_big": "temp", "tb_size": 24, "tb_top": 6, "tb_dim": 0}
     assert {k: got[k] for k in old} == old
-    assert M.board({"screensaver": True, "screensaver_options": old})["screensaver_options"] == got
+    # (phase 33: a screen's own options are the keys it set, read over All Screens' -- here the defaults)
+    assert M.board({"screensaver": True, "screensaver_options": old})["screensaver_options"] == old
+    read = M.resolved(M.board({"screensaver": True, "screensaver_options": old}), None)["screensaver_options"]
+    assert {k: read[k] for k in list(old) + ["forecast_layout", "photo_titles", "time_behind", "day_look", "forecast_big", "tb_size"]} == \
+        {k: got[k] for k in list(old) + ["forecast_layout", "photo_titles", "time_behind", "day_look", "forecast_big", "tb_size"]}
     assert M.SAVER_SHOWS[:4] == ("photos", "both", "forecast", "clock"), "the old Shows first, unchanged"
 
 

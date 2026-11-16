@@ -21,20 +21,20 @@ in for one of yours.)*
    Photos**. The
    default, `media-source://media_source/local/photos`, is a `photos` folder in
    your local media. Folders inside it are shown too.
-2. Open the screen in HK Settings. Under **When Idle**, turn on **Photo
-   Screensaver**. Under **Wall Tablets**, the tablets that run it are listed;
+2. Open the screen in HK Settings, then its **Screensaver** page, and turn on
+   **Screensaver** at the top. Under **Wall Tablets** on the screen's page, the tablets that run it are listed;
    add one with **Add a Tablet to This Screen…** if there is none yet
    ([Wall Tablets](Wall-Tablets.md#3-add-the-tablet)).
-3. Optional: **Screensaver Options** (see [the settings](Screens.md#screensaver-options)). A
-   screen uses the settings for All Screens (**All Screens → Screensaver**)
-   unless you turn off **Same as All Screens** and give it its
-   own; the row then reads **Just This Screen**.
+3. Optional: the rest of the screen's **Screensaver** page (see [the settings](Screens.md#the-screensaver-page)).
+   A screen uses the settings for All Screens (**All Screens → Screensaver**)
+   row by row: change a row and only that row is the screen's own, reading
+   **Just This Screen**; its menu's **Same as All Screens** puts it back.
 
-**Screensaver Options** keeps what can’t be laid out on the screen: where the
-photos come from and how they show, the slides that come between them, Night
-Mode and the timing. **What shows and how it looks** (the background, the time
-and its face, the widgets and the corners) is set in
-[Edit Screensaver](#edit-screensaver), the first row on the page.
+The **Screensaver** page keeps what can’t be laid out on the screen: where the
+photos come from and how they show, the slides that come now and then, Starts
+After and Night Mode. **What shows and how it looks** (the background, the
+time and its face, the widgets and the corners) is set in
+[Edit Screensaver](#edit-screensaver), the page's **Design** row.
 
 On this page the preview beside the settings shows the screensaver itself, as
 that screen shows it, and changes as you change the options. Only the preview
@@ -57,8 +57,8 @@ Nothing changes until you tap it.
 
 **Edit Screensaver** lays the screensaver out on the screen itself, as
 [Home Grid](Home-Grid.md) does for the Home page. Open **HK Settings → your
-screen → Screensaver Options → Edit Screensaver**, or **All Screens →
-Screensaver → Edit Screensaver** for every screen. It needs a wide window
+screen → Screensaver → Design**, or **All Screens →
+Screensaver → Design** for every screen. It needs a wide window
 (a computer or an iPad), and Home Assistant admin permission. A screen that
 uses All Screens’ settings gets its own when you save, starting from them.
 
@@ -98,12 +98,14 @@ uses All Screens’ settings gets its own when you save, starting from them.
   **Back to Today’s Look** rebuilds a layout from the screen’s current
   settings. A screen that has never saved a layout is drawn as before, and
   opening the editor starts from how it looks today.
-- **What stays on the Screensaver Options page** is what can’t be laid out:
-  **Photos** (where they come from), **Slideshow** (one at a time or a
-  mosaic, the order, **Each Photo For**, **Slow Zoom**), **Portrait Photos**
-  and **Landscape Photos**, **Forecast When There Are No Photos**, the
-  wallpaper when the background is **Wallpaper**, **Now and Then** (the
-  slides among the photos), **Night Mode**, the **Side Pane** and **Timing**.
+- **What stays on the Screensaver page** is what can’t be laid out:
+  **Photos** (where they come from, and **Forecast When There Are No
+  Photos**), **Slides** (each slide, **How Often** and **Show For**),
+  **Starts After** and **Night Mode**, **How Photos Show** (one at a time or a
+  mosaic, the order, **Each Photo For**, **Slow Zoom**, **Portrait Photos**
+  and **Landscape Photos**), the **Side Pane** and **Advanced** (**Fade
+  Back**). The wallpaper, when the background is **Wallpaper**, has a page of
+  its own (**Choose the Wallpaper** in the editor).
   The editor’s last group of settings links to it. **Remove the Layout…**
   there gives a screen its old look again.
 
@@ -228,7 +230,7 @@ begin with) and **Outline** (a dark outline around it, 0 to begin with).
 Today carries its own weather and music, so it stands in for the **Weather**
 and **Now Playing** cards while it shows (Home Status and Timers stay).
 
-**Night Mode** (on **Screensaver Options**, wherever the screensaver shows
+**Night Mode** (on the **Screensaver** page, wherever the screensaver shows
 the time large): **Off**, **At Night**
 (**From** and **Until**, 22:00 to 07:00 to begin with, across midnight) or
 **Always**. Like StandBy on an iPhone, the clock and everything over it turn a
@@ -272,7 +274,7 @@ Behind the time and everything else:
   Pre-rendered glass does, never as a live blur.
 
 **Photos behind the clock** are the photos themselves, laid out by the same
-settings as the Photo Screensaver, on **Screensaver Options**: **Layout**
+settings as the Photo Screensaver, on **How Photos Show**: **Layout**
 (**One at a Time** or **Mosaic**, with all of the mosaic’s settings),
 **Order**, **Each Photo For**, **Slow Zoom**, and **Portrait Photos** and
 **Landscape Photos**. **Darken** (0–80%), set in the editor, dims them so the
@@ -304,11 +306,10 @@ Without photos (none in the folder yet, or a folder that can’t be read), the
 screensaver shows the **forecast** instead, and you can choose it outright:
 in Edit Screensaver, **Background → Landscape** (or start from **Forecast**).
 Rather have a dark screen when there are no photos? Turn off **Forecast When
-There Are No Photos** on **Screensaver Options**. Or have both:
-**Now and Then → Forecast** (in the editor, **Slides → The Forecast Between
-Photos**) brings the forecast round as one of the photos every few photos
-(**A Slide**: every 3, 5, 10 or 20), for as long as a photo shows; its sky
-only moves while it is on screen.
+There Are No Photos** on the **Screensaver** page's **Photos**. Or have both:
+**Slides → Forecast** (in the editor, **Slides → The Forecast**) brings the
+forecast round between the photos every **How Often** minutes, for **Show
+For**; its sky only moves while it is on screen.
 
 ![The forecast screensaver: the live sky over a fall landscape, the clock top left, Home Status top right, and the forecast along the bottom](images/tablet-forecast.webp)
 
@@ -445,9 +446,9 @@ value, with the values aligned on the right, in both layouts.
 - It skips its turn until it has the day’s numbers (a missing number is a
   dash, never a zero).
 
-**Over the photos** it is one of the slides under **Now and Then** on
-**Screensaver Options**: the music, the forecast and Home Energy take turns,
-every **A Slide** photos.
+**Over the photos** it is one of the **Slides** on the **Screensaver** page:
+the music, the forecast and Home Energy take turns, every **How Often**
+minutes, between two photos.
 
 **Over the Landscape or a clock**, **Now and Then** brings other screens
 in now and then: **Forecast** (over a clock, unless the forecast is already
@@ -520,7 +521,7 @@ the weather in Weather (its forecast sensors, if you set them there).
 
 ![The photo screensaver with the calendar pane: Home Status at its top, the events, and what plays and the timers at its foot](images/tablet-screensaver-calendar.webp)
 
-**Screensaver Options → Side Pane → Calendar** lists the coming events down the
+**Screensaver → Side Pane → Calendar** lists the coming events down the
 right of the screen: today, tomorrow and as many days after as **Days** says
 (up to 7), from the calendars in [All Screens → Calendar](Calendar.md), each in
 its calendar’s color. All-day events come first; today’s past events are
@@ -576,7 +577,7 @@ it runs), `starts_after` and `in_use_window` (seconds), and `last_touch`
 their own, under the tablet’s item in **Settings → Devices & services → HK
 Frontend**. Renaming the tablet renames the device and the entities’ names;
 their entity ids stay as they are, so automations keep working. The screen’s
-**Screensaver Options** page lists each of its tablets’ switch and In Use
+**Screensaver** page lists each of its tablets’ switch and In Use
 sensor under **For Automations**. Tap one there to open it.
 
 Only the tablet itself ever changes them: a computer opening the same
@@ -682,13 +683,13 @@ work, and you can choose per screen.
 | | HK Frontend’s screensaver | WallPanel |
 |---|---|---|
 | Install | Part of HK Frontend | From HACS, then YAML in each dashboard |
-| Set up | HK Settings: Photo Screensaver, Screensaver Options, and the wall tablet that runs the screen | `wallpanel:` in the dashboard’s raw configuration |
+| Set up | HK Settings: the screen's Screensaver page, and the wall tablet that runs the screen | `wallpanel:` in the dashboard’s raw configuration |
 | Who gets it | Only the screen’s wall tablets | Everyone who opens the dashboard, unless a profile turns it off (per user, or per browser with Browser Mod) |
 | Its switch | `switch.<tablet>_photo_screensaver`, made for you | An `input_boolean` you create (`screensaver_entity`) |
 | “Someone is using it” | `binary_sensor.<tablet>_screen_in_use`, made for you, with its window set by Starts After | No sensor for touches (a camera motion sensor, below) |
 | Photos | Images from a Home Assistant media folder | Images and videos from a media folder, Immich, Unsplash, entity pictures, or whole websites |
 | Without photos | The forecast, over the live sky and a landscape of the season (or a dark screen, if you prefer) | Nothing to show until a media source has images |
-| The forecast among the photos | Now and Then → Forecast: the full forecast every few photos | A weather card over the photos, or a weather web page among them |
+| The forecast among the photos | Slides → Forecast: the full forecast every few minutes | A weather card over the photos, or a weather web page among them |
 | Over the photos | Clock and date, weather, now playing, timers, Home Status, drawn to match the screens and laid out in Edit Screensaver | Any cards, badges or dashboard views; the box can move around; EXIF photo details, a progress bar |
 | Effects | Cross-fade; Slow Zoom | Cross-fade; Ken Burns (pan and zoom), with more controls |
 | While it shows | The live sky, card animations and the live camera tile hold still | Its own slideshow |
@@ -708,7 +709,7 @@ or a screensaver that isn’t tied to a wall tablet.
 ### WallPanel instead
 
 If you prefer [WallPanel](https://github.com/j-a-n/lovelace-wallpanel) (HACS)
-and have it installed, on a generated screen **Screensaver Options → Use
+and have it installed, on a generated screen **Screensaver → Advanced → Use
 WallPanel Instead** hands this screen’s
 screensaver to it, with WallPanel’s own options. A screen using WallPanel gets
 no switch or In Use sensor from HK Frontend: WallPanel reports through
@@ -747,9 +748,9 @@ hk_screensaver:
   clock_style: classic # for show: clock and a large clock
   clock_bg: gradient   # behind show: clock
   clock_night: "off"   # "night" (clock_night_from to clock_night_to) or "always"
-  forecast_every: 5    # a slide (the forecast, the music) after this many photos
-  music_slide: false   # what plays, full screen: a slide among the photos
-  music_first: false   # ...or the music fills the screen while it plays
+  extra_every: 5       # a slide (the forecast, the weather...) every this many minutes
+  extra_for: 30        # ...for this many seconds
+  music_first: false   # the music fills the screen while it plays
   fallback: true       # no photos: the forecast (false: a dark screen)
   band: true           # the forecast’s details on the forecast
   band_photos: false   # ...and over the photos
@@ -805,14 +806,14 @@ page (a tablet you are working on, say).
 
 ## 6. Return to Home when idle
 
-With **Return to Home When Idle** on, a page that nobody has touched goes back
+With **Back to Home After** set, a page that nobody has touched goes back
 to the screen’s first view: open Lights, walk away, and the tablet is back on
 Home 50 seconds later. Scrolling or tapping starts the count again.
 
 It is a wall tablet’s, and on for every tablet to begin with: **HK Settings →
-All Screens → Wall Tablets → All Tablets** sets **Return to Home When Idle**
-and **Idle Time** (**30 Seconds**, **50 Seconds**, **1 Minute**, **2
-Minutes**, **5 Minutes** or **Never**; 50 seconds to begin with) for every
+All Screens → Wall Tablets → All Tablets** sets **Back to Home After**
+(**30 Seconds**, **50 Seconds**, **1 Minute**, **2 Minutes**, **5 Minutes**
+or **Never**, which leaves it where it is; 50 seconds to begin with) for every
 tablet, and each tablet’s own page can set its own (each reads **Same as All
 Tablets** until you do). A desk, a phone or a car never returns to Home: only
 a page HK Frontend knows is a wall tablet does ([Which tablet a browser
@@ -823,9 +824,9 @@ It waits while:
 - a detail sheet is open;
 - a Live TV channel is playing.
 
-Keep the Idle Time shorter than the screen’s **Starts After**, so the tablet
+Keep Back to Home After shorter than the screen’s **Starts After**, so the tablet
 is Home before the screensaver comes up. The tablet’s page shows the order
-under **When It’s Left Alone**, and says when Home would come after the
+at the top of **When Nobody’s Using It**, and says when Home would come after the
 screensaver.
 
 **Coming from screens that were tablets.** The per-room helpers
@@ -876,10 +877,10 @@ its own (both in [Wall Tablets](Wall-Tablets.md#wall-tablets-settings)).
 
 | Setting | Default | What it does |
 |---|---|---|
-| Edit Screensaver | — | Opens [the editor](#edit-screensaver) for every screen whose **Same as All Screens** is on: what shows and how it looks. |
+| Design | — | Opens [the editor](#edit-screensaver) for every screen that hasn't made the design its own: what shows and how it looks. |
 | Photos → Screensaver Photos | `media-source://media_source/local/photos` | The media folder every screen’s photo screensaver shows. |
-| The options | Photos · 3 Minutes | The same options as a screen’s [Screensaver Options](Screens.md#screensaver-options), for every screen whose **Same as All Screens** is on, with a live preview: a screen that uses them, else any screen with the screensaver, shown with All Screens' settings either way (the line under it names the screen). What is left here is what can’t be laid out: the photos, the slides, Night Mode and the timing. |
-| Screens | — | Each screen with the Photo Screensaver on, with **Same as All Screens** or **Just This Screen**. |
+| The options | Photos · 3 Minutes | The same groups, rows and order as a screen’s [Screensaver page](Screens.md#the-screensaver-page), for every row a screen hasn't set itself, with a live preview: a screen that uses them, else any screen with the screensaver, shown with All Screens' settings either way (the line under it names the screen). |
+| Screens | — | Each screen with its screensaver on: **Same as All Screens**, or **Just This Screen** once it sets a row of its own. |
 
 Its address is `#/house/screensaver` in HK Settings; the old
 `#/house/tablets/screensaver` (Wall Tablets → Screensaver, before Screensaver

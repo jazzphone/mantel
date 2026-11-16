@@ -149,7 +149,7 @@ Each write as `file:line (function)`; `(top)` runs as the file runs.
 - `exLast`: hk-saver-screens:35 (top); hk-saver-screens:74 (exShow); hk-saver-screens:115 (leaveExtras)
 - `exOutT`: hk-saver-screens:33 (top); hk-saver-screens:47 (fcOutAfter); hk-saver-screens:47 (fcOutAfter); hk-saver-screens:97 (showForecastExtra); hk-saver-screens:114 (leaveExtras)
 - `exT`: hk-saver-screens:31 (top); hk-saver-screens:45 (exCancel); hk-saver-screens:52 (exArm); hk-saver-screens:56 (exArm); hk-saver-screens:56 (exArm); hk-saver-screens:66 (exNext); hk-saver-screens:66 (exNext); hk-saver-screens:113 (leaveExtras)
-- `fadeDone`: hk-saver-start:50 (top); hk-saver-start:527 (reveal); hk-saver-start:545 (ST.fadeDone)
+- `fadeDone`: hk-saver-start:50 (top); hk-saver-start:529 (reveal); hk-saver-start:547 (ST.fadeDone)
 - `failed`: hk-saver-start:52 (top); hk-saver-start:430 (attempt); hk-saver-start:456 (step)
 - `fband`: hk-saver-draw:21 (top); hk-saver-draw:46 (bandIs); hk-saver-draw:531 (leaveForecast)
 - `fcShowing`: hk-saver-draw:24 (top); hk-saver-draw:47 (forecastUp); hk-saver-draw:484 (enterForecast); hk-saver-draw:502 (showForecastSlide); hk-saver-draw:511 (hideForecastSlide); hk-saver-draw:531 (leaveForecast)

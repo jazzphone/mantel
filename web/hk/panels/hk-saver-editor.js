@@ -1170,7 +1170,7 @@
           return K.seg({ label: 'Art', value: o.day_look || 'auto', options: M.DAY_LOOKS, onChange: put('day_look') });
         } },
         { applies: function (s) { return s.bg === 'wallpaper'; }, make: function () {
-          return K.nav({ label: 'Choose the Wallpaper', sub: 'On the Screensaver page', href: more });
+          return K.nav({ label: 'Choose the Wallpaper', href: more + '/wallpaper', sk: 'saver:wallpaper' });
         } }
       ];
       out.push(K.group({ header: 'Background' }, this.rowsOf(st, bgRows)));
@@ -1359,18 +1359,19 @@
         } }
       ];
       var any = o.music_first || o.music_slide || o.weather_slide || o.energy_slide || o.holiday_slide || forecastOn;
+      // HOW OFTEN AND FOR HOW LONG (phase 33, decision 12): minutes and seconds whatever shows -- the Screensaver page's Slides
+      var secs = function (n) { return n < 60 ? n + ' Seconds' : n === 60 ? '1 Minute' : (n % 60 ? Math.round(n / 6) / 10 : n / 60) + ' Minutes'; };
       var oft = [
-        { applies: function (s) { return any && s.slidesOver === 'photos'; }, make: function () {
-          var cur = Number(o.forecast_every) || 5;
-          return K.select({ label: 'How Often', value: String(cur), options: [3, 5, 10, 20].concat([3, 5, 10, 20].indexOf(cur) < 0 ? [cur] : []).map(
-            function (n) { return [String(n), 'Every ' + n + ' Photos']; }),
-            onChange: function (v) { self.change(function (x) { x.forecast_every = Number(v); }); } });
-        } },
-        { applies: function (s) { return any && s.slidesOver !== 'photos'; }, make: function () {
-          var cur = Number(o.extra_every) || 5, EV = [1, 2, 5, 10, 15, 30];
+        { applies: function () { return any || o.timer_slide !== false; }, make: function () {
+          var cur = Number(o.extra_every) || 5, EV = M.saverLayers.EVERY;
           return K.select({ label: 'How Often', value: String(cur), options: EV.concat(EV.indexOf(cur) < 0 ? [cur] : []).map(
             function (n) { return [String(n), n === 1 ? 'Every Minute' : 'Every ' + n + ' Minutes']; }),
             onChange: function (v) { self.change(function (x) { x.extra_every = Number(v); }); } });
+        } },
+        { applies: function () { return any || o.timer_slide !== false; }, make: function () {
+          var cur = Number(o.extra_for) || 30, FOR = [15, 30, 60, 120];
+          return K.select({ label: 'Show For', value: String(cur), options: FOR.concat(FOR.indexOf(cur) < 0 ? [cur] : []).map(function (n) { return [String(n), secs(n)]; }),
+            onChange: function (v) { self.change(function (x) { x.extra_for = Number(v); }); } });
         } }
       ];
       out.push(
@@ -1408,7 +1409,7 @@
     // ---- TIMING
     timingGroups() {
       var K = this.K, more = this.o.house ? '#/house/screensaver' : '#/screens/' + encodeURIComponent(this.o.path) + '/screensaver';
-      return [K.group({ footer: 'Starts After, Back to Home, Night Mode and This Tablet are on the Screensaver page, with your albums and how the photos show.' }, [
+      return [K.group({ footer: 'When it starts, Night Mode, your photos and how they show are on the Screensaver page. When a tablet goes Home and goes dark is on its own page.' }, [
         K.nav({ label: 'Starts After, Night Mode and More', sub: 'On the Screensaver page', href: more, sk: 'saver:timing' })])];
     }
 

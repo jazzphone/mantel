@@ -18,7 +18,7 @@ export function pFiles(sub) {
     if (can('photos')) {
       c.appendChild(
         group(
-        { header: 'Photos', footer: 'Albums for the screensavers. Pick one on a screen’s Screensaver Options.' }
+        { header: 'Photos', footer: 'Albums for the screensavers. Pick one on a screen’s Screensaver page.' }
         ,
         [photos.filesRow(photoTools)]));
     }

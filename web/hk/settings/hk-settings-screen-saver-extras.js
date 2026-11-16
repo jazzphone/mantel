@@ -169,40 +169,6 @@
           part('count', 'The Countdown', 'Weeks and Weekends Left'), part('next', 'Coming Up', 'The next three after this one')]));
       }
 
-      // ADDITIONAL SCREENS (2026-10-14): over the forecast or the clock, now
-      // and then -- the forecast (on Show: Clock), the music and Home Energy,
-      // taking turns on one timer. `mf`: Music First, which covers the music
-      saverExtras(c, cur, put, tog, base, mf, href) {
-        var rows = [], bgSky = cur.clock_bg === 'forecast' || cur.clock_bg === 'skyonly';
-        if (base === 'clock' && !bgSky) rows.push(tog('Forecast', 'extra_forecast', 'Today, the next hours and the coming days, over the live sky.'));
-        if (!mf) rows.push(tog('Music', 'extra_music', 'What’s playing, full screen. Only while something plays; otherwise it skips its turn.'));
-        // (Weather over the clock; over the forecast it is the weather already)
-        var wxOn = base === 'clock' && this.saverKnown('weather_slide');
-        if (wxOn) rows = rows.concat(this.weatherRows(cur, tog, String(href).replace(/energy$/, 'weather')));
-        rows = rows.concat(this.energyRows(cur, tog, href));
-        if (this.saverKnown('holiday_slide')) rows = rows.concat(this.holidayRows(cur, tog, String(href).replace(/energy$/, 'holiday')));
-        var on = [base === 'clock' && !bgSky && cur.extra_forecast && 'the forecast', !mf && cur.extra_music && 'the music',
-                  wxOn && cur.weather_slide && 'the weather', cur.energy_slide && 'Home Energy', cur.holiday_slide && 'the holidays'].filter(Boolean);
-        var mins = function (n) { return n === 1 ? '1 Minute' : n + ' Minutes'; };
-        var secs = function (n) { return n < 60 ? n + ' Seconds' : n === 60 ? '1 Minute' : (n % 60 ? Math.round(n / 6) / 10 : n / 60) + ' Minutes'; };
-        if (on.length) {
-          var EV = [1, 2, 5, 10, 15, 30], FOR = [15, 30, 60, 120];
-          rows.push(K.select({ label: 'Every', sk: 'saver:extra_every', value: String(cur.extra_every),
-            options: EV.concat(EV.indexOf(cur.extra_every) < 0 ? [cur.extra_every] : []).map(function (n) { return [String(n), mins(n)]; }),
-            onChange: function (v) { put('extra_every', Number(v)); } }));
-          rows.push(K.select({ label: 'Show For', sk: 'saver:extra_for', value: String(cur.extra_for),
-            options: FOR.concat(FOR.indexOf(cur.extra_for) < 0 ? [cur.extra_for] : []).map(function (n) { return [String(n), secs(n)]; }),
-            onChange: function (v) { put('extra_for', Number(v)); } }));
-        }
-        c.appendChild(K.group({ header: 'Also Show', footer: on.length
-            ? 'Every ' + mins(cur.extra_every).toLowerCase() + ', ' + (on.length > 1 ? 'one of these' : on[0]) + ' fades in over the ' + base +
-              ' for ' + secs(cur.extra_for).toLowerCase() + ', then the ' + base + ' comes back.' +
-              (on.length > 1 ? ' ' + M.listText(on).replace(/^t/, 'T') + ' take turns, so each comes around every ' + mins(cur.extra_every * on.length).toLowerCase() + '.' : '') +
-              ' They wait while music plays first' + (base === 'clock' ? ' and during Night Mode.' : '.') +
-              (mf ? ' Music First covers the music, so it isn’t listed here.' : '')
-            : 'Other screens, now and then, over the ' + base + '.' + (mf ? ' Music First covers the music.' : '') }, rows));
-      }
-
       // HOME ENERGY'S OPTIONS (2026-10-14; hk-saver-energy.js): which rings,
       // what is along the bottom, the month. The preview holds the screen.
       saverEnergy(c, cur, put) {
@@ -267,84 +233,60 @@
           onChange: function (v) { var o = Object.assign({}, cur.clock_colors || {}); o[style] = v; put('clock_colors', o); } });
       }
 
-      // SHOW: CLOCK's groups (2026-10-13): the clock, what's behind it, and
-      // what's over it -- each corner its own switch, so it can be the clock
-      // alone
-      // NIGHT MODE's rows: Off / At Night / Always, and the night's hours
-      clockNightRows(cur, put) {
+      // NIGHT MODE's rows: Off / At Night / Always, and the night's hours (a screen's own or All Screens', key by key)
+      clockNightRows(ctx) {
         if (!this.saverKnown('clock_night')) return [];
-        var self = this, mode = cur.clock_night || 'off', rows = [
-          K.seg({ label: 'Night Mode', sub: 'A dim red clock on black, as StandBy has it', sk: 'saver:clock_night', value: mode, stack: !this.hasAttribute('wide'),
-                  options: [['off', 'Off'], ['night', 'At Night'], ['always', 'Always']], onChange: function (v) { put('clock_night', v); } })];
+        var self = this, cur = ctx.cur, mode = cur.clock_night || 'off';
+        var rows = [this.saverSel(ctx, 'Night Mode', 'clock_night', [['off', 'Off'], ['night', 'At Night'], ['always', 'Always']], 'A dim red clock on black, as StandBy has it')];
         if (mode === 'night') {
           var hhmm = function (label, k, dflt) {
-            return K.text({ label: label, sk: 'saver:' + k, value: cur[k] || dflt, placeholder: dflt, maxlength: 5, error: self.err('look.saver'),
-                            onCommit: function (v) { v = v.trim(); if (/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) put(k, v); else self.render(); } });
+            return K.text({ label: label, sub: self.saverSays(ctx, k, null), sk: 'saver:' + k, value: cur[k] || dflt, placeholder: dflt, maxlength: 5, error: self.err('look.saver'),
+                            onCommit: function (v) { v = v.trim(); if (/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ctx.put(k, v); else self.render(); } });
           };
           rows.push(hhmm('From', 'clock_night_from', '22:00'), hhmm('Until', 'clock_night_to', '07:00'));
         }
         return rows;
       }
 
-      // THE PHOTOS' OWN SETTINGS (Layout, the mosaic, Order, Slow Zoom, then
-      // Portrait and Landscape): the Photo Screensaver's -- and, the same rows,
-      // the clock's when Photos is behind it (2026-10-13, the user: mimic them)
-      saverPhotoGroups(c, cur, put, tog, clockMode, layoutHref) {
-        var self = this, wideP = this.hasAttribute('wide');
+      // THE SLIDESHOW (How Photos Show): Layout and the mosaic, Order, Each Photo For, Slow Zoom -- the Photo
+      // Screensaver's, and the clock's when photos are behind it (2026-10-13, the user: mimic them)
+      saverPhotoGroups(c, ctx) {
+        var self = this, cur = ctx.cur, put = ctx.put, wideP = this.hasAttribute('wide'), says = function (k) { return self.saverSays(ctx, k, null); };
         // THE MOSAIC (2026-10-13): 2-5 photos at once, in a layout picked at
         // random; portraits in the tall cells
         var moKnown = self.saverKnown('photo_layout'), mo = moKnown && cur.photo_layout === 'mosaic';
         var prow = [];
-        if (moKnown) prow.push(K.seg({ label: 'Layout', sk: 'saver:photo_layout', value: mo ? 'mosaic' : 'single', stack: !wideP,
+        if (moKnown) prow.push(K.seg({ label: 'Layout', sub: says('photo_layout'), sk: 'saver:photo_layout', value: mo ? 'mosaic' : 'single', stack: !wideP,
           options: [['single', 'One at a Time'], ['mosaic', 'Mosaic']], onChange: function (v) { put('photo_layout', v); } }));
         var upTo = mo && self.saverKnown('mosaic_random') && !!cur.mosaic_random;
         if (mo) {
-          prow.push(K.seg({ label: upTo ? 'Up to' : 'Photos per Mosaic', sk: 'saver:mosaic_count', value: String(cur.mosaic_count || 3),
+          prow.push(K.seg({ label: upTo ? 'Up to' : 'Photos per Mosaic', sub: says('mosaic_count'), sk: 'saver:mosaic_count', value: String(cur.mosaic_count || 3),
             options: [['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], onChange: function (v) { put('mosaic_count', Number(v)); } }));
           if (self.saverKnown('mosaic_random')) {
-            prow.push(K.toggle({ label: 'Up To', sub: 'A different number of photos now and then — from one, full screen, up to this many.',
-                                 on: upTo, sk: 'saver:mosaic_random', onChange: function (on) { put('mosaic_random', on); } }));
+            prow.push(self.saverTog(ctx, 'Up To', 'mosaic_random', 'A different number of photos now and then — from one, full screen, up to this many.'));
             if (upTo) {
-              var EV = [1, 5, 10, 15, 30, 60], ev = cur.mosaic_every || 10;
-              prow.push(K.select({ label: 'A New Number Every', sk: 'saver:mosaic_every', value: String(ev),
-                options: EV.concat(EV.indexOf(ev) < 0 ? [ev] : []).map(function (m) { return [String(m), m === 1 ? '1 Minute' : m + ' Minutes']; }),
-                onChange: function (v) { put('mosaic_every', Number(v)); } }));
+              prow.push(self.saverSel(ctx, 'A New Number Every', 'mosaic_every', [1, 5, 10, 15, 30, 60].map(function (m) { return [m, m === 1 ? '1 Minute' : m + ' Minutes']; }), null,
+                function (m) { return m + ' Minutes'; }));
             }
           }
-          prow.push(K.seg({ label: 'Spacing', sk: 'saver:mosaic_gap', value: cur.mosaic_gap || 'thin', stack: !wideP,
+          prow.push(K.seg({ label: 'Spacing', sub: says('mosaic_gap'), sk: 'saver:mosaic_gap', value: cur.mosaic_gap || 'thin', stack: !wideP,
             options: [['none', 'None'], ['thin', 'Thin'], ['rounded', 'Rounded']], onChange: function (v) { put('mosaic_gap', v); } }));
           if ((cur.mosaic_gap || 'thin') !== 'none' && self.saverKnown('mosaic_line')) {
             var lw = cur.mosaic_line > 0 ? cur.mosaic_line : (cur.mosaic_gap === 'rounded' ? 12 : 3);
-            prow.push(K.slider({ label: 'Line Thickness', sk: 'saver:mosaic_line', value: lw, min: 1, max: 24, unit: ' px',
+            prow.push(K.slider({ label: 'Line Thickness', sub: says('mosaic_line'), sk: 'saver:mosaic_line', value: lw, min: 1, max: 24, unit: ' px',
                                  onChange: function (v) { put('mosaic_line', v); } }));
-            prow.push(K.select({ label: 'Line Color', sk: 'saver:mosaic_color', value: cur.mosaic_color || 'black',
-              options: [['black', 'Black'], ['white', 'White'], ['gray', 'Gray'], ['charcoal', 'Charcoal'], ['cream', 'Cream'], ['navy', 'Navy']],
-              onChange: function (v) { put('mosaic_color', v); } }));
+            prow.push(self.saverSel(ctx, 'Line Color', 'mosaic_color',
+              [['black', 'Black'], ['white', 'White'], ['gray', 'Gray'], ['charcoal', 'Charcoal'], ['cream', 'Cream'], ['navy', 'Navy']]));
           }
-          prow.push(K.seg({ label: 'Changes', sk: 'saver:mosaic_change', value: cur.mosaic_change === 'all' ? 'all' : 'one', stack: !wideP,
+          prow.push(K.seg({ label: 'Changes', sub: says('mosaic_change'), sk: 'saver:mosaic_change', value: cur.mosaic_change === 'all' ? 'all' : 'one', stack: !wideP,
             options: [['one', 'One Photo at a Time'], ['all', 'All at Once']], onChange: function (v) { put('mosaic_change', v); } }));
         }
-        prow.push(K.seg({ label: 'Order', value: cur.order, sk: 'saver:order', options: [['random', 'Random'], ['sorted', 'In Order']],
+        prow.push(K.seg({ label: 'Order', sub: says('order'), value: cur.order, sk: 'saver:order', options: [['random', 'Random'], ['sorted', 'In Order']],
                           onChange: function (v) { put('order', v); } }));
-        if (clockMode) {
-          var EP = [10, 20, 30, 60, 120, 300], ep = cur.each_photo;
-          prow.push(K.select({ label: 'Each Photo For', sk: 'saver:each_photo', value: String(ep),
-            options: EP.concat(EP.indexOf(ep) < 0 ? [ep] : []).map(function (n) { return [String(n), MIN(n)]; }),
-            onChange: function (v) { put('each_photo', Number(v)); } }));
-        }
-        prow.push(tog('Slow Zoom', 'zoom', 'A slow zoom across each photo. The tablet keeps drawing the whole time, so it runs warmer.'));
+        prow.push(this.saverSel(ctx, 'Each Photo For', 'each_photo', [10, 20, 30, 60, 120, 300].map(function (n) { return [n, MIN(n)]; }), null, MIN));
+        prow.push(this.saverTog(ctx, 'Slow Zoom', 'zoom', 'A slow zoom across each photo. The tablet keeps drawing the whole time, so it runs warmer.'));
         // (Titles and Time Behind -- its size, height and darkening -- are the editor's since 2026-11-01: the Photo Title
         // widget, the big time Behind the Subject)
-        // (under the photos' source groups -- a folder, a host's album and its
-        // import -- this one is how they show: Slideshow, never a second Photos)
-        // PHOTO LAYOUT (phase 32): Portrait and Landscape, each on a page of their own
-        var layoutCustom = ['portrait', 'landscape'].some(function (side) {
-          var def = self.saverShapeDefaults(side);
-          return Object.keys(def).some(function (k) { return cur[k] !== def[k]; });
-        });
-        if (self.saverKnown('portrait_zoom')) {
-          prow.push(K.nav({ label: 'Photo Layout', sub: 'How portrait and landscape photos sit on the screen', value: layoutCustom ? 'Custom' : 'Default', href: layoutHref, sk: 'saver:layout' }));
-        }
         c.appendChild(K.group({ header: 'Slideshow', footer: mo
             ? 'Portraits go in the tall cells and landscapes in the wide ones, in a new layout each time. One Photo at a Time changes one cell every ' + MIN(cur.each_photo).toLowerCase() + '.'
             : 'Tap the left or right edge of the screensaver for the previous or next photo; anywhere else closes it.' }, prow));
@@ -361,8 +303,8 @@
       // a blurred copy: its Blur and Dim) or Fill the Screen, a Zoom, and the
       // Focus -- which part stays when it's cropped, or where a whole one sits.
       // A change here turns the preview to a photo of that shape.
-      saverShape(c, cur, put, side, mosaic) {
-        var self = this, P = side === 'portrait';
+      saverShape(c, ctx, side, mosaic) {
+        var self = this, P = side === 'portrait', cur = ctx.cur, put = ctx.put;
         if (!this.saverKnown(side + '_zoom')) return;    // Home Assistant not restarted yet
         var k = function (x) { return side + '_' + x; };
         var fillKey = P ? 'portrait_fill' : 'fill', fill = P ? !!cur.portrait_fill : cur.fill !== false;
@@ -399,41 +341,9 @@
           ' Zoom closes in on the ' + (cropped ? 'focus' : 'position') + '. Choose ' + (P ? 'Portrait' : 'Landscape') + ' above the preview to see one.' }, rows));
       }
 
-      // ALL SCREENS' SCREENSAVER (All Screens → Screensaver): every screen whose
-      // Same as All Screens is on uses these. The preview shows the first such
-      // screen's screensaver.
-      h_saver(c) {
-        var self = this, cur = M.saverOptions(this.hs('look.saver')), boards = this.data.boards || {};
-        var savers = Object.keys(boards).filter(function (p) { return boards[p].screensaver; });
-        var follow = savers.filter(function (p) { return M.saverFollows(boards[p]); });
-        // THE EDITOR (2026-11-01), for every screen that uses these
-        if (savers.length) this.saverEditRow(c, '#/house/screensaver/editor', cur, this.saverPutH(),
-          'Saved designs here are shared by every screen that uses All Screens’ screensaver.');
-        // THE PHOTOS (phase 32): one row, the folder or an album the host keeps picked inside -- drawn on every show, as screens with their own
-        // may show photos
-        var ph = String(this.hs('look.photos') || '');
-        var photos = { always: true, value: /^(?!media-source:)[a-z-]+:\/\//.test(ph) ? 'An Album' : ph ? 'Home Assistant Folder' : 'None' };
-        this.saverGroups(c, cur, function (k, v) {
-          var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
-          return self.setH({ 'look.saver': self.saverOut(o) });
-        }, '#/house/screensaver/clock-style', null, photos);
-        var name = function (p) { return (self.dash(p) || { title: p }).title; };
-        // WHICH SCREENS KEEP THEIR OWN (the group is left out while no screen has its Screensaver on)
-        if (savers.length) c.appendChild(K.group({ header: 'Screens', footer: 'A screen with its own settings keeps them; Same as All Screens on its Screensaver Options uses these.' },
-          savers.map(function (p) {
-            var own = follow.indexOf(p) < 0;
-            return K.nav({ label: name(p), value: own ? 'Just This Screen' : 'Same as All Screens',
-                           href: '#/screens/' + encodeURIComponent(p) + '/screensaver', sk: 'saver:screen:' + p });
-          })));
-        if (M.saverCustom(cur)) {
-          c.appendChild(K.group({}, [K.button({ label: 'Reset to Defaults…', destructive: true, fk: 'saver:house-reset', onClick: function () {
-            K.confirm(self.shadowRoot, { title: 'Use the default screensaver options?', message: 'The settings for All Screens go back to their defaults.',
-                                         ok: 'Use Defaults', destructive: true }).then(function (yes) {
-              if (yes) self.setH({ 'look.saver': self.saverOut(M.saverOptions(null)) });
-            });
-          } })]));
-        }
-      }
+      // ALL SCREENS' SCREENSAVER (All Screens → Screensaver): what every screen's uses, row by row, unless it sets a
+      // row of its own -- the page a screen's is (saverBody)
+      h_saver(c) { this.saverBody(c, this.saverCtx(null)); }
 
       // FOR AUTOMATIONS: the screen's own switch and in-use sensor, which HK
       // Frontend makes for it (screensaver.py) -- nothing to create by hand
@@ -460,7 +370,7 @@
         });
         var room = b.idle_room, leg = room && this.client && this.client.states['input_boolean.wallpanel_screensaver_' + room];
         return K.group({ header: 'For Automations', footer: 'Each wall tablet’s own. Photo Screensaver is on while the photos show: turn it on to start them now ' +
-            '(bedtime, say), off to close them (the doorbell). In Use is on while the tablet was touched within its window.' +
+            '(bedtime, say), off to close them (the doorbell). In Use stays on for Starts After less a minute after each touch, so the screensaver never comes up while someone is using the tablet.' +
             (leg ? ' The older input_boolean.wallpanel_screensaver_' + room + ' follows it both ways until you delete it.' : '') }, rows);
       }
     };

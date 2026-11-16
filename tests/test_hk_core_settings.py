@@ -14,6 +14,7 @@ from hk_core.house import State
 from hk_core.settings import changes as C
 from hk_core.settings import kinds as K
 from hk_core.settings import model as M
+from hk_core.settings import saver_layers as SL
 from hk_core.sleep import rules as SR
 
 KIOSK = "0123456789abcdef0123456789abcdef"
@@ -137,7 +138,8 @@ def test_the_suggestions_read_the_house():
 def test_the_defaults_and_their_checks():
     m = M.merged(None)
     assert m["counts"] == K.blank() and set(K.blank()) == set(K.KINDS)
-    assert m["look"]["saver"] == M.SAVER_DEFAULTS
+    # (its slides in minutes: the default "every 5 photos" of 30 s, carried over -- phase 33, saver_layers.in_minutes)
+    assert m["look"]["saver"] == SL.in_minutes(M.SAVER_DEFAULTS)
     assert M.board({"screensaver_options": {"bogus": 1}})["screensaver_options"] == M.SAVER_DEFAULTS
     assert M.tablet(None, "living_room")["name"] == "Living Room"
     assert M.parse_mmdd("2-8") == "02-08" and M.parse_mmdd("13-01") is False and M.parse_mmdd("") is None

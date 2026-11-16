@@ -143,7 +143,7 @@ export function page(sub, tools) {
   if (ALBUM_ID.test(sub[0] || '')) return albumPage(sub[0]);
   dropAlbum = null;
   return { title: 'Photos', back: ['Your Files', '#/' + T.ROUTE + '/files'],
-    scope: 'The screensavers’ own photos. Put them in albums here; each screen shows the album you pick on its Screensaver Options.',
+    scope: 'The screensavers’ own photos. Put them in albums here; each screen shows the album you pick on its Screensaver page.',
     body(c) {
       T.result(c, 'photos');
       const got = overview();
@@ -172,7 +172,7 @@ function drawAlbums(c, d) {
   });
   rows.push(T.button('New Album…', newAlbum, { fk: 'mx:photos-new-album' }));
   c.appendChild(T.group({ header: 'Albums', footer: d.albums.length
-    ? 'A screen shows an album from its Screensaver Options; All Screens → Screensaver can show one on every screen. Screens without one keep showing the Home Assistant folder.'
+    ? 'A screen shows an album picked on its Screensaver page; All Screens → Screensaver can show one on every screen. Screens without one keep showing the Home Assistant folder.'
     : 'Make an album, then add photos to it.' }, rows));
 }
 
@@ -894,7 +894,7 @@ export function extend(where, c, ctx, tools) {
   const add = adder(cur);
   const pickHouse = async (v) => { await ctx.set(v ? 'mantel-photos://' + v : 'media-source://media_source/local/photos'); changed(); return true; };
   T.result(c, key);
-  const g = T.group({ footer: 'An album from Mantel Photos (Your Files → Photos) for every screen, in place of a Home Assistant folder. A screen can still pick its own on its Screensaver Options.' },
+  const g = T.group({ footer: 'An album from Mantel Photos (Your Files → Photos) for every screen, in place of a Home Assistant folder. A screen can still pick its own on its Screensaver page.' },
     [
     K().select({ label: 'Mantel Photos Album', fk: 'mx:house-album', options: opts, value: cur,
       onChange: (v) => (v === NEW ? pickNew(pickHouse) : pickHouse(v)) }),

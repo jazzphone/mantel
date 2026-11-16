@@ -11,6 +11,7 @@ from .schema import (ACCENT_HEX, ACCENTS, CONF_DASHBOARD, DOCK_MIN, MENU_GLYPHS,
 from .defaults import DEFAULTS, KIOSK_ENGINES
 from .pages_screen_rules import merged
 from .side_pane_rules import pane_resolved
+from .. import saver_layers as SL
 from .dashboard_rules import (board, BOARD_BUTTON_PHONE, BOARD_DEFAULTS, BOARD_HOME_ROOMS, BOARD_MENU_ROOMS,
     BOARD_MENUS, BOARD_NARROW, BOARD_PAGE_ROOMS, BOARD_PHONE_MENUS, BOARD_TAB_SIZES, BOARD_TIME, ENTITY_ID, HA_PLACES,
     kiosk_from_plugin, SCREEN_PRESETS, SUBENTRY_DASHBOARD, TAB_BAR_FOLD, tab_bar_glass, TAB_BAR_LABELS, TAB_BAR_MORE,
@@ -141,11 +142,14 @@ def resolved(b: Mapping[str, Any], options: Mapping[str, Any] | None,
     read from `options`) unless it sets its own, `cameras_house` saying
     which."""
     out = dict(b)
-    own = b.get("screensaver_options")
-    if own is None and house is None:
+    # THE SCREENSAVER, KEY BY KEY (phase 33): All Screens' with the screen's own keys over them; screensaver_own
+    # the keys it set itself, screensaver_house that it set none
+    own = b.get("screensaver_options") or None
+    if house is None:
         house = merged(options)["look"]["saver"]
     out["screensaver_house"] = own is None
-    out["screensaver_options"] = dict(house) if own is None else own
+    out["screensaver_own"] = dict(own or {})
+    out["screensaver_options"] = SL.merged(house, own)
     out["rooms_house"] = not b.get("rooms_custom")
     if out["rooms_house"]:
         out.update(house_rooms(merged(options)["rooms"] if rooms is None else rooms))

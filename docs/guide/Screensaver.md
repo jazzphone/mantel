@@ -6,7 +6,7 @@ The screensaver on a wall tablet is HK Frontend's, and its photos, timing and th
 
 ![The Screensaver editor: Looks and pieces on the left, the screensaver in the middle, Look, Info, Slides and Timing on the right](../images/screensaver-editor.webp)
 
-**Edit Screensaver** lays the screensaver out on the screen itself, as the [Home Grid](Home-Grid.md) editor does for the Home page. Owners and Admins can use it, on a computer or an iPad. The editor needs a wide window for its three panes; on a narrow one it says so and offers **Open Anyway**. The **Clock Style** pages in Settings open it too.
+**Edit Screensaver** lays the screensaver out on the screen itself, as the [Home Grid](Home-Grid.md) editor does for the Home page. Owners and Admins can use it, on a computer or an iPad. The editor needs a wide window for its three panes; on a narrow one it says so and offers **Open Anyway**. The Screensaver page's **Design** row opens it.
 
 The top bar has **Cancel**, **Undo**, **Preview** and **Save**. On the left are the **Looks** and the **Pieces**. In the middle is the screensaver itself, drawn by the same code the tablet draws with. On the right are the settings for whatever you have tapped. Nothing you do here acts on the house.
 
@@ -22,7 +22,7 @@ With nothing tapped, the right side has four sections, always in this order.
 
 - **Look:** the **Background** (**Photos**, **Landscape**, **Sky Only**, **Moving Color**, **Wallpaper**, **HK Landscapes**, **Soft Photos**, **The Day's Art**, **Calm Color**, **Paper** or **Black**) and its own options, such as how much to darken photos or a Moving Color pattern and its **Motion**. Then the **Big** element (**Time**, **Temperature**, **Date**, **Month** or **None**), its **Face** (the **Today** face also draws the weather and the song under the time: **Weather** and **What's Playing** turn each off), **Color**, **24-Hour Time**, **Size**, **Position** and **Align**. **Depth** is **In Front** or **Behind**: on photos the subject stands in front of the time, as on the iPhone's Lock Screen, with any face; on the Landscape the hills do. Where the background can't put anything in front, Depth says why instead. The **Planted** face (solid figures standing in the meadow) is on the Landscape. Over busy backgrounds, **Legibility** adds a soft shadow and an outline.
 - **Info:** what is placed, a list with each piece's picture, shape and place; tap one to open it. **Ink** is **Auto**, **White** or **Black**: one ink for every piece on the screen, never some white and some black; Auto picks it from what is behind them. **Color Accents** adds a little color where it means something: rings, glyphs and status dots. **The Row** has one **Size** for every piece in it (60 to 200 %) and where it goes: **Under the Big Element**, or **Along the Bottom**, which keeps the middle of a photo, where faces usually are, clear. **Upright Screens** is **Same as Sideways** or **Its Own**.
-- **Slides:** the screens that come now and then over the screensaver, each on or off: the forecast among the photos (**Classic** or **Big**), **Music Full Screen**, **Weather**, **Home Energy**, **Holidays** and **Timers**, and **How Often**. Each says what its corner adds (the time, the date and Home Status, in the Look's own face and color) and has a **See It** button. **The Slide Corner** sets the corner's **Time Size** (100 to 250 %) and what it adds at all: **Time**, **Date**, **Weather** and **House Status**. **Music Full Screen** sets what the music slide shows beside the album art: the **Room**, the **Album**, its **Progress**, the **Buttons**, the **Volume** and **Up Next**.
+- **Slides:** the screens that come now and then over the screensaver, each on or off: the forecast among the photos (**Classic** or **Big**), **Music Full Screen**, **Weather**, **Home Energy**, **Holidays** and **Timers**, and **How Often** and **Show For**. Each says what its corner adds (the time, the date and Home Status, in the Look's own face and color) and has a **See It** button. **The Slide Corner** sets the corner's **Time Size** (100 to 250 %) and what it adds at all: **Time**, **Date**, **Weather** and **House Status**. **Music Full Screen** sets what the music slide shows beside the album art: the **Room**, the **Album**, its **Progress**, the **Buttons**, the **Volume** and **Up Next**.
 - **Timing:** **Starts After, Night Mode and More** opens the Screensaver page.
 
 At the foot, **Reset…** puts the screensaver back to how it looked before you opened the editor.
@@ -58,7 +58,22 @@ Things line up by what you see, not by their boxes: the top of the time is level
 
 **Save** stores the screensaver for the screen. Everything stays a draft until then, and **Cancel** asks before it throws a draft away. **Undo** (⌘Z or Ctrl+Z) takes back the last change, one at a time.
 
-The editor is the only place to change what the screensaver shows and how it looks: the background, the time and its face, the pieces, the legibility over photos, and which slides come now and then, and how often. **Screensaver Options** keeps what cannot be laid out on the screen: **Photos** (one row: a Home Assistant folder, or a Mantel Photos album chosen inside it, with **Forecast When There Are No Photos**), the **Slideshow** (one at a time or a mosaic, their order, **Slow Zoom**, and **Photo Layout**, where portrait and landscape photos each fit), **Also Show** (the slides among the photos), the wallpaper when the background is Wallpaper, **Timing** (**Starts After**, **Each Photo For**, **Fade Back**), **Night Mode**, the **Side Pane** (each screen's own, even when the rest follows All Screens; All Screens' page names the screens that have their own), and the entities for automations. The editor's **Starts After, Night Mode and More** row opens it (**Choose the Wallpaper**, when the background is Wallpaper). A screen with a saved layout can go back to its old look with **Remove the Layout…** there.
+The editor is the only place to change what the screensaver looks like: the background, the time and its face, the pieces and the legibility over photos.
+
+## The Screensaver page
+
+A screen's **Screensaver** page (the screen's own page, or its tablet's **Screensaver** row) and **All Screens → Screensaver** have the same groups, rows and order:
+
+- **Screensaver** (a screen only, at the top): the switch. It runs on the screen's wall tablets. While it is off the page shows only the switch.
+- **What It Shows:** **Design** opens the editor; **Photos** (a Home Assistant folder, or a Mantel Photos album, with **Forecast When There Are No Photos**); **Slides**: each slide on or off (**Forecast**, **Music Full Screen**, **Weather**, **Home Energy**, **Holidays**, **Timers** and **Timers Come Up**), then **How Often** in minutes and **Show For** in seconds, whatever the screensaver shows.
+- **When:** **Starts After**, and **Night Mode** (a dim red clock on black, at night or always) where the design shows the time large: the Clock, a big time, Glance and Month.
+- **Photos:** **How Photos Show**, where photos show: **Layout** (one at a time or a mosaic), **Order**, **Each Photo For**, **Slow Zoom**, and how portrait and landscape photos each sit on the screen.
+- **Side Pane** (each screen's own, even when the rest follows All Screens) and **Advanced** (**Fade Back**, **Remove the Layout…**, and **Use WallPanel Instead** where WallPanel is installed).
+- **For Automations** (a screen): each tablet's screensaver switch and In Use sensor.
+
+A screen follows All Screens **row by row**. Each row says **Same as All Screens** or **Just This Screen**, and a menu's first choice is **Same as All Screens** with its value (**Same as All Screens (3 Minutes)**). Changing one row, Starts After say, makes only that row the screen's own. The design is one group: saving it in the screen's editor makes the whole design the screen's own. **Use All Screens' Screensaver…** at the foot puts every row back. A screen that had its own screensaver settings before keeps all of them.
+
+Before, slides among photos came "every few photos". They now come every few minutes, as they do over a clock: a house that had a slide every 3 photos of 20 seconds now has one **Every Minute**, shown for 20 seconds, so it comes after the same time as before. A number of photos that doesn't make a whole choice takes the nearest one.
 
 ## The Timer slide
 
@@ -97,7 +112,7 @@ If a timer ended while Mantel or Home Assistant was restarting, it rings when th
 
 ## The Holiday slide
 
-**Holidays** (Edit Screensaver → Slides, or Screensaver Options → Also Show) counts down to the next holiday: how many days until it, themed for it. It comes among the photos or now and then over a clock, as Weather and Home Energy do, and only once a holiday is near. Its corner adds the time, the date, the weather and House Status, with the corner's Time Size and switches.
+**Holidays** (Edit Screensaver → Slides, or the Screensaver page → Slides) counts down to the next holiday: how many days until it, themed for it. It comes among the photos or now and then over a clock, as Weather and Home Energy do, and only once a holiday is near. Its corner adds the time, the date, the weather and House Status, with the corner's Time Size and switches.
 
 - **Christmas** is a 90s living room at night: the count on the TV as a VCR's blue on-screen display, the tree's lights chasing, snow falling past the window.
 - **Halloween** is a haunted house on a hill, the count carved in a tombstone, bats leaving the attic and fog drifting.
@@ -107,7 +122,7 @@ If a timer ended while Mantel or Home Assistant was restarting, it rings when th
 
 On the day itself the number gives way to a greeting. Along the bottom: **The Countdown** (weeks and weekends left; it hides in the last week) and **Coming Up** (the next three).
 
-**Holiday Options** (on the Screensaver page):
+**Holiday Options** (the Screensaver page → Slides):
 
 - **Which Holiday:** **Next Up** (the soonest), **Take Turns** (each near one in turn) or **One Holiday** (only the one you pick).
 - **Starts:** 30, 60 or 90 days before (60 by default).

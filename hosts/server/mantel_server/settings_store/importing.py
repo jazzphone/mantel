@@ -24,7 +24,7 @@ IMPORT_READ = "hk_frontend/panel/get"
 # rooms and cameras filled in; All Tablets' Idle settings filled in, the own ones beside them), and the import
 # copies that answer. Kept that way, a screen that followed All Screens' screensaver held a frozen copy of it
 # (and a tablet All Tablets' Idle). As stored, it follows again: what the screen or tablet says itself.
-_READ_ONLY_BOARD = ("screensaver_house", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room",
+_READ_ONLY_BOARD = ("screensaver_house", "screensaver_own", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room",
                     "side_pane_read")
 
 
@@ -33,10 +33,14 @@ def as_stored(scope: str, body: Mapping[str, Any]) -> dict:
     b = dict(body)
     if scope == "board":
         follows = b.get("screensaver_house") is True
+        # (phase 33: the keys it set itself, as read; a whole set from an older answer stays its own)
+        mine = b.get("screensaver_own")
         for k in _READ_ONLY_BOARD:
             b.pop(k, None)
         if follows:
             b["screensaver_options"] = None
+        elif isinstance(mine, dict):
+            b["screensaver_options"] = mine or None
     elif scope == "tablet":
         for k in ("idle_return", "idle_time"):
             if k + "_own" in b:

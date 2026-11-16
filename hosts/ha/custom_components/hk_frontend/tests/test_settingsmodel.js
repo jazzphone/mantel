@@ -687,6 +687,24 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
      M.idleTimeline({ idle: null, saver: null, hk: true, after: 5 }).segs[1].says === 'after 5 min of photos');
   ok('the start URL names the tablet', M.tabletUrl('http://ha:8123/', 'dashboard-loft', 'loft') === 'http://ha:8123/dashboard-loft?hk_tablet=loft');
   ok('Idle Time labels', M.idleLabel(50) === '50 Seconds' && M.idleLabel(0) === 'Never' && M.idleLabel(120) === '2 Minutes');
+  // PHASE 33 (decisions 9 and 12; hk_core saver_layers.py, tests/test_saver_layers.py the same cases): a screen's options are
+  // All Screens' with its own keys over them, and the slides are in minutes, "every N photos" carried over as the minutes it took
+  var L = M.saverLayers, house = L.inMinutes(M.saverOptions({ show: 'both', forecast_every: 3, each_photo: 20, extra_every: 2, extra_for: 30 }));
+  ok('the house: a slide every 3 photos of 20 s is every minute, shown for a photo’s 20 s, still 3 photos to an older version',
+     [house.extra_every, house.extra_for, house.forecast_every], [1, 20, 3]);
+  ok('...carried over once: in minutes it stays', JSON.stringify(L.inMinutes(house)) === JSON.stringify(house) &&
+     L.inMinutes(M.saverOptions({ show: 'photos', extra_every: 1, each_photo: 600, forecast_every: L.photosFor(1, 600) })).extra_every === 1, true);
+  ok('...2.5 minutes is the nearest choice, 2; a clock keeps its own minutes',
+     [L.inMinutes(M.saverOptions({ show: 'photos', forecast_every: 5, each_photo: 30, extra_every: 5 })).extra_every,
+      L.inMinutes(M.saverOptions({ show: 'clock', forecast_every: 7, each_photo: 30, extra_every: 10 })).extra_every], [2, 10]);
+  var own = { screensaver_house: false, screensaver_own: { starts_after: 60 }, screensaver_options: {} };
+  ok('a screen’s own Starts After over All Screens’, the rest All Screens’', [L.of(own, house).starts_after, L.of(own, house).show, L.of(own, house).extra_every,
+     L.isOwn(own, 'starts_after'), L.isOwn(own, 'show'), M.saverFollows(own), M.saverFollows({ screensaver_house: true, screensaver_options: house })],
+     [60, 'both', 1, true, false, false, true]);
+  var older = { screensaver_options: Object.assign({}, house, { show: 'clock' }) };
+  ok('...an older feed’s whole set (no screensaver_own) is all the screen’s own', L.isOwn(older, 'each_photo') && L.of(older, house).show === 'clock', true);
+  ok('...a design key is the editor’s, a row’s key the page’s', [L.isPage('clock_style'), L.isPage('layout'), L.isPage('starts_after'), L.isPage('extra_every')],
+     [false, false, true, true]);
   // (1.8.0) Show: Clock says Clock, not Photos
   ok('the screensaver summary on Show: Clock', /^Music, Then Clock · /.test(M.saverSummary({ show: 'clock', music_first: true })) &&
      /^Clock · /.test(M.saverSummary({ show: 'clock' })), M.saverSummary({ show: 'clock' }));
@@ -699,9 +717,15 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
   // LOOKS (2026-10-30): what one changes on a screen, its Undo, and only what differs
   var hv = M.lookOf('homeview'), saver = M.saverOptions({});
   var lc = M.lookChanges(hv, { glass: 'house', accent: 'orange', tile_style: null, side_pane: null, screensaver_options: null }, saver, null);
-  ok('a Look sends its settings, its screensaver options over the screen\'s, and its Undo', lc.changes.glass === 'bright' &&
-     lc.changes.screensaver_options.clock_style === 'numbers' && lc.changes.screensaver_options.each_photo === saver.each_photo &&
-     lc.changes.look_undo.look === 'homeview' && lc.changes.look_undo.was.glass === 'house' && lc.changes.look_undo.was.side_pane === null, lc.changes);
+  // (phase 33: a Look's screensaver options are the screen's own keys, over the ones it set already -- not a copy of every key)
+  ok('a Look sends its settings, its screensaver options as the screen\'s own keys, and its Undo', lc.changes.glass === 'bright' &&
+     lc.changes.screensaver_options.clock_style === 'numbers' && !('each_photo' in lc.changes.screensaver_options) &&
+     lc.changes.look_undo.look === 'homeview' && lc.changes.look_undo.was.glass === 'house' && lc.changes.look_undo.was.side_pane === null &&
+     lc.changes.look_undo.was.screensaver_options === null, lc.changes);
+  var lc2 = M.lookChanges(hv, { screensaver_house: false, screensaver_own: { starts_after: 60 }, screensaver_options: Object.assign({}, saver, { starts_after: 60 }) }, saver, null);
+  ok('...over a screen\'s own Starts After, which it keeps, and Undo puts back',
+     lc2.changes.screensaver_options.starts_after === 60 && lc2.changes.screensaver_options.show === 'clock' &&
+     JSON.stringify(lc2.changes.look_undo.was.screensaver_options) === '{"starts_after":60}', lc2.changes);
   ok('...the sheet lists what differs (the accent is orange already)', lc.rows.some(function (r) { return r[0] === 'Style'; }) &&
      !lc.rows.some(function (r) { return r[0] === 'Accent Color'; }), lc.rows);
   ok('...a screen\'s glass \'house\' reads Same as All Screens, never "House"', lc.rows.filter(function (r) { return r[0] === 'Style'; })[0][1] === 'Same as All Screens' &&

@@ -81,7 +81,7 @@
                          onChange: function (v) { put({ kiosk: v }); } })]));
           }
           var after = (choices.after_saver || [0, 15, 30, 60, 120]).map(function (m) { return [m, m ? 'After ' + mins(m) : 'Never']; });
-          var sched = [K.select({ label: 'After the Screensaver', sk: 'b:sleep.after_saver', value: sl.after_saver || 0, options: after,
+          var sched = [K.select({ label: 'Dark After', sub: 'Of the screensaver, with nobody touching it', sk: 'b:sleep.after_saver', value: sl.after_saver || 0, options: after,
                                   onChange: function (v) { put({ after_saver: Number(v) }); } }),
                        K.toggle({ label: 'Quiet Hours Schedule', sk: 'b:sleep.schedule', on: !!sl.schedule,
                                   onChange: function (on) { put({ schedule: on }); } })];
@@ -96,7 +96,7 @@
             K.group(
             { header: 'When It Goes Dark',
             footer:
-            'After the Screensaver: dark once the photos have shown that long with nobody touching it (with Presence, nobody new coming in). Quiet hours, by the clock and while anything in Quiet ' +
+            'Dark After: dark once the screensaver has shown that long with nobody touching it (with Presence, nobody new coming in). Quiet hours, by the clock and while anything in Quiet ' +
             'While is on: dark even with somebody in the room — a tap still wakes it.' }, sched));
           var linger = (choices.linger || [0, 30, 60, 120, 300]).map(function (v) { return [v, secs(v)]; });
           c.appendChild(

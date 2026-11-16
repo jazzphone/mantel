@@ -304,45 +304,8 @@
               K.nav({ label: 'Wall Tablets', href: '#/house/tablets' })]));
           });
         }
-        if (s === 'screensaver' && (sub[1] === 'photos' || sub[1] === 'layout' || sub[1] === 'forecast')) {
-          var sbk2 = ['Screensaver Options', base + '/screensaver'], sfollow = M.saverFollows(b);
-          var sown = M.saverOptions(sfollow && sub[1] !== 'photos' ? self.hs('look.saver') : b.screensaver_options);
-          var sput = self.saverPutB(path);
-          var spg2 = sub[1] === 'photos'
-            ? mk('Photos', function (c) { self.saverPhotosPage(c, M.saverOptions(b.screensaver_options), sput, false, { screen: path, title: x.title }, sfollow); }, sbk2)
-            : sub[1] === 'layout' ? mk('Photo Layout', function (c) { self.saverLayoutPage(c, sown, sput); }, sbk2)
-            : mk('Forecast Look', function (c) { self.saverForecastPage(c, sown, sput); }, sbk2);
-          spg2.saverPreview = true;
-          return spg2;
-        }
-        if (s === 'screensaver' && sub[1] === 'weather') {
-          var wpg = mk('Weather', function (c) { self.saverWeather(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
-                       ['Screensaver Options', base + '/screensaver']);
-          wpg.saverPreview = true; wpg.saverWeather = true;
-          return wpg;
-        }
-        if (s === 'screensaver' && sub[1] === 'holiday') {
-          var hpg = mk('Holidays', function (c) { self.saverHoliday(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
-                       ['Screensaver Options', base + '/screensaver']);
-          hpg.saverPreview = true; hpg.saverHoliday = true;
-          return hpg;
-        }
-        if (s === 'screensaver' && sub[1] === 'energy') {
-          var epg = mk('Home Energy', function (c) { self.saverEnergy(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
-                       ['Screensaver Options', base + '/screensaver']);
-          epg.saverPreview = true; epg.saverEnergy = true;
-          return epg;
-        }
-        // (the Clock Style page is the editor's now, Look -> Big -> Face: its old address opens the editor)
-        if (s === 'screensaver' && (sub[1] === 'editor' || sub[1] === 'clock-style')) {
-          return this.saverEditorPage(path, { path: path, title: x.title, designId: sub[2] || '', back: ['Screensaver Options', base + '/screensaver'],
-            options: M.saverFollows(b) ? this.hs('look.saver') : b.screensaver_options });
-        }
-        if (s === 'screensaver') {
-          var spg = mk('Screensaver Options', function (c) { self.saverPage(c, x, b, path); });
-          spg.saverPreview = true;         // the frame shows the screensaver itself
-          return spg;
-        }
+        // THE SCREENSAVER (phase 33): its switch on top of its own page, and its pages (hk-settings-screen-saver.js)
+        if (s === 'screensaver') return this.saverRoute(x, b, path, sub, mk, base);
         if (s === 'kiosk') return mk('Home Assistant Header & Sidebar', function (c) { self.kioskPage(c, x, b, path); }, advb);
         // A THIRD-PARTY CARD'S OPTIONS: WallPanel's, and the Kiosk Mode
         // plugin's (kiosk-mode: a page under Header & Sidebar)

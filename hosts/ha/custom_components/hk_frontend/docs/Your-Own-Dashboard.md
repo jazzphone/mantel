@@ -93,9 +93,9 @@ hk_screensaver:
   clock_style: classic # for show: clock and a large clock
   clock_bg: gradient   # behind show: clock
   clock_night: "off"   # "night" (clock_night_from to clock_night_to) or "always"
-  forecast_every: 5    # a slide (the forecast, the music) after this many photos
-  music_slide: false   # what plays, full screen: a slide among the photos
-  music_first: false   # ...or the music fills the screen while it plays
+  extra_every: 5       # a slide (the forecast, the weather...) every this many minutes
+  extra_for: 30        # ...for this many seconds
+  music_first: false   # the music fills the screen while it plays
   fallback: true       # no photos: the forecast (false: a dark screen)
   band: true           # the forecast’s details on the forecast
   band_photos: false   # ...and over the photos

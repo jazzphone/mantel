@@ -322,8 +322,9 @@ let lastMinuteDone = false;
         await page.evaluate(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           const fr = deep(document).find((e) => e.tagName === 'IFRAME'); fr.__mark = 1; fr.contentWindow.__mark = 1; });
         // (the page keeps what can't be laid out -- Night Mode here; the look is Edit Screensaver's since 2026-11-01)
-        const btn = page.locator('[data-fk="saver:clock_night:always"]').first();
-        await btn.scrollIntoViewIfNeeded(); await btn.click();
+        // (phase 33: Night Mode is a menu, its first choice Same as All Screens on a screen)
+        const sel = page.locator('select[data-fk="saver:clock_night"]').first();
+        await sel.scrollIntoViewIfNeeded(); await sel.selectOption('always');
         const t0 = Date.now(), got = await until((v) => v.night === 'always', 3000), ms = Date.now() - t0;
         say(!!got && got.night === 'always' && ms < 1000, screen + ': ...a change shows there at once (' + ms + ' ms)', got);
         await page.waitForTimeout(2500);                // (the save comes back ~1.8 s in, after a still second)

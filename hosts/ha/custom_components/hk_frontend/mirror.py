@@ -36,7 +36,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 # what a screen's feed carries that is worked out, not stored (Mantel's settings_store _READ_ONLY_BOARD)
-READ_ONLY_BOARD = ("screensaver_house", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room",
+READ_ONLY_BOARD = ("screensaver_house", "screensaver_own", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room",
                    "side_pane_read")
 TABLET_FIELDS = ("name", "screen", "room", "user", "app", "idle_return", "idle_time", "black_screen")
 
@@ -75,7 +75,13 @@ def adopt(hass: HomeAssistant, entry: ConfigEntry, payload: Mapping[str, Any]) -
     hass.config_entries.async_update_entry(entry, options=house_options(entry.options, payload))
     for path, b in (payload.get("boards") or {}).items():
         if isinstance(path, str) and isinstance(b, Mapping):
-            data = S.board_stored({k: v for k, v in b.items() if k not in READ_ONLY_BOARD})
+            data = {k: v for k, v in b.items() if k not in READ_ONLY_BOARD}
+            # its screensaver as its own keys (phase 33), never a frozen copy of All Screens'
+            if b.get("screensaver_house") is True:
+                data["screensaver_options"] = None
+            elif isinstance(b.get("screensaver_own"), Mapping):
+                data["screensaver_options"] = dict(b["screensaver_own"]) or None
+            data = S.board_stored(data)
             _put(hass, entry, S.SUBENTRY_DASHBOARD, path, data, str(b.get("title") or path))
     tablets = _subs(entry, S.SUBENTRY_TABLET)
     for tid, t in (payload.get("tablet_items") or {}).items():
