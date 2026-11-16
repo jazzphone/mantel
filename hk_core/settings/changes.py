@@ -461,7 +461,7 @@ def image_pages_patch(current: Mapping[str, Any], key: str, patch: Any) -> dict[
 
 
 def _flat_pages(v: Any) -> dict[str, str]:
-    """Each page's Flat background ({page: color | photo | landscapes}); a
+    """Each page's Flat background ({page: color | photo | landscapes | live | wallpaper}); a
     page set to "" or None follows again (left out)."""
     if v is None:
         return {}

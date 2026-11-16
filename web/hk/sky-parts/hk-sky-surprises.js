@@ -948,8 +948,8 @@
       if (!flat && M && typeof M.board === 'function' && M.board().sky === false) return false;
       var v = currentView(cfg, path);
       if (!v) return false;
-      // FLAT (2026-10-16): its own backgrounds (hk-settings.js flatBackground)
-      // -- a color or one still photo, never the live sky
+      // FLAT (2026-10-16): its own backgrounds (hk-settings.js flatBackground) -- a color or one still photo, drawn by
+      // renderFlat; or (phase 33) the Live Sky or a Wallpaper, drawn as the glass looks draw them behind Flat's cards
       if (flat) {
         var FS = window.hkSettings, FC = window.hkCards, fpage = v.sky_page || 'home';
         var fkeys = v.sky_room ? [v.sky_room, v.sky_page] : v.sky_page;
@@ -961,8 +961,15 @@
         // chosen stays as chosen. THAT PAGE'S palette, not the one shown (2026-11-15, the owner: "swiping between pages the
         // background doesn't fade"): a swipe paints the next page's ground under this one's (swipeCover) while the address is
         // still this page's, and flatPalette() read the address -- every page's ground was this page's, a fade from green to green
+        var fbg = FS && FS.flatBackground ? FS.flatBackground(fkeys, fown) : { color: 'auto' };
+        if ((fbg.live || fbg.wallpaper) && !(M && typeof M.board === 'function' && M.board().sky === false)) {
+          var fwall = fbg.wallpaper && typeof FS.wallpaper === 'function' ? FS.wallpaper() : null;
+          return { variant: null, backdrop: fbg.backdrop === false ? false : null, still: fbg.wallpaper ? (fwall ? fwall.stops : FS.BLACK || null) : null,
+                   photo: null, look: null, wall: fwall, page: v.sky_page || null, underFlat: true,
+                   enable: cfg.sky && cfg.sky.enable || null, sleep: cfg.sky && cfg.sky.sleep || null };
+        }
         var fpal = FC && FC.flatPalette ? FC.flatPalette(path ? { keys: keysOfView(v) } : undefined) : null;
-        return { flat: FS && FS.flatBackground ? FS.flatBackground(fkeys, fown) : { color: 'auto' }, page: fpage,
+        return { flat: fbg, page: fpage,
                  seed: fpal && fpal.ground || null,
                  enable: cfg.sky && cfg.sky.enable || null, sleep: cfg.sky && cfg.sky.sleep || null };
       }

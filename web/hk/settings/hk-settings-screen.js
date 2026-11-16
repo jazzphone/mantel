@@ -256,7 +256,13 @@
           return mk('Pages Screen', function (c) { self.pagesScreenPage(c, sps); });
         }
         if (s === 'page-headers') return mk('Page Headers', function (c) { self.s_pageHeaders(c, x, b); });
-        if (s === 'sky' && sub[1] === 'backdrop') return mkl('Sky Colors', function (c) { self.s_backdrop(c, x, b); }, ['Background', base + '/sky']);
+        // A SCREEN'S BACKGROUND (phase 33): its Colors, Adjust Photo and each page's, as All Screens' (bgRoute)
+        if (s === 'sky') {
+          var so = this.bgPlace(x, b, this.flatHere(b), base + '/sky');
+          var sr = this.bgRoute(sub.slice(1), so, function (tt, body, back) { return mkl(tt, body, back || ['Background', base + '/sky']); });
+          if (sr) return sr;
+          if (sub[1] === 'advanced') return mkl('Advanced', function (c) { self.s_skyAdvanced(c); }, ['Background', base + '/sky']);
+        }
         if (s === 'sky' && sub[1] === 'landscape') {
           return mkl('Choose a Landscape', function (c) {
             self.landscapePick(c, { value: b.sky_landscape || null, house: self.data.settings.sky.landscape || 'every:1440', fk: 'blandpick',
@@ -272,12 +278,6 @@
         }
         if (s === 'sky' && sub[1] === 'lively') {
           return mkl('Each Occasion', function (c) { self.livelyList(c, { b: b, path: path, base: base }); }, ['Seasonal Decorations', base + '/sky/decorations']);
-        }
-        if (s === 'sky' && sub[1] === 'page' && sub[2]) {
-          var skey = decodeURIComponent(sub[2]);
-          var srow = this.skyRow(skey, b), sflat = this.flatHere(b);
-          return mkl(srow ? srow.label : 'Page', function (c) { if (srow) { if (sflat) self.flatPagePicker(c, x, b, srow, base + '/sky'); else self.pagePicker(c, x, b, srow); } },
-                    srow && srow.room ? ['Room Pages', base + '/sky/page/rooms'] : ['Background', base + '/sky']);
         }
         if (s === 'sky') return mkl('Background', function (c) { self.s_sky(c, x, b); });
         if (s === 'glass') return mkl('Style', function (c) { self.s_glass(c, x, b); }, ab);

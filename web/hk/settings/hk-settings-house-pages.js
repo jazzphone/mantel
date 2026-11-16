@@ -100,9 +100,9 @@
         }
         if (s0 === 'background') {
           var row = this.skyRow(key, null);
+          // (the page Background -> Pages -> it opens, phase 33: its Colors and Adjust Photo are there)
           return mk('Background', function (c) {
-            if (row && self.flatHere(null)) self.flatPagePicker(c, null, null, row, '#/house/appearance/sky');
-            else if (row) self.pagePicker(c, null, null, row);
+            if (row) self.bgPagePicker(c, self.bgPlace(null, null, self.flatHere(null), '#/house/appearance/sky'), row);
             else c.appendChild(K.group({ footer: 'This page isn’t on any screen yet, so it has no background to choose.' }, []));
           });
         }

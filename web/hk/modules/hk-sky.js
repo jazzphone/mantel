@@ -1452,8 +1452,10 @@
           if (!client || !card) return '';
           opts = opts || {};
           var P = window.hkSettings, policy = P && P.rendering ? P.rendering() : { flat: false };
-          if (ST.mounted && !!ST.mounted._hkFlat !== policy.flat) teardown();
-          if (policy.flat) { renderFlat(client, card, opts, policy); return ''; }
+          // (Flat over the Live Sky or a Wallpaper, phase 33: the sky itself, behind Flat's cards -- resolve's underFlat)
+          var flatGround = policy.flat && !opts.underFlat;
+          if (ST.mounted && !!ST.mounted._hkFlat !== flatGround) teardown();
+          if (flatGround) { renderFlat(client, card, opts, policy); return ''; }
 
           // Kill switch first: an explicit `off` tears down a mounted sky rather
           // than just declining to mount one, so flipping it is immediate.

@@ -97,19 +97,22 @@
         return (v === null || v === undefined) ? get(hk, dflt) : v;
       };
       var R = rendering(), flat = R.flat;
+      // (Flat over the Live Sky or a Wallpaper, phase 33: the sky drawn as the glass looks draw it, its weather,
+      // decorations and animations by the same switches -- flatSkyKind)
+      var sky = !flat || !!flatSkyKind(b);
       return {
-        // (Flat, which has no live sky, held everything that keys on this still. Motion is its own switch now
-        // (2026-11-14): in Flat with Motion on, the cards' own loops run again -- a fan's spinning glyph, the art's
-        // cross-fade -- unless the Background's Animations are off; in the glass looks this is the Background's switch
-        // alone, whatever Motion says: the owner's "keeping them independent is best")
-        animations: (!flat || R.motion !== false) && !reducedMotion() && own('sky_animations', 'sky.animations', true) !== false,
-        weather: !flat && own('sky_weather', 'sky.weather', true) !== false,
+        // (Flat over a color or a photo, which has no live sky, held everything that keys on this still. Motion is its
+        // own switch now (2026-11-14): in Flat with Motion on, the cards' own loops run again -- a fan's spinning glyph,
+        // the art's cross-fade -- unless the Background's Animations are off; in the glass looks this is the
+        // Background's switch alone, whatever Motion says: the owner's "keeping them independent is best")
+        animations: (sky || R.motion !== false) && !reducedMotion() && own('sky_animations', 'sky.animations', true) !== false,
+        weather: sky && own('sky_weather', 'sky.weather', true) !== false,
         // Rain & Snow: the falling weather alone (2026-10-10); and Pause When
         // Not in Focus -- on a computer, the sky and the cards hold while
         // another window has the focus (hk-sky.js FOCUS)
-        precipitation: !flat && own('sky_precipitation', 'sky.precipitation', true) !== false,
+        precipitation: sky && own('sky_precipitation', 'sky.precipitation', true) !== false,
         focusPause: own('sky_focus_pause', 'sky.focus_pause', true) !== false,
-        decorations: !flat && own('sky_decorations', 'sky.decorations', true) !== false,
+        decorations: sky && own('sky_decorations', 'sky.decorations', true) !== false,
         decorationStyle: own('sky_decoration_style', 'sky.decoration_style', 'old'),
         // Moving Things: 'front' draws them over the cards (hk-sky.js FRONT)
         moving: own('sky_moving', 'sky.moving', 'behind'),
@@ -150,10 +153,11 @@
     // was drawn with.
     function ladderSignature() {
       var style = glass(), flat = style === 'flat', b = boardHere(), sk = skyLook();
-      var live = !flat && !(b && b.sky === false) && !!sk.background && sk.background.mode === 'live';
+      // (Flat over the Live Sky or a Wallpaper costs as the glass looks' do: phase 33)
+      var mode = flat ? flatMode(b) : sk.background && sk.background.mode;
+      var live = !(b && b.sky === false) && mode === 'live';
       // (a Wallpaper with Motion on moves too, while Animations are on)
-      var moving = !flat && !(b && b.sky === false) && !!sk.background && sk.background.mode === 'wallpaper' &&
-        !!sk.background.wallpaper && sk.background.wallpaper.motion !== 'off';
+      var moving = !(b && b.sky === false) && mode === 'wallpaper' && wallpaper(b).motion !== 'off';
       var a = (live || moving) && sk.animations, w = live && sk.weather, r = live && a && w && sk.precipitation, f = live && a && sk.moving === 'front';
       var cam = b && typeof b.camera_live_video === 'boolean' ? b.camera_live_video : get('cameras.live', true) !== false;
       var n = function (v) { return v ? '1' : '0'; };
@@ -290,13 +294,37 @@
     // a ground of its own (Climate's sage ...), which Automatic keeps. A page
     // left alone is the screen's Background; a Photo or Landscape not there
     // yet is the theme's ground, never a blank.
+    // FLAT'S OWN BACKGROUND, the screen's (its own, else All Screens'): 'color', 'photo', 'landscapes', 'live' or
+    // 'wallpaper' (the last two since phase 33)
+    function flatMode(b) {
+      if (b === undefined) b = boardHere();
+      return (b && b.sky_flat_background) || get('sky.flat_background', 'color') || 'color';
+    }
+    // WHETHER A FLAT SCREEN DRAWS THE SKY ANYWHERE (phase 33): 'live' or 'wallpaper' when its Background is the Live
+    // Sky or a Wallpaper, or a page of it is set to one; else null (a color or a photo: no sky, nothing that moves)
+    function flatSkyKind(b) {
+      var m = flatMode(b);
+      if (m === 'live' || m === 'wallpaper') return m;
+      var maps = [(b && b.sky_flat_pages) || {}, get('sky.flat_pages', {}) || {}], kind = null;
+      maps.forEach(function (map) {
+        Object.keys(map).forEach(function (k) { if (map[k] === 'live' || (map[k] === 'wallpaper' && !kind)) kind = map[k]; });
+      });
+      return kind;
+    }
     function flatBackground(key, own) {
       var b = boardHere(), keys = keysOf(key);
       var fade = b && b.sky_flat_fade != null ? b.sky_flat_fade : get('sky.flat_fade', 50);
       var mode = keys.length ? pageFind(keys, 'sky_flat_pages', 'sky.flat_pages') : null;
+      // THE LIVE SKY OR A WALLPAPER behind Flat's cards (phase 33, the owner: "keep all background styles available for
+      // all modes, including flat"): drawn as the glass looks draw them (hk-sky-surprises.js resolve). A page set to the
+      // Live Sky has the live ramp itself, as a glass page set to it has
+      if (mode === 'live') return { live: true, backdrop: false };
+      if (mode === 'wallpaper') return { wallpaper: true };
       if (!mode || mode === 'auto') {
         if (own) return { color: 'auto', fade: fade };
-        var bg = (b && b.sky_flat_background) || get('sky.flat_background', 'color') || 'color';
+        var bg = flatMode(b);
+        if (bg === 'live') return { live: true };
+        if (bg === 'wallpaper') return { wallpaper: true };
         if (bg === 'photo') mode = 'screen-photo';
         else if (bg === 'landscapes') mode = 'landscapes';
         else return { color: (b && b.sky_flat_color) || get('sky.flat_color', 'auto') || 'auto', fade: fade };

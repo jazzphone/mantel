@@ -378,7 +378,7 @@
       var t = 'How the pills, tiles and chips look.';
       if (style ===
         'flat'
-        ) return 'Opaque surfaces with no blur or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
+        ) return 'Opaque surfaces with no blur. Every background stays yours to choose in Background; your other appearance preferences are kept.';
       if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Color from Background: each card takes the color of the page behind it instead of one gray.';
       if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
       if (
@@ -425,15 +425,18 @@
     // camera (the first tile plays live), cams (the screen has a camera strip
     // at all)}. `sky`: All Screens' sky.*; `cams`: {strip, live} -- whether the
     // screen shows a camera strip, and All Screens' Live First Camera. A flag
-    // is on only while it costs: nothing under Flat, no sky motion over a still
-    // background (hk-settings.js ladderSignature works the same out)
+    // is on only while it costs: nothing under Flat over a color or a photo, no
+    // sky motion over a still background (hk-settings.js ladderSignature works
+    // the same out)
     function ladderFacts(b, look, sky, cams) {
       b = b || {}; sky = sky || {}; cams = cams || {};
       var style = glassOf(b, look).effective, flat = style === 'flat';
       var own = function (bk, hk, dflt) { return b[bk] != null ? b[bk] : (sky[hk] == null ? dflt : sky[hk]); };
-      var live = !flat && b.sky !== false && (b.sky_background || sky.background || 'live') === 'live';
+      // (Flat's own Background: the Live Sky or a Wallpaper behind Flat costs as the glass looks' does, phase 33)
+      var mode = flat ? b.sky_flat_background || sky.flat_background || 'color' : b.sky_background || sky.background || 'live';
+      var live = b.sky !== false && mode === 'live';
       // (a Wallpaper with Motion on moves too, while Animations are on: 2026-10-30)
-      var moving = !flat && b.sky !== false && (b.sky_background || sky.background) === 'wallpaper' &&
+      var moving = b.sky !== false && mode === 'wallpaper' &&
         (own('sky_wallpaper_motion', 'wallpaper_motion', 'off') || 'off') !== 'off';
       var anim = (live || moving) && own('sky_animations', 'animations', true) !== false;
       var weather = live && own('sky_weather', 'weather', true) !== false;

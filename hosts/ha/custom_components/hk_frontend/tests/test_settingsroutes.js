@@ -33,12 +33,13 @@ ok('#/screens with no screen named opens the Overview, not a screen called undef
 ok('...and so does #/screens/ (an empty name)', open('#/screens/'), 'overview');
 
 page.data = { settings: { sky: {}, look: {} }, choices: {} };
-ok('house backdrop opens its own page (Sky Colors)', open('#/house/sky/backdrop').title, 'Sky Colors');
+// (phase 33: Sky Colors and Background -> Color are one Colors picker)
+ok('house backdrop opens its own page (Colors)', open('#/house/sky/backdrop').title, 'Colors');
 page.dash = function (path) { return { path: path, title: 'Sky Test', item: true }; };
 page.data.boards = { 'dashboard-sky': {} };
 ok('screen sky opens the named page', P.p_screen.call(page, 'dashboard-sky', ['sky']).title, 'Background');
 var backdrop = P.p_screen.call(page, 'dashboard-sky', ['sky', 'backdrop']);
-ok('screen backdrop opens its picker (Sky Colors)', backdrop.title, 'Sky Colors');
+ok('screen backdrop opens its picker (Colors)', backdrop.title, 'Colors');
 ok('screen backdrop Back returns to Background', backdrop.back[1], '#/screens/dashboard-sky/sky');
 // SKY LIVELINESS (2026-10-08): a woodland season has its own page now, Back
 // to the seasons; the night sky has one too
@@ -233,7 +234,7 @@ print('\n=== Pages (2026-10-16) ===');
    ['house/calendar', 'page/calendar'], ['house/cameras', 'page/cameras'], ['house/status/water', 'page/water/status'],
    ['house/status/rooms', 'house/rooms/status'], ['house/status', 'page/climate'], ['house/climate', 'page/climate/status'],
    ['features/energy', 'page/energy'], ['features/clean', 'page/vacuums'], ['features/alarm', 'page/security'],
-   ['features/tv', 'page/live_tv'], ['house/appearance/pill/timers', 'page/timers/pill'], ['house/sky/page/water', 'page/water/background'],
+   ['features/tv', 'page/live_tv'], ['house/appearance/pill/timers', 'page/timers/pill'], ['house/sky/page/water', 'house/appearance/sky/page/water'],
    ['accessories/page/vacuums', 'page/vacuums/order']].forEach(function (x) {
     ok(x[0] + ' forwards', M.routeForward(x[0]), x[1]);
   });
@@ -721,6 +722,141 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   localStorage.removeItem('hk-fps');
   kb.glass = 'house';
   ok('opening every one of them wrote nothing', writes.length, 0);
+})();
+
+print('\n=== the Background, one shape in every style; Adjust Photo keeps every treatment (phase 33) ===');
+(function () {
+  load(HK_ROOT + '/frontend/modules/hk-flat-image.js');
+  var I = window.hkFlatImage;
+  if (typeof Image === 'undefined') window.Image = function () { this.complete = false; };
+  var EPr = document.createElement('span').constructor.prototype;
+  if (!('firstChild' in EPr)) Object.defineProperty(EPr, 'firstChild', { configurable: true,
+    get: function () { return this.children[0] || this._fc || (this._fc = document.createElement('svg')); } });
+  if (!EPr.insertBefore) EPr.insertBefore = function (n, ref) { var i = this.children.indexOf(ref); if (i < 0) this.children.push(n); else this.children.splice(i, 0, n); return n; };
+  var pg = Object.create(P), writes = [];
+  pg.p_overview = function () { return 'overview'; };
+  show(pg, { states: {}, entities: {}, devices: {}, areas: { kitchen: { name: 'Kitchen' } }, config: {} });
+  var look = { flat: false, glass: 'blur', flat_colors: { accent: 'auto', off_tint: 'auto' }, flat_page_colors: {}, page_accents: {}, page_pills: {} };
+  // (a screen in Flat with one background for Flat and another for the glass looks, as a house has it)
+  var boards = { 'dashboard-k': { pages: [], glass: 'house', flat: true, sky_flat_background: 'landscapes', sky_background: 'wallpaper', flat_colors: {}, sky: true } };
+  var sky = { background: 'live', pages: {}, flat_pages: {}, page_photos: {}, page_looks: {} };
+  pg.data = { settings: { sky: sky, look: look, menu: { accent: 'orange' }, rooms: {}, generated: {}, headers: {}, status_rows: {}, security: {}, features: {},
+                          weather: {}, calendar: {}, cameras: {}, browse: { hide: [], discover: [] } },
+              choices: { sky_backdrops: [{ id: 'live', label: 'Live Sky' }, { id: 'midnight', label: 'Midnight', day: ['#000', '#111', '#222', '#333'], night: ['#000', '#111', '#222', '#333'] },
+                                         { id: 'dusk', label: 'Dusk', day: ['#000', '#111', '#222', '#333'], night: ['#000', '#111', '#222', '#333'] }],
+                         flat_colors: [{ id: 'stone', label: 'Stone', light: '#EEECE6', dark: '#17181A' }] },
+              counts: {}, kinds: {}, accessories: { pages: {} }, tablets: {},
+              dashboards: [{ path: 'dashboard-k', title: 'Kitchen', item: true, generated: true }],
+              boards: boards, features: {}, popups: [], custom_pages: [], page_kinds: ['climate', 'timeline', 'rooms'], thirdparty: {}, suggest: {} };
+  pg.dash = function (p) { return { path: p, title: 'Kitchen', item: true, generated: true }; };
+  pg.back = function () {}; pg.render = function () {};
+  pg.hasAttribute = function () { return true; };
+  pg.setB = function (path, ch) { writes.push(['b', path, ch]); return Promise.resolve(true); };
+  pg.setH = function (ch) { writes.push(['h', ch]); return Promise.resolve(true); };
+  pg.feat = function () { return { data: null }; };
+  pg.pickers = {}; pg.errors = {}; pg.announce = function () {};
+  var go = function (hash) { return P.resolve.call(pg, hash.replace(/^#\/?/, '').split('/')); };
+  var draw = function (pgx) { var box = document.createElement('div'), err = null;
+    try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
+  var all = function (el, out) { out = out || []; out.push(el); (el.children || []).forEach(function (c) { if (c && typeof c === 'object') all(c, out); }); return out; };
+  var text = function (box) { return all(box).map(function (e) { return e._text || e.textContent || ''; }).join(' | '); };
+  var byFk = function (box, fk) { return all(box).filter(function (e) { return e.attrs && e.attrs['data-fk'] === fk; })[0]; };
+  var bySk = function (box, sk) { return all(box).filter(function (e) { return e.attrs && e.attrs['data-sk'] === sk; })[0]; };
+  var ev = { stopPropagation: function () {}, preventDefault: function () {} };
+  var tap = function (el) { ((el && el._listeners && el._listeners.click) || []).forEach(function (f) { f(ev); }); if (el && typeof el.onclick === 'function') el.onclick(ev); };
+  var on = function (el) { return !!el && el.attrs['aria-checked'] === 'true'; };
+  // EVERY ADDRESS, the old ones too, opens a page that draws, and opening them writes nothing
+  var addrs = [['#/house/appearance/sky', 'Background'], ['#/house/sky', 'Background'], ['#/house/appearance/sky/backdrop', 'Colors'], ['#/house/appearance/sky/color', 'Colors'],
+    ['#/house/appearance/sky/photo', 'Adjust Photo'], ['#/house/appearance/sky/advanced', 'Advanced'], ['#/house/appearance/sky/flat', 'Flat Backgrounds'],
+    ['#/house/appearance/sky/flat/photo', 'Adjust Photo'], ['#/house/appearance/sky/flat/page/climate', 'Climate'], ['#/house/appearance/sky/page/climate', 'Climate'],
+    ['#/house/appearance/sky/page/climate/color', 'Colors'], ['#/house/appearance/sky/page/timeline/photo', 'Adjust Photo'], ['#/house/sky/page/climate', 'Climate'],
+    ['#/page/climate/background', 'Background'], ['#/screens/dashboard-k/sky', 'Background'], ['#/screens/dashboard-k/sky/backdrop', 'Colors'],
+    ['#/screens/dashboard-k/sky/color', 'Colors'], ['#/screens/dashboard-k/sky/photo', 'Adjust Photo'], ['#/screens/dashboard-k/sky/advanced', 'Advanced'],
+    ['#/screens/dashboard-k/sky/page/climate', 'Climate'], ['#/screens/dashboard-k/sky/page/climate/photo', 'Adjust Photo']];
+  addrs.forEach(function (a) { var r = go(a[0]); ok(a[0] + ' opens ' + a[1] + ' and draws', JSON.stringify([r.title, draw(r).err]), JSON.stringify([a[1], null])); });
+  ok('...opening every one of them wrote nothing', writes.length, 0);
+  // ONE SHAPE: the picker of five, every page and Rooms at both levels, Advanced, Reset Background...
+  var shape = function (h) { var t = text(draw(go(h)).box); return ['Background', 'Climate', 'Timeline', 'Room Pages', 'Advanced', 'Reset Background…'].every(
+    function (w) { return t.indexOf(w) >= 0; }); };
+  ok('All Screens’ Background (Glass): the picker, every page and Rooms, Advanced, Reset Background…', shape('#/house/appearance/sky'), true);
+  ok('...a Flat screen’s the same', shape('#/screens/dashboard-k/sky'), true);
+  ok('...and All Screens’ Flat one', shape('#/house/appearance/sky/flat'), true);
+  ok('no Reset to Defaults, no Sky Colors, no Page Color left', /Reset to Defaults|Sky Colors|Page Color|Image Look|Starting Points/.test(
+    addrs.map(function (a) { return text(draw(go(a[0])).box); }).join(' ')), false);
+  // FLAT KEEPS ITS OWN: the Flat screen shows its Flat choice (Landscapes), never its glass one (Wallpaper)
+  var kb = draw(go('#/screens/dashboard-k/sky')).box;
+  ok('a Flat screen with Landscapes for Flat and Wallpaper for Glass shows Landscapes', [bySk(kb, 'b:sky_flat_background') && text(bySk(kb, 'b:sky_flat_background')).indexOf('Landscapes') >= 0,
+    !!byFk(kb, 'bland:wake'), !byFk(kb, 'bwall:ribbons')].join(), 'true,true,true');
+  ok('...with Adjust Photo under it', !!byFk(kb, 'sky:adjust'), true);
+  // FLAT TAKES THE LIVE SKY AND A WALLPAPER (new): its own store
+  boards['dashboard-k'].sky_flat_background = 'live';
+  kb = draw(go('#/screens/dashboard-k/sky')).box;
+  ok('Flat over the Live Sky: the Live Sky’s own settings', ['Animations', 'Weather', 'Clouds', 'Daytime Sky', 'Colors', 'Seasonal Decorations'].every(function (w) {
+    return text(kb).indexOf(w) >= 0; }), true);
+  boards['dashboard-k'].sky_flat_background = 'wallpaper';
+  ok('Flat over a Wallpaper: the wallpapers', bySk(draw(go('#/screens/dashboard-k/sky')).box, 'b:sky_flat_background') && /Wallpaper/.test(text(draw(go('#/screens/dashboard-k/sky')).box)), true);
+  boards['dashboard-k'].sky_flat_background = 'landscapes';
+  var pp = draw(go('#/screens/dashboard-k/sky/page/climate')).box;
+  ok('a Flat page offers every background', ['live', 'color', 'photo', 'landscapes', 'wallpaper'].every(function (k) { return !!byFk(pp, 'fpbd:climate:' + k); }), true);
+  tap(byFk(pp, 'fpbd:climate:live'));
+  ok('...the Live Sky stored in Flat’s own pages', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { sky_flat_pages: { climate: 'live' } }]));
+  // THE ONE IDIOM: a screen's switch set back to All Screens' value follows again
+  boards['dashboard-k'].flat = false; boards['dashboard-k'].sky_background = 'live';
+  kb = draw(go('#/screens/dashboard-k/sky')).box;
+  var wt = bySk(kb, 'b:sky_weather');
+  ok('a screen’s row says whose it is', text(wt).indexOf('Same as All Screens') >= 0, true);
+  tap(byFk(wt, 'b:sky_weather'));
+  ok('...turned off, it is the screen’s own', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { sky_weather: false }]));
+  boards['dashboard-k'].sky_weather = false;
+  wt = bySk(draw(go('#/screens/dashboard-k/sky')).box, 'b:sky_weather');
+  tap(byFk(wt, 'b:sky_weather'));
+  ok('...turned back to All Screens’ value, it follows All Screens again', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { sky_weather: null }]));
+  delete boards['dashboard-k'].sky_weather;
+  // ADJUST PHOTO, CARRIED OVER: All Screens' landscape look stored the old way shows the same values
+  sky.background = 'landscapes'; sky.landscape_look = { blur: 0, dim: 55, saturation: 100, tint: '', tint_amount: 35 };
+  var ap = draw(go('#/house/appearance/sky/photo')).box;
+  ok('Adjust Photo (Glass, Landscapes): All Screens’ landscape look as stored -- Blur 0, Dim 55, Saturation 100, no Color Tint',
+     [byFk(ap, 'sky.landscape_look:blur').value, byFk(ap, 'sky.landscape_look:dim').value, byFk(ap, 'sky.landscape_look:saturation').value].join(), '0,55,100');
+  ok('...its groups: Starting Point, Blur & Dim, Color', ['Starting Point', 'Blur & Dim', 'Color'].every(function (w) { return text(ap).indexOf(w) >= 0; }), true);
+  ok('...the starting point Off (nothing stored)', on(byFk(ap, 'fi:legacy')), true);
+  tap(byFk(ap, 'sky.landscape_look:dim')); // (a range: changed by its change event, not a tap -- nothing written)
+  ok('...nothing written by opening it', writes.length, 0);
+  // EVERY PRESET STILL SELECTABLE, AND APPLIED AS IT WAS
+  var presets = { legacy: { mode: 'legacy' }, original: { mode: 'original' }, soft: I.presets.soft, balanced: I.presets.balanced, rich: I.presets.rich, washed: I.presets.washed };
+  Object.keys(presets).forEach(function (name) {
+    tap(byFk(draw(go('#/house/appearance/sky/photo')).box, 'fi:' + name));
+    ok('Glass: ' + name + ' chosen writes it', JSON.stringify(writes.pop()), JSON.stringify(['h', { 'sky.image_look.patch': presets[name] }]));
+  });
+  sky.image_look = Object.assign({}, I.presets.balanced);
+  ap = draw(go('#/house/appearance/sky/photo')).box;
+  ok('Glass: Balanced stored is Balanced, its sliders shown', [on(byFk(ap, 'fi:balanced')), byFk(ap, 'sky.image_look:strength').value, byFk(ap, 'sky.image_look:fade').value].join(), 'true,80,35');
+  var sp = draw(go('#/screens/dashboard-k/sky/photo')).box;
+  ok('...a screen follows it: "Same as All Screens (Balanced)" first, checked', [text(byFk(sp, 'fi:follow')).indexOf('Same as All Screens (Balanced)') >= 0, on(byFk(sp, 'fi:follow'))].join(),
+    'true,true');
+  delete sky.image_look; delete sky.landscape_look; sky.background = 'live';
+  // FLAT: a starting point stored as a preset, and the older Fade and Tint
+  look.flat = true; sky.flat_background = 'photo'; sky.photo = '/local/p.jpg';
+  sky.flat_image_look = Object.assign({}, I.presets.rich);
+  ap = draw(go('#/house/appearance/sky/photo')).box;
+  ok('Flat: Rich stored is Rich, with its sliders', [on(byFk(ap, 'fi:rich')), byFk(ap, 'sky.flat_image_look:depth').value, byFk(ap, 'sky.flat_image_look:brightness').value].join(), 'true,85,-5');
+  ok('...no glass Blur & Dim in Flat (it never drew them)', text(ap).indexOf('Blur & Dim') < 0, true);
+  Object.keys(presets).forEach(function (name) {
+    tap(byFk(draw(go('#/house/appearance/sky/photo')).box, 'fi:' + name));
+    ok('Flat: ' + name + ' chosen writes it', JSON.stringify(writes.pop()), JSON.stringify(['h', { 'sky.flat_image_look.patch': presets[name] }]));
+  });
+  delete sky.flat_image_look;
+  sky.flat_fade = 40; sky.flat_tint = '#112233'; sky.flat_tint_amount = 70; sky.flat_tint_light = 30;
+  ap = draw(go('#/house/appearance/sky/photo')).box;
+  ok('Flat’s Previous Look: its Fade, Tint, Tint Color, Tint Strength and Tint Brightness as stored', [on(byFk(ap, 'fi:legacy')), byFk(ap, 'sky.flat_fade').value,
+     !!byFk(ap, 'sky.flat_tint:color'), byFk(ap, 'sky.flat_tint_amount').value, byFk(ap, 'sky.flat_tint_light').value].join(), 'true,40,true,70,30');
+  var pa = draw(go('#/house/appearance/sky/page/timeline/photo')).box;
+  ok('...a page’s Adjust Photo in Flat: its own starting point, following All Screens', on(byFk(pa, 'fi:follow')), true);
+  tap(byFk(pa, 'fi:soft'));
+  // (Previous Look's own Tint Color carried into the starting point's Color, as choosing one always did)
+  ok('...chosen there, stored for that page alone', JSON.stringify(writes.pop()),
+    JSON.stringify(['h', { 'sky.flat_page_image_looks.timeline': Object.assign({}, I.presets.soft, { color: '#112233' }) }]));
+  ok('opening them wrote nothing else', writes.length, 0);
+  look.flat = false;
 })();
 
 print('\n=== the clock recommendation on the kit’s recommend (2026-10-29) ===');

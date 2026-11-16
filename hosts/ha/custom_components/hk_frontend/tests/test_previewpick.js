@@ -65,9 +65,10 @@ ok('the Screensaver page picks no look: the editor does', /sk: 'saver:clock_bg'|
 // ...but the forecast where it comes in as a slide (2026-11-01, the owner: "no way of setting Big layout for forecast
 // with Photos"): Classic and Big Weather, each pictured
 ok('the Forecast slide\'s Layout: Classic and Big Weather', /K\.previewPick\(\{ label: 'Layout', sk: 'saver:forecast_layout'[\s\S]{0,200}v === 'big' \? 'weather' : 'forecast'/.test(SRC), true);
-ok('the sky’s Background, for All Screens and for a screen, and Flat’s', [/K\.previewPick\(\{ label: 'Background', sk: 'sky\.background'/.test(SRC),
-  /K\.previewPick\(\{ label: 'Background', sub: ownMode/.test(SRC),
-   /K\.previewPick\(\{ label: 'Background', sub: b \? \(own/.test(SRC)], [true, true, true]);
+// (phase 33: one Background page for All Screens and a screen, the glass looks and Flat -- the five, each pictured)
+ok('the sky’s Background, for All Screens and for a screen, and Flat’s: one picker of the five',
+   [/K\.previewPick\(\{ label: 'Background', sub: o\.whose\(!!o\.ownMode\), sk: o\.sk\(o\.modeKey\), value: mode, options: M\.SKY_BACKGROUNDS/.test(SRC),
+    (SRC.match(/K\.previewPick\(\{ label: 'Background'/g) || []).length], [true, 1]);
 ok('...none of them a segmented control or a pop-up menu any more', /K\.(seg|select)\(\{ label: '(Background|Look|Forecast Layout)', (sk|sub)/.test(SRC), false);
 
 print(fail ? 'FAIL ' + fail + ' PREVIEW PICK TESTS' : 'ALL ' + pass + ' PREVIEW PICK TESTS PASS');

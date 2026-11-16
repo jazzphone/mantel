@@ -274,7 +274,7 @@
     // stored value each (look.glass / a screen's glass): clear, frosted, blur
     // (Shared Layer), blur_pre (Pre-rendered), blur_each (Each Card)
     var GLASS_STYLES = [
-      ['flat', 'Flat', 'A clean, opaque look designed for smoother performance. No blur and no live sky effects. Especially useful on slower tablets, with Motion off as well.'],
+      ['flat', 'Flat', 'A clean, opaque look designed for smoother performance: no blur. Especially useful on slower tablets with a still background, and Motion off as well.'],
       ['clear', 'Clear Glass', 'The original see-through glass. The status chips blur what’s behind them.'],
       ['frosted', 'Frosted', 'A milky material with no blur. Costs nothing per frame on any device.'],
       ['tinted', 'Tinted', 'The Home app’s dark plate, with no blur anywhere on the page. The lightest on any device; sheets and pop-ups still blur while open.'],
@@ -324,7 +324,7 @@
       ['glass', 'Glass', 'See-through glass over the background: Clear, Blurred, or Bright to bring out the colors behind it.'],
       ['frosted', 'Frosted', 'A milky material with no blur. Costs nothing per frame on any device.'],
       ['tinted', 'Tinted', 'The Home app’s dark plate, with no blur anywhere on the page. The lightest on any device; sheets and pop-ups still blur while open.'],
-      ['flat', 'Flat', 'A clean, opaque look for smoother performance: no blur and no live sky effects. Useful on slower tablets, with Motion off as well.']
+      ['flat', 'Flat', 'A clean, opaque look for smoother performance: no blur. Useful on slower tablets with a still background, and Motion off as well.']
     ];
     var GLASS_KINDS = [['clear', 'Clear'], ['blur', 'Blurred'], ['bright', 'Bright']];
     // the style a stored value is one of ('flat' for Flat), and Glass's kind
@@ -493,8 +493,8 @@
         else if (p[1] === 'menu' && p[2] === 'status') out = 'house/rooms/status';
         // APPEARANCE AND MENU, REORGANIZED (2026-10-29): Sky / Background
         // under Appearance; one Accent Color there; each kind of menu a page
-        else if (p[1] === 'sky' && !(p[2] === 'page' && pageOf(p[3]))) out = ['house', 'appearance', 'sky'].concat(p.slice(2)).join('/');
-        else if (p[1] === 'appearance' && p[2] === 'sky' && p[3] === 'page' && pageOf(p[4])) out = 'page/' + p[4] + '/background';
+        // (a page's background is under Background -> Pages again since phase 33, every page listed there)
+        else if (p[1] === 'sky') out = ['house', 'appearance', 'sky'].concat(p.slice(2)).join('/');
         else if (p[1] === 'menu' && p[2] === 'accent') out = 'house/appearance/accent';
         // FLAT COLORS, TAKEN APART (phase 33): each old address to where its setting is now -- the general ones on
         // Appearance (Accent Color, Pages Keep Their Own Colors, Tiles When Off), a page's in its Look group (its Page
@@ -502,7 +502,6 @@
         else if (p[1] === 'appearance' && p[2] === 'flat-colors') out = flatColorsForward('house/appearance', p.slice(3), true);
         else if (p[1] === 'menu' && (p[2] === 'tablets' || p[2] === 'phones')) out = p[3] === 'style' ? 'house/menu/side/' + p[2] : 'house/menu';
         else if (p[1] === 'appearance' && p[2] === 'pill' && pageOf(p[3])) out = 'page/' + p[3] + '/pill';
-        else if (p[1] === 'sky' && p[2] === 'page' && pageOf(p[3])) out = 'page/' + p[3] + '/background';
       } else if (p[0] === 'screens' && p[1] && p[2] === 'flat-colors') {
         out = flatColorsForward('screens/' + p[1], p.slice(3), false);
       } else if (p[0] === 'screens' && p[1] && p[2] === 'menu' && p[3] === 'accent' && !p[4]) {

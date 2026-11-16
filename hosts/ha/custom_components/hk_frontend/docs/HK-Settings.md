@@ -243,44 +243,42 @@ optional, and each has a fallback.
 
 ## Sky / Background
 
-**All Screens → Appearance → Sky / Background** starts with the **Background**: **Live
+**Background** (its own row in the sidebar) starts with the **Background**: **Live
 Sky** (the moving sky), **Color** (a still color, by day and by night),
-**Photo** (a photo of your own) or **Landscapes** (HK Frontend’s own photos:
+**Photo** (a photo of your own), **Landscapes** (HK Frontend’s own photos:
 a new one each time the screen wakes, on a schedule, or the same one, with
-**Choose a Landscape**). Below it are only that choice’s settings.
+**Choose a Landscape**) or **Wallpaper**. The page has the same shape in every
+style, Flat included (Flat keeps its own choice; its Color is its solid tones,
+and Flat over the Live Sky or a Wallpaper draws them behind its solid cards).
+Below it are only that choice’s settings.
 For the live sky: whether it animates (and, while it does, whether it holds
 still when the window isn’t in focus, **Pause When Not in Focus**, and whether
 its **Moving Things** pass behind the cards or in front of them), shows weather
 (and its falling **Rain & Snow**), how its clouds look (**Clouds**: Classic or
 Realistic), how bright its midday blue runs (**Daytime Sky**: Natural,
-Balanced or Deep) and its **Sky Colors** (Live Sky, eight curated palettes,
-Black, and Custom with four Day colors and four Night colors). Then seasonal
-decorations, **Liveliness** -- how many little moving things, and how often
-the crossers come -- one choice for every decoration, woodland season and the
-night sky, or Custom for each its own
-([Seasonal Decorations](Seasonal-Decorations.md#liveliness)) -- and the **Sky
-Switch**. For a photo or the Landscapes, its **Look** (Blur, Dim, Saturation
-and a Color Tint) and **Reset to Default**. At the foot, **Reset to
-Defaults…** puts the whole page back, leaving the Pages’ own backgrounds
-([Reset to Defaults](Live-Sky.md#reset-to-defaults)). **Pages** sets each page’s background, and
-**Room Pages** each room’s own, with its own Look
-([The live sky](Live-Sky.md)).
+Balanced or Deep), its **Colors** (Live Sky, the curated palettes, Black, and
+Custom with four Day colors and four Night colors), and **Seasonal
+Decorations**, with their **Liveliness**
+([Seasonal Decorations](Seasonal-Decorations.md#liveliness)). A Color opens
+the same **Colors** page. For a photo or the Landscapes, **Adjust Photo**: its
+Starting Point (Off or Previous Look, Original, Soft, Balanced, Rich, Washed,
+Custom) and their sliders, Blur & Dim, and Color
+([Starting Point](Live-Sky.md#starting-point)). **Pages** sets every page’s
+background, and **Room Pages** each room’s own. **Advanced** has the
+hemisphere, the sources and the **Sky Switch**. At the foot, **Reset
+Background…** puts the whole page back, leaving the Pages’ own backgrounds
+([Reset Background](Live-Sky.md#reset-background); [The live sky](Live-Sky.md)).
 
-A screen has the same choice under **Appearance → Sky / Background**:
-**Background** reads **Same as All Screens** until you choose one, then **Just
-This Screen**, and **Reset to All Screens** follows All Screens again. A
-Color, a Photo or a Landscape can be its own, too, and **Reset to
-Defaults…** puts the whole page back to Same as All Screens. With the Live Sky, it has the same
-controls, plus its own **Liveliness** (Same as All Screens, a preset for every
-occasion, or Custom for each) and **Calm When Nobody’s Around**. Its Clouds,
-Daytime Sky, Decoration Style and Moving Things are the same tabs as All
-Screens’, saying **Same as All Screens** until changed; **Reset to All
-Screens** follows them again. Each flag reads **Same as All Screens** until
-changed, then **Just This Screen**; **Reset to All Screens (On)** follows All
-Screens again. Its **Sky Colors** offers **Same as All Screens** or colors just
-for that screen. Copy Settings includes these appearance settings.
-See [Live Sky](Live-Sky.md#the-background) for the three Backgrounds and
-[Choose its look](Live-Sky.md#choose-its-look) for what each switch changes.
+A screen has the same page under its **Background**: each row reads **Same as
+All Screens** until changed, then **Just This Screen**. A menu’s first choice
+is **Same as All Screens (Classic)**, a switch set back to All Screens’ value
+follows All Screens again, and a choice page (Colors, Adjust Photo’s Starting
+Point) starts with **Same as All Screens (…)**; **Reset Background…** puts the
+whole page back to Same as All Screens. With the Live Sky it has its own
+**Liveliness** and **Calm When Nobody’s Around** too. Copy Settings includes
+these appearance settings. See [Live Sky](Live-Sky.md#the-background) for the
+Backgrounds and [Choose its look](Live-Sky.md#choose-its-look) for what each
+switch changes.
 
 ### Music → Now Playing
 
