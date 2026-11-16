@@ -781,8 +781,12 @@ print('\n=== the Background, one shape in every style; Adjust Photo keeps every 
   ok('All Screens’ Background (Glass): the picker, every page and Rooms, Advanced, Reset Background…', shape('#/house/appearance/sky'), true);
   ok('...a Flat screen’s the same', shape('#/screens/dashboard-k/sky'), true);
   ok('...and All Screens’ Flat one', shape('#/house/appearance/sky/flat'), true);
-  ok('no Reset to Defaults, no Sky Colors, no Page Color left', /Reset to Defaults|Sky Colors|Page Color|Image Look|Starting Points/.test(
+  // ("Page Color" is a page's own color since phase 33 -- the Flat page backgrounds link to it -- so the old Glass mode is
+  // looked for as a choice row: none is called that)
+  ok('no Reset to Defaults, no Sky Colors, no Image Look or Starting Points left', /Reset to Defaults|Sky Colors|Image Look|Starting Points/.test(
     addrs.map(function (a) { return text(draw(go(a[0])).box); }).join(' ')), false);
+  var gc = text(draw(go('#/house/appearance/sky/page/climate')).box);
+  ok('...and a Glass page’s own sky is Its Own Sky, never Page Color', /Its Own Sky/.test(gc) && !/Page Color/.test(gc), true);
   // FLAT KEEPS ITS OWN: the Flat screen shows its Flat choice (Landscapes), never its glass one (Wallpaper)
   var kb = draw(go('#/screens/dashboard-k/sky')).box;
   ok('a Flat screen with Landscapes for Flat and Wallpaper for Glass shows Landscapes', [bySk(kb, 'b:sky_flat_background') && text(bySk(kb, 'b:sky_flat_background')).indexOf('Landscapes') >= 0,
