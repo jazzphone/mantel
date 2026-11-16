@@ -557,7 +557,7 @@
         if (!f || !q || !q.attributes || !q.attributes.homepod) return;        // (a host with no reader of its own: nothing to say)
         if (f.state === 'off') {
           c.appendChild(
-            K.group({ header: 'HomePod Timers', footer: 'Timers and alarms set with Siri on a HomePod show here once the HomePod timer reader is set up in Connections.' }, []));
+            K.group({ header: 'HomePod Timers', footer: 'Timers and alarms set with Siri on a HomePod show here once HelperPod is set up in Connections.' }, []));
           return;
         }
         var says = { ok: 'Reading', starting: 'Connecting', unavailable: 'Unavailable' }[f.state] || f.state;

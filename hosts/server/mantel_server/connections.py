@@ -54,8 +54,8 @@ reconnects at once with the new values; pages connected to Mantel keep their soc
 allowlist: to HA ``auth``, ``auth/current_user``, ``get_states`` (counted, then dropped) and, only when saving an
 OAuth connection, ``auth/long_lived_access_token``; to MA ``auth`` (or ``auth/login`` + ``auth/token/create``).
 
-**Two more kinds** connect Mantel to the house's own helpers: the HomePod Timer Reader (``homepod``, an address and its
-token; features/homepod_timers.py) and AirPlay Groups (``airplay_groups``, ma-airplay-groups' read-only status page: an
+**Two more kinds** connect Mantel to the house's own helpers: HelperPod, the HomePod timer reader (``homepod``, an address and its
+token, or a 6-digit pairing code HelperPod shows, which Save trades for the token; features/homepod_timers.py) and AirPlay Groups (``airplay_groups``, ma-airplay-groups' read-only status page: an
 address only, tested by reading its ``/status.json``; features/airplay_groups.py). Each has its own page, which status
 links to (``dashboard``).
 """
@@ -89,7 +89,7 @@ from .identity.sessions import Identity, error, ok
 log = logging.getLogger("mantel.connections")
 
 KINDS = ("ha", "ma", "homepod", "airplay_groups")
-LABEL = {"ha": "Home Assistant", "ma": "Music Assistant", "homepod": "HomePod Timer Reader", "airplay_groups": "AirPlay Groups"}
+LABEL = {"ha": "Home Assistant", "ma": "Music Assistant", "homepod": "HelperPod", "airplay_groups": "AirPlay Groups"}
 EXAMPLE = {"ha": "http://homeassistant.local:8123", "ma": "http://music-assistant.local:8095", "homepod": "http://192.0.2.10:8787",
            "airplay_groups": "http://192.0.2.10:54398"}
 NO_TOKEN = ("airplay_groups",)      # an address only: ma-airplay-groups' status page is read-only and takes no token
@@ -106,6 +106,7 @@ TOKEN_NAME = "Mantel Server ({stamp})"
 HA_LLAT_DAYS = 3650
 MA_TOKEN_DAYS = 365          # MA: long-lived tokens expire a year after they are made
 PRINTABLE = re.compile(r"^[\x21-\x7e]+$")
+PAIRING_CODE = re.compile(r"^\s*(\d{3})[\s-]?(\d{3})\s*$")   # HelperPod's pairing code, "123 456"
 
 
 class ConnectionFailed(Exception):
@@ -330,25 +331,67 @@ async def ma_login_token(http: aiohttp.ClientSession, url: str, username: str, p
     return await ma_run(http, url, body)
 
 
-async def test_homepod(http: aiohttp.ClientSession, url: str, token: str) -> dict:
-    """The HomePod timer reader (docs/phase28/HOMEPOD-TIMERS.md): its status answers, and it takes the token. The token is
-    tried on a check of a HomePod that can't exist: a wrong token is refused (401) before the reader looks (404)."""
+async def test_homepod(http: aiohttp.ClientSession, url: str, token: str | None) -> dict:
+    """HelperPod, the HomePod timer reader (docs/phase28/HOMEPOD-TIMERS.md): its status answers, and it takes the token.
+    The token is tried on a check of a HomePod that can't exist: a wrong token is refused (401) before the reader looks
+    (404). None: the status only (a pairing code's Test, before there is a token)."""
     timeout = aiohttp.ClientTimeout(total=TIMEOUT)
     try:
         async with http.get(url + "/status.json", allow_redirects=False, timeout=timeout) as r:
             body = await r.json(content_type=None) if r.status == 200 else None
         if not isinstance(body, dict) or not isinstance(body.get("homepods"), list):
-            raise ConnectionFailed("not_the_reader", "That address answered, but not as the HomePod timer reader does.")
+            raise ConnectionFailed("not_the_reader", "That address answered, but not as HelperPod does.")
+        if token is None:
+            return {"user": None, "version": None, "homepods": len(body["homepods"]), "broken": body.get("broken") is True}
         async with http.post(url + "/check", params={"tile": "mantel-connection-test"}, allow_redirects=False, timeout=timeout,
                              headers={"Authorization": f"Bearer {token}"}) as r:
             status = r.status
     except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as exc:
         raise _reach_error("homepod", url, exc) from None
     if status == 401:
-        raise ConnectionFailed("token_rejected", "The reader refused that token. Copy it from the Token card on the reader's page.")
+        raise ConnectionFailed("token_rejected", "HelperPod refused that token. Type the pairing code HelperPod shows instead, "
+                               "or copy the token again from its Settings (Mantel) or its page.")
     if status not in (200, 404):
-        raise ConnectionFailed("not_the_reader", "That address answered, but not as the HomePod timer reader does.")
+        raise ConnectionFailed("not_the_reader", "That address answered, but not as HelperPod does.")
     return {"user": None, "version": None, "homepods": len(body["homepods"]), "broken": body.get("broken") is True}
+
+
+def pairing_code(raw: object) -> str | None:
+    """HelperPod's 6-digit pairing code as typed ("123 456", "123-456"), or None for anything else (a token)."""
+    m = PAIRING_CODE.match(raw) if isinstance(raw, str) else None
+    return m.group(1) + m.group(2) if m else None
+
+
+async def pair_homepod(http: aiohttp.ClientSession, url: str, code: str, check: bool) -> str | None:
+    """HelperPod's pairing (2.2.1, its pair.swift): POST /pair with the code it shows. ``check``: only whether the code is
+    right (Test; the code stays good), None back. Otherwise the code is used up and HelperPod's token comes back."""
+    try:
+        async with http.post(url + "/pair", json={"code": code, "name": "Mantel", "check": check}, allow_redirects=False,
+                             timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as r:
+            status = r.status
+            body = await r.json(content_type=None) if r.content_length != 0 else None
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as exc:
+        raise _reach_error("homepod", url, exc) from None
+    err = body.get("error") if isinstance(body, dict) else None
+    if status == 200 and isinstance(body, dict) and body.get("ok") is True:
+        if check:
+            return None
+        token = body.get("token")
+        if isinstance(token, str) and token and len(token) <= MAX_TOKEN and PRINTABLE.match(token):
+            return token
+    elif status == 429:
+        wait = body.get("retry_s") if isinstance(body, dict) and isinstance(body.get("retry_s"), int) else 60
+        raise ConnectionFailed("code_locked", f"Too many wrong codes, so HelperPod stopped pairing for a minute. In {wait} "
+                               "seconds, show a new code in HelperPod and type that.")
+    elif status == 401 and err == "no_code":
+        raise ConnectionFailed("code_expired", "HelperPod isn't showing a pairing code now (a code lasts 10 minutes and works "
+                               "once). Show a new one in HelperPod and type it here.")
+    elif status == 401 and err == "code":
+        raise ConnectionFailed("code_rejected", "That isn't the code HelperPod shows. Check it, or show a new one.")
+    elif status in (401, 404, 405):
+        raise ConnectionFailed("pairing_unsupported", "This HelperPod can't pair (it is older than 2.2.1). Paste its token "
+                               "instead, or update it.")
+    raise ConnectionFailed("not_the_reader", "That address answered, but not as HelperPod does.")
 
 
 async def test_airplay_groups(http: aiohttp.ClientSession, url: str) -> dict:
@@ -375,6 +418,7 @@ class Record:
     url: str
     token: str = field(repr=False)
     method: str                        # "token" (pasted) | "oauth" (HA sign-in) | "login" (MA sign-in) | "address" (no token)
+                                       # | "pairing" (HelperPod's code, traded for its token)
     since: float
     user: dict | None = None           # who Mantel is connected as: {id, name, is_admin}
     by: str | None = None              # the Mantel user who saved it
@@ -772,6 +816,15 @@ async def _test(request: web.Request, kind: str, body: dict, create: bool) -> tu
         return url, token, got, "login"
     if kind in NO_TOKEN:
         return url, None, await test_airplay_groups(http, url), "address"
+    code = pairing_code(body.get("token")) if kind == "homepod" else None
+    if code is not None:
+        # HelperPod's pairing code: Test only checks it (it stays good for Save); Save trades it for the token
+        if not create:
+            result = await test_homepod(http, url, None)
+            await pair_homepod(http, url, code, check=True)
+            return url, None, result, "pairing"
+        token = await pair_homepod(http, url, code, check=False)
+        return url, token, await test_homepod(http, url, token), "pairing"
     token = clean_token(body.get("token"))
     result = await (test_ha(http, url, token) if kind == "ha" else test_ma(http, url, token) if kind == "ma"
                     else test_homepod(http, url, token))

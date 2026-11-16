@@ -11,10 +11,11 @@ import { pProtect, protectRow } from './protect.js';
 
 // ============================================================================================ Connections
 const SOURCE_LABEL = { app: 'Provided by Home Assistant (App)', mantel: 'Saved in Mantel', install: 'Set by the Installation' };
-const METHOD_LABEL = { oauth: 'Home Assistant sign-in', token: 'pasted token', login: 'Music Assistant sign-in', address: 'address only' };
+const METHOD_LABEL = { oauth: 'Home Assistant sign-in', token: 'pasted token', login: 'Music Assistant sign-in', address: 'address only',
+  pairing: 'pairing code' };
 const PLACEHOLDER = { ha: 'http://homeassistant.local:8123', ma: 'http://music-assistant.local:8095', homepod: 'http://192.0.2.10:8787',
                       airplay_groups: 'http://192.0.2.10:54398' };
-const PAGE_LABEL = { homepod: 'Open the Reader’s Page', airplay_groups: 'Open the Status Page' };
+const PAGE_LABEL = { homepod: 'Open HelperPod’s Page', airplay_groups: 'Open the Status Page' };
 // AIRPLAY GROUPS (hk_core.music.airplay_groups): what its status page says, in a few words for the Connections row
 const plural = (n, one) => n + ' ' + one + (n === 1 ? '' : 's');
 function groupsSays(g) {
@@ -274,9 +275,10 @@ function pConnection(kind) {
       return;
     }
     if (kind === 'homepod') {
-      // THE HOMEPOD TIMER READER (phase 28): its address and the token from its page's Token card, nothing else
-      c.appendChild(group({ header: 'Its Token', footer: 'Copy it from the reader’s Token card. Reading needs none; pausing a timer or turning an alarm off does.' }, [
-        field('conn-homepod', 'token', 'Token', { type: 'password', maxlength: 4096 }),
+      // HELPERPOD, THE HOMEPOD TIMER READER (phase 28): its address, then the 6-digit pairing code it shows (Save trades it
+      // for HelperPod's token), or the token itself
+      c.appendChild(group({ header: 'Pairing Code or Token', footer: 'HelperPod shows a 6-digit pairing code: in its Settings (Mantel), its setup assistant and its page. Type it here; it works once and lasts 10 minutes. Or paste HelperPod’s token.' }, [
+        field('conn-homepod', 'token', 'Code or Token', { type: 'password', maxlength: 4096 }),
         button('Test', test('token'), { fk: 'mx:homepod-token-test' }), button('Save', save('token'), { fk: 'mx:homepod-token-save' })]));
       if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
       if (set) c.appendChild(group({}, [button('Cancel', () => { clearDraft('conn-' + kind); delete shown['test:' + kind]; redraw(); }, { fk: 'mx:replace-cancel' })]));

@@ -366,7 +366,7 @@ async def test_the_reader_is_a_connection_of_its_own(gw):
     await gw.login("avery", "owner")
     r = await gw.m.client.get("/api/connections")
     body = await r.json()
-    assert body["connections"]["homepod"]["state"] == "not_set_up" and body["connections"]["homepod"]["label"] == "HomePod Timer Reader"
+    assert body["connections"]["homepod"]["state"] == "not_set_up" and body["connections"]["homepod"]["label"] == "HelperPod"
     assert gw.m.app["homepod_timers"].availability() == "off"
 
 
