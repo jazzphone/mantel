@@ -5,8 +5,8 @@
 // Brightness, Scale, Screen Rotation, What's on the Screen), Reload -- and on its Advanced page (the app, AirPlay,
 // Graphics, Developer, Copy Settings); the app's updates and what every tablet is set to are the page Mantel for Android.
 // @ts-check
-import { act, api, C, cache, can, hh, K, load, me, panel, redraw } from './core.js';
-import { button, draft, field, flashRow, group, info, result } from './kit.js';
+import { act, api, ApiError, ask, C, cache, can, hh, K, load, me, panel, redraw } from './core.js';
+import { button, draft, field, group, info, result } from './kit.js';
 import { drawAppRelease } from './tablet-release.js';
 
 const devicesRead = () => load('devices', () => api('GET', '/api/devices'));
@@ -23,7 +23,9 @@ const SHOWN = new Set(['screen', 'brightness', 'curtain', 'kiosk_mode', 'rotatio
                        'wireless_debugging', 'renderer', 'render_size']);
 function hold(id, command, value) {
   const got = cache['tablet-app:' + id];
-  if (got && got.data && got.data.status && SHOWN.has(command)) got.data = { ...got.data, status: { ...got.data.status, [command]: value } };
+  if (!got || !got.data || !got.data.status) return;
+  if (SHOWN.has(command)) got.data = { ...got.data, status: { ...got.data.status, [command]: value } };
+  else if (command === 'airplay_name') got.data = { ...got.data, status: { ...got.data.status, airplay_name_own: value } };
 }
 function took(id, r) {
   const got = cache['tablet-app:' + id];
@@ -71,9 +73,14 @@ const AIRPLAY_OFFERS = [['airplay_mirroring', 'Screen Mirroring', 'Fills the scr
 
 function drawAirPlay(c, st, send, off, id) {
   const rows = [K().toggle({ label: 'AirPlay', on: !!st.airplay, disabled: off, fk: 'mx:app-airplay:' + id,
-                             sub: st.airplay_name ? 'As “' + st.airplay_name + '”' : null,
-                             onChange: (on) => send('airplay', on, on ? 'AirPlay on.' : 'AirPlay off.') })];
+                             onChange: (on) => send('airplay', on, null) })];
   if (st.airplay) {
+    // ITS NAME (the owner, 2026-11-16): what an iPhone lists it as; empty, the app's own name for the tablet
+    if (typeof st.airplay_name_own === 'string') {
+      rows.push(K().text({ label: 'Name', value: st.airplay_name_own, placeholder: st.airplay_name_own ? '' : st.airplay_name || '', maxlength: 40,
+                           fk: 'mx:app-airplay-name:' + id,
+                           onCommit: (v) => send('airplay_name', v.trim(), 'Renamed') }));
+    } else rows.push(info('Name', 'Update Mantel for Android to rename it.', st.airplay_name || ''));
     for (const [cmd, label, sub] of AIRPLAY_OFFERS) {
       rows.push(K().toggle({ label, sub, on: st[cmd] !== false, disabled: off, fk: 'mx:app-' + cmd + ':' + id,
                              onChange: (on) => send(cmd, on, null) }));
@@ -81,7 +88,8 @@ function drawAirPlay(c, st, send, off, id) {
     if (st.airplay_state) rows.push(info('Now', null, st.airplay_state));
   }
   c.appendChild(group({ header: 'AirPlay', footer: 'An iPhone, iPad or Mac on the home network can mirror its screen to the '
-    + 'tablet, send it a video or play sound to it. A mirror or a video keeps the screen on until it ends.' }, rows));
+    + 'tablet, send it a video or play sound to it' + (st.airplay && st.airplay_name ? ', choosing “' + st.airplay_name + '”' : '')
+    + '. A mirror or a video keeps the screen on until it ends.' }, rows));
 }
 
 // THE TABLET'S OWN OPTIONS (the owner, 2026-11-13: "keep tablet awake and such should be options ... but on by
@@ -103,7 +111,7 @@ function displayOptions(rows, st, send, off, id) {
   rows.push(K().select({ label: 'Scale', sub: 'Everything on the screen larger or smaller; the page loads again',
                          options: SCALES.map((v) => [String(v), v + '%' + (v === 100 ? ' (Mantel’s Own)' : ''), v + '%']),
                          value: String(scale), disabled: off, fk: 'mx:app-scale:' + id,
-                         onChange: (v) => send('scale', Number(v), 'Scale ' + v + '%.') }));
+                         onChange: (v) => send('scale', Number(v), null) }));
 }
 
 // WIRELESS DEBUGGING (the owner, 2026-11-13): Android's, kept on through restarts while chosen; the app needs a grant
@@ -113,7 +121,7 @@ function drawDebugging(c, st, send, off, id) {
   const rows = [K().toggle({ label: 'Wireless Debugging', on: st.wireless_debugging, fk: 'mx:app-adb:' + id,
                              disabled: off || (!st.wireless_debugging && st.wireless_debugging_allowed === false),
                              sub: st.wireless_debugging && st.adb_port && st.ip ? 'adb connect ' + st.ip + ':' + st.adb_port : null,
-                             onChange: (on) => send('wireless_debugging', on, on ? 'Wireless debugging on.' : 'Wireless debugging off.') })];
+                             onChange: (on) => send('wireless_debugging', on, null) })];
   if (st.wireless_debugging_allowed === false) {
     rows.push(info('Needs a Grant', 'Once, over adb: adb shell pm grant com.jazzphone.mantel.android android.permission.WRITE_SECURE_SETTINGS', 'Not Allowed', 'warn'));
   }
@@ -130,11 +138,11 @@ function drawGraphics(c, st, send, off, id) {
   const rows = [K().select({ label: 'Renderer', fk: 'mx:app-renderer:' + id, value: st.renderer, disabled: off || !ready,
                              sub: st.renderer_now && st.renderer_now !== st.renderer ? 'Android has ' + (st.renderer_now === 'opengl' ? 'OpenGL' : 'its default') + ' now' : null,
                              options: [['default', 'Android’s Default'], ['opengl', 'OpenGL']],
-                             onChange: (v) => send('renderer', v, v === 'opengl' ? 'OpenGL: the app starts again.' : 'Android’s default: the app starts again.') }),
+                             onChange: (v) => send('renderer', v, 'Restarting') }),
                 K().select({ label: 'Resolution', fk: 'mx:app-render-size:' + id, value: String(st.render_size || 100), disabled: off || !ready,
                              sub: 'Fewer pixels to draw, stretched to the screen: smoother on a slow tablet, softer text up close',
                              options: RENDER_SIZES.map(([v, l]) => [String(v), l]),
-                             onChange: (v) => send('render_size', Number(v), 'Resolution ' + v + '%.') })];
+                             onChange: (v) => send('render_size', Number(v), null) })];
   if (st.wireless_debugging_allowed === false) {
     rows.push(info('Needs a Grant', 'Once, over adb: adb shell pm grant com.jazzphone.mantel.android android.permission.WRITE_SECURE_SETTINGS', 'Not Allowed', 'warn'));
   } else if (!st.adb_paired) {
@@ -145,7 +153,7 @@ function drawGraphics(c, st, send, off, id) {
     rows.push(field(form, 'port', 'Port', { inputmode: 'numeric', maxlength: 5, placeholder: '37000' }));
     rows.push(button('Pair', () => {
       const d = draft(form);
-      send('adb_pair', { code: String(d.code || '').replace(/\D/g, ''), port: Number(d.port) }, 'Paired.');
+      send('adb_pair', { code: String(d.code || '').replace(/\D/g, ''), port: Number(d.port) }, 'Paired');
     }, { fk: 'mx:app-pair:' + id, disabled: off }));
   }
   c.appendChild(group({ header: 'Graphics', footer: 'OpenGL draws a page swipe in about half the time on some tablets. Android forgets it at '
@@ -193,7 +201,7 @@ function drawCopy(c, dv, st, all, send, off) {
                              onChange: (v) => { copyFrom[dv.id] = v; redraw(); } })];
   if (pick) {
     const got = copied(pick.st, st);
-    rows.push(button('Copy ' + pick.d.name + '’s Settings', () => send('settings', got, 'Copied from ' + pick.d.name + '.'),
+    rows.push(button('Copy ' + pick.d.name + '’s Settings', () => send('settings', got, 'Copied'),
                      { fk: 'mx:app-copy:' + dv.id, disabled: off }));
   }
   c.appendChild(group({ header: 'Copy Settings From', footer: 'Kiosk mode, Keep Awake, Keep Screen On, Adaptive Brightness, Scale and AirPlay as the '
@@ -217,19 +225,41 @@ function appsOf(ctx) {
     const a = appRead(dv.id);
     const data = a && a.data;
     if (!data || (!data.status && !data.connected)) continue;          // a browser, not the app: nothing to draw
-    out.push({ dv, data, st: data.status || {}, key: 'tablet-app:' + dv.id, live: !!(data.connected && data.fresh) });
+    out.push({ dv, data, st: data.status || {}, live: !!(data.connected && data.fresh) });
   }
   return { list: out, all: got.data.devices };
 }
+// WHAT A COMMAND SAYS (2026-11-16, the owner: "a few bugs on the walltablet page with where and how it posts the last
+// command"): never a row of its own -- that one came in at the top of Display, pushed the switches down under the finger,
+// and followed you to Advanced and back. A control shows its own new state; the bar says it went (Saved, or the
+// command's own word: Reloading, Restarting, Paired), and so do screen readers. A refusal is an alert, named by what was
+// tried, and the control goes back to what the app has.
+const TRIED = { screen: 'Change Screen Power', brightness: 'Change the Brightness', curtain: 'Change the Black Curtain',
+                rotation: 'Turn the Screen', reload: 'Reload', clear_cache: 'Clear the Cache', restart: 'Restart the App',
+                check_update: 'Check for an Update', menu_pin: 'Save the PIN', kiosk_mode: 'Change Kiosk Mode',
+                keep_awake: 'Change Keep Awake', keep_screen_on: 'Change Keep Screen On', adaptive_brightness: 'Change Adaptive Brightness',
+                scale: 'Change the Scale', airplay: 'Change AirPlay', airplay_mirroring: 'Change Screen Mirroring', airplay_video: 'Change Video',
+                airplay_audio: 'Change Sound', airplay_name: 'Rename It for AirPlay', wireless_debugging: 'Change Wireless Debugging',
+                renderer: 'Change the Renderer', render_size: 'Change the Resolution', adb_pair: 'Pair the App', settings: 'Copy the Settings' };
 function controls(ctx, o) {
   const { dv, data } = o;
+  // okText: the bar's word for it done (a short one: "Reloading"), else Saved
   const send = (command, value, okText) => {
     hold(dv.id, command, value);
-    return act(o.key, async () => {
-      const r = await api('POST', '/api/devices/' + encodeURIComponent(dv.id) + '/app', value === undefined ? { command } : { command, value });
+    if (panel) panel.status('saving');
+    return api('POST', '/api/devices/' + encodeURIComponent(dv.id) + '/app', value === undefined ? { command } : { command, value }).then((r) => {
       if (r && r.status) took(dv.id, r); else readAgain(dv.id);        // unanswered (a reload, a restart): read it again
+      if (panel) { panel.status('saved', okText || null); if (okText) panel.announce(okText + '.'); }
+      redraw();
       return r;
-    }, okText).then((ok) => { if (ok === false) readAgain(dv.id); return ok; });
+    }, (e) => {
+      if (panel) panel.status('error');
+      readAgain(dv.id);
+      if (!(e instanceof ApiError && e.status === 401)) {
+        ask({ title: 'Couldn’t ' + (TRIED[command] || 'Do That'), message: e instanceof ApiError ? e.message : 'Something went wrong: ' + e.message, cancel: false });
+      }
+      return false;
+    });
   };
   // ALL TABLETS AND EACH ITS OWN: an option chosen here is this tablet's own (HK's app_options) and sent at once;
   // one it doesn't set follows All Tablets' (Mantel sends it within a minute: apps/tablet_app.py follow)
@@ -249,17 +279,16 @@ export function drawTabletApp(ctx) {
   if (!got || !got.list.length) return false;
   const many = got.list.length > 1;
   for (const o of got.list) {
-    const { dv, st, key } = o, id = dv.id, sfx = many ? ' (' + dv.name + ')' : '';
+    const { dv, st } = o, id = dv.id, sfx = many ? ' (' + dv.name + ')' : '';
     ctx.status.push(...[o.live ? 'Connected' : 'Not connected', st.screen === false ? 'Screen off' : st.screen ? 'Screen on at ' + pct(st.brightness) + '%' : null,
                         typeof st.battery === 'number' ? 'Battery ' + Math.round(st.battery) + '%' + (st.charging ? ', charging' : '') : null].filter(Boolean));
-    const rows = ctx.rows.display, fl = flashRow(key);
-    if (fl) rows.push(fl);
+    const rows = ctx.rows.display;
     if (me.door !== 'lan') { rows.push(info('Its Controls' + sfx, 'The app’s controls are on the home network only.', 'Home Network Only')); continue; }
     const { send, sendAs, own, off } = controls(ctx, o);
     if (!o.live) rows.push(info('Mantel for Android' + sfx, says(o.data.status), 'Not Connected', 'warn'));
     else if (!o.data.commands_on) rows.push(info('Its Controls' + sfx, 'House commands are off, so the app’s controls are too.', 'Off', 'warn'));
     rows.push(K().toggle({ label: 'Screen Power' + sfx, on: st.screen !== false, disabled: off, fk: 'mx:app-screen:' + id,
-                           onChange: (on) => send('screen', on, on ? 'Screen on.' : 'Screen off.') }));
+                           onChange: (on) => send('screen', on, null) }));
     rows.push(K().slider({ label: 'Brightness' + sfx, sk: 'mx:app-bright:' + id, value: pct(st.brightness), min: 1, max: 100, step: 1, unit: '%',
                            onChange: (v) => send('brightness', Math.max(0.01, Math.min(1, v / 100)), null) }));
     rows.push(K().toggle({ label: 'Black Curtain' + sfx, sub: 'Over the screen until somebody touches it', on: !!st.curtain, disabled: off,
@@ -270,12 +299,12 @@ export function drawTabletApp(ctx) {
     const rot = st.rotation || 'auto';
     rows.push(K().select({ label: 'Screen Rotation' + sfx, fk: 'mx:app-rotation:' + id, value: rot, disabled: off,
                            options: [['auto', 'Automatic'], ['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']],
-                           onChange: (v) => send('rotation', v, v === 'auto' ? 'Left to the tablet.' : 'Turned to ' + v + '°.') }));
+                           onChange: (v) => send('rotation', v, null) }));
     if (rot !== 'auto' && st.rotation_allowed === false) rows.push(info('Rotation', NEEDS_WRITE, 'Not Allowed', 'warn'));
     rows.push(K().nav({ label: 'What’s on the Screen' + sfx, href: '#/mantel/devices/screen/' + encodeURIComponent(id), fk: 'mx:app-shot-page:' + id }));
     rows.push(...ownRows(ctx, own));
-    ctx.rows.reload.push(button('Reload' + sfx, () => send('reload', undefined, 'Reloading.'), { fk: 'mx:app-reload:' + id, disabled: off }),
-                         button('Clear Cache & Reload' + sfx, () => send('clear_cache', undefined, 'Cleared and reloading.'), { fk: 'mx:app-clear:' + id, disabled: off }));
+    ctx.rows.reload.push(button('Reload' + sfx, () => send('reload', undefined, 'Reloading'), { fk: 'mx:app-reload:' + id, disabled: off }),
+                         button('Clear Cache & Reload' + sfx, () => send('clear_cache', undefined, 'Reloading'), { fk: 'mx:app-clear:' + id, disabled: off }));
     ctx.reload = true;
   }
   return true;
@@ -287,7 +316,7 @@ export function drawTabletAppAdvanced(c, ctx) {
   const got = appsOf(ctx);
   if (!got || !got.list.length) return false;
   for (const o of got.list) {
-    const { dv, data, st, key } = o, id = dv.id, form = 'tablet-app-' + id;
+    const { dv, data, st } = o, id = dv.id, form = 'tablet-app-' + id;
     const header = 'Mantel for Android' + (got.list.length > 1 ? ' (' + dv.name + ')' : '');
     const rows = [info('Status', says(data.status), o.live ? 'Connected' : 'Not Connected', o.live ? '' : 'warn')];
     if (me.door !== 'lan') {
@@ -295,8 +324,6 @@ export function drawTabletAppAdvanced(c, ctx) {
       continue;
     }
     const { send, sendAs, off } = controls(ctx, o);
-    const fl = flashRow(key);
-    if (fl) rows.push(fl);
     rows.push(K().toggle({ label: 'Kiosk Mode', sub: st.owner ? 'Pinned: nothing else can come to the front' : 'Brings the app back to the front when anything else comes up',
                            on: st.kiosk_mode !== false, disabled: off, fk: 'mx:app-kiosk:' + id, onChange: (on) => sendAs('kiosk_mode', on, null) }));
     if (typeof st.keep_awake === 'boolean') {
@@ -313,11 +340,11 @@ export function drawTabletAppAdvanced(c, ctx) {
     }
     rows.push(info('App', [st.owner ? 'Device owner' : st.admin ? 'Device admin' : 'No device role', st.esphome_port ? 'ESPHome port ' + st.esphome_port : null,
                            st.model || null].filter(Boolean).join(' · '), updateSays(st.update)));
-    rows.push(button('Restart the App', () => send('restart', undefined, 'Restarting.'), { fk: 'mx:app-restart:' + id, disabled: off }));
-    rows.push(button('Check for an Update', () => send('check_update', undefined, 'Checked.'), { fk: 'mx:app-update:' + id, disabled: off }));
+    rows.push(button('Restart the App', () => send('restart', undefined, 'Restarting'), { fk: 'mx:app-restart:' + id, disabled: off }));
+    rows.push(button('Check for an Update', () => send('check_update', undefined, 'Checked'), { fk: 'mx:app-update:' + id, disabled: off }));
     const d = draft(form);
     rows.push(field(form, 'pin', 'Menu PIN', { type: 'password', inputmode: 'numeric', maxlength: 12, placeholder: st.menu_pin ? 'Set' : 'None' }));
-    rows.push(button('Save PIN', () => { const v = String(d.pin || '').replace(/\D/g, ''); d.pin = ''; send('menu_pin', v, v ? 'PIN saved.' : 'PIN removed.'); },
+    rows.push(button('Save PIN', () => { const v = String(d.pin || '').replace(/\D/g, ''); d.pin = ''; send('menu_pin', v, v ? 'PIN Saved' : 'PIN Removed'); },
                      { fk: 'mx:app-pin:' + id, disabled: off }));
     c.appendChild(group({ header, footer: 'Seven quick taps in the tablet’s top-left corner open the app’s own menu' + (st.menu_pin ? ', which asks for its PIN.'
       : ' for anyone: give it a PIN.') + ' Each command is in the Audit Log.' }, rows));

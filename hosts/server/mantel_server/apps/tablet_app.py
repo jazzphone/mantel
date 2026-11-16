@@ -46,6 +46,9 @@ COMMANDS: dict[str, str | None] = {
     # AIRPLAY (phase 30, docs/phase30/PLAN.md): the app's receiver on or off (off on every tablet until switched on), and
     # what it offers -- a mirror, a video's link, sound -- each a switch (the owner, 2026-11-13: "all three")
     "airplay": "bool", "airplay_mirroring": "bool", "airplay_video": "bool", "airplay_audio": "bool",
+    # ITS AIRPLAY NAME (the owner, 2026-11-16: "it would be great if we could change the name of how the tablet is calling
+    # itself for AirPlay"): what an iPhone lists it as; empty is the app's own name for the tablet again
+    "airplay_name": "airplay_name",
     # THE TABLET'S OWN OPTIONS (the owner, 2026-11-13: "keep tablet awake and such should be options ... on by default";
     # adaptive brightness; the tablet's scaling; wireless debugging; "copy settings between tablets"): the app's
     # Options.kt and PageScale.kt. `settings` is several of them at once, from another tablet (COPYABLE).
@@ -70,6 +73,7 @@ ROTATIONS = ("auto", "0", "90", "180", "270")
 RENDERERS = ("default", "opengl")
 RENDER_SIZES = (100, 83, 67)
 PAIR_CODE = re.compile(r"\d{6}")
+AIRPLAY_NAME_MAX = 40       # characters; an iPhone's AirPlay list cuts a longer one
 SHOT_MAX = 900_000          # bytes of JPEG: the app sends 960 px wide at quality 70 (about 100 KB)
 STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness": float, "curtain": bool,
                "battery": float, "charging": bool, "kiosk_mode": bool, "owner": bool, "admin": bool,
@@ -77,6 +81,8 @@ STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness"
                "rotation": str, "rotation_allowed": bool,
                "airplay": bool, "airplay_mirroring": bool, "airplay_video": bool, "airplay_audio": bool,
                "airplay_state": str, "airplay_name": str,
+               # the AirPlay name chosen in Mantel Settings, empty when it is the app's own name for the tablet
+               "airplay_name_own": str,
                # the sky drawn by the app (phase 29): off, ready (the tablet's setting on) or playing
                "sky": str,
                # the tablet's own options (Options.kt, PageScale.kt), and whether Android lets the app set them
@@ -147,6 +153,10 @@ def checked(command: Any, value: Any) -> tuple[str, Any] | None:
         return (command, value) if isinstance(value, str) and value in RENDERERS else None
     if kind == "render_size":
         return (command, value) if isinstance(value, int) and not isinstance(value, bool) and value in RENDER_SIZES else None
+    if kind == "airplay_name":
+        name = value.strip() if isinstance(value, str) else None
+        good = name is not None and len(name) <= AIRPLAY_NAME_MAX and all(c.isprintable() for c in name)
+        return (command, name) if good else None
     if kind == "adb_pair":
         port, code = (value.get("port"), value.get("code")) if isinstance(value, dict) else (None, None)
         good = (isinstance(port, int) and not isinstance(port, bool) and 0 < port < 65536 and isinstance(code, str)

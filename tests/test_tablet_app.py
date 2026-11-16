@@ -46,7 +46,11 @@ def test_commands_and_their_values_are_a_closed_list():
     # AirPlay (phase 30): the receiver and its three offers, each on or off and nothing else
     assert [T.checked(c, True) for c in ("airplay", "airplay_mirroring", "airplay_video", "airplay_audio")] == \
         [("airplay", True), ("airplay_mirroring", True), ("airplay_video", True), ("airplay_audio", True)]
-    assert T.checked("airplay", "on") is None and T.checked("airplay_audio", None) is None and T.checked("airplay_name", "x") is None
+    assert T.checked("airplay", "on") is None and T.checked("airplay_audio", None) is None
+    # its AirPlay name (2026-11-16): trimmed, up to 40 printable characters; empty is the app's own name again
+    assert T.checked("airplay_name", "  Kitchen ") == ("airplay_name", "Kitchen") and T.checked("airplay_name", "") == ("airplay_name", "")
+    assert T.checked("airplay_name", "x" * 41) is None and T.checked("airplay_name", "a\nb") is None and T.checked("airplay_name", True) is None
+    assert T.checked("settings", {"airplay_name": "Kitchen"}) is None                 # never copied from another tablet
     # the tablet's own options (2026-11-13): switches, the page's size from a short list, and a copy of several at once
     assert [T.checked(c, False) for c in ("keep_awake", "keep_screen_on", "adaptive_brightness", "wireless_debugging")] == \
         [("keep_awake", False), ("keep_screen_on", False), ("adaptive_brightness", False), ("wireless_debugging", False)]

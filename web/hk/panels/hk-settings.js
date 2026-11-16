@@ -632,14 +632,16 @@
     }
 
     // ---------------------------------------------------------- saving
-    status(kind) {
+    // kind: saving, saved (text: a command's own word for done -- Reloading, Paired), error
+    status(kind, text) {
       var st = this.bar.querySelector('.st'), self = this;
       clearTimeout(this._stT);
       st.className = 'st' + (kind === 'error' ? ' err' : '');
       if (kind === 'saving') {
         this._stT = setTimeout(function () { st.textContent = 'Saving…'; }, 350);
       } else if (kind === 'saved') {
-        st.innerHTML = TICK + '<span>Saved</span>';
+        st.innerHTML = TICK;
+        st.appendChild(h('span', { text: text || 'Saved' }));
         this._stT = setTimeout(function () { st.textContent = ''; }, 1800);
       } else if (kind === 'error') {
         st.textContent = 'Couldn’t Save';
