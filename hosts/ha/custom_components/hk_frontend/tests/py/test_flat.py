@@ -48,15 +48,32 @@ def test_flat_backgrounds_default_to_color_and_validate():
     sky = S.merged(out)['sky']
     assert sky['flat_color'] == '#A1B2C3' and sky['flat_fade'] == 70
     assert sky['flat_pages'] == {'climate': 'sage', 'room-kitchen': 'photo', 'rooms': 'auto'}
-    for bad in ({'sky.flat_background': 'live'}, {'sky.flat_color': 'midnight'}, {'sky.flat_fade': 120},
-                {'sky.flat_pages': {'climate': 'live'}}):
+    for bad in ({'sky.flat_background': 'stars'}, {'sky.flat_color': 'midnight'}, {'sky.flat_fade': 120},
+                {'sky.flat_pages': {'climate': 'stars'}}):
         same, err = A.apply_house(out, bad)
         assert err and same == out, bad
     # a corrupt cache reads as the defaults; a screen's own survives the trim
-    assert S.merged({'dashboard': {'sky': {'flat_background': 'live', 'flat_fade': 'x'}}})['sky']['flat_background'] == 'color'
+    assert S.merged({'dashboard': {'sky': {'flat_background': 'stars', 'flat_fade': 'x'}}})['sky']['flat_background'] == 'color'
     own = S.board_stored({'sky_flat_background': 'landscapes', 'sky_flat_fade': 0, 'sky_flat_color': 'nope'})
     assert own == {'sky_flat_background': 'landscapes', 'sky_flat_fade': 0}
     assert 'sky_flat_fade' in S.SKY_RESET_BOARD and 'flat_fade' in S.SKY_RESET
+
+
+def test_flat_takes_every_background_and_keeps_its_own():
+    # PHASE 33 (the owner, 2026-11-16: "keep all background styles available for all modes, including flat"): Flat takes
+    # the Live Sky and a Wallpaper too, for All Screens, a screen and a page -- in its own store, so a screen that chose
+    # one background for Glass and another for Flat keeps both, and Flat's default stays Color
+    out, err = A.apply_house({}, {'sky.flat_background': 'live', 'sky.flat_pages': {'timeline': 'live', 'rooms': 'wallpaper'}})
+    assert not err
+    sky = S.merged(out)['sky']
+    assert sky['flat_background'] == 'live' and sky['flat_pages'] == {'timeline': 'live', 'rooms': 'wallpaper'}
+    assert sky['background'] == 'live' and S.merged(None)['sky']['flat_background'] == 'color'
+    out, err = A.apply_house(out, {'sky.flat_background': 'wallpaper'})
+    assert not err and S.merged(out)['sky']['flat_background'] == 'wallpaper'
+    own = S.board_stored({'flat': True, 'sky_flat_background': 'landscapes', 'sky_background': 'wallpaper'})
+    assert own['sky_flat_background'] == 'landscapes' and own['sky_background'] == 'wallpaper'
+    assert S.board_stored({'sky_flat_background': 'live', 'sky_flat_pages': {'climate': 'wallpaper'}}) == \
+        {'sky_flat_background': 'live', 'sky_flat_pages': {'climate': 'wallpaper'}}
 
 
 def test_flat_palette_matches_the_dashboard():
