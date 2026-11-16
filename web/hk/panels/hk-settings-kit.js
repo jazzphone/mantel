@@ -144,7 +144,7 @@
     '.val{flex:0 1 auto;min-width:0;color:var(--hk-label2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.chev{flex:none;width:8px;height:13px;margin-left:-2px;color:var(--hk-label3)}',
     '.tile{flex:none;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;',
-    '  color:#fff;--mdc-icon-size:19px}',
+    '  color:#fff;--mdc-icon-size:19px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.14)}',  // (a hairline: a white swatch on a white row)
     '.ic{--mdc-icon-size:22px;color:var(--hk-label2);flex:none}',
     '.cell.tintc{color:var(--hk-tint)}',
     '.cell.redc{color:var(--hk-red)}',

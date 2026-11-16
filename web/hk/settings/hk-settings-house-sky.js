@@ -862,10 +862,9 @@
         }
         var mine = (b.flat_colors || {}).pages, own = mine === 'own' || mine === 'accent', sc = this.flatScope('screen', x, b);
         var rows = [K.toggle({ label: 'Pages Keep Their Own Colors', sk: 'b:flat_colors:pages', on: own ? mine === 'own' : house,
-          sub: own ? 'Just This Screen' : 'Climate blue, Lights yellow…, in Flat',
-          onChange: function (on) { self.flatColorsPut(sc, { pages: on ? 'own' : 'accent' }); } })];
-        if (own) rows.push(K.button({ label: 'Reset to All Screens (' + (house ? 'On' : 'Off') + ')', sk: 'b:flat_colors:pages:reset',
-          onClick: function () { self.flatColorsPut(sc, { pages: null }); } }));
+          sub: own ? 'Just This Screen' : 'Same as All Screens',
+          // (phase 33: All Screens' value again follows All Screens, no Reset row)
+          onChange: function (on) { self.flatColorsPut(sc, { pages: on === house ? null : on ? 'own' : 'accent' }); } })];
         return rows;
       }
       // TILES WHEN OFF, a row: what a scope's tiles that are off are washed in (Flat), and whose it is

@@ -14,6 +14,12 @@
     var h, K, M;
     // THE DECORATIONS' TWO STYLES (sky.decoration_style), a menu at both levels (phase 33)
     var DECOR_STYLES = [['old', 'Old Decorations'], ['new', 'New Decorations']];
+    // A SCREEN'S ROW, whose it is (phase 33): Same as All Screens or Just This Screen (b: a screen's page; null on All Screens')
+    var whose = function (b, own) { return b ? (own ? 'Just This Screen' : 'Same as All Screens') : null; };
+    // ...and a value set back to All Screens' follows All Screens again (o: {house, onChange, reset} of glassRows' v)
+    var follow = function (o) {
+      return function (n) { if (o.house != null && n === o.house && typeof o.reset === 'function') o.reset(); else o.onChange(n); };
+    };
     // MOTION's few words, under its switch (Appearance): what it stills, and that the background has its own
     var MOTION_FOOT = 'Pages slide with your finger, and sheets and cards animate. Off: pages cross-fade and nothing animates, ' +
       'which is lighter on a slow tablet. The background’s moving parts have their own switch: Background → Animations.';
@@ -532,6 +538,8 @@
                            value: Object.keys(own).length ? 'Customized' : '', href: '#/page/' + k + '/pill', fk: 'pill:' + k });
           })));
       }
+      // (phase 33: one idiom on a screen -- the row says whose it is, and setting All Screens' value again follows
+      // All Screens; no Reset row under each)
       // TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home
       // Grid's tiles in the Home app's layout (the room pages' Tall pills always are, 2026-10-31) or
       // Centred, HomeView's -- All Screens', or a screen's own (b, path) with
@@ -541,10 +549,8 @@
         var self = this, house = known((this.data.settings.look || {}).tile_style) ? this.data.settings.look.tile_style : 'auto';
         var own = !!b && known(b.tile_style);
         var rows = [K.seg({ label: 'Tile Style', sk: b ? 'b:tile_style' : 'look.tile_style', value: own ? b.tile_style : house, options: M.TILE_STYLES,
-          sub: b ? (own ? 'Just This Screen' : null) : null,
-          onChange: function (v) { if (b) self.setB(path, { tile_style: v }); else self.setH({ 'look.tile_style': v }); } })];
-        if (own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_STYLES, house) + ')', sk: 'b:tile_style:reset',
-          onClick: function () { self.setB(path, { tile_style: null }); } }));
+          sub: whose(b, own),
+          onChange: function (v) { if (b) self.setB(path, { tile_style: v === house ? null : v }); else self.setH({ 'look.tile_style': v }); } })];
         // ICONS (2026-11-07, the owner: "if Centered is selected for Tile Style, is it possible to ask if we want color
         // icons or white (HomeView)?"): a Centered tile's glyphs while off -- shown where tiles can be Centered
         // (Automatic is Centered on square cells)
@@ -553,10 +559,8 @@
           var houseI = knownI((this.data.settings.look || {}).tile_icons) ? this.data.settings.look.tile_icons : 'auto';
           var ownI = !!b && knownI(b.tile_icons);
           rows.push(K.seg({ label: 'Icons', sk: b ? 'b:tile_icons' : 'look.tile_icons', value: ownI ? b.tile_icons : houseI, options: M.TILE_ICONS,
-            sub: b ? (ownI ? 'Just This Screen' : null) : 'Automatic: white on Bright Glass, in color otherwise',
-            onChange: function (v) { if (b) self.setB(path, { tile_icons: v }); else self.setH({ 'look.tile_icons': v }); } }));
-          if (ownI) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_ICONS, houseI) + ')', sk: 'b:tile_icons:reset',
-            onClick: function () { self.setB(path, { tile_icons: null }); } }));
+            sub: b ? whose(b, ownI) : 'Automatic: white on Bright Glass, in color otherwise',
+            onChange: function (v) { if (b) self.setB(path, { tile_icons: v === houseI ? null : v }); else self.setH({ 'look.tile_icons': v }); } }));
         }
         return rows;
       }
@@ -576,17 +580,14 @@
           // gray badge until 2026-10-30)
           // (the preview's glass follows it as it moves, 2026-11-01, as the Side Pane's Dim does)
           rows.push(K.slider({ label: label, sk: skp + key, value: a.value, unit: '%', step: 5,
-            sub: a.house == null ? null : (a.own ? 'Just This Screen' : null),
-            onInput: function (n) { self.pvAmount(key, n); }, onChange: a.onChange }));
-          if (a.own) rows.push(K.button({ label: 'Reset to All Screens (' + a.house + '%)', sk: skp + key + ':reset', onClick: a.reset }));
+            sub: a.house == null ? null : whose(true, a.own),
+            onInput: function (n) { self.pvAmount(key, n); }, onChange: follow(a) }));
         };
         if (uses.frost) {
           amount('frost', 'Frost');
           var t = v.tint;
           rows.push(K.toggle({ label: 'Color from Background', sk: skp + 'frost_tint', on: t.on,
-            sub: t.house == null ? null : (t.own ? 'Just This Screen' : null), onChange: t.onChange }));
-          if (t.own) rows.push(K.button({ label: 'Reset to All Screens (' + (t.house ? 'On' : 'Off') + ')', sk: skp + 'frost_tint:reset',
-            onClick: t.reset }));
+            sub: t.house == null ? null : whose(true, t.own), onChange: follow(t) }));
         }
         if (uses.blur) amount('blur', 'Blur');
         // BRIGHT GLASS's Strength (2026-10-30), held back by itself over a light
@@ -597,25 +598,21 @@
         if (uses.bright && v.brightDim) {
           var bd = v.brightDim;
           rows.push(K.slider({ label: 'Dim', sk: skp + 'bright_dim', value: bd.value, min: 0, max: M.BRIGHT_DIM_MAX, step: 5, unit: '%',
-            sub: bd.house == null ? null : (bd.own ? 'Just This Screen' : null),
-            onInput: function (n) { self.pvAmount('bright_dim', n); }, onChange: bd.onChange }));
-          if (bd.own) rows.push(K.button({ label: 'Reset to All Screens (' + bd.house + '%)', sk: skp + 'bright_dim:reset', onClick: bd.reset }));
+            sub: bd.house == null ? null : whose(true, bd.own),
+            onInput: function (n) { self.pvAmount('bright_dim', n); }, onChange: follow(bd) }));
         }
         // ...and where it shows (2026-10-30): Home Only (and the Pages screen,
         // 2026-10-31), the other pages in its Blur, or Every Page
         if (uses.bright && v.brightPages) {
           var bp = v.brightPages;
           rows.push(K.seg({ label: 'Bright Glass On', sk: skp + 'bright_pages', value: bp.value, options: M.BRIGHT_PAGES,
-            sub: bp.house == null ? 'Home Only: Home and the Pages screen; the other pages in Blur' : (bp.own ? 'Just This Screen' : null), onChange: bp.onChange }));
-          if (bp.own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.BRIGHT_PAGES, bp.house) + ')', sk: skp + 'bright_pages:reset', onClick: bp.reset }));
+            sub: bp.house == null ? 'Home Only: Home and the Pages screen; the other pages in Blur' : whose(true, bp.own), onChange: follow(bp) }));
         }
         if (uses.tint && v.dark) {
           amount('dark', 'Darkness', 'tint');
           var w = v.well;
           rows.push(K.seg({ label: 'Icon Circles', sk: skp + 'well', value: w.value, options: M.TINT_WELLS,
-            sub: w.house == null ? null : (w.own ? 'Just This Screen' : null), onChange: w.onChange }));
-          if (w.own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TINT_WELLS, w.house) + ')',
-            sk: skp + 'well:reset', onClick: w.reset }));
+            sub: w.house == null ? null : whose(true, w.own), onChange: follow(w) }));
         }
         return rows;
       }
@@ -627,10 +624,8 @@
       motionRows(b, look, path) {
         var self = this, own = !!b && typeof b.motion === 'boolean', house = look.motion !== false;
         var rows = [K.toggle({ label: 'Motion', sk: b ? 'b:motion' : 'look.motion', on: own ? b.motion : house,
-          sub: b ? (own ? 'Just This Screen' : null) : null,
-          onChange: function (on) { if (b) self.setB(path, { motion: on }); else self.setH({ 'look.motion': on }); } })];
-        if (own) rows.push(K.button({ label: 'Reset to All Screens (' + (house ? 'On' : 'Off') + ')', sk: 'b:motion:reset',
-          onClick: function () { self.setB(path, { motion: null }); } }));
+          sub: whose(b, own),
+          onChange: function (on) { if (b) self.setB(path, { motion: on === house ? null : on }); else self.setH({ 'look.motion': on }); } })];
         return rows;
       }
       flatThemeRows(b, look, path) {
@@ -638,10 +633,8 @@
         var house = look.flat_theme === 'light' ? 'light' : 'dark';
         var rows = [K.seg({ label: 'Theme', sk: b ? 'b:flat_theme' : 'look.flat_theme',
           value: own ? b.flat_theme : house, options: [['light', 'Light'], ['dark', 'Dark']],
-          sub: b ? (own ? 'Just This Screen' : null) : null,
-          onChange: function (v) { if (b) self.setB(path, { flat_theme: v }); else self.setH({ 'look.flat_theme': v }); } })];
-        if (own) rows.push(K.button({ label: 'Reset Theme to All Screens', sk: 'b:flat_theme:reset',
-          onClick: function () { self.setB(path, { flat_theme: null }); } }));
+          sub: whose(b, own),
+          onChange: function (v) { if (b) self.setB(path, { flat_theme: v === house ? null : v }); else self.setH({ 'look.flat_theme': v }); } })];
         return rows;
       }
       h_glass(c) {
