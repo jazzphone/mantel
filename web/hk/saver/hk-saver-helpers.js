@@ -36,9 +36,31 @@
                x: FOCUS_X[raw[side + '_x']] ? raw[side + '_x'] : 'center', y: FOCUS_Y[raw[side + '_y']] ? raw[side + '_y'] : 'center' };
     }
 
+    // THE SLIDES IN MINUTES (phase 33, decision 12; hk_core saver_layers.py, the same rule): How Often is extra_every
+    // minutes whatever shows. Options that still count photos over the photos (forecast_every, from before) take the
+    // minutes they took, at the nearest choice, and a photo's time to show for; forecast_every follows the minutes.
+    var EVERY = [1, 2, 5, 10, 15, 30];
+    function photosFor(every, each) { return Math.min(100, Math.max(2, Math.round(every * 60 / Math.max(1, each)))); }
+    function inMinutes(raw) {
+      var has = function (k) { return Object.prototype.hasOwnProperty.call(raw, k) && typeof raw[k] === 'number'; };
+      if (!has('forecast_every') || !has('extra_every') || !has('each_photo')) return raw;
+      var out = Object.assign({}, raw);
+      if ((out.show === 'photos' || out.show === 'both') && out.forecast_every !== photosFor(out.extra_every, out.each_photo)) {
+        var m = out.forecast_every * out.each_photo / 60;
+        out.extra_every = EVERY.reduce(function (a, x) { return Math.abs(x - m) < Math.abs(a - m) ? x : a; }, EVERY[0]);
+        out.extra_for = Math.min(300, Math.max(10, out.each_photo));
+      }
+      out.forecast_every = photosFor(out.extra_every, out.each_photo);
+      return out;
+    }
+
     function readCfg(raw) {
       if (!raw || typeof raw !== 'object') return null;
       var n = function (v, lo, hi, d) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; };
+      // (a hand-written hk_screensaver block with forecast_every alone still counts photos, as it always has)
+      var minutes = Object.prototype.hasOwnProperty.call(raw, 'extra_every') || !Object.prototype.hasOwnProperty.call(raw, 'forecast_every');
+      raw = inMinutes(raw);
+      var each = n(raw.each_photo, 3, 3600, 30), every = n(raw.extra_every, 1, 60, 5);
       return layoutCfg(autoLayout(raw, {
         user: typeof raw.user === 'string' ? raw.user : '',
         // 1.14: the wall tablet it runs on (hkSettings.tablet()); '' -- by user
@@ -47,7 +69,7 @@
         photos: typeof raw.photos === 'string' && raw.photos ? raw.photos : 'media-source://media_source/local/photos',
         // 0: only the switch starts it
         starts_after: raw.starts_after === 0 ? 0 : n(raw.starts_after, 5, 86400, 180),
-        each_photo: n(raw.each_photo, 3, 3600, 30),
+        each_photo: each,
         order: raw.order === 'sorted' ? 'sorted' : 'random',
         fill: raw.fill !== false,
         zoom: raw.zoom === true,
@@ -105,8 +127,11 @@
         clock_photo_dim: n(raw.clock_photo_dim, 0, 80, 35),
         clock_text_shadow: n(raw.clock_text_shadow, 0, 100, 40),
         clock_text_outline: n(raw.clock_text_outline, 0, 100, 0),
-        // Photos & Forecast: the forecast after this many photos
+        // Photos & Forecast: the forecast after this many photos (an older reader's count)
         forecast_every: n(raw.forecast_every, 2, 100, 5),
+        // THE SLIDES OVER THE PHOTOS: one after this many photos -- How Often's minutes in photos -- for Show For's seconds
+        slide_photos: minutes ? Math.max(1, Math.round(every * 60 / each)) : n(raw.forecast_every, 2, 100, 5),
+        slide_for: minutes ? n(raw.extra_for, 10, 300, 30) : each,
         // the forecast details (the band): on the forecast, and over the photos
         band: raw.band !== false,
         band_photos: raw.band_photos === true,
@@ -177,7 +202,7 @@
         tb_size: n(raw.tb_size, 12, 40, 24), tb_top: n(raw.tb_top, 0, 50, 6), tb_dim: n(raw.tb_dim, 0, 80, 0),
         extra_music: raw.extra_music === true,
         extra_forecast: raw.extra_forecast === true,
-        extra_every: n(raw.extra_every, 1, 60, 5),
+        extra_every: every,
         extra_for: n(raw.extra_for, 10, 300, 30),
         fade_back: n(raw.fade_back, 0, 5000, FADE_BACK_MS),
         // no photos: the forecast (default), or a dark screen

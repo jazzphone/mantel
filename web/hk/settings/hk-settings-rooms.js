@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   (window.hkSettingsParts = window.hkSettingsParts || {})['hk-settings-rooms'] = function (KIT) {
-    var C = KIT.C, DOMAIN = KIT.DOMAIN, haPlace = KIT.haPlace, PN = KIT.PN, restWrite = KIT.restWrite;
+    var C = KIT.C, DOMAIN = KIT.DOMAIN, haPlace = KIT.haPlace, MIN = KIT.MIN, PN = KIT.PN, restWrite = KIT.restWrite;
 
     var F, h, K, M;
     // (set when the page starts, not now: the shell calls bindLate() once it has assigned them)
@@ -406,15 +406,15 @@
       t_all(c) {
         var self = this, tabs = this.tabs(), ids = this.tabIds();
         var hs = (this.data.settings && this.data.settings.tablets) || {};
-        var it = typeof hs.idle_time === 'number' ? hs.idle_time : 50;
-        var saver = M.saverOptions(this.hs('look.saver'));
-        c.appendChild(K.group({ header: 'When Nobody’s Using It', footer: 'A tablet uses these unless its own page sets its own. Untouched this long on any page but Home, it goes back to Home.' }, [
-          K.toggle({ label: 'Return to Home When Idle', sk: 'tablets.idle_return', on: hs.idle_return !== false,
-                     onChange: function (on) { self.setH({ 'tablets.idle_return': on }); } }),
-          hs.idle_return === false ? null : K.select({ label: 'Idle Time', sk: 'tablets.idle_time', value: it,
-                     options: M.IDLE_TIMES.map(function (o) { return [o[0], o[1]]; }),
-                     onChange: function (v) { self.setH({ 'tablets.idle_time': Number(v) }); } }),
-          K.nav({ label: 'Screensaver', value: M.saverSummary(saver), href: '#/house/screensaver', sk: 'tablets:saver' })]));
+        var it = typeof hs.idle_time === 'number' ? hs.idle_time : 50, never = hs.idle_return === false || it === 0;
+        var saver = this.saverHouseNow();
+        // WHEN NOBODY'S USING IT (phase 33, decision 11): Back to Home After (Never: it stays), then the screensaver
+        c.appendChild(K.group({ header: 'When Nobody’s Using It', footer: 'A tablet uses these unless its own page sets its own. When each goes dark is its own Sleep Screen’s.' }, [
+          this.tabTimelineCell(null),
+          K.select({ label: 'Back to Home After', sub: 'Untouched on any page but Home', sk: 'tablets.idle_time', value: never ? 'never' : String(it),
+                     options: this.backHomeChoices(it),
+                     onChange: function (v) { self.setH(v === 'never' ? { 'tablets.idle_return': false } : { 'tablets.idle_return': true, 'tablets.idle_time': Number(v) }); } }),
+          K.nav({ label: 'Screensaver', value: 'After ' + MIN(saver.starts_after), sub: 'All Screens’, unless a screen sets its own', href: '#/house/screensaver', sk: 'tablets:saver' })]));
         c.appendChild(K.group({ header: 'Alerts', footer: 'In Home Assistant’s notifications until it’s put right, and as an Important banner on the screens with Notifications added.' }, [
           K.toggle({ label: 'Tablet Offline', sub: 'Its kiosk app not heard from for 10 minutes.', sk: 'tablets.alert_offline',
                      on: hs.alert_offline !== false, onChange: function (on) { self.setH({ 'tablets.alert_offline': on }); } }),
@@ -495,33 +495,32 @@
                        });
                      } })].concat(X.rows.place);
         c.appendChild(K.group({ header: 'Screen & Room' }, rooms));
-        // WHEN NOBODY'S USING IT: Return to Home, Idle Time, Screensaver, Sleep Screen (its diagram is on Sleep Screen's page)
+        // WHEN NOBODY'S USING IT (phase 33, decision 11): its waiting times in the order they come -- drawn once, then Back to
+        // Home After, the Screensaver (its screen's: Starts After, and its switch), Dark After (Sleep Screen's), Sleep Screen
         var b = (this.data.boards || {})[t.screen] || null;
-        var saverOn = !!(b && b.screensaver && b.screensaver_engine !== 'wallpanel');
-        var ownRet = t.idle_return_own, ownIt = t.idle_time_own;
-        var hRet = house.idle_return !== false ? 'On' : 'Off', hIt = M.idleLabel(typeof house.idle_time === 'number' ? house.idle_time : 50);
-        var idle = [
-          K.select({ label: 'Return to Home When Idle', sub: ownRet === null || ownRet === undefined ? 'Same as All Tablets' : 'Just This Tablet',
-                     sk: 't:idle_return', value: ownRet === null || ownRet === undefined ? '' : ownRet ? 'on' : 'off',
-                     options: [['', 'Same as All Tablets (' + hRet + ')', hRet], ['on', 'On'], ['off', 'Off']],
-                     onChange: function (v) { set({ idle_return: v === '' ? null : v === 'on' }); } })];
-        if (t.idle_return) {
-          idle.push(K.select({ label: 'Idle Time', sub: ownIt === null || ownIt === undefined ? 'Same as All Tablets' : 'Just This Tablet',
-            sk: 't:idle_time', value: ownIt === null || ownIt === undefined ? '' : ownIt,
-            options: [['', 'Same as All Tablets (' + hIt + ')', hIt]].concat(M.IDLE_TIMES.map(function (o) { return [o[0], o[1]]; })),
-            onChange: function (v) { set({ idle_time: v === '' ? null : Number(v) }); } }));
-        }
-        if (b && b.screensaver) {
-          idle.push(K.nav({ label: 'Screensaver', sub: 'The ' + this.screenTitle(t.screen) + ' screen’s: what it shows here.',
-            href: '#/screens/' + encodeURIComponent(t.screen) + (b.screensaver_engine === 'wallpanel' ? '/wallpanel' : '/screensaver'),
-            value: M.saverFollows(b) ? 'Same as All Screens' : 'Just This Screen', sk: 't:saver' }));
-        } else if (t.screen) {
-          idle.push(K.nav({ label: 'Screensaver', sub: 'Off on the ' + this.screenTitle(t.screen) + ' screen.', value: 'Off',
-                            href: '#/screens/' + encodeURIComponent(t.screen), sk: 't:saver' }));
+        var ownRet = t.idle_return_own, ownIt = t.idle_time_own, mineIdle = ownRet != null || ownIt != null;
+        var hNever = house.idle_return === false || house.idle_time === 0;
+        var hIt = hNever ? 'Never' : M.idleLabel(typeof house.idle_time === 'number' ? house.idle_time : 50);
+        var tNever = t.idle_return === false || t.idle_time === 0;
+        var idle = [this.tabTimelineCell(tid), K.select({ label: 'Back to Home After', sub: mineIdle ? 'Just This Tablet' : 'Same as All Tablets', sk: 't:idle_time',
+          value: !mineIdle ? '' : tNever ? 'never' : String(t.idle_time),
+          options: [['', 'Same as All Tablets (' + hIt + ')', hIt]].concat(this.backHomeChoices(t.idle_time)),
+          onChange: function (v) {
+            set(v === '' ? { idle_return: null, idle_time: null } : v === 'never' ? { idle_return: false, idle_time: null } : { idle_return: true, idle_time: Number(v) });
+          } })];
+        if (t.screen) idle.push(this.tabSaverRow(t.screen, b, 't:saver'));
+        var hkDark = sl.decided_by === 'hk' || sl.decided_by === 'shadow';
+        if (hkDark) {
+          var choices = ((this.data.choices || {}).sleep || {}).after_saver || [0, 15, 30, 60, 120];
+          idle.push(K.select({ label: 'Dark After', sub: 'Of the screensaver, with nobody touching it', sk: 't:sleep.after_saver', value: sl.after_saver || 0,
+            options: choices.map(function (m) { return [m, !m ? 'Never' : m < 60 ? m + ' Minutes' : m === 60 ? '1 Hour' : (m / 60) + ' Hours']; }),
+            onChange: function (v) { set({ sleep: Object.assign({}, sl, { after_saver: Number(v) }) }); } }));
+        } else {
+          idle.push(K.nav({ label: 'Dark After', value: 'An Automation Decides', href: base + '/sleep', sk: 't:dark_after' }));
         }
         idle.push(K.nav({ label: 'Sleep Screen', sub: 'When it goes dark, who counts as there, its brightness.', href: base + '/sleep', sk: 't:sleep',
                           value: acting ? PN() + ' Decides' : sl.decided_by === 'shadow' ? 'Trying It Out' : 'An Automation Decides' }));
-        c.appendChild(K.group({ header: 'When Nobody’s Using It', footer: saverOn ? 'Home first, then the screensaver, then dark: Sleep Screen draws them in order.' : null }, idle));
+        c.appendChild(K.group({ header: 'When Nobody’s Using It', footer: 'Untouched on any page but Home, it goes Home; then the screensaver comes up, then it goes dark.' }, idle));
         // DISPLAY: the kiosk app's (the host's rows); one that only reports its brightness shows it
         var disp = X.rows.display.slice();
         if (!disp.length && p.brightness && val(p.brightness) !== null) {
@@ -649,28 +648,48 @@
           c.appendChild(K.group({}, [K.nav({ label: 'Copy Sleep Screen To…', sub: 'Its rules and brightness, onto other tablets.', href: base + '/copy', sk: 't:copy' })]));
         }
       }
-      // THE DIAGRAM OF WHEN IT'S LEFT ALONE (Sleep Screen's page): Home after Idle Time, the screensaver, then dark, in order
-      tabTimeline(c, tid) {
-        var t = this.tabs()[tid];
-        if (!t) return;
-        var sl = t.sleep || {}, hk = sl.decided_by === 'hk' || sl.decided_by === 'shadow';
-        var b = (this.data.boards || {})[t.screen] || null;
-        var saverOn = !!(b && b.screensaver && b.screensaver_engine !== 'wallpanel');
-        var so = b ? M.saverOptions(M.saverFollows(b) ? this.hs('look.saver') : b.screensaver_options) : null;
-        var tl = M.idleTimeline({ idle: t.idle_return ? t.idle_time : null, saver: saverOn ? so.starts_after : null, hk: hk,
+      // BACK TO HOME AFTER's choices (phase 33): Idle Time's, and Never -- Return to Home off -- last
+      backHomeChoices(now) {
+        var opts = M.IDLE_TIMES.filter(function (o) { return o[0] > 0; }).map(function (o) { return [String(o[0]), o[1]]; });
+        if (typeof now === 'number' && now > 0 && !opts.some(function (o) { return o[0] === String(now); })) opts.push([String(now), M.idleLabel(now)]);
+        return opts.concat([['never', 'Never']]);
+      }
+      // A TABLET'S SCREENSAVER ROW: its screen's -- when it starts, or Off -- opening that screen's Screensaver page, its switch on top
+      tabSaverRow(screen, b, sk) {
+        var on = !!(b && b.screensaver), wp = on && b.screensaver_engine === 'wallpanel';
+        return K.nav({ label: 'Screensaver', sub: 'The ' + this.screenTitle(screen) + ' screen’s, on every tablet showing it', sk: sk,
+                       href: '#/screens/' + encodeURIComponent(screen) + '/screensaver',
+                       value: !on ? 'Off' : wp ? 'WallPanel' : 'After ' + MIN(this.saverNow(screen).starts_after) });
+      }
+      // THE DIAGRAM OF WHEN IT'S LEFT ALONE: Home after Back to Home After, the screensaver, then dark, in order -- on a tablet's page
+      // (and All Tablets', tid null), and Sleep Screen's. Drawn once; nothing in it moves
+      tabTimelineCell(tid) {
+        var t = tid ? this.tabs()[tid] : null, hs = (this.data.settings && this.data.settings.tablets) || {};
+        var sl = (t && t.sleep) || {}, hk = sl.decided_by === 'hk' || sl.decided_by === 'shadow';
+        var b = t ? (this.data.boards || {})[t.screen] || null : null;
+        var saverOn = t ? !!(b && b.screensaver && b.screensaver_engine !== 'wallpanel') : true;
+        var so = t ? (b ? this.saverNow(t.screen) : null) : this.saverHouseNow();
+        var idle = t ? (t.idle_return && t.idle_time ? t.idle_time : null) : (hs.idle_return !== false && hs.idle_time !== 0 ? (typeof hs.idle_time === 'number' ? hs.idle_time : 50) : null);
+        var tl = M.idleTimeline({ idle: idle, saver: saverOn && so ? so.starts_after : null, hk: hk, every: !t,
                                   after: sl.after_saver, quiet: !!(sl.schedule || (sl.quiet_while || []).length) });
         var tot = tl.segs.reduce(function (n, x) { return n + x.flex; }, 0), at = 0;
         var track = h('div', { class: 'track' }), ticks = h('div', { class: 'ticks' });
         tl.segs.forEach(function (x, i) {
           track.appendChild(h('div', { class: 'seg ' + x.cls, style: 'flex:' + x.flex, text: x.label }));
-          if (i) ticks.appendChild(h('span', { style: 'left:' + (at / tot * 100).toFixed(1) + '%' }, [h('b', { text: x.at }), x.says]));
+          // (the last, Dark, wraps in the room it has to the right: a phone has little)
+          var last = i === tl.segs.length - 1, pos = (at / tot * 100).toFixed(1) + '%';
+          if (i) ticks.appendChild(h('span', { class: last ? 'last' : null, style: (last ? 'margin-left:' : 'left:') + pos }, [h('b', { text: x.at }), x.says]));
           at += x.flex;
         });
-        var tlEl = h('div', { class: 'cell tl', 'data-sk': 't:timeline' }, [track, ticks,
-          tl.warn ?
-            h('div', { class: 'tlwarn', text: 'Home comes after the screensaver starts, so the screensaver can come up over another page and it goes Home behind it. An Idle Time shorter than ' +
-            M.idleLabel(so.starts_after).toLowerCase() + ' puts Home first.' }) : null]);
-        c.appendChild(K.group({ header: 'When It’s Left Alone', footer: 'Home: Idle Time on its page. The screensaver: its screen’s Screensaver → Starts After. Dark: below.' }, [tlEl]));
+        return h('div', { class: 'cell tl', 'data-sk': 't:timeline', role: 'img', 'aria-label': tl.segs.map(function (x) { return x.label + (x.at ? ' at ' + x.at : ''); }).join(', ') },
+          [track, ticks, tl.warn ? h('div', { class: 'tlwarn', text: 'Home comes after the screensaver starts, so the screensaver can come up over another page and it goes Home behind it. ' +
+            'A Back to Home After shorter than ' + M.idleLabel(so.starts_after).toLowerCase() + ' puts Home first.' }) : null]);
+      }
+      // ...on Sleep Screen's page, a group of its own
+      tabTimeline(c, tid) {
+        if (!this.tabs()[tid]) return;
+        c.appendChild(K.group({ header: 'When It’s Left Alone', footer: 'Home: Back to Home After, on its page. The screensaver: its screen’s Screensaver → Starts After. Dark: Dark After, below.' },
+          [this.tabTimelineCell(tid)]));
       }
       copyText(text) {
         var self = this;

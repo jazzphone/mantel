@@ -498,9 +498,9 @@
                   '  clock_style: classic # for show: clock and a large clock\n' +
                   '  clock_bg: gradient   # behind show: clock\n' +
                   '  clock_night: "off"   # "night" (clock_night_from to clock_night_to) or "always"\n' +
-                  '  forecast_every: 5    # a slide (the forecast, the music) after this many photos\n' +
-                  '  music_slide: false   # what plays, full screen: a slide among the photos\n' +
-                  '  music_first: false   # ...or the music fills the screen while it plays\n' +
+                  '  extra_every: 5       # a slide (the forecast, the weather...) every this many minutes\n' +
+                  '  extra_for: 30        # ...for this many seconds\n' +
+                  '  music_first: false   # the music fills the screen while it plays\n' +
                   '  fallback: true       # no photos: the forecast (false: a dark screen)\n' +
                   '  band: true           # the forecast’s details on the forecast\n' +
                   '  band_photos: false   # ...and over the photos\n' +

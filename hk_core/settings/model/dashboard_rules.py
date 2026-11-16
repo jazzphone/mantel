@@ -8,6 +8,7 @@ import re
 from typing import Any
 from ...notifications.dnd import notify_dnd
 from .. import home_grid as HG
+from .. import saver_layers as SL
 from ..looks import IDS as LOOK_IDS
 from .schema import (AMOUNT, board_headers, board_wallpaper, BRIGHT_DIM_MAX, BRIGHT_GLASS, BRIGHT_PAGES,
     chips_custom_show, CLOUD_STYLES, DAYTIME_SKIES, DOCK_MIN, FLAT_BACKGROUNDS, flat_color, flat_colors,
@@ -617,15 +618,16 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["timer_bar"] = bool(d.get("timer_bar", out["now_playing"]))
     for k in ("wallpanel_options", "kiosk_options"):
         out[k] = card_options(d.get(k)) or {}
-    # A SCREEN'S SCREENSAVER OPTIONS, AS STORED: its own (a mapping), or null
-    # -- the settings for All Screens, filled in on reading (resolved()). A
+    # A SCREEN'S SCREENSAVER OPTIONS, AS STORED: the keys it set itself (phase
+    # 33: a whole set from before keeps every key), or null -- All Screens' in
+    # everything; resolved() lays them over All Screens' (saver_layers). A
     # screen that never had any keeps its old WallPanel choices as its own
     # (1.2 -> 1.3), or follows All Screens.
     own = d.get("screensaver_options", _MISSING)
     if own is None:
         out["screensaver_options"] = None
     elif isinstance(own, dict) and own:
-        out["screensaver_options"] = saver_options(own) or saver_options(None, out["wallpanel_options"])
+        out["screensaver_options"] = SL.own(own) or saver_options(None, out["wallpanel_options"])
     else:
         legacy = saver_options(None, out["wallpanel_options"])
         out["screensaver_options"] = legacy if legacy != SAVER_DEFAULTS else None

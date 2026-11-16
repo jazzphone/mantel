@@ -35,14 +35,19 @@ function page(house, path) {
   var p = Object.create(P), handed = [], saved = [];
   p._saverHouse = house; p._pv = { path: path || 'dashboard-kitchen', view: '0' }; p._saverWas = true;
   p.saverPreview = function (on) { handed.push([on, p._saverOver]); };
-  p.save = function (msg) { saved.push(msg.type); return Promise.resolve(); };
+  p.save = function (msg, keys, now) { saved.push(msg.type); if (msg.type.indexOf('board/set') >= 0 && now) now(); return Promise.resolve(); };
   p.data = { boards: {}, settings: {} };
   p.handed = handed; p.saved = saved;
   return p;
 }
 var a = page(false);
 P.setB.call(a, 'dashboard-kitchen', { screensaver_options: { show: 'day', day_look: 'dark' } });
-ok('a screen’s options: handed to the preview, and saved', [a.handed, a.saved.length], [[[true, { show: 'day', day_look: 'dark' }]], 1]);
+// (phase 33: a screen's own keys, handed over All Screens' -- the whole set the frame draws)
+var ah = a.handed[0] && a.handed[0][1];
+ok('a screen’s options: handed to the preview over All Screens’, and saved', [a.handed.length, a.handed[0][0], ah.show, ah.day_look, ah.starts_after, a.saved.length],
+   [1, true, 'day', 'dark', 180, 1]);
+ok('...and the page’s copy says which keys are the screen’s own', [a.data.boards['dashboard-kitchen'].screensaver_own, a.data.boards['dashboard-kitchen'].screensaver_options.show],
+   [{ show: 'day', day_look: 'dark' }, 'day']);
 var b = page(false);
 P.setB.call(b, 'dashboard-den', { screensaver_options: { show: 'day' } });
 ok('...not another screen’s (the frame shows this one)', b.handed, []);

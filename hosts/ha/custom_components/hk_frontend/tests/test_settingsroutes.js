@@ -168,6 +168,15 @@ print('\n=== Sleep Screen: Near the Screen (2026-10-30) ===');
   ok('...with Near the Screen, its two sensors', /Near the Screen/.test(t) && /2 Entities/.test(t), true);
   ok('...Closer Than, for its distance sensor', /Closer Than/.test(t), true);
   ok('...and Back to the Screensaver', /Back to the Screensaver/.test(t), true);
+  // PHASE 33 (decision 11): the waiting times by their names, in order
+  ok('...its timeline says Back to Home After and Dark After, its row is Dark After', /Back to Home After/.test(t) && /Dark After/.test(t) &&
+     !/After the Screensaver|Idle Time/.test(t), true);
+  ok('Back to Home After’s choices: Idle Time’s, then Never (Return to Home off)', JSON.stringify(P.backHomeChoices.call(pg, 50)),
+     JSON.stringify([['30', '30 Seconds'], ['50', '50 Seconds'], ['60', '1 Minute'], ['120', '2 Minutes'], ['300', '5 Minutes'], ['never', 'Never']]));
+  var src = read(HK_ROOT + '/frontend/settings/hk-settings-rooms.js'); src = src.slice(src.indexOf('t_one(c, tid, X0)'));
+  ok('...a tablet’s When Nobody’s Using It: the timeline, Back to Home After, Screensaver, Dark After, Sleep Screen, in that order',
+     ['this.tabTimelineCell(tid)', "label: 'Back to Home After'", 'this.tabSaverRow(t.screen', "label: 'Dark After'", "label: 'Sleep Screen'"].map(function (w) { return src.indexOf(w); })
+       .every(function (i, n, a) { return i >= 0 && (!n || i > a[n - 1]); }) && !/'Idle Time'|'Return to Home When Idle'/.test(src), true);
   ok('its list page', go('#/house/tablets/hall/sleep/near').title, 'Near the Screen');
   sl.near = ['binary_sensor.hall_radar_zone'];
   t = text(draw(go('#/house/tablets/hall/sleep')).box);
@@ -500,13 +509,67 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   // the Screensaver: Photos is one row, the host's album hook draws on that row's page
   var asked2 = [];
   pg._host = { extend: function (where, box, ctx) { asked2.push(where + ':' + (ctx.screen || ctx.photos)); } };
-  var sv = text(draw(go('#/house/screensaver')).box);
-  ok('All Screens’ Screensaver: one Photos row, Slideshow with Photo Layout, Also Show, Timing, Night Mode', ['Photos', 'Slideshow', 'Photo Layout', 'Also Show', 'Timing', 'Night Mode'].every(
-    function (w) { return sv.indexOf(w) >= 0; }) && !/Now and Then|Portrait Photos/.test(sv), true);
+  // PHASE 33 (decision 10): the same groups, rows and order at both levels -- What It Shows (Design, Photos, Slides), When,
+  // Photos (How Photos Show), the Side Pane and Advanced; the slideshow and the photo layout on How Photos Show
+  var svd = draw(go('#/house/screensaver')), sv = text(svd.box);
+  ok('All Screens’ Screensaver: What It Shows (Design, Photos, Slides), When (Starts After), Photos (How Photos Show), Side Pane, Advanced',
+     svd.err === null && ['What It Shows', 'Design', 'Photos', 'Slides', 'When', 'Starts After', 'How Photos Show', 'Side Pane', 'Advanced'].every(
+    function (w) { return sv.indexOf(w) >= 0; }) && !/Also Show|Slideshow|Portrait Photos|Fade Back|Same as All Screens/.test(sv), true);
+  ok('...in that order', ['What It Shows', 'When', 'How Photos Show', 'Side Pane', 'Advanced'].map(function (w) { return sv.indexOf(w); })
+    .every(function (i, n, a) { return i >= 0 && (!n || i > a[n - 1]); }), true);
+  ok('...Night Mode only where the design shows the time large (Photos does not)', /Night Mode/.test(sv), false);
   ok('...the host is asked nothing until the Photos page opens', asked2.length, 0);
   var phb = draw(go('#/house/screensaver/photos'));
   ok('...the Photos page draws Screensaver Photos, and asks the host for its album', phb.err === null && /Screensaver Photos/.test(text(phb.box)) && asked2[0] === 'house-saver:undefined', true);
-  ok('...and Photo Layout has Portrait and Landscape', /Portrait Photos/.test(text(draw(go('#/house/screensaver/layout')).box)) || /Zoom/.test(text(draw(go('#/house/screensaver/layout')).box)), true);
+  var hw = text(draw(go('#/house/screensaver/photos-how')).box);
+  ok('...How Photos Show: the slideshow (Layout, Order, Each Photo For, Slow Zoom) and Portrait and Landscape',
+     ['Slideshow', 'Layout', 'Order', 'Each Photo For', 'Slow Zoom', 'Portrait Photos', 'Landscape Photos'].every(function (w) { return hw.indexOf(w) >= 0; }), true);
+  ok('...Photo Layout’s old address opens How Photos Show', go('#/house/screensaver/layout').title, 'How Photos Show');
+  ok('...Fade Back is on Advanced', /Fade Back/.test(text(draw(go('#/house/screensaver/advanced')).box)), true);
+  // decision 12: Slides -- one set of rows, How Often in minutes and Show For in seconds, whatever shows
+  var sl = text(draw(go('#/house/screensaver/slides')).box);
+  ok('Slides: each slide, then How Often in minutes and Show For', ['Forecast', 'Music Full Screen', 'Weather', 'Home Energy', 'Holidays', 'Timers', 'How Often',
+    'Every Minute', 'Every 5 Minutes', 'Show For'].every(function (w) { return sl.indexOf(w) >= 0; }) && !/Photos\b.*Every \d+ Photos|Every 3 Photos/.test(sl), true);
+  // decision 10: a screen's page, its switch on top; off, nothing else
+  boards['dashboard-k'].screensaver = false;
+  var off = text(draw(go('#/screens/dashboard-k/screensaver')).box);
+  ok('a screen’s Screensaver: its switch on top, and while it is off nothing else', go('#/screens/dashboard-k/screensaver').title === 'Screensaver' &&
+     /Screensaver/.test(off) && /On this screen’s wall tablets/.test(off) && /add the tablet that shows this screen/.test(off) && !/What It Shows|Starts After/.test(off), true);
+  var sw = all(draw(go('#/screens/dashboard-k/screensaver')).box).filter(function (e) { return e.attrs && e.attrs['data-fk'] === 'b:screensaver'; })[0];
+  ((sw && sw._listeners.click) || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
+  ok('...the switch turns it on', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { screensaver: true }]));
+  // decision 9: on, following All Screens: every row All Screens', saying so; a change makes that one row its own
+  boards['dashboard-k'].screensaver = true;
+  var fo = text(draw(go('#/screens/dashboard-k/screensaver')).box);
+  ok('...on and following All Screens: the same rows, each Same as All Screens, its menu first Same as All Screens (3 Minutes)',
+     ['What It Shows', 'Design', 'Slides', 'Starts After', 'How Photos Show', 'Side Pane', 'Advanced', 'For Automations', 'Same as All Screens (3 Minutes)'].every(
+       function (w) { return fo.indexOf(w) >= 0; }) && !/Just This Screen|Use All Screens’ Screensaver/.test(fo), true);
+  var startsAfter = function (box) { return all(box).filter(function (e) { return String(e.tagName).toLowerCase() === 'select' && e.attrs && e.attrs['data-fk'] === 'saver:starts_after'; })[0]; };
+  var choose = function (sel, v) {
+    sel.options = sel.children; sel.selectedIndex = sel.children.map(function (o) { return String(o.value != null ? o.value : o.attrs.value); }).indexOf(v); sel.value = v;
+    ((sel._listeners || {}).change || []).forEach(function (f) { f({}); });
+  };
+  var sa = startsAfter(draw(go('#/screens/dashboard-k/screensaver')).box);
+  choose(sa, '60');
+  ok('...Starts After changed here is this screen’s own, and nothing else', JSON.stringify(writes.pop()),
+     JSON.stringify(['b', 'dashboard-k', { screensaver_options: { starts_after: 60 } }]));
+  boards['dashboard-k'].screensaver_own = { starts_after: 60 };
+  var ow = text(draw(go('#/screens/dashboard-k/screensaver')).box);
+  ok('...then that row says Just This Screen, the others Same as All Screens, and Use All Screens’ Screensaver is there',
+     /Just This Screen/.test(ow) && /Same as All Screens/.test(ow) && /Use All Screens’ Screensaver/.test(ow), true);
+  sa = startsAfter(draw(go('#/screens/dashboard-k/screensaver')).box);
+  choose(sa, '');
+  ok('...and Same as All Screens lets it go', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { screensaver_options: null }]));
+  // the editor's Save hands the whole set: only what changed counts -- a slide alone; the design, all of the design
+  var putB = P.saverPutB.call(pg, 'dashboard-k'), whole = P.saverNow.call(pg, 'dashboard-k');
+  putB(Object.assign({}, whole, { weather_slide: true }));
+  ok('the editor’s Save with only a slide changed: that slide is the screen’s own, nothing else', JSON.stringify(writes.pop()),
+     JSON.stringify(['b', 'dashboard-k', { screensaver_options: { starts_after: 60, weather_slide: true } }]));
+  putB(Object.assign({}, whole, { clock_style: 'numbers', show: 'clock' }));
+  var dz = writes.pop()[2].screensaver_options;
+  ok('...a change to the design makes the whole design its own (one group), and no other row', dz.clock_style === 'numbers' && dz.show === 'clock' &&
+     'layout' in dz && 'clock_bg' in dz && 'tb_size' in dz && !('each_photo' in dz) && !('extra_every' in dz) && dz.starts_after === 60, true);
+  delete boards['dashboard-k'].screensaver_own; boards['dashboard-k'].screensaver = false;
   draw(go('#/screens/dashboard-k/screensaver/photos'));
   ok('a screen’s Photos page asks the host for that screen’s album', asked2[asked2.length - 1], 'saver:dashboard-k');
   pg._host = null;

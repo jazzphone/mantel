@@ -6,6 +6,7 @@ from collections.abc import Mapping
 import copy
 from typing import Any
 from .. import pane_status as PS
+from ..saver_layers import is_whole
 from .schema import _whole, CONF_DASHBOARD
 from .defaults import (PANE_CHOICES, PANE_DIM_GLASS, PANE_DIM_MAX, PANE_DIM_WORDS, PANE_FLAGS_ON, PANE_GROUPS,
     PANE_MAX, PANE_OPTIONS, PANE_PLACES, PANE_SAVER_SHOWS, PANE_SECTIONS, PANE_SHOWS, PANE_SIDES, PANE_SIZES,
@@ -237,7 +238,8 @@ def side_pane_lifted(options: Mapping[str, Any] | None, items: Mapping[str, Mapp
         own: dict[str, Any] = {}
         mine = b.get("screensaver_options")
         saver = house["saver"]
-        if isinstance(mine, dict):
+        # (a whole set from before had the pane's keys; phase 33's own keys without them leave its pane All Screens')
+        if isinstance(mine, dict) and (is_whole(mine) or any(k in mine for k in _PANE_OLD_SAVER)):
             sv = _saver_pane(mine) or {"show": "off", "sections": copy.deepcopy(SIDE_PANE_DEFAULTS["saver"]["sections"])}
             if sv != house["saver"]:
                 own["saver"] = saver = sv

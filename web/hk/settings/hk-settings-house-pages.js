@@ -384,54 +384,7 @@
         }
         // SCREENSAVER (its own entry since 2026-10-13): every screen whose Same
         // as All Screens is on
-        if (page === 'screensaver') {
-          var bd = this.data.boards || {};
-          // the preview: a screen that follows these, else any screen with the
-          // screensaver, shown with these settings (1.8.0: every screen with
-          // its own settings left the page with no preview at all)
-          var withSaver = Object.keys(bd).filter(function (p) { return bd[p].screensaver && bd[p].screensaver_engine !== 'wallpanel'; });
-          var pv = withSaver.filter(function (p) { return M.saverFollows(bd[p]); })[0] || withSaver[0];
-          // (the Clock Style page is the editor's now, Look -> Big -> Face: its old address opens the editor)
-          if (sub[0] === 'editor' || sub[0] === 'clock-style') {
-            return this.saverEditorPage('house', { house: true, path: pv || '', previewPath: pv, title: 'All Screens', back: [title, '#/house/screensaver'],
-              options: this.hs('look.saver') });
-          }
-          if (sub[0] === 'photos' || sub[0] === 'layout' || sub[0] === 'forecast') {
-            var hcur2 = M.saverOptions(this.hs('look.saver')), hput = self.saverPutH();
-            var hpg2 = sub[0] === 'photos'
-              ? mk('Photos', function (c) { self.saverPhotosPage(c, hcur2, hput, true, { photos: self.hs('look.photos'), set: function (v) { return self.setH({ 'look.photos': v }); } }); },
-                   [title, base])
-              : sub[0] === 'layout' ? mk('Photo Layout', function (c) { self.saverLayoutPage(c, hcur2, hput); })
-              : mk('Forecast Look', function (c) { self.saverForecastPage(c, hcur2, hput); });
-            if (pv) { hpg2.preview = pv; hpg2.saverPreview = true; hpg2.saverHouse = true; }
-            return hpg2;
-          }
-          if (sub[0] === 'weather') {
-            var wcur = M.saverOptions(this.hs('look.saver'));
-            var hwpg = mk('Weather', function (c) { self.saverWeather(c, wcur, self.saverPutH()); });
-            if (pv) { hwpg.preview = pv; hwpg.saverPreview = true; hwpg.saverHouse = true; }
-            hwpg.saverWeather = true;
-            return hwpg;
-          }
-          if (sub[0] === 'holiday') {
-            var hcur = M.saverOptions(this.hs('look.saver'));
-            var hhpg = mk('Holidays', function (c) { self.saverHoliday(c, hcur, self.saverPutH()); });
-            if (pv) { hhpg.preview = pv; hhpg.saverPreview = true; hhpg.saverHouse = true; }
-            hhpg.saverHoliday = true;
-            return hhpg;
-          }
-          if (sub[0] === 'energy') {
-            var ecur = M.saverOptions(this.hs('look.saver'));
-            var hepg = mk('Home Energy', function (c) { self.saverEnergy(c, ecur, self.saverPutH()); });
-            if (pv) { hepg.preview = pv; hepg.saverPreview = true; hepg.saverHouse = true; }
-            hepg.saverEnergy = true;
-            return hepg;
-          }
-          var spg = { title: title, top: true, body: function (c) { self.h_saver(c); },
-                      scope: 'What every screen’s screensaver shows, unless it has its own. When a tablet goes dark is its own Sleep Screen’s (Wall Tablets).' };
-          if (pv) { spg.preview = pv; spg.saverPreview = true; spg.saverHouse = true; }
-          return spg;
-        }
+        if (page === 'screensaver') return this.saverHouseRoute(sub, title, base);
         // WALL TABLETS (1.14): the tablets themselves, each its own page
         if (page === 'tablets') {
           if (sub[0] === 'screensaver') {
@@ -1108,7 +1061,7 @@
       }
       // ONE LOOK: what it changes on this screen (only what differs), and Apply
       lookPage(c, x, b, l, base) {
-        var self = this, saver = M.saverOptions(b.screensaver_options || this.hs('look.saver'));
+        var self = this, saver = this.saverNow(x.path);
         var r = M.lookChanges(l, b, saver, null);
         // its cell from the list at the top (a plain row repeating the title before)
         c.appendChild(K.group({}, [this.lookCell(l, null)]));

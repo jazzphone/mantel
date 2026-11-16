@@ -194,6 +194,19 @@ ok('Home Energy: off by default; its keys checked', d.energy_slide === false && 
    U.readCfg({ extra_for: 5 }).extra_for === 30 && U.readCfg({ extra_for: 120 }).extra_for === 120 &&
    JSON.stringify(U.readCfg({ energy_hide: ['cost', 3, 'yday'] }).energy_hide) === '["cost","yday"]' &&
    U.readCfg({ energy_hide: 'cost' }).energy_hide.length === 0);
+// SLIDES IN MINUTES (phase 33, decision 12; hk_core saver_layers.py the same rule): over the photos a slide comes after How
+// Often's minutes in photos, for Show For's seconds; an older set counting photos is carried over as the minutes it took
+var SAVER_SRC = read(DIR + 'frontend/saver/hk-saver-start.js');
+var hs = U.readCfg({ show: 'both', forecast_every: 3, each_photo: 20, extra_every: 2, extra_for: 30 });
+ok('the house’s slides over its photos: after 3 photos of 20 s, as before -- every minute -- for a photo’s 20 s',
+   [hs.slide_photos * hs.each_photo, hs.extra_every, hs.slide_for, hs.forecast_every], [60, 1, 20, 3]);
+var nm = U.readCfg({ show: 'both', forecast_every: 4, each_photo: 30, extra_every: 2, extra_for: 60 });
+ok('...written in minutes (the count in step): every 2 minutes is 4 photos of 30 s, for Show For', [nm.slide_photos, nm.slide_for, nm.extra_every], [4, 60, 2]);
+ok('...a clock keeps its minutes; a hand-written block with forecast_every alone still counts photos',
+   [U.readCfg({ show: 'clock', forecast_every: 7, each_photo: 30, extra_every: 10 }).extra_every, U.readCfg({ forecast_every: 6, each_photo: 10 }).slide_photos,
+    U.readCfg({ forecast_every: 6, each_photo: 10 }).slide_for], [10, 6, 10]);
+ok('...and the start loop counts slide_photos and waits slide_for while a slide is up', /ST\.sinceFc >= ST\.cfg\.slide_photos/.test(SAVER_SRC) &&
+   /slideUp\(\) \? ST\.cfg\.slide_for : ST\.cfg\.each_photo/.test(SAVER_SRC), true);
 var E3 = { show: 'both', music_slide: true, energy_slide: true };
 ok('...the music, the forecast and Home Energy take turns, in that order', U.slideOf(E3, true, '', true) === 'music' &&
    U.slideOf(E3, true, 'music', true) === 'forecast' && U.slideOf(E3, true, 'forecast', true) === 'energy' &&

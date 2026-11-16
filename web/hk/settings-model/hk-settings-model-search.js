@@ -60,25 +60,29 @@
       ['Now Playing Bar on Phones', 'screen/nowplaying', 'np_bar_phone', 'music media bar top bottom position player phones', true],
       ['Timer Bar', 'screen/more', 'timer_bar', 'timers quick timer bar countdown docked bottom', true],
       ['On Every Page', 'screen/more', 'bar_all_pages', 'now playing timer bar every page all pages everywhere', true],
-      ['Screensaver', 'screen/more', 'screensaver', 'photo screensaver photos wall tablet slideshow clock glance idle', true],
-      ['Screensaver Options', 'screen/screensaver', 'screensaver_options', 'photo timing starts after each photo order random slideshow', true],
+      // THE SCREENSAVER (phase 33): its switch on top of its page; What It Shows, When, How Photos Show, Advanced
+      ['Screensaver', 'screen/screensaver', 'screensaver', 'photo screensaver photos wall tablet slideshow clock glance idle on off switch', true],
       ['Screensaver for All Screens', 'house/screensaver', 'look.saver', 'screensaver all screens global default every tablet'],
-      ['Same as All Screens (Screensaver)', 'screen/screensaver', 'saver:house', 'screensaver all screens own global', true],
-      ['Screensaver Shows', 'screen/screensaver', 'saver:show', 'screensaver forecast weather photos no photos landscape', true],
-      ['Forecast When There Are No Photos', 'screen/screensaver', 'saver:fallback', 'screensaver forecast fallback empty folder dark', true],
-      ['Forecast Details (Screensaver)', 'screen/screensaver', 'saver:band', 'screensaver forecast band days hours multi-day details bottom', true],
-      ['Forecast Slide', 'screen/screensaver', 'saver:slide_forecast', 'screensaver forecast slide between photos mix both', true],
-      ['Music Slide', 'screen/screensaver', 'saver:music_slide', 'screensaver music now playing album art full screen slide song next previous', true],
-      ['Music First', 'screen/screensaver', 'saver:music_first', 'screensaver music first priority playing full screen instead of photos forecast', true],
-      ['Slide Every', 'screen/screensaver', 'saver:forecast_every', 'screensaver slide every photos how often forecast music', true],
-      ['Slow Zoom', 'screen/screensaver', 'saver:zoom', 'screensaver photo zoom ken burns', true],
-      ['Over the Photos', 'screen/screensaver', 'saver:clock', 'screensaver clock weather now playing music timers', true],
+      ['Screensaver Design', 'screen/screensaver', 'saver:editor', 'screensaver editor design look face clock background show photos forecast glance month', true],
+      ['Use All Screens’ Screensaver', 'screen/screensaver', 'saver:use-house', 'screensaver same as all screens own global reset', true],
+      ['Starts After', 'screen/screensaver', 'saver:starts_after', 'screensaver start sooner later timer untouched minutes idle', true],
+      ['Night Mode (Screensaver)', 'screen/screensaver', 'saver:clock_night', 'screensaver night red clock standby dim bedtime', true],
+      ['Forecast When There Are No Photos', 'screen/screensaver/photos', 'saver:fallback', 'screensaver forecast fallback empty folder dark', true],
+      ['Forecast Details (Screensaver)', 'screen/screensaver/forecast', 'saver:band', 'screensaver forecast band days hours multi-day details bottom', true],
+      ['Slides (Screensaver)', 'screen/screensaver', 'saver:slides', 'screensaver slides also show forecast weather energy holidays timers music between', true],
+      ['Forecast Slide', 'screen/screensaver/slides', 'saver:slide_forecast', 'screensaver forecast slide between photos mix both', true],
+      ['Music Full Screen', 'screen/screensaver/slides', 'saver:music_first', 'screensaver music slide first now playing album art full screen song next previous', true],
+      ['How Often (Slides)', 'screen/screensaver/slides', 'saver:extra_every', 'screensaver slide every minutes how often forecast music photos', true],
+      ['Show For (Slides)', 'screen/screensaver/slides', 'saver:extra_for', 'screensaver slide seconds how long', true],
+      ['How Photos Show', 'screen/screensaver', 'saver:photos-how', 'screensaver photos slideshow layout mosaic order random each photo portrait landscape', true],
+      ['Each Photo For', 'screen/screensaver/photos-how', 'saver:each_photo', 'screensaver photo seconds how long slideshow', true],
+      ['Slow Zoom', 'screen/screensaver/photos-how', 'saver:zoom', 'screensaver photo zoom ken burns', true],
+      ['Fade Back', 'screen/screensaver/advanced', 'saver:fade_back', 'screensaver fade back dashboard touch instant', true],
       ['Calendar Pane', 'screen/sidepane', 'pane:saver:show', 'screensaver calendar events agenda pane right side upcoming today tomorrow days', true],
       ['Music Pane', 'screen/sidepane', 'pane:saver:show', 'screensaver music pane right side now playing album art song next previous', true],
-      ['Home Status', 'screen/screensaver', 'saver:status', 'screensaver security secured locks doors alarm top right', true],
       ['Screensaver Switch', 'screen/screensaver', 'saver:ent:switch', 'screensaver photo switch automation entity turn on off bedtime doorbell', true],
       ['Screen In Use', 'screen/screensaver', 'saver:ent:binary_sensor', 'in use touched tablet binary sensor automation window starts after timer', true],
-      ['Use WallPanel Instead', 'screen/screensaver', 'b:screensaver_engine', 'wallpanel hacs screensaver', true],
+      ['Use WallPanel Instead', 'screen/screensaver/advanced', 'b:screensaver_engine', 'wallpanel hacs screensaver', true],
       ['Your Own Dashboards', 'advanced', 'yaml-ref', 'yaml reference own dashboard hand written raw configuration snippets examples copy'],
       ['Hide Header & Sidebar', 'screen/kiosk', 'kiosk', 'kiosk hide header sidebar what is hidden admins', true],
       ['Hide Header', 'screen/kiosk', 'kiosk_header', 'kiosk header toolbar top bar title views', true],
@@ -201,8 +205,7 @@
       ['Music Browse Categories', 'features/music/categories', 'browse.hide', 'artists albums songs playlists radio podcasts audiobooks'],
       ['Discover Rows', 'features/music/discover', 'browse.discover', 'recently played favorites most played'],
       ['Browse Page', 'page/music', 'look.browse_view', 'music browse view'],
-      ['Idle Time (All Tablets)', 'house/tablets/all', 'tablets.idle_time', 'wall tablet idle seconds return to home when idle timeout'],
-      ['Return to Home When Idle', 'house/tablets/all', 'tablets.idle_return', 'wall tablet idle return home timeout'],
+      ['Back to Home After (All Tablets)', 'house/tablets/all', 'tablets.idle_time', 'wall tablet idle seconds return to home when idle timeout never'],
       ['All Tablets', 'house/tablets', 'tablets:all', 'wall tablet every all tablets defaults idle alerts restart reload'],
       ['Add Tablet', 'house/tablets/add', 'tablet:add', 'wall tablet add new kiosk satellite fully kiosk wallpanel browser'],
       ['Tablet Alerts', 'house/tablets/all', 'tablets.alert_offline', 'wall tablet offline alert notification charging restart came back'],
@@ -378,16 +381,63 @@
         if (!src || (groups || []).indexOf(g[0]) < 0) return;
         g[2].forEach(function (k) {
           // a screen following All Screens' screensaver: the copy follows too
-          if (k === 'screensaver_options') { out[k] = saverFollows(src) ? null : JSON.parse(JSON.stringify(src[k])); return; }
+          // (its own rows, phase 33: the rest follows All Screens on the other screen too)
+          if (k === 'screensaver_options') { out[k] = saverFollows(src) ? null : JSON.parse(JSON.stringify(saverLayers.own(src))); return; }
           if (k === 'home_grid' && src[k] == null) return;   // no layout: the Home Style alone, never the other's deleted
           if (src[k] !== undefined) out[k] = src[k] === null ? null : JSON.parse(JSON.stringify(src[k]));
         });
       });
       return out;
     }
-    // A SCREEN FOLLOWS ALL SCREENS' SCREENSAVER when its own options are null
-    // (a save hands back the stored form) or the feed says so (resolved)
-    function saverFollows(b) { return !!b && (b.screensaver_house === true || b.screensaver_options == null); }
+    // A SCREEN'S SCREENSAVER, ROW BY ROW OVER ALL SCREENS' (phase 33, decisions 9 and 12; hk_core saver_layers.py,
+    // test_saver_layers.py holds the lists equal): its own options are only the keys it set (the feed's
+    // screensaver_own; an older feed's whole set is all its own), read over All Screens'. The page's rows are each
+    // its own; every other key is the editor's design, one group. The slides' How Often in minutes, an older
+    // "every N photos" carried over as the minutes it took (inMinutes), forecast_every kept in step for an older reader.
+    var SAVER_EVERY = [1, 2, 5, 10, 15, 30];
+    var SAVER_PAGE_KEYS = ['starts_after', 'each_photo', 'order', 'fill', 'zoom', 'fallback', 'fade_back',
+      'photo_layout', 'mosaic_change', 'mosaic_color', 'mosaic_count', 'mosaic_every', 'mosaic_gap', 'mosaic_line', 'mosaic_random',
+      'portrait_fill', 'portrait_blur', 'portrait_dim', 'portrait_zoom', 'portrait_x', 'portrait_y',
+      'landscape_blur', 'landscape_dim', 'landscape_zoom', 'landscape_x', 'landscape_y', 'clock_night', 'clock_night_from', 'clock_night_to',
+      'forecast_every', 'extra_every', 'extra_for', 'music_first', 'music_slide', 'extra_music', 'extra_forecast',
+      'weather_slide', 'weather_hide', 'energy_slide', 'energy_hide', 'forecast_layout', 'forecast_big', 'forecast_planted', 'band',
+      'band_photos', 'calendar', 'calendar_days', 'music_pane', 'holiday_slide', 'holiday_pick', 'holiday_one', 'holiday_days',
+      'holiday_off', 'holiday_own', 'holiday_fx', 'holiday_outdoors', 'holiday_hide', 'timer_slide', 'timer_often'];
+    var saverLayers = (function () {
+      var has = function (o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); };
+      function photosFor(every, each) { return Math.min(100, Math.max(2, Math.round(every * 60 / Math.max(1, each)))); }
+      function nearest(m) {
+        return SAVER_EVERY.reduce(function (a, x) { return Math.abs(x - m) < Math.abs(a - m) ? x : a; }, SAVER_EVERY[0]);
+      }
+      function inMinutes(o) {
+        var out = Object.assign({}, o);
+        if (!has(out, 'forecast_every') || !has(out, 'extra_every') || !has(out, 'each_photo')) return out;
+        if ((out.show === 'photos' || out.show === 'both') && out.forecast_every !== photosFor(out.extra_every, out.each_photo)) {
+          out.extra_every = nearest(out.forecast_every * out.each_photo / 60);
+          out.extra_for = Math.min(300, Math.max(10, out.each_photo));
+        }
+        out.forecast_every = photosFor(out.extra_every, out.each_photo);
+        return out;
+      }
+      // the keys a screen set itself (b: a screen as the page holds it)
+      function own(b) {
+        if (!b) return {};
+        if (b.screensaver_own && typeof b.screensaver_own === 'object') return b.screensaver_own;
+        return b.screensaver_house === true || !b.screensaver_options ? {} : b.screensaver_options;
+      }
+      // a screen's options as read: All Screens' (house) with its own over them
+      function of(b, house) {
+        var mine = own(b), out = saverOptions(Object.assign({}, saverOptions(house), mine));
+        if (Object.keys(mine).length) out.forecast_every = photosFor(out.extra_every, out.each_photo);
+        return out;
+      }
+      function isOwn(b, k) { return has(own(b), k); }
+      function isPage(k) { return SAVER_PAGE_KEYS.indexOf(k) >= 0; }
+      return { EVERY: SAVER_EVERY, PAGE_KEYS: SAVER_PAGE_KEYS, photosFor: photosFor, nearest: nearest, inMinutes: inMinutes, own: own, of: of,
+               isOwn: isOwn, isPage: isPage };
+    })();
+    // A SCREEN FOLLOWS ALL SCREENS' SCREENSAVER in everything when it set none of its own
+    function saverFollows(b) { return !!b && !Object.keys(saverLayers.own(b)).length; }
     // one line for a nav row: what shows, and when
     // A SCREEN'S Header & Sidebar row: what is hidden, and by whom
     function kioskSummary(b, generated) {
@@ -537,7 +587,7 @@
     K.NP_SIDES = NP_SIDES; K.NP_STYLES = NP_STYLES; K.npOwn = npOwn; K.npSummary = npSummary;
     K.previewDefault = previewDefault; K.previewFit = previewFit; K.previewSizes = previewSizes;
     K.SAVER_DEFAULTS = SAVER_DEFAULTS; K.SAVER_SHOWS = SAVER_SHOWS; K.saverCustom = saverCustom;
-    K.saverFollows = saverFollows; K.saverOptions = saverOptions; K.saverSummary = saverSummary; K.SEARCH = SEARCH;
+    K.saverFollows = saverFollows; K.saverLayers = saverLayers; K.saverOptions = saverOptions; K.saverSummary = saverSummary; K.SEARCH = SEARCH;
     K.search = search; K.showName = showName; K.skyMoments = skyMoments; K.skyPreviewScreen = skyPreviewScreen;
     K.skySummary = skySummary; K.WEATHER_PARTS = WEATHER_PARTS; K.weatherShown = weatherShown;
   };

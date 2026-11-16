@@ -1,4 +1,4 @@
-// hk-settings-screen-saver.js - a screen's screensaver: its styles, faces, thumbnails, editor page and groups.
+// hk-settings-screen-saver.js - a screen's screensaver: its page at both levels, row by row, its faces, thumbnails and editor page.
 //
 // PART OF THE HK SETTINGS PAGE (hk-settings.js). Not a card and not run on its own: it registers one
 // function, which hk-settings.js calls with the shared kit KIT once every part has loaded (the
@@ -20,12 +20,7 @@
     // defines them). They are written here exactly as they were in the class. (`extends` an `any`: only so the type
     // checker lets `this` have the properties the shell's class gives it; nothing makes an instance of this.)
     var Methods = class extends /** @type {any} */ (Object) {
-      // AN OPTIONS PAGE: OPTION_PAGES' controls over the options mapping, then
-      // the way to the rest of it in YAML
-      // THE SCREENSAVER'S OPTIONS (HK Frontend's own, hk-saver.js). Every
-      // control saves the whole set; the defaults are settings.py's.
-      // A SCREEN'S SCREENSAVER OPTIONS: the settings for All Screens (the
-      // default -- `screensaver_options` null), or its own.
+      // THE SCREENSAVER'S OPTIONS (HK Frontend's own, hk-saver.js); the defaults are settings.py's.
       // WHAT IS SAVED: only the options Home Assistant's running HK Frontend
       // knows (the keys of All Screens' options, which it fills in). These
       // files are served the moment they change, its Python only after a
@@ -36,9 +31,14 @@
         return !h || typeof h !== 'object' || Object.prototype.hasOwnProperty.call(h, k);
       }
 
+      // A WHOLE SET AS SAVED (All Screens'): the known keys, its slides' count of photos in step with How Often's
+      // minutes (an older version reads that), and the design in use kept with what it shows
       saverOut(o) {
         var self = this, out = {};
         Object.keys(o).forEach(function (k) { if (self.saverKnown(k)) out[k] = o[k]; });
+        if (typeof out.extra_every === 'number' && typeof out.each_photo === 'number' && 'forecast_every' in out) {
+          out.forecast_every = M.saverLayers.photosFor(out.extra_every, out.each_photo);
+        }
         // Timing, photos and slides can also be edited outside the layout editor.
         // Keep those changes with the selected design without mutating inherited settings.
         if (out.active_design && out.designs) {
@@ -48,47 +48,52 @@
         return out;
       }
 
-      // one option saved, for a screen of its own or for All Screens
+      // ALL SCREENS' OPTIONS AS THEY READ (their slides in minutes) -- and a screen's: All Screens' with its own over them
+      saverHouseNow() { return M.saverLayers.inMinutes(M.saverOptions(this.hs('look.saver'))); }
+      saverNow(path) { return path ? M.saverLayers.of((this.data.boards || {})[path], this.saverHouseNow()) : this.saverHouseNow(); }
+
+      // ONE OPTION SAVED FOR A SCREEN, ROW BY ROW (phase 33, decision 9): the keys it changes become the screen's own,
+      // the rest stay All Screens'. A change to the editor's design makes the whole design its own (one group); the
+      // editor's Save hands the whole set, of which only what changed counts. put(key, value) or put({key: value, ...})
       saverPutB(path) {
         var self = this;
         return function (k, v) {
-          var b = (self.data.boards || {})[path] || {}, o = M.saverOptions(b.screensaver_options);
-          if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
-          return self.setB(path, { screensaver_options: self.saverOut(o) });
+          var b = (self.data.boards || {})[path] || {}, L = M.saverLayers;
+          var cur = self.saverNow(path), mine = Object.assign({}, L.own(b)), patch = {};
+          if (k && typeof k === 'object') patch = k; else patch[k] = v;
+          var same = function (a, c) { return JSON.stringify(a === undefined ? null : a) === JSON.stringify(c === undefined ? null : c); };
+          var keys = Object.keys(patch).filter(function (x) { return self.saverKnown(x) && !same(patch[x], cur[x]); });
+          // (one key put alone is the screen's own even at All Screens' value: it was chosen here)
+          if (!(k && typeof k === 'object') && self.saverKnown(k) && keys.indexOf(k) < 0) keys.push(k);
+          if (keys.some(function (x) { return !L.isPage(x); })) {
+            Object.keys(cur).forEach(function (x) { if (!L.isPage(x) && keys.indexOf(x) < 0 && self.saverKnown(x)) keys.push(x); });
+          }
+          keys.forEach(function (x) { mine[x] = Object.prototype.hasOwnProperty.call(patch, x) ? patch[x] : cur[x]; });
+          var all = Object.assign({}, cur, mine);
+          // (a whole set from before holds the count of photos too: in step with its minutes, for an older version)
+          if ('forecast_every' in mine) mine.forecast_every = L.photosFor(all.extra_every, all.each_photo);
+          if (mine.active_design && mine.designs) {
+            var snap = Object.assign({}, all); delete snap.designs; delete snap.active_design;
+            mine.designs = mine.designs.map(function (d) { return d.id === mine.active_design ? Object.assign({}, d, { options: snap }) : d; });
+          }
+          return self.setB(path, { screensaver_options: Object.keys(mine).length ? mine : null });
         };
+      }
+
+      // A SCREEN'S ROWS BACK TO ALL SCREENS': its own keys `keys` let go (all of them: Use All Screens' Screensaver)
+      saverUnown(path, keys) {
+        var mine = Object.assign({}, M.saverLayers.own((this.data.boards || {})[path]));
+        (keys || Object.keys(mine)).forEach(function (k) { delete mine[k]; });
+        return this.setB(path, { screensaver_options: Object.keys(mine).length ? mine : null });
       }
 
       saverPutH() {
         var self = this;
         return function (k, v) {
-          var o = M.saverOptions(self.hs('look.saver'));
+          var o = self.saverHouseNow();
           if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
           return self.setH({ 'look.saver': self.saverOut(o) });
         };
-      }
-
-      // CLOCK STYLE (2026-10-13): the fourteen faces, the preview showing the
-      // one chosen -- the same style for Show: Clock and a Large clock
-      // (2026-10-30: each with a small picture of itself; Liquid, Giant and
-      // Scattered Numerals bring their own colour)
-      saverStyle(c, cur, put) {
-        var self = this, cr = this.clockColorRow(cur, put);
-        if (cr) c.appendChild(K.group({ footer: 'Each style keeps its own color.' }, [cr]));
-        c.appendChild(K.group({ footer: 'The same style for Show: Clock and a Large clock over the photos or the forecast. Every style shows the date' +
-            (M.CLOCK_OWN_GROUND ? ' but Liquid and Scattered Numerals. Liquid, Giant Numerals and Scattered Numerals bring their own color, in place of the background behind the clock.' : '.') },
-          M.CLOCK_STYLES.map(function (st) {
-            return K.check({ label: st[1], sub: st[2], on: (cur.clock_style || 'classic') === st[0], fk: 'saver:clock_style:' + st[0],
-                             thumb: self.saverThumb(64, 44, 'clock:' + st[0], cur),
-                             onClick: function () { put('clock_style', st[0]); } });
-          })));
-        // Today's line of what's playing, under its weather (2026-11-01, the owner: "I don't see a place to turn this off")
-        if ((cur.clock_style || 'classic') === 'today') {
-          c.appendChild(K.group({ footer: 'Today shows the weather under the time, and the song playing in the house under it, while something plays.' },
-            [K.toggle({ label: 'Weather', sk: 'saver:clock_today_weather', on: cur.clock_today_weather !== false,
-                       onChange: function (on) { put('clock_today_weather', on); } }),
-             K.toggle({ label: 'What’s Playing', sk: 'saver:clock_today_music', on: cur.clock_today_music !== false,
-                        onChange: function (on) { put('clock_today_music', on); } })]));
-        }
       }
 
       // THE SCREENSAVER'S FACES, SMALL (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): a picture of a Show or a
@@ -211,166 +216,324 @@
           }
         };
       }
-
-      // THE EDITOR'S ROW, first on a Screensaver page; with a layout saved, what of the page it takes the place of, and the
-      // way back (the Show drawn as it was)
-      saverEditRow(c, href, cur, put, note) {
-        var self = this, lay = !!(cur && cur.layout), active = (cur.designs || []).find(function (d) { return d.id === cur.active_design; });
-        // (the page below is what can't be laid out: the photos, the slides, Night Mode and the timing)
-        c.appendChild(K.group({ footer: (note ? note + ' ' : '') + 'What shows and how it looks is set in the editor' + (lay ? '.' : ', starting from how it looks today.') },
-          [K.nav({ label: 'Designs & Editor', value: active ? active.name : 'Current Screensaver', sub: (cur.designs || []).length + ' saved designs · Faces, backgrounds and all widgets',
-            icon: 'mdi:pencil', href: href, sk: 'saver:editor' })]
-            .concat(lay && put ? [K.button({ label: 'Remove the Layout\u2026', destructive: true, fk: 'saver:layout-off', onClick: function () {
-              K.confirm(self.shadowRoot, { title: 'Remove the Layout?', message: 'The screensaver is drawn as its Show was before the editor. Its other settings stay.', ok: 'Remove',
-                destructive: true })
-                .then(function (yes) { if (yes) put('layout', null); });
-            } })] : [])));
+      // THE SCREENSAVER PAGES' CONTEXT (phase 33): All Screens' (path null) or a screen's -- the options in force, how
+      // one is saved, and which are the screen's own. The same groups, rows and order at both levels; on a screen each
+      // row says Same as All Screens or Just This Screen, and its menu starts with Same as All Screens (its value)
+      saverCtx(path) {
+        var self = this, house = !path, b = house ? null : (this.data.boards || {})[path] || {}, L = M.saverLayers;
+        var hcur = this.saverHouseNow();
+        return {
+          house: house, path: path, b: b, hcur: hcur, cur: house ? hcur : L.of(b, hcur),
+          base: house ? '#/house/screensaver' : '#/screens/' + encodeURIComponent(path) + '/screensaver',
+          put: house ? this.saverPutH() : this.saverPutB(path),
+          own: function (keys) { return !house && [].concat(keys).some(function (k) { return L.isOwn(b, k); }); },
+          unown: function (keys) { return self.saverUnown(path, keys); }
+        };
       }
 
+      // a row's words on a screen: whose it is (null at All Screens: the row's own words stay)
+      saverSays(ctx, keys, sub) { return ctx.house ? sub || null : ctx.own(keys) ? 'Just This Screen' : 'Same as All Screens'; }
+
+      // A MENU ROW: `opts` [[value, words]] (the value in force added when it isn't one, in `fmt`'s words); on a
+      // screen Same as All Screens (its value) first, which lets the key go. A number stays a number.
+      saverSel(ctx, label, k, opts, sub, fmt) {
+        var cur = ctx.cur, num = typeof cur[k] === 'number';
+        var words = function (v) {
+          var o = opts.filter(function (x) { return String(x[0]) === String(v); })[0];
+          return o ? o[1] : fmt ? fmt(v) : String(v);
+        };
+        var all = opts.some(function (o) { return String(o[0]) === String(cur[k]); }) ? opts.slice() : opts.concat([[cur[k], words(cur[k])]]);
+        var mine = ctx.own(k);
+        if (!ctx.house) all = [['', 'Same as All Screens (' + words(ctx.hcur[k]) + ')', words(ctx.hcur[k])]].concat(all);
+        return K.select({ label: label, sub: this.saverSays(ctx, k, sub), sk: 'saver:' + k, value: ctx.house || mine ? String(cur[k]) : '',
+          options: all.map(function (o) { return [String(o[0]), o[1], o[2]]; }),
+          onChange: function (v) {
+            if (v === '' && !ctx.house) return ctx.unown([k]);
+            return ctx.put(k, num ? Number(v) : v);
+          } });
+      }
+      saverTog(ctx, label, k, sub) {
+        return K.toggle({ label: label, sub: this.saverSays(ctx, k, sub), on: !!ctx.cur[k], sk: 'saver:' + k, onChange: function (on) { ctx.put(k, on); } });
+      }
+      // a sub-page's way back to All Screens' rows: the keys this page holds, when the screen has any of its own
+      saverUseHouse(c, ctx, keys, label) {
+        if (ctx.house || !ctx.own(keys)) return;
+        c.appendChild(K.group({}, [K.button({ label: label, fk: 'saver:use-house:' + keys[0], onClick: function () { ctx.unown(keys); } })]));
+      }
+
+      // WHAT SHOWS, WHAT'S BETWEEN, HOW PHOTOS SHOW: their row's value
+      saverDesignSays(o) {
+        var d = (o.designs || []).filter(function (x) { return x.id === o.active_design; })[0];
+        if (d) return d.name;
+        var big = o.layout && o.layout.big && o.layout.big.kind;
+        return o.show === 'clock' ? 'Clock' : M.showName(o.show === 'both' ? 'photos' : o.show) + (big === 'time' && o.show !== 'clock' ? ' with the Time' : '');
+      }
+      saverSlidesOn(o) {
+        var sky = o.show === 'forecast' || o.clock_bg === 'forecast' || o.clock_bg === 'skyonly', photos = o.show === 'photos' || o.show === 'both';
+        return [(photos ? o.show === 'both' : o.show === 'clock' && !sky && o.extra_forecast) && 'Forecast', (o.music_first || o.music_slide) && 'Music Full Screen',
+                o.extra_music && !o.music_first && !o.music_slide && 'Music', !sky && o.weather_slide && 'Weather', o.energy_slide && 'Home Energy',
+                o.holiday_slide && 'Holidays', o.timer_slide !== false && 'Timers'].filter(Boolean);
+      }
+      saverPhotosOn(o) {
+        var bg = o.clock_bg || 'gradient';
+        return o.show === 'photos' || o.show === 'both' || (o.show === 'clock' && (bg === 'photos' || bg === 'landscapes'));
+      }
+      // Night Mode does something only where the design shows the time large: the Clock, a big time, Glance and Month
+      saverBigTime(o) {
+        var big = o.layout && o.layout.big && o.layout.big.kind;
+        return o.show === 'clock' || o.show === 'glance' || o.show === 'month' || big === 'time';
+      }
+
+      // A SCREEN'S SCREENSAVER (phase 33, decision 10): its switch on top -- the screen's tablets run it -- and while it
+      // is on, the page All Screens' is, every row its own or Same as All Screens
       saverPage(c, x, b, path) {
-        var self = this, house = M.saverFollows(b);
-        var cur = M.saverOptions(house ? this.hs('look.saver') : b.screensaver_options);
-        // THE EDITOR (2026-11-01): the whole screensaver laid out on the screen itself
-        this.saverEditRow(c, '#/screens/' + encodeURIComponent(path) + '/screensaver/editor', cur, house ? null : function (k, v) {
-          var o = M.saverOptions(cur); o[k] = v; return self.setB(path, { screensaver_options: self.saverOut(o) });
-        }, house ? 'Editing gives this screen a screensaver of its own, starting from All Screens\u2019.' : null);
-        c.appendChild(K.group({ footer: house
-            ? 'This screen uses the screensaver settings for All Screens (All Screens → Screensaver). Off: it gets its own, starting from these.'
-            : 'This screen has its own screensaver settings. On: it uses the settings for All Screens again.' }, [
-          K.toggle({ label: 'Same as All Screens', sk: 'saver:house', on: house, onChange: function (on) {
-            self.setB(path, { screensaver_options: on ? null : self.saverOut(cur) });
-          } })].concat(house ? [K.nav({ label: 'Screensaver for All Screens', value: M.saverSummary(cur),
-                                        href: '#/house/screensaver', sk: 'saver:house-page' })] : [])));
-        // THE PHOTOS ROW (phase 32): the album the host keeps is picked on its own page; with options of its own, only where its show has
-        // photos: the Photos show, or the clock over them
-        var hx = this.host();
-        var photos = hx && typeof hx.extend === 'function' ? { value: '', sub: house ? 'All Screens’ photos, or an album for this screen' : 'An album for this screen' } : null;
-        if (house) {
-          // (the Side Pane is the screen's own even while its screensaver is All Screens': what this screen shows beside it)
-          c.appendChild(K.group({}, (photos ? [K.nav({ label: 'Photos', sub: photos.sub,
-            href: '#/screens/' + encodeURIComponent(path) + '/screensaver/photos', sk: 'saver:photos' })] : []).concat(this.paneLink(path, 'saver', 'saver:side_pane'))));
+        var self = this, gen = !!x.generated, wp = gen && b.screensaver_engine === 'wallpanel';
+        var mine = (b.tablets || []).filter(function (tid) { return self.tabs()[tid]; });
+        var foot = [];
+        if (!mine.length) foot.push('It runs only on a wall tablet: add the tablet that shows this screen.');
+        else if (b.screensaver) foot.push('It runs on this screen’s wall tablets, never on a desk or a phone opening it.');
+        else foot.push('Off, this screen’s wall tablets stay on the dashboard until their Sleep Screen darkens them.');
+        if (b.screensaver && !gen) foot.push('If this dashboard’s own YAML has an hk_screensaver block, that is used instead.');
+        c.appendChild(K.group({ footer: foot.join(' ') || null }, [K.toggle({ label: 'Screensaver', sub: 'On this screen’s wall tablets', sk: 'b:screensaver', on: !!b.screensaver,
+          onChange: function (on) { self.setB(path, { screensaver: on }); } })]));
+        if (!b.screensaver) return;
+        if (wp) {
+          c.appendChild(K.group({}, [K.nav({ label: 'WallPanel Options', href: '#/screens/' + encodeURIComponent(path) + '/wallpanel', sk: 'b:wallpanel_options' })]));
+          this.engineGroup(c, b, path);
+          return;
         }
-        if (!house) {
-          this.saverGroups(c, cur, function (k, v) {
-            var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
-            return self.setB(path, { screensaver_options: self.saverOut(o) });
-          }, '#/screens/' + encodeURIComponent(path) + '/screensaver/clock-style', b.idle_room ? this.areaName(b.idle_room) : x.title, photos);
-          if (M.saverCustom(cur)) {
-            c.appendChild(K.group({}, [K.button({ label: 'Reset to Defaults…', destructive: true, fk: 'saver:reset', onClick: function () {
-              K.confirm(self.shadowRoot, { title: 'Use the default screensaver options?',
-                message: 'This removes saved designs and resets the screensaver, widgets and other options to their defaults.',
-                                           ok: 'Use Defaults', destructive: true }).then(function (yes) {
-                if (yes) self.setB(path, { screensaver_options: self.saverOut(M.saverOptions(null)) });
-              });
-            } })]));
-          }
-        }
+        this.saverBody(c, this.saverCtx(path));
         c.appendChild(this.saverEntities(b, path));
-        if (x.generated) this.engineGroup(c, b, path);
       }
 
-      // THE OPTIONS THAT LIVE OUTSIDE THE EDITOR, for a screen of its own or for All Screens: `cur` the options in
-      // force, `put(key, value)` saves one. EDIT SCREENSAVER IS WHERE IT IS LAID OUT (2026-11-01, the owner: "The editor
-      // should be the primary source for modifications. Only things that really need to live outside the editor to
-      // function should be on the settings page"): the background, the time and its face, colors and depth, the widgets
-      // and the corners, Time Behind, the darkening and the legibility are the editor's (a screen with no layout opens
-      // there as it is drawn today). Here: where the photos come from and how they show, the wallpaper chosen, what comes
-      // between and how often, Night Mode, the Side Pane and the timing
-      saverGroups(c, cur, put, styleHref, room, photos) {
-        var self = this;
-        var sel = function (label, k, choices, sub) {
-          var opts = choices.map(function (n) { return [String(n), MIN(n)]; });
-          if (!choices.some(function (n) { return n === cur[k]; })) opts.push([String(cur[k]), MIN(cur[k])]);
-          return K.select({ label: label, sub: sub, value: String(cur[k]), options: opts, sk: 'saver:' + k,
-                            onChange: function (v) { put(k, Number(v)); } });
-        };
-        var tog = function (label, k, sub) {
-          return K.toggle({ label: label, sub: sub, on: !!cur[k], sk: 'saver:' + k, onChange: function (on) { put(k, on); } });
-        };
-        // ONE TIMER: Starts After also decides how long a touch keeps the screen
-        // In Use (a minute less, never under 15 s -- screensaver.py window_of)
-        var win = Math.max(15, cur.starts_after - 60);
-        var show = cur.show, fc = show === 'forecast', both = show === 'both', ck = show === 'clock', bg = cur.clock_bg || 'gradient';
-        var face = show === 'glance' || show === 'month' || show === 'day';
-        // (photos where the background is photos: the Photos show, Photos with the forecast between, the clock over them)
-        var photosOn = show === 'photos' || both || (ck && (bg === 'photos' || bg === 'landscapes'));
-        var mf = !!cur.music_first, muKnown = self.saverKnown('music_slide'), mu = muKnown && !!cur.music_slide;
-        var enKnown = self.saverKnown('energy_slide'), en = enKnown && !!cur.energy_slide;
-        var base = String(styleHref || '').replace(/\/clock-style$/, '');
-        var energyHref = base + '/energy', weatherHref = base + '/weather', holidayHref = base + '/holiday';
-        var hlKnown = self.saverKnown('holiday_slide'), hl = hlKnown && !!cur.holiday_slide;
-        var every = function (n) { return 'Every ' + n + ' Photos'; };
-        // WHAT SHOWS: the photos' source (one row: a Home Assistant folder, or an album the host keeps -- its own page), the Side Pane
-        var panePath = this.panePath(styleHref), bds = this.data.boards || {};
-        var what = [];
-        if (photos && (photosOn || photos.always)) what.push(K.nav({ label: 'Photos', value: photos.value || '', sub: photos.sub || null, href: base + '/photos', sk: 'saver:photos' }));
-        what.push(this.paneLink(panePath, 'saver', 'saver:side_pane'));
-        c.appendChild(K.group({}, what));
-        // SLIDESHOW: how the photos come and go, and how each sits on the screen (Photo Layout)
-        if (photosOn) this.saverPhotoGroups(c, cur, put, tog, ck, base + '/layout');
-        // THE WALLPAPER, where the background is one (the editor's Background: Wallpaper): the dashboard's own picker --
-        // the four wallpapers and the six motion themes, one Color; its night version follows the sun, its motion the Speed
-        if (ck && bg === 'wallpaper' && self.saverKnown('clock_wallpaper')) {
-          self.wallpaperGroup(c, { value: cur.clock_wallpaper || 'aurora', color: cur.clock_wallpaper_color || 'blue', fk: 'swall', sk: 'saver:clock_wallpaper',
-            saver: true, moving: (cur.clock_speed != null ? cur.clock_speed : (cur.clock_motion === 'still' ? 0 : 35)) > 0,
-            onSet: function (v) { put('clock_wallpaper', v); }, onColor: function (v) { put('clock_wallpaper_color', v); } });
+      // THE PAGE ITSELF, at both levels (decision 10): What It Shows, When, Photos, the Side Pane and Advanced, then the
+      // way back to All Screens' (a screen) or to the defaults (All Screens)
+      saverBody(c, ctx) {
+        var self = this, cur = ctx.cur, base = ctx.base, L = M.saverLayers;
+        var designKeys = Object.keys(cur).filter(function (k) { return !L.isPage(k); });
+        var photosOn = this.saverPhotosOn(cur), slides = this.saverSlidesOn(cur);
+        // WHAT IT SHOWS: the design (the editor), the photos' source, the slides between
+        var hx = this.host(), what = [K.nav({ label: 'Design', value: this.saverDesignSays(cur), href: base + '/editor', sk: 'saver:editor',
+          sub: this.saverSays(ctx, designKeys, 'Its face, background and pieces, in the editor') })];
+        if (ctx.house) {
+          var ph = String(this.hs('look.photos') || '');
+          what.push(K.nav({ label: 'Photos', value: /^(?!media-source:)[a-z-]+:\/\//.test(ph) ? 'An Album' : ph ? 'Home Assistant Folder' : 'None', href: base + '/photos', sk: 'saver:photos' }));
+        } else if (photosOn && hx && typeof hx.extend === 'function') {
+          what.push(K.nav({ label: 'Photos', sub: 'All Screens’ photos, or an album for this screen', href: base + '/photos', sk: 'saver:photos' }));
         }
-        // ALSO SHOW: the slides among the photos, how often, and their own options; over the forecast or a clock, the
-        // screens that come in now and then (saverExtras)
-        if (photosOn && !ck) {
-          var muSlide = mu && !mf;
-          var wxKnown = self.saverKnown('weather_slide'), wx = wxKnown && !!cur.weather_slide;
-          var turns = [muSlide && 'the music', both && 'the forecast', wx && 'the weather', en && 'Home Energy', hl && 'the holidays'].filter(Boolean);
-          var fcSlide = both || cur.fallback;
-          c.appendChild(K.group({ header: 'Also Show', footer: turns.length
-              ? 'After every few photos a slide fades in for as long as a photo shows, then the photos go on.' +
-                (turns.length > 1 ? ' ' + M.listText(turns).replace(/^t/, 'T') + ' take turns.' : '')
-              : 'Slides among the photos: the forecast' + (mf ? '' : ', what’s playing') + (wxKnown ? ', the weather' : '') + (enKnown ? ', Home Energy' : '') +
-                (hlKnown ? ', and the holidays.' : '.') }, [
-            K.toggle({ label: 'Forecast', sub: 'The forecast over the live sky, as one of the photos. Its sky only moves while it is on screen.',
-                       on: both, sk: 'saver:slide_forecast', onChange: function (on) { put('show', on ? 'both' : 'photos'); } })
-          // (one key for Music Full Screen, phase 13: the editor's and this page's are the same choice -- music_first)
-          ].concat(fcSlide && self.saverKnown('forecast_layout') ? [K.nav({ label: 'Forecast Look', value: cur.forecast_layout === 'big' ? 'Big' : 'Classic',
-                     href: base + '/forecast', sk: 'saver:forecast_layout' })] : [],
-                   muKnown ? [tog('Music Full Screen', 'music_first', 'While something plays: the album art, the song and what’s up next. A tap on the art opens Music.')] : [],
-                   wxKnown ? this.weatherRows(cur, tog, weatherHref) : [],
-                   enKnown ? this.energyRows(cur, tog, energyHref) : [],
-                   hlKnown ? this.holidayRows(cur, tog, holidayHref) : [],
-                   turns.length ? [K.select({ label: 'A Slide', sk: 'saver:forecast_every', value: String(cur.forecast_every),
-                                      options: [3, 5, 10, 20].concat([3, 5, 10, 20].indexOf(cur.forecast_every) < 0 ? [cur.forecast_every] : [])
-                                        .map(function (n) { return [String(n), every(n)]; }),
-                                      onChange: function (v) { put('forecast_every', Number(v)); } })] : [])));
-        } else if ((fc || ck) && enKnown) this.saverExtras(c, cur, put, tog, fc ? 'forecast' : 'clock', mf, energyHref);
-        // TIMING: when it starts, how long each photo stays, the way back to the dashboard (hk-saver.js stop: a touch or the switch)
-        var FADES = [[0, 'Instant'], [500, '0.5 Seconds'], [1000, '1 Second'], [2000, '2 Seconds']];
-        var fadeOpts = FADES.concat(FADES.some(function (f) { return f[0] === cur.fade_back; }) ? []
-          : [[cur.fade_back, (cur.fade_back / 1000) + ' Seconds']]);
-        c.appendChild(K.group({ header: 'Timing', footer: 'Starts After is the one timer: the screen also counts as In Use for ' + MIN(win).toLowerCase() +
-            ' after each touch, so the photos never come up while someone is using it.' }, [
-          sel('Starts After', 'starts_after', [60, 120, 180, 300, 600, 900, 1800], 'Untouched for this long.')].concat(
-            photosOn && !ck ? [sel('Each Photo For', 'each_photo', [10, 20, 30, 60, 120, 300])] : [],
-            !self.saverKnown('fade_back') ? [] : [K.select({ label: 'Fade Back', sub: 'From the screensaver to the dashboard, after a touch or when the switch turns off.',
-                        value: String(cur.fade_back), sk: 'saver:fade_back',
-                        options: fadeOpts.map(function (f) { return [String(f[0]), f[1]]; }),
-                        onChange: function (v) { put('fade_back', Number(v)); } })])));
-        // NIGHT MODE: the clock dim red on black at night -- a time of day, not a look
-        var night = this.clockNightRows(cur, put);
-        if (night.length) c.appendChild(K.group({ header: 'Night Mode', footer: 'Wherever the screensaver shows the time large: the Clock, a big time in the editor, Glance and Month.' }, night));
-        // THE SCREENS WITH A SIDE PANE OF THEIR OWN in the screensaver, whatever All Screens' says (2026-11-01, the owner: "the
-        // kitchen keeps showing the Side Pane for the screensaver, even though it's disabled" -- All Screens' was off, the Kitchen's its own)
-        var housePane = panePath ? '' : M.paneSaverSummary(this.paneNow(null));
-        var ownPane = panePath ? [] : Object.keys(bds).filter(function (pth) {
-          return !!(bds[pth].screensaver && bds[pth].side_pane && bds[pth].side_pane.saver) && M.paneSaverSummary(self.paneNow(pth)) !== housePane;
+        what.push(K.nav({ label: 'Slides', value: !slides.length ? 'None' : slides.length === 1 ? slides[0] : slides.length + ' Slides',
+          sub: this.saverSays(ctx, this.saverSlideKeys(), slides.length ? null : 'Now and then, over the screensaver'), href: base + '/slides', sk: 'saver:slides' }));
+        c.appendChild(K.group({ header: 'What It Shows',
+          footer: ctx.house ? null : 'Changing the design in the editor makes it this screen’s own; each other row stays All Screens’ until it changes here.' }, what));
+        // WHEN: Starts After -- the one timer -- and Night Mode where the time shows large (a touch keeps the screen In Use
+        // for Starts After less a minute: For Automations says so)
+        var night = this.saverBigTime(cur) || cur.clock_night !== 'off';
+        var when = [this.saverSel(ctx, 'Starts After', 'starts_after', [60, 120, 180, 300, 600, 900, 1800].map(function (n) { return [n, MIN(n)]; }), 'Untouched for this long', MIN)];
+        if (night && this.saverKnown('clock_night')) when = when.concat(this.clockNightRows(ctx));
+        c.appendChild(K.group({ header: 'When', footer: when.length > 1 ? 'Night Mode works wherever the design shows the time large: the Clock, a big time, Glance and Month.' : null },
+          when));
+        // PHOTOS: how they show (one page), only where photos show
+        if (photosOn) {
+          c.appendChild(K.group({ header: 'Photos' }, [K.nav({ label: 'How Photos Show', href: base + '/photos-how', sk: 'saver:photos-how',
+            value: (cur.photo_layout === 'mosaic' ? 'Mosaic, ' : '') + MIN(cur.each_photo),
+            sub: this.saverSays(ctx, this.saverPhotoKeys(), null) })]));
+        }
+        // THE SIDE PANE beside it, and the rest (Fade Back, the layout's removal, WallPanel)
+        c.appendChild(K.group({}, [this.paneLink(ctx.path, 'saver', 'saver:side_pane'),
+          K.nav({ label: 'Advanced', href: base + '/advanced', sk: 'saver:advanced', sub: this.saverSays(ctx, ['fade_back'], null) })]));
+        if (ctx.house) this.saverScreens(c);
+        // BACK TO ALL SCREENS' (a screen with rows of its own), or to the defaults (All Screens)
+        if (!ctx.house && ctx.own(Object.keys(cur))) {
+          c.appendChild(K.group({}, [K.button({ label: 'Use All Screens’ Screensaver…', destructive: true, fk: 'saver:use-house', sk: 'saver:use-house', onClick: function () {
+            K.confirm(self.shadowRoot, { title: 'Use All Screens’ Screensaver?', message: 'Every row this screen set itself goes back to All Screens’, its design too.',
+                                         ok: 'Use All Screens’', destructive: true }).then(function (yes) { if (yes) ctx.unown(null); });
+          } })]));
+        }
+        if (ctx.house && M.saverCustom(cur)) {
+          c.appendChild(K.group({}, [K.button({ label: 'Reset to Defaults…', destructive: true, fk: 'saver:house-reset', onClick: function () {
+            K.confirm(self.shadowRoot, { title: 'Use the default screensaver options?', message: 'The settings for All Screens go back to their defaults.',
+                                         ok: 'Use Defaults', destructive: true }).then(function (yes) {
+              if (yes) self.setH({ 'look.saver': self.saverOut(M.saverOptions(null)) });
+            });
+          } })]));
+        }
+      }
+
+      // the keys of the Slides page and of How Photos Show (Use All Screens' on each lets these go)
+      saverSlideKeys() {
+        return ['music_first', 'music_slide', 'extra_music', 'extra_forecast', 'weather_slide', 'energy_slide', 'holiday_slide', 'timer_slide', 'timer_often',
+                'extra_every', 'extra_for', 'forecast_every', 'weather_hide', 'energy_hide', 'forecast_layout', 'forecast_big', 'forecast_planted', 'band',
+                'holiday_pick', 'holiday_one', 'holiday_days', 'holiday_off', 'holiday_own', 'holiday_fx', 'holiday_outdoors', 'holiday_hide'];
+      }
+      saverPhotoKeys() {
+        return ['each_photo', 'order', 'zoom', 'fill', 'photo_layout', 'mosaic_change', 'mosaic_color', 'mosaic_count', 'mosaic_every', 'mosaic_gap', 'mosaic_line',
+                'mosaic_random', 'portrait_fill', 'portrait_blur', 'portrait_dim', 'portrait_zoom', 'portrait_x', 'portrait_y',
+                'landscape_blur', 'landscape_dim', 'landscape_zoom', 'landscape_x', 'landscape_y'];
+      }
+
+      // ALL SCREENS' SCREENS: each screen whose screensaver is on, and whether it has rows of its own; and those whose
+      // Side Pane in the screensaver is their own (2026-11-01, the owner: "the kitchen keeps showing the Side Pane for
+      // the screensaver, even though it's disabled" -- All Screens' was off, the Kitchen's its own)
+      saverScreens(c) {
+        var self = this, bds = this.data.boards || {};
+        var name = function (p) { return (self.dash(p) || { title: p }).title; };
+        var savers = Object.keys(bds).filter(function (p) { return bds[p].screensaver; });
+        if (savers.length) {
+          c.appendChild(K.group({ header: 'Screens', footer: 'A screen’s own rows win over these; everything else on it follows All Screens.' }, savers.map(function (p) {
+            return K.nav({ label: name(p), value: M.saverFollows(bds[p]) ? 'Same as All Screens' : 'Just This Screen',
+                           href: '#/screens/' + encodeURIComponent(p) + '/screensaver', sk: 'saver:screen:' + p });
+          })));
+        }
+        var housePane = M.paneSaverSummary(this.paneNow(null));
+        var ownPane = Object.keys(bds).filter(function (p) {
+          return !!(bds[p].screensaver && bds[p].side_pane && bds[p].side_pane.saver) && M.paneSaverSummary(self.paneNow(p)) !== housePane;
         });
         if (ownPane.length) {
           c.appendChild(K.group({ header: 'Side Pane on These Screens', footer: ownPane.length === 1 ? 'This screen has a Side Pane of its own in the screensaver, whatever All Screens’ says.'
-              : 'These screens have a Side Pane of their own in the screensaver, whatever All Screens’ says.' }, ownPane.map(function (pth) {
-            return K.nav({ label: (self.dash(pth) || { title: pth }).title, value: M.paneSaverSummary(self.paneNow(pth)),
-                           href: '#/screens/' + encodeURIComponent(pth) + '/sidepane', sk: 'saver:side_pane:' + pth });
+              : 'These screens have a Side Pane of their own in the screensaver, whatever All Screens’ says.' }, ownPane.map(function (p) {
+            return K.nav({ label: name(p), value: M.paneSaverSummary(self.paneNow(p)), href: '#/screens/' + encodeURIComponent(p) + '/sidepane', sk: 'saver:side_pane:' + p });
           })));
         }
-        void room; void face;
       }
+
+      // SLIDES (decision 12): one set of rows whatever the screensaver shows -- each slide, then How Often (minutes) and
+      // Show For (seconds). The forecast over the photos is Photos & Forecast; over a clock it comes now and then.
+      saverSlidesPage(c, ctx) {
+        var self = this, cur = ctx.cur, base = ctx.base, tog = function (label, k, sub) { return self.saverTog(ctx, label, k, sub); };
+        var sky = cur.show === 'forecast' || cur.clock_bg === 'forecast' || cur.clock_bg === 'skyonly', photos = cur.show === 'photos' || cur.show === 'both';
+        var rows = [];
+        if (photos) {
+          rows.push(K.toggle({ label: 'Forecast', sub: this.saverSays(ctx, 'show', 'The forecast over the live sky, between the photos.'), on: cur.show === 'both',
+                               sk: 'saver:slide_forecast', onChange: function (on) { ctx.put('show', on ? 'both' : 'photos'); } }));
+        } else if (cur.show === 'clock' && !sky) rows.push(tog('Forecast', 'extra_forecast', 'Today, the next hours and the coming days, over the live sky.'));
+        if ((photos && (cur.show === 'both' || cur.fallback)) || (cur.show === 'clock' && !sky && cur.extra_forecast)) {
+          rows.push(K.nav({ label: 'Forecast Look', value: cur.forecast_layout === 'big' ? 'Big' : 'Classic', href: base + '/forecast', sk: 'saver:forecast_layout' }));
+        }
+        rows.push(tog('Music Full Screen', 'music_first', 'While something plays: the album art, the song and what’s up next.'));
+        // (an older Music slide -- a turn among the others -- shows while it is on, so it can be turned off)
+        if (cur.extra_music && !cur.music_first) rows.push(tog('Music as a Slide', 'extra_music', 'What’s playing, in its turn.'));
+        if (!sky) rows = rows.concat(this.weatherRows(cur, tog, base + '/weather'));
+        rows = rows.concat(this.energyRows(cur, tog, base + '/energy'));
+        if (this.saverKnown('holiday_slide')) rows = rows.concat(this.holidayRows(cur, tog, base + '/holiday'));
+        if (this.saverKnown('timer_slide')) {
+          rows.push(K.toggle({ label: 'Timers', sub: this.saverSays(ctx, 'timer_slide', 'Only while a timer runs, and always for its last minute.'), on: cur.timer_slide !== false,
+                               sk: 'saver:timer_slide', onChange: function (on) { ctx.put('timer_slide', on); } }));
+          if (cur.timer_slide !== false) {
+            rows.push(this.saverSel(ctx, 'Timers Come Up', 'timer_often', [['more', 'More Often'], ['same', 'As Often as the Others']]));
+          }
+        }
+        c.appendChild(K.group({ footer: 'They take turns; Music Full Screen takes the screen while something plays. A slide waits while Night Mode is on.' }, rows));
+        var on = this.saverSlidesOn(cur);
+        if (on.length) {
+          var EV = M.saverLayers.EVERY.map(function (n) { return [n, n === 1 ? 'Every Minute' : 'Every ' + n + ' Minutes']; });
+          var FOR = [15, 30, 60, 120].map(function (n) { return [n, MIN(n)]; });
+          var mins = function (n) { return n === 1 ? 'minute' : n + ' minutes'; };
+          c.appendChild(K.group({ header: 'Timing', footer: 'Every ' + mins(cur.extra_every) + ' a slide fades in for ' + MIN(cur.extra_for).toLowerCase() +
+              (photos ? ', between two photos' : '') + ', then the screensaver comes back.' }, [
+            this.saverSel(ctx, 'How Often', 'extra_every', EV, null, function (n) { return 'Every ' + n + ' Minutes'; }),
+            this.saverSel(ctx, 'Show For', 'extra_for', FOR, null, MIN)]));
+        }
+        this.saverUseHouse(c, ctx, this.saverSlideKeys(), 'Use All Screens’ Slides');
+      }
+
+      // HOW PHOTOS SHOW (decision 10): the slideshow -- Layout and the mosaic, Order, Each Photo For, Slow Zoom -- and how a
+      // portrait and a landscape photo each sit on the screen (a change turns the preview to a photo of that shape)
+      saverPhotosHowPage(c, ctx) {
+        var mo = this.saverKnown('photo_layout') && ctx.cur.photo_layout === 'mosaic';
+        this.saverPhotoGroups(c, ctx);
+        this.saverShape(c, ctx, 'portrait', mo);
+        this.saverShape(c, ctx, 'landscape', mo);
+        this.saverUseHouse(c, ctx, this.saverPhotoKeys(), 'Use All Screens’ Photo Settings');
+      }
+
+      // THE WALLPAPER behind the clock (the editor's Background: Wallpaper, its Choose the Wallpaper): the dashboard's own
+      // picker -- the four wallpapers and the six motion themes, one Color; its night version follows the sun, its motion the Speed
+      saverWallpaperPage(c, ctx) {
+        var cur = ctx.cur;
+        if (!this.saverKnown('clock_wallpaper')) return;
+        this.wallpaperGroup(c, { value: cur.clock_wallpaper || 'aurora', color: cur.clock_wallpaper_color || 'blue', fk: 'swall', sk: 'saver:clock_wallpaper',
+          saver: true, moving: (cur.clock_speed != null ? cur.clock_speed : (cur.clock_motion === 'still' ? 0 : 35)) > 0,
+          onSet: function (v) { ctx.put('clock_wallpaper', v); }, onColor: function (v) { ctx.put('clock_wallpaper_color', v); } });
+      }
+
+      // ADVANCED: the way back to the dashboard, the editor's layout let go, and (a screen) WallPanel instead
+      saverAdvancedPage(c, ctx, x) {
+        var self = this, cur = ctx.cur;
+        if (this.saverKnown('fade_back')) {
+          var FADES = [[0, 'Instant'], [500, '0.5 Seconds'], [1000, '1 Second'], [2000, '2 Seconds']];
+          c.appendChild(K.group({ footer: 'From the screensaver to the dashboard, after a touch or when its switch turns off.' }, [
+            this.saverSel(ctx, 'Fade Back', 'fade_back', FADES, null, function (v) { return (v / 1000) + ' Seconds'; })]));
+        }
+        if (cur.layout) {
+          c.appendChild(K.group({ footer: 'The screensaver is drawn as its Show was before the editor laid it out. Its other settings stay.' }, [
+            K.button({ label: 'Remove the Layout…', destructive: true, fk: 'saver:layout-off', onClick: function () {
+              K.confirm(self.shadowRoot, { title: 'Remove the Layout?', message: 'The screensaver is drawn as its Show was before the editor. Its other settings stay.', ok: 'Remove',
+                destructive: true }).then(function (yes) { if (yes) ctx.put('layout', null); });
+            } })]));
+        }
+        if (!ctx.house && x && x.generated) this.engineGroup(c, ctx.b, ctx.path);
+      }
+
+      // THE SCREENSAVER'S ROUTES ON A SCREEN (#/screens/<k>/screensaver/...): the page, its sub-pages and the editor
+      saverRoute(x, b, path, sub, mk, base) {
+        var self = this, back = ['Screensaver', base + '/screensaver'], ctx = function () { return self.saverCtx(path); };
+        var page = function (title, body, flags) { return Object.assign(mk(title, body, back), { saverPreview: true }, flags || {}); };
+        var s = sub[1] || '';
+        // (Photo Layout is on How Photos Show since phase 33: its old address goes there)
+        if (s === 'layout') { this.saverForward(base + '/screensaver/photos-how'); s = 'photos-how'; }
+        if (s === 'photos') {
+          return page('Photos', function (c) { self.saverPhotosPage(c, ctx().cur, ctx().put, false, { screen: path, title: x.title }, false); });
+        }
+        if (s === 'photos-how') return page('How Photos Show', function (c) { self.saverPhotosHowPage(c, ctx()); });
+        if (s === 'slides') return page('Slides', function (c) { self.saverSlidesPage(c, ctx()); });
+        if (s === 'advanced') return page('Advanced', function (c) { self.saverAdvancedPage(c, ctx(), x); });
+        if (s === 'wallpaper') return page('Wallpaper', function (c) { self.saverWallpaperPage(c, ctx()); });
+        if (s === 'forecast') return page('Forecast Look', function (c) { self.saverForecastPage(c, ctx().cur, ctx().put); }, null);
+        if (s === 'weather') return page('Weather', function (c) { self.saverWeather(c, ctx().cur, ctx().put); }, { saverWeather: true });
+        if (s === 'holiday') return page('Holidays', function (c) { self.saverHoliday(c, ctx().cur, ctx().put); }, { saverHoliday: true });
+        if (s === 'energy') return page('Home Energy', function (c) { self.saverEnergy(c, ctx().cur, ctx().put); }, { saverEnergy: true });
+        // (the Clock Style page is the editor's now, Look -> Big -> Face: its old address opens the editor)
+        if (s === 'editor' || s === 'clock-style') {
+          return this.saverEditorPage(path, { path: path, title: x.title, designId: sub[2] || '', back: back, options: this.saverNow(path) });
+        }
+        return Object.assign(mk('Screensaver', function (c) { self.saverPage(c, x, (self.data.boards || {})[path] || b, path); }),
+                             { saverPreview: !!b.screensaver });
+      }
+      // ...and All Screens' (#/house/screensaver/...): the preview a screen that follows them, else any with its screensaver on
+      saverHouseRoute(sub, title, base) {
+        var self = this, bd = this.data.boards || {}, ctx = function () { return self.saverCtx(null); };
+        var withSaver = Object.keys(bd).filter(function (p) { return bd[p].screensaver && bd[p].screensaver_engine !== 'wallpanel'; });
+        var pv = withSaver.filter(function (p) { return M.saverFollows(bd[p]); })[0] || withSaver[0];
+        var back = [title, base];
+        var page = function (tt, body, flags) {
+          var pg = Object.assign({ title: tt, back: back, body: body }, flags || {});
+          if (pv) { pg.preview = pv; pg.saverPreview = true; pg.saverHouse = true; }
+          return pg;
+        };
+        var s = sub[0] || '';
+        if (s === 'layout') { this.saverForward(base + '/photos-how'); s = 'photos-how'; }
+        if (s === 'editor' || s === 'clock-style') {
+          return this.saverEditorPage('house', { house: true, path: pv || '', previewPath: pv, title: 'All Screens', back: back, options: this.saverHouseNow() });
+        }
+        if (s === 'photos') {
+          return page('Photos', function (c) {
+            self.saverPhotosPage(c, ctx().cur, ctx().put, true, { photos: self.hs('look.photos'), set: function (v) { return self.setH({ 'look.photos': v }); } });
+          });
+        }
+        if (s === 'photos-how') return page('How Photos Show', function (c) { self.saverPhotosHowPage(c, ctx()); });
+        if (s === 'slides') return page('Slides', function (c) { self.saverSlidesPage(c, ctx()); });
+        if (s === 'advanced') return page('Advanced', function (c) { self.saverAdvancedPage(c, ctx(), null); });
+        if (s === 'wallpaper') return page('Wallpaper', function (c) { self.saverWallpaperPage(c, ctx()); });
+        if (s === 'forecast') return page('Forecast Look', function (c) { self.saverForecastPage(c, ctx().cur, ctx().put); });
+        if (s === 'weather') return page('Weather', function (c) { self.saverWeather(c, ctx().cur, ctx().put); }, { saverWeather: true });
+        if (s === 'holiday') return page('Holidays', function (c) { self.saverHoliday(c, ctx().cur, ctx().put); }, { saverHoliday: true });
+        if (s === 'energy') return page('Home Energy', function (c) { self.saverEnergy(c, ctx().cur, ctx().put); }, { saverEnergy: true });
+        var spg = page(title, function (c) { self.saverBody(c, ctx()); }, { top: true,
+          scope: 'What every screen’s screensaver shows, unless it sets a row of its own. When a tablet goes dark is its own Sleep Screen’s (Wall Tablets).' });
+        delete spg.back;
+        return spg;
+      }
+      saverForward(to) { try { history.replaceState(null, '', to); } catch (e) { /* no history */ } }
 
       // THE PHOTOS' PAGE (phase 32): where they come from, one row on the Screensaver. All Screens' is a Home Assistant folder (or
       // an album the host keeps, picked inside); a screen's is its own album or All Screens'. `house`: whether this is All Screens'
@@ -396,12 +559,6 @@
         }
       }
 
-      // PHOTO LAYOUT (phase 32): how a portrait and a landscape photo each sit on the screen. A change turns the preview to a photo of that shape
-      saverLayoutPage(c, cur, put) {
-        var mo = this.saverKnown('photo_layout') && cur.photo_layout === 'mosaic';
-        this.saverShape(c, cur, put, 'portrait', mo);
-        this.saverShape(c, cur, put, 'landscape', mo);
-      }
 
       // THE FORECAST'S LOOK where it comes in among the photos, or in their place (2026-11-01, the owner: "there is no way of setting
       // Big layout for forecast with Photos"): a slide's look, not a layout's (the forecast as the background is laid out in the editor)

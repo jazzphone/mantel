@@ -284,7 +284,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-settings-screen-cameras.js` — a screen's cameras, scenes, page headers and favorites
     - `hk-settings-screen-sleep.js` — a screen's sleep screen and its rooms
     - `hk-settings-screen-glass.js` — a screen's pages, its Home page, and its glass
-    - `hk-settings-screen-saver.js` — a screen's screensaver: its styles, faces, thumbnails, editor page and groups
+    - `hk-settings-screen-saver.js` — a screen's screensaver: its page at both levels, row by row, its faces, thumbnails and editor page
     - `hk-settings-screen-saver-extras.js` — the screensaver's weather, holiday, extras, energy, clock and photos
     - `hk-settings-screen-kiosk.js` — a screen's kiosk, engine, options and YAML pages
     - `hk-settings-add.js` — Add a Screen and Custom Chips
@@ -431,6 +431,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `pane_status.py` — A SIDE PANE STATUS (2026-11-06; the owner
   - `saver_designs.py` — Bounded saved screensavers; snapshots contain ordinary saver options only.
   - `saver_holidays.py` — THE HOLIDAY SLIDE'S SETTINGS (phase 20, docs/phase20/HOLIDAY-SLIDE.md "Settings"; web/hk/modules/hk-saver-holiday.js).
+  - `saver_layers.py` — A SCREEN'S SCREENSAVER, ROW BY ROW OVER ALL SCREENS' (phase 33, decisions 9 and 12; docs/phase33/PLAN.md).
   - `saver_layout.py` — THE SCREENSAVER'S LAYOUT (docs/phase12/SCREENSAVER-EDITOR.md)
   - `saver_timers.py` — The Timer slide's options (phase 21, docs/phase21/TIMER-SLIDE.md; web/hk/modules/hk-saver-timers.js)
 - **hk_core/sleep/**

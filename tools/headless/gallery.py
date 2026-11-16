@@ -342,7 +342,7 @@ const opacity = ed.sidebar.querySelector('input[type=range]'); opacity.value = '
 opacity.dispatchEvent(new Event('input')); opacity.dispatchEvent(new Event('change'));
 await pause(800);"""
 
-# the Screensaver editor (Settings -> a screen -> Screensaver Options -> Edit Screensaver): the Lock Screen Look tapped, once the
+# the Screensaver editor (Settings -> a screen -> Screensaver -> Design): the Lock Screen Look tapped, once the
 # screensaver inside it has drawn its sky and its pieces
 SAVER_EDITOR = """const ed = await until(() => deep(document, 'hk-saver-editor').find((e) => e.shadowRoot && e.shadowRoot.querySelector('.lk') && e.shadowRoot.querySelector('.ov')));
 await until(() => [...ed.shadowRoot.querySelectorAll('.lk')].length >= 10);

@@ -109,7 +109,7 @@
     // warn: Home comes only after the screensaver is up}
     function idleTimeline(o) {
       var idle = o.idle, saver = o.saver, segs = [{ cls: 'use', label: 'Touched', flex: 2 }];
-      var dark = o.hk ? (o.after ? 'after ' + o.after + ' min of photos' : (o.quiet ? 'nobody here, or quiet hours' : 'once nobody’s here'))
+      var dark = o.every ? 'each tablet’s own' : o.hk ? (o.after ? 'after ' + o.after + ' min of photos' : (o.quiet ? 'nobody here, or quiet hours' : 'once nobody’s here'))
                       : 'an automation decides';
       if (idle && saver && idle > saver) {
         segs.push({ cls: 'saver', label: 'Screensaver', flex: 1.6, at: secsLabel(saver), says: 'screensaver' });
@@ -448,13 +448,16 @@
     function lookChanges(look, b, saver, layout) {
       b = b || {};
       var ch = JSON.parse(JSON.stringify(look.settings)), was = {}, rows = [];
-      ch.screensaver_options = Object.assign({}, saver || {}, look.saver);
+      // (the Look's screensaver options become the screen's own, over the rows it set already: phase 33, key by key)
+      var mine = K.saverLayers.own(b);
+      ch.screensaver_options = Object.assign({}, mine, look.saver);
       if (layout) { ch.home_style = 'grid'; ch.home_grid = layout; }
       var same = function (a, c) { return JSON.stringify(a === undefined ? null : a) === JSON.stringify(c === undefined ? null : c); };
       Object.keys(ch).forEach(function (k) {
         var before = b[k] === undefined ? null : b[k];
         was[k] = before;
         if (k === 'screensaver_options') {
+          was[k] = Object.keys(mine).length ? JSON.parse(JSON.stringify(mine)) : null;
           var now = Object.assign({}, saver || {});
           if (Object.keys(look.saver).some(function (o) { return !same(now[o], look.saver[o]); })) rows.push([LOOK_LABELS[k], 'Your Options', lookSays(k, ch[k])]);
           return;

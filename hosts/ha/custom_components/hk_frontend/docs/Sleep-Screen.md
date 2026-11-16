@@ -238,7 +238,7 @@ Three gentler rules sit in the last part of the table:
 - **Sleep Until Re-entered**: turning one of these on darkens it even with
   somebody still in the room. It stays dark until somebody comes back in
   (presence clears, then returns).
-- **After the Screensaver**: once the photos have shown that long with
+- **Dark After**: once the photos have shown that long with
   nobody touching it (and, with Presence, nobody new coming in), dark.
 
 **A tap on the screensaver’s own controls isn’t a wake.** The music’s
@@ -275,7 +275,7 @@ Choose it there for everything below to work fully.
 
 #### When It Goes Dark
 
-- **After the Screensaver**: Never (the default), 5, 15 or 30 minutes, or 1,
+- **Dark After**: Never (the default), 5, 15 or 30 minutes, or 1,
   2 or 4 hours of photos with nobody touching it. With Presence, somebody new
   walking in starts it over. Without Presence, this is the only thing that
   ever darkens an occupied room. Good for a tablet with no motion sensor
@@ -298,7 +298,7 @@ dark again.
 - **Presence**: as many sensors as the room has. Motion, occupancy, an mmWave
   radar, a person’s or watch’s room from Bermuda or ESPresense. Any of them on
   means somebody is there. With none, the room always counts as occupied, and
-  only After the Screensaver, quiet hours and the overrides darken it.
+  only Dark After, quiet hours and the overrides darken it.
 - **Linger**: how long the room still counts as occupied after the last
   sensor clears. None, 30 seconds, or 1, 2, 5, 10, 15 or 30 minutes; 1 minute
   by default. Raise it for a motion sensor that clears quickly while somebody
@@ -435,7 +435,7 @@ template:
 
 ### No motion sensor nearby
 
-Leave **Presence** empty and set **After the Screensaver** to 30 minutes. The
+Leave **Presence** empty and set **Dark After** to 30 minutes. The
 tablet shows photos after Starts After, goes dark after half an hour of
 photos, and wakes on a tap. Add a **Quiet Hours Schedule** for the night.
 
@@ -546,7 +546,7 @@ include `tablet` and the screen it runs, `dashboard`):
 | `in_use` | somebody touching it |
 | `quiet` | quiet hours now |
 | `last_touch` | the last touch |
-| `after_saver_at` | when After the Screensaver will darken it |
+| `after_saver_at` | when Dark After will darken it |
 | `target_brightness` | the brightness it wants now (0–255) |
 | `last_action` | the last thing it did, and when |
 | `decided_by` | `hk` or `automation` |

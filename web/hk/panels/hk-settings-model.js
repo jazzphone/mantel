@@ -113,7 +113,7 @@
       previewFit, previewSizes, RADAR_BASEMAPS, RADAR_CENTERS, RADAR_DEFAULTS, RADAR_HISTORY, RADAR_LEGACY_MAPPED,
       RADAR_NAMES, RADAR_PROVIDERS, RADAR_REASONS, RADAR_SPEEDS, radarAdvancedSummary, radarOf, radarPlanOf,
       radarSummary, refusals, roomOnHome, roomsAuto, roomSensors, roomsModel, roomsPlace, roomsSave, roomsSummary,
-      routeForward, SAVER_DEFAULTS, SAVER_SHOWS, saverCustom, saverFollows, saverOptions, saverSummary, scenesModel,
+      routeForward, SAVER_DEFAULTS, SAVER_SHOWS, saverCustom, saverFollows, saverLayers, saverOptions, saverSummary, scenesModel,
       scenesPagePill, scenesSave, screenShows, SEARCH, search, secKey, secsAdd, secSays, secSet, secsMore, secsOrder,
       showName, showsTab, SKY_BACKGROUNDS, SKY_MOVING, SKY_THEMES, skyAutoLabel, skyDate, skyModeLabel,
       skyModeOptions, skyMoments, skyPageRows, skyPreviewScreen, skySummary, SLOW_FPS, slowRecommend, STATUS_LABELS,
@@ -207,7 +207,7 @@
     roomOnHome = K.roomOnHome; roomsAuto = K.roomsAuto; roomSensors = K.roomSensors; roomsModel = K.roomsModel;
     roomsPlace = K.roomsPlace; roomsSave = K.roomsSave; roomsSummary = K.roomsSummary; routeForward = K.routeForward;
     SAVER_DEFAULTS = K.SAVER_DEFAULTS; SAVER_SHOWS = K.SAVER_SHOWS; saverCustom = K.saverCustom;
-    saverFollows = K.saverFollows; saverOptions = K.saverOptions; saverSummary = K.saverSummary;
+    saverFollows = K.saverFollows; saverLayers = K.saverLayers; saverOptions = K.saverOptions; saverSummary = K.saverSummary;
     scenesModel = K.scenesModel; scenesPagePill = K.scenesPagePill; scenesSave = K.scenesSave;
     screenShows = K.screenShows; SEARCH = K.SEARCH; search = K.search; secKey = K.secKey; secsAdd = K.secsAdd;
     secSays = K.secSays; secSet = K.secSet; secsMore = K.secsMore; secsOrder = K.secsOrder; showName = K.showName;
@@ -254,10 +254,9 @@
       ['Car Scale', 'screen', 'car_width', 'car tesla scale zoom size width bigger smaller custom', true],
       ['Header on Phones', 'screen', 'phone_header', 'phone weather strip clock header', true],
       ['Decorations Also Need', 'house/appearance/sky/advanced', 'sky.seasonal', 'decorations need season sensor holidays also needs'],
-      ['Fade Back (Screensaver)', 'screen/screensaver', 'saver:fade_back', 'screensaver fade back dashboard touch switch', true],
-      ['Fill the Screen (Screensaver)', 'screen/screensaver', 'saver:fill', 'screensaver photos crop fill whole photo landscape', true],
-      ['Portrait Photos (Screensaver)', 'screen/screensaver', 'saver:portrait_fill', 'screensaver portrait landscape photos zoom focus crop top center bottom blur dim whole fill', true],
-      ['Clock & Date (Screensaver)', 'screen/screensaver', 'saver:clock', 'screensaver clock date time', true],
+      ['Fill the Screen (Screensaver)', 'screen/screensaver/photos-how', 'saver:fill', 'screensaver photos crop fill whole photo landscape', true],
+      ['Portrait Photos (Screensaver)', 'screen/screensaver/photos-how', 'saver:portrait_fill', 'screensaver portrait landscape photos zoom focus crop top center bottom blur dim whole fill', true],
+      ['Clock & Date (Screensaver)', 'screen/screensaver', 'saver:editor', 'screensaver clock date time face design editor', true],
       ['UV Index Sensor', 'house/weather/sensors', 'weather.uv', 'weather uv index sensor'],
       ['Wind Sensor', 'house/weather/sensors', 'weather.wind', 'weather wind speed sensor'],
       ['Daily Forecast', 'house/weather/sensors', 'weather.forecast_daily', 'weather forecast daily days'],
@@ -302,7 +301,7 @@
       previewSizes: previewSizes, previewDefault: previewDefault, previewFit: previewFit,
       SAVER_SHOWS: SAVER_SHOWS, FORECAST_LAYOUTS: FORECAST_LAYOUTS, FORECAST_BIG: FORECAST_BIG, DAY_LOOKS: DAY_LOOKS, CLOCK_OWN_GROUND: CLOCK_OWN_GROUND, showName: showName,
       SAVER_DEFAULTS: SAVER_DEFAULTS, saverOptions: saverOptions, saverCustom: saverCustom, ENERGY_PARTS: ENERGY_PARTS, energyShown: energyShown, WEATHER_PARTS: WEATHER_PARTS,
-        weatherShown: weatherShown, listText: listText, saverSummary: saverSummary, saverFollows: saverFollows, kioskSummary: kioskSummary,
+        weatherShown: weatherShown, listText: listText, saverSummary: saverSummary, saverFollows: saverFollows, saverLayers: saverLayers, kioskSummary: kioskSummary,
       NP_STYLES: NP_STYLES, NP_SIDES: NP_SIDES, NP_BARS: NP_BARS, NP_GRACES: NP_GRACES, npSummary: npSummary, npOwn: npOwn, NP_OWN_KEYS: NP_OWN_KEYS,
       COPY_GROUPS: COPY_GROUPS, COPY_NEVER: COPY_NEVER, copyDefaults: copyDefaults, copyChanges: copyChanges,
       skyPreviewScreen: skyPreviewScreen, skyMoments: skyMoments,

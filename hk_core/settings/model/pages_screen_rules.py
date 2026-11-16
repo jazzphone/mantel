@@ -83,6 +83,7 @@ def pages_screen_resolved(house: Any, own: Any) -> dict[str, Any]:
 def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     """The stored settings over the defaults, section by section."""
     from .saver_rules import saver_options
+    from .. import saver_layers as SL
     from .side_pane_rules import side_pane
     from .dashboard_rules import amount_or_none, bright_dim_or_none, SWIPE_PAGES
     from .menu_rules import page_accents
@@ -92,7 +93,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     for section, values in stored.items():
         if section in out and isinstance(values, dict):
             out[section].update({k: v for k, v in values.items() if k in out[section]})
-    out["look"]["saver"] = saver_options(SAVER_HOLIDAYS.placed(out["look"].get("saver"), stored, _PLACE["country"])) or dict(SAVER_DEFAULTS)
+    # (its slides in minutes, an older "every N photos" carried over: saver_layers.in_minutes)
+    out["look"]["saver"] = SL.in_minutes(saver_options(SAVER_HOLIDAYS.placed(out["look"].get("saver"), stored, _PLACE["country"])) or dict(SAVER_DEFAULTS))
     if out["menu"].get("swipe_pages") not in SWIPE_PAGES:
         out["menu"]["swipe_pages"] = DEFAULTS["menu"]["swipe_pages"]
     np = out["now_playing"]

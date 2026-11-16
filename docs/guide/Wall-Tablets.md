@@ -14,14 +14,14 @@ Everything about a tablet is on its own page: **Mantel Settings** → **Wall Tab
 |---|---|
 | **Header card** | Its name, "Kitchen · Home screen · Mantel for Android", and how it is doing now (online, screen on at 60%, battery 87%, charging) |
 | **Screen & Room** | **Name**, the **Screen** it shows and its **Room**: one room for the tablet, its Mantel sign-in and what its grants reach (below). **Opens On** shows here when the browser was given a screen of its own |
-| **When Nobody's Using It** | **Return to Home When Idle**, **Idle Time**, **Screensaver**, and **Sleep Screen**, which has the picture of Home, the screensaver and dark in order |
+| **When Nobody's Using It** | A picture of its waiting times in order (Home, the screensaver, dark), then **Back to Home After** (**Never** keeps it where it is), **Screensaver** (when its screen's starts, or Off; it opens that screen's Screensaver page, where the switch is), **Dark After** (Sleep Screen's, or **An Automation Decides**) and **Sleep Screen** |
 | **Display** | Mantel for Android's: **Screen Power**, **Brightness**, **Black Curtain**, **Keep Screen On**, **Adaptive Brightness**, **Scale**, **Screen Rotation** and **What's on the Screen**. A tablet whose kiosk app only reports its brightness shows that |
 | **Access** | **Signed In As** (the browser enrolled as it, last seen), its **Role**, **What It Can Do** (the role's page), its Home Assistant user, **Pair a Tablet App…** |
 | **Advanced** | One row: the **Kiosk App** and **Device**, the start URL, how it is doing, the **Setup Check**, then **Direct Connection** and pairing ([below](#reload-and-clear-cache-from-mantel)) for Kiosk Satellite and Fully Kiosk, or Mantel for Android's own groups (the app, **AirPlay**, **Graphics**, **Developer**, **Copy Settings From**) |
 | **Reload**, **Clear Cache & Reload** | Its kiosk app's |
 | **Sign Out This Tablet…**, **Remove Tablet…** | Red and alone at the bottom |
 
-The list has what is for every tablet: **All Tablets** (Return to Home When Idle, Idle Time, Screensaver, Alerts, Scheduled Restart, Reload All, Clear Cache & Reload All), **Mantel for Android** (when a tablet runs the app: its updates, and what every tablet running it is set to) and **Setup Check** (only while a kiosk app needs fixing). **Sign In This Browser as a Wall Tablet…** is one row at the bottom of the list.
+The list has what is for every tablet: **All Tablets** (Back to Home After, Screensaver, Alerts, Scheduled Restart, Reload All, Clear Cache & Reload All), **Mantel for Android** (when a tablet runs the app: its updates, and what every tablet running it is set to) and **Setup Check** (only while a kiosk app needs fixing). **Sign In This Browser as a Wall Tablet…** is one row at the bottom of the list.
 
 Enrolling a browser links it to the tablet by room: the browser takes the tablet's room. That's how the tablet's touches and screen reports reach the right tablet, and how `/home` opens that tablet's screen. What a tablet **may** do is its role's ([below](#what-a-tablet-may-do)).
 

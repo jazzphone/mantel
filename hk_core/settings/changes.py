@@ -34,6 +34,7 @@ from .. import tv as TV
 from .. import vacuum_water as VW
 from ..sleep import rules as SR
 from . import home_grid as HG
+from . import saver_layers as SL
 from . import saver_layout as SLAY
 from . import looks as LOOKS
 from . import kinds as K
@@ -285,6 +286,20 @@ def _saver_options(v: Any) -> dict[str, Any]:
                 except SLAY.LayoutInvalid as e:
                     raise Invalid(e.code) from None
     return got
+
+
+def _saver_own(v: Any) -> dict[str, Any] | None:
+    """A screen's own screensaver options (phase 33): only the keys given, each checked as All Screens' are; none
+    (None or {}) is All Screens' in everything."""
+    if v is None or v == {}:
+        return None
+    _saver_options(v)
+    got = SL.own(v)
+    if got is None:
+        raise Invalid("saver_options")
+    if isinstance(v, dict) and v.get("layout") is not None:
+        got["layout"] = SLAY.check(v["layout"])
+    return got or None
 
 
 def _sleep(v: Any) -> dict[str, Any]:
@@ -1380,7 +1395,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "wallpanel_options": _card_options,
     "kiosk_options": _card_options,
     # null: follow the settings for All Screens
-    "screensaver_options": lambda v: None if v is None else _saver_options(v),
+    "screensaver_options": lambda v: _saver_own(v),
     "screensaver_engine": _saver_engine,
 }
 

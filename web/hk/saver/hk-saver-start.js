@@ -492,9 +492,9 @@
         // additional screen over the photos behind the clock holds them
         if ((ST.muShowing && takeover()) || ST.exKind) { schedule(); return; }
         if (ST.fcShowing || ST.muShowing || ST.enShowing || WX.showing || HL.showing || TM.showing) { showNext(false); return; }    // advance() takes the slide away
-        // A SLIDE every few photos: the music, the forecast and Home Energy
+        // A SLIDE every few photos -- How Often's minutes, in photos: the music, the forecast and Home Energy
         // take turns (the music only while it plays)
-        if (ST.sinceFc >= ST.cfg.forecast_every) {
+        if (ST.sinceFc >= ST.cfg.slide_photos) {
           if (ST.lastSlide && ST.lastSlide !== 'timer') slideBefore = ST.lastSlide;
           var s = slideOf(ST.cfg, musicPlaying(), ST.lastSlide, energyReady(), slideReady(WX), slideReady(HL), slideReady(TM), slideBefore);
           if (s === 'music' && showMusicSlide()) { schedule(); return; }
@@ -503,8 +503,10 @@
           if (s && ST.cfg.show === 'both') { showForecastSlide(); schedule(); return; }
         }
         showNext(false);
-      }, ST.cfg.each_photo * 1000);
+      // (a slide up over the photos stays for Show For; a photo its own time)
+      }, (slideUp() ? ST.cfg.slide_for : ST.cfg.each_photo) * 1000);
     }
+    function slideUp() { return !!(ST.fcShowing || (ST.muShowing && !takeover()) || ST.enShowing || WX.showing || HL.showing || TM.showing); }
     // Fade the incoming view ABOVE an opaque outgoing view. Swapping a photo
     // underneath an opaque forecast leaves it occluded: Android WebView can
     // defer rasterizing it until after the forecast has already faded to black.

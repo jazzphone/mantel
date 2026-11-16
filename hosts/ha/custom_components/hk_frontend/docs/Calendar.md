@@ -72,7 +72,7 @@ every five minutes, and straight away after any change made from a screen.
 
 ## The screensaver’s calendar pane
 
-**Screensaver Options → Side Pane → Calendar**: today’s events and the coming days’
+**Screensaver → Side Pane → Calendar**: today’s events and the coming days’
 down the right of the screensaver, the photos (or the forecast) beside it.
 
 ![The photo screensaver with the calendar pane](images/tablet-screensaver-calendar.webp)

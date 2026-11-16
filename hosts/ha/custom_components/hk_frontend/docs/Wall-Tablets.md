@@ -20,8 +20,8 @@ So each has its own settings:
 | A screen’s (Screens → the screen) | A tablet’s (All Screens → Wall Tablets → the tablet) |
 |---|---|
 | What it shows: the menu, Home, pages, appearance | Which screen it runs |
-| Photo Screensaver and Screensaver Options: what the screensaver shows, and Starts After | Its room, its Home Assistant user and its kiosk app |
-| Home Assistant Header & Sidebar | Return to Home When Idle and Idle Time |
+| Its Screensaver: on or off, what it shows, and Starts After | Its room, its Home Assistant user and its kiosk app |
+| Home Assistant Header & Sidebar | Back to Home After |
 | Car Browser | Sleep Screen: when it goes dark, and how |
 
 Before tablets were their own items, a screen was its own tablet, with a
@@ -313,22 +313,23 @@ app version. A tablet that is **Just a Browser** or WallPanel has no Now.
 ### When It’s Left Alone
 
 A timeline of what happens after the last touch, in order: **Touched**, then
-**Home** at its Idle Time, the **Screensaver** at its screen’s Starts After,
-and **Dark** when Sleep Screen says. When Home would come after the
-screensaver has started, it says so: the screensaver then comes up over
-another page and the tablet goes Home behind it. An Idle Time shorter than
-Starts After puts Home first.
+**Home** at its Back to Home After, the **Screensaver** at its screen’s Starts
+After, and **Dark** at its Dark After (or when an automation says). It heads
+the tablet's **When Nobody’s Using It**, and Sleep Screen's page. When Home
+would come after the screensaver has started, it says so: the screensaver then
+comes up over another page and the tablet goes Home behind it. A Back to Home
+After shorter than Starts After puts Home first.
 
 **Sleep Screen** opens the tablet’s [Sleep Screen](Sleep-Screen.md), and says
 who decides: an automation, or HK Frontend.
 
-### When Idle
+### When Nobody’s Using It
 
 | Setting | Default | What it does |
 |---|---|---|
-| Return to Home When Idle | Same as All Tablets (On) | A page left untouched goes back to the screen’s Home. **On** or **Off** for this tablet alone. |
-| Idle Time | Same as All Tablets (50 Seconds) | How long untouched first: **30 Seconds**, **50 Seconds**, **1 Minute**, **2 Minutes**, **5 Minutes** or **Never**. |
-| Screensaver Options | — | Opens its screen’s Screensaver Options: what the screensaver shows here, and Starts After. **Photo Screensaver** (Off) when the screen has none. |
+| Back to Home After | Same as All Tablets (50 Seconds) | A page left untouched this long goes back to the screen’s Home: **30 Seconds**, **50 Seconds**, **1 Minute**, **2 Minutes** or **5 Minutes**; **Never** leaves it where it is. |
+| Screensaver | — | When its screen’s screensaver starts (**After 3 Minutes**), or **Off**. Opens that screen’s Screensaver page, where its switch is on top. |
+| Dark After | Never | How long the screensaver shows before the tablet goes dark (Sleep Screen’s). **An Automation Decides** when one does: it opens Sleep Screen. |
 
 ### Setup
 
@@ -388,8 +389,7 @@ settings and its own entities. Its screen and its kiosk app stay.
 
 | Setting | Default | What it does |
 |---|---|---|
-| All Tablets → Return to Home When Idle | On | Every tablet that doesn’t set its own. |
-| All Tablets → Idle Time | 50 Seconds | How long untouched before Home: 30 seconds to 5 minutes, or Never. |
+| All Tablets → Back to Home After | 50 Seconds | Every tablet that doesn’t set its own: 30 seconds to 5 minutes, or Never. |
 | All Tablets → Screensaver | — | A link to [Screensaver](Screensaver-and-Idle.md#screensaver-settings): what every screen’s screensaver shows. |
 | Alerts → Tablet Offline | On | Its kiosk app not heard from for 10 minutes. |
 | Alerts → Didn’t Come Back After a Restart | On | Not in front 3 minutes after the scheduled restart. |
@@ -418,11 +418,11 @@ into a tablet of its own:
   `switch.<tablet>_black_screen`, `binary_sensor.<tablet>_screen_in_use` and
   `sensor.<tablet>_sleep_screen`, now each tablet’s (their attributes say
   which: `tablet`, beside the screen it runs, `dashboard`);
-- All Tablets’ Idle Time is 50 seconds.
+- All Tablets’ Back to Home After is 50 seconds.
 
 No helpers are needed any more. `input_select.<room>_tablet_idle_return`,
 `input_number.<room>_tablet_room_idle`, `binary_sensor.<room>_tablet_in_use`
-and the Default Idle Time entity are no longer read: set Idle Time on Wall
+and the Default Idle Time entity are no longer read: set Back to Home After on Wall
 Tablets (or each tablet’s page), and delete the helpers when it suits you.
 A tablet that was migrated is known by its user until its kiosk app’s start
 URL has `?hk_tablet=`; copy it from its page to tell tablets apart that
