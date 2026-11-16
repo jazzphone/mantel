@@ -152,13 +152,13 @@
     look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, motion: true, tile_style: 'auto',
       tile_icons: 'auto',
       thermostat_style: 'dial', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
-            photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
+            photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {}, look_undo: null,
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
             flat_colors: { accent: 'auto', off_tint: 'auto', pages: 'accent' }, flat_page_colors: {},
             // All Screens' screensaver options (settings.py SAVER_DEFAULTS)
             saver: { starts_after: 180, each_photo: 30, order: 'random', fill: true, zoom: false, clock: true,
                      weather: true, music: true, timers: true, status: true, show: 'photos', fallback: true,
-                     forecast_every: 5, band: true, band_photos: false, calendar: false, calendar_days: 2,
+                     forecast_every: 4, band: true, band_photos: false, calendar: false, calendar_days: 2,
                      music_slide: false, music_pane: false, music_first: false, fade_back: 500,
                      portrait_fill: false, portrait_blur: 50, portrait_dim: 20, portrait_zoom: 100, portrait_x: 'center', portrait_y: 'center',
                      landscape_blur: 50, landscape_dim: 20, landscape_zoom: 100, landscape_x: 'center', landscape_y: 'center',
@@ -166,7 +166,7 @@
                        clock_today_music: true, clock_today_weather: true, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
                      photo_layout: 'single', mosaic_count: 3, mosaic_gap: 'thin', mosaic_change: 'one', mosaic_line: 0, mosaic_color: 'black', mosaic_random: false, mosaic_every: 10,
                      clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
-                     energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 5, extra_for: 30, energy_hide: [],
+                     energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 2, extra_for: 30, energy_hide: [],
                      weather_slide: false, weather_hide: [], corner_time_size: 100, corner_hide: [], music_hide: [],
                      // the HomeView-style faces (settings.py, 2026-10-30)
                      forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto',

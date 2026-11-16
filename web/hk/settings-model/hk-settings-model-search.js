@@ -274,7 +274,7 @@
     // THE SCREENSAVER'S OPTIONS (settings.py SAVER_DEFAULTS): what a screen
     // starts from, and whether it has changed any
     var SAVER_DEFAULTS = { starts_after: 180, each_photo: 30, order: 'random', fill: true, zoom: false,
-                           clock: true, weather: true, music: true, timers: true, status: true, show: 'photos', fallback: true, forecast_every: 5,
+                           clock: true, weather: true, music: true, timers: true, status: true, show: 'photos', fallback: true, forecast_every: 4,
                            band: true, band_photos: false, calendar: false, calendar_days: 2, music_slide: false, music_pane: false, music_first: false,
                            fade_back: 500,
                            // portrait and landscape photos, each their own (settings.py)
@@ -287,7 +287,7 @@
                        photo_layout: 'single', mosaic_count: 3, mosaic_gap: 'thin', mosaic_change: 'one', mosaic_line: 0, mosaic_color: 'black', mosaic_random: false, mosaic_every: 10,
                        clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
                        // Home Energy and the additional screens (settings.py, 2026-10-14)
-                       energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 5, extra_for: 30, energy_hide: [],
+                       energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 2, extra_for: 30, energy_hide: [],
                        weather_slide: false, weather_hide: [], corner_time_size: 100, corner_hide: [], music_hide: [] };
     function saverOptions(o) {
       var out = {};

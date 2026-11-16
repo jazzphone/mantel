@@ -965,7 +965,7 @@ def test_home_energy_and_the_additional_screens_are_checked():
     from custom_components.hk_frontend import settings as S
     d = S.saver_options({})
     assert (d["energy_slide"], d["extra_music"], d["extra_forecast"], d["extra_every"], d["extra_for"], d["energy_hide"]) == \
-        (False, False, False, 5, 30, []), "all off by default: every 5 minutes, for 30 seconds"
+        (False, False, False, 2, 30, []), "all off by default: every 2 minutes (phase 33), for 30 seconds"
     o = S.saver_options({"energy_slide": True, "extra_music": True, "extra_forecast": True, "extra_every": 15, "extra_for": 120,
                          "energy_hide": ["yday", "cost", "pace"]})
     assert o and (o["energy_slide"], o["extra_every"], o["extra_for"]) == (True, 15, 120)

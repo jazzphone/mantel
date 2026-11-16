@@ -202,7 +202,8 @@ def test_screensaver_options_defaults_checks_and_the_wallpanel_carry_over():
     assert board({"wallpanel_options": {"idle_time": 1}})["screensaver_options"]["starts_after"] == 15, \
         "an old value out of range is clamped, not refused: it was accepted once"
     mine = board({"wallpanel_options": old, "screensaver_options": {"each_photo": 60}})["screensaver_options"]
-    assert mine["each_photo"] == 60 and mine["starts_after"] == 180, "a screen's own options win over the old ones"
+    # (phase 33: a screen's own options are the keys it set -- each_photo here -- its other rows All Screens')
+    assert mine == {"each_photo": 60}, "a screen's own options win over the old ones, and only what it set is its own"
     assert board({})["screensaver_engine"] == "hk" and board({"screensaver_engine": "wallpanel"})["screensaver_engine"] == "wallpanel"
     assert board({"screensaver_engine": "other"})["screensaver_engine"] == "hk"
     assert board({"screensaver_options": {"bogus": 1}})["screensaver_options"] == SAVER_DEFAULTS
@@ -502,7 +503,7 @@ def test_the_screensaver_shows_photos_or_the_forecast():
     assert S.saver_options({})["fallback"] is True, "no photos: the forecast, unless turned off"
     assert S.saver_options({"fallback": False})["fallback"] is False
     assert S.saver_options({"fallback": "no"}) is None
-    assert S.saver_options({"show": "both"})["show"] == "both" and S.saver_options({})["forecast_every"] == 5
+    assert S.saver_options({"show": "both"})["show"] == "both" and S.saver_options({})["forecast_every"] == 4  # (2 min of 30 s photos, phase 33)
     # Fade Back: ms from the screensaver to the dashboard, 0 (at once) to 5 s
     assert S.saver_options({})["fade_back"] == 500
     assert S.saver_options({"fade_back": 0})["fade_back"] == 0 and S.saver_options({"fade_back": 2000})["fade_back"] == 2000

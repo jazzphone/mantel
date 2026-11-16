@@ -127,7 +127,8 @@ def test_flat_colors_whole_values_validate_atomically():
     assert not err
     look = S.merged(out)['look']
     assert look['flat_colors'] == {'accent': '#7e9b83', 'off_tint': 'accent', 'pages': 'accent'}
-    assert look['flat_page_colors'] == {'calendar': {'accent': '#c17d91'}, 'room-kitchen': {'off_tint': 'auto'}}
+    # (phase 33: a page's Flat accent is read as its Page Color, look.page_accents; a room's stays a Flat field)
+    assert look['flat_page_colors'] == {'room-kitchen': {'off_tint': 'auto'}} and look['page_accents'] == {'calendar': '#c17d91'}
     for bad in ({'look.flat_colors': {'accent': 'accent'}},           # accent can't bind to itself
                 {'look.flat_colors': {'accent': 'plaid'}},
                 {'look.flat_colors': {'tint': '#123456'}},             # an unknown field
@@ -151,15 +152,16 @@ def test_flat_colors_patches_keep_unrelated_pages_and_fields():
                                     'look.flat_colors.accent': '#9374bc'})
     assert not err
     look = S.merged(out)['look']
-    assert look['flat_page_colors'] == {'calendar': {'off_tint': 'accent'}, 'climate': {'accent': 'blue'},
-                                        'weather': {'off_tint': '#789484'}}
+    # (phase 33: climate's Flat accent reads as its Page Color; calendar's, taken away by its old address, is gone from both)
+    assert look['flat_page_colors'] == {'calendar': {'off_tint': 'accent'}, 'weather': {'off_tint': '#789484'}}
+    assert look['page_accents'] == {'climate': 'blue'}
     assert look['flat_colors'] == {'accent': '#9374bc', 'off_tint': 'accent', 'pages': 'accent'}, 'the other field survives'
     # a page emptied goes; All Screens' field removed is Automatic
     out, err = A.apply_house(out, {'look.flat_page_colors.calendar': {'off_tint': None},
                                    'look.flat_page_colors.climate': None, 'look.flat_colors.off_tint': None})
     assert not err
     look = S.merged(out)['look']
-    assert look['flat_page_colors'] == {'weather': {'off_tint': '#789484'}}
+    assert look['flat_page_colors'] == {'weather': {'off_tint': '#789484'}} and look['page_accents'] == {}
     assert look['flat_colors'] == {'accent': '#9374bc', 'off_tint': 'auto', 'pages': 'accent'}
     for bad in ({'look.flat_page_colors.calendar': {'shade': 'red'}}, {'look.flat_page_colors.calendar': 'red'},
                 {'look.flat_colors.accent': 'accent'}, {'look.flat_colors.off_tint': 'plaid'},

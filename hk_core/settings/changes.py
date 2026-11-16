@@ -39,6 +39,7 @@ from . import saver_layout as SLAY
 from . import looks as LOOKS
 from . import kinds as K
 from . import model as S
+from .model.pages_screen_rules import PAGE_COLOR_KEY
 
 ENTITY = re.compile(r"^([a-z0-9_]+)\.[a-z0-9_]+$")
 
@@ -1063,6 +1064,13 @@ def apply_house(options: Mapping[str, Any], changes: Mapping[str, Any],
                                          **flat_patch(lk["flat_colors"], {fm.group(1): value})}
                 else:
                     lk["flat_page_colors"] = flat_pages_patch(lk["flat_page_colors"], fm.group(2), value)
+                    # (phase 33: a page's Flat accent is its Page Color now, read through it -- fold_page_colors -- so the
+                    # old address clears that too: a page whose Flat color is taken away loses its Page Color)
+                    key = fm.group(2)
+                    if PAGE_COLOR_KEY.match(key) and (value is None or (isinstance(value, Mapping) and "accent" in value)):
+                        a = None if value is None else value.get("accent")
+                        if a in (None, "auto"):
+                            lk["page_accents"] = {k: v for k, v in (lk.get("page_accents") or {}).items() if k != key}
                 now["look"] = lk
                 dash["look"] = S.house_stored("look", lk)
                 continue

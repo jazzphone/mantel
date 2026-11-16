@@ -377,7 +377,7 @@ SAVER_DEFAULTS: dict[str, Any] = {
     # both: the photos with the forecast as a slide every `forecast_every`
     # photos; forecast: always the forecast (the live sky over the land)
     "show": "photos",
-    "forecast_every": 5,
+    "forecast_every": 4,     # (phase 33: follows extra_every, 2 min of 30 s photos -- saver_layers.photos_for)
     # THE FORECAST DETAILS (today, the hours, the days, along the bottom): on
     # the forecast (Forecast, the Photos & Forecast slide, the no-photos
     # fallback), and over the photos
@@ -462,7 +462,7 @@ SAVER_DEFAULTS: dict[str, Any] = {
     # ...the other additional screens: the music (only while something
     # plays; Music First covers it) and, on Show: Clock, the forecast. One
     # every `extra_every` minutes, for `extra_for` seconds, taking turns
-    "extra_music": False, "extra_forecast": False, "extra_every": 5, "extra_for": 30,
+    "extra_music": False, "extra_forecast": False, "extra_every": 2, "extra_for": 30,
     # what Home Energy leaves out (SAVER_ENERGY_PARTS): its rings, the
     # readings along the bottom, the month and where its cost is heading
     "energy_hide": [],
