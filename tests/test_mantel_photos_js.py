@@ -559,7 +559,7 @@ def test_photos_is_inside_your_files_and_its_old_address_forwards_there():
     ph = by_header(out["files"], "Photos")
     row = ph["rows"][0]
     assert row["label"] == "Photos" and row["fk"] == "mx:files-photos" and row["value"] == "2 albums · 812 photos"
-    assert "Screensaver Options" in ph["footer"]
+    assert "Screensaver page" in ph["footer"]
     assert by_header(out["files"], "Font and Glyphs")["rows"][0]["label"] == "SF Pro (woff2)"
     assert not any("mantel/photos" in r for g in out["sidebar"] for r in g)
     assert out["forward"] == ["mantel/files/photos", "mantel/files/photos", f"mantel/files/photos/{A}", None, None]
