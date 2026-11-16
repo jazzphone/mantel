@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The Cameras page lost its cameras after a while** (and any page that lists the house's things could lose some): a settings change built the screen again from only the states its cards were reading by then, so the Cameras page listed just the cameras something else on the screen showed -- often only the first. The screen is now built again from the whole house.
+
 ## 0.1.168 - 2026-11-15
 
 **Fixed**

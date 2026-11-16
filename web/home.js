@@ -448,11 +448,18 @@ mark('rendered');
 // close together are built once, the last one last.
 {
   let building = null, again = false;
+  // THE WHOLE HOUSE FIRST (2026-11-15, the owner: "all the cameras don't load on the cameras page after awhile ... a blank
+  // page with 1 camera"): the strategy decides what each page shows from the states it is given, and after the screen
+  // has narrowed those are only what its cards read -- built again then, the Cameras page listed the cameras some other
+  // card reads (the Kitchen: 9 cameras, then 1), and every page that lists the house's things the same. Widened as for
+  // a page not seen yet (WIDE_MS at most), built, and narrowed again to what is then on the screen.
   const rebuild = () => {
     if (building) { again = true; return; }
     building = (async () => {
+      await Promise.race([widen(), new Promise((res) => setTimeout(res, WIDE_MS))]);
       const next = await build();
       await viewHost.reconfigure(next);
+      if (!narrowed && !narrowPending) narrowSoon(window.__mantelView);
     })().catch((e) => console.error('[home] could not build the screen again', e)).then(() => {
       building = null;
       if (again) { again = false; rebuild(); }
