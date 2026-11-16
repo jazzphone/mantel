@@ -86,3 +86,36 @@ cautious, to make sure that - especially for the image/photo presets, it is reta
 - Carried-over settings: each model change has a unit test that an old setting reads the same after it.
 
 ## Build log
+
+**2026-11-16, built** in four worktrees at once, merged in `p33`:
+
+- **Screen page** (decision 1, d6034266): a screen's page is Home Page, Look & Feel (the sidebar's six rows, read from its
+  SIDE table, each Same as All Screens or Just This Screen), Pages, Wall Tablets, Advanced, Where. More for This Screen
+  is gone (`/more` forwards to Advanced): Now Playing (its switch, Timer Bar, On Every Page) its own page, Header on
+  Phones and Back Button & Title on Menu & Navigation, Pop-ups and Notifications under Advanced → Alerts on This Screen.
+- **Appearance & Colors** (2-6, a864d17e): Appearance is Look, Style (four; Glass Clear/Blurred/Bright, then the style's
+  own amounts), Color (Accent Color, Pages Keep Their Own Colors, Page Colors, Tiles When Off), Tiles, Motion, Advanced
+  (Tab Bar Glass, Blur Drawing), Reset Appearance…. Looks at All Screens too (`look.look_undo`); the Flat Look sets Flat
+  Color Stone, Performance a Graphite color. Flat Colors taken apart, every old address forwarded. Page Color: a page's
+  Flat accent folds into `look.page_accents` on read (`fold_page_colors`); a screen's own page color reuses its
+  `flat_page_colors[page].accent`. The accent no longer writes Tiles When Off. `look_carry.json` holds the house's 30
+  screen-and-page colors from before; the new code gives the same.
+- **Background** (7, 8, e8c9f9a2 + c7a2a1d1): one page shape in every style; Flat takes Live Sky and Wallpaper in its own
+  store (`FLAT_BACKGROUNDS`), drawn by the glass looks' sky behind Flat's cards; Its Own Sky; one Colors picker; every
+  page and Rooms at both levels; Adjust Photo keeps every starting point and slider (Image Look, the glass photo Look,
+  Flat's older Fade/Tint) on the same keys, nothing converted.
+- **Screensaver** (9-12, 22fa4800): the switch on top of the Screensaver page, the same page at both levels (What It
+  Shows, When, Photos → How Photos Show, Side Pane, Advanced); a screen's own options are the keys it set
+  (`hk_core/settings/saver_layers.py`, `M.saverLayers`), a whole set from before stays all-own; Slides in minutes
+  (`extra_every`/`extra_for`; counted photos carried as the minutes they took: the house's 3 × 20 s → every minute for
+  20 s); a tablet's When Nobody's Using It: the timeline, Back to Home After (Never = off), Screensaver, Dark After.
+- **Merging** (the lead): Flat page backgrounds link to Page Color; a screen's Appearance rows follow the one idiom (no
+  Reset row under each; All Screens' value again follows); swatch tiles a hairline edge (the house's white Tiles When
+  Off); the old Flat address for a page's accent clears its Page Color too; the screensaver's defaults agree with Slides
+  in minutes (every 2 minutes, `forecast_every` 4); the timeline one bar, square where its parts meet (the owner).
+- **Checked**: quick; full (98 of 99: `app-sky-check` failed once under load and passes alone, as in phase 32;
+  `now-playing-page-check-webkit`'s 1366x1024 corner-ink case fails the same way on main run directly -- 23/21/22 px
+  both -- so it isn't this phase's); HK Frontend's jsc and Python suites; the house's own settings through the house
+  twin (Kitchen HomeView unchanged: Flat, green, white off tiles, landscapes).
+- DESIGN.md (hk_house 52b46df7): Accent Color, Page Color and Tiles When Off; every background in Flat; one shape at
+  every level; the 2026-11-16 decision.
