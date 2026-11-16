@@ -159,26 +159,17 @@
           h('a', { href: '#/pages', text: 'Custom Pages' }), '.']) }, []));
       }
 
-      // THE GLASS STYLE, All Screens' or a screen's (2026-10-10): Glass,
-      // Frosted or Blur, and -- while Blur is chosen -- how it blurs (Blur
-      // Mode), each with what it costs. `cur`: the stored value shown as
-      // chosen (null: none -- a screen following All Screens); `fallback`: the
-      // blur mode Blur starts from; `pick(v)` saves; `fk` prefixes the keys.
+      // THE STYLE, All Screens' or a screen's (phase 33, decision 5): four -- Glass, Frosted, Tinted and Flat -- each a
+      // checkmark and one sentence. Glass keeps the Glass already chosen (Clear, Blurred or Bright: Appearance's row
+      // under Style; Blurred's drawing under Appearance -> Advanced). `cur`: the stored value shown as chosen (null: a
+      // screen following All Screens); `fallback`: the Glass a pick of Glass starts from; `pick(v)` saves the stored
+      // value; `fk` prefixes the keys.
       glassChoices(c, cur, fallback, pick, fk, header) {
-        var style = cur ? M.glassStyle(cur) : null;
-        c.appendChild(K.group({ header: header || 'Style' }, M.GLASS_STYLES.map(function (g) {
-          return K.check({ label: g[1], sub: g[2], on: style === g[0], fk: fk + g[0], onClick: function () {
-            // Blur and Bright Glass keep the mode already chosen
-            pick(M.styleValue(g[0], cur, fallback));
-          } });
-        })));
-        // (Bright Glass has Blur's three modes, 2026-10-30)
-        var modes = M.modesFor(style);
-        if (!modes) return;
-        c.appendChild(K.group({ header: 'Blur Mode', footer: 'Shared Layer and Each Card blur live; Pre-rendered blurs a picture of the sky once. ' +
-            'On a wall tablet, anything but Each Card. Pop-up sheets blur live in Shared Layer and Pre-rendered.' }, modes.map(function (m) {
-          return K.check({ label: m[1], sub: m[2], on: cur === m[0], fk: fk + 'mode:' + m[0], onClick: function () { pick(m[0]); } });
-        })));
+        var style = cur ? M.styleOf(cur) : null;
+        c.appendChild(K.group({ header: header || null, footer: 'Glass is Clear, Blurred or Bright: choose which on Appearance, beside each style’s own amounts.' },
+          M.STYLES.map(function (g) {
+            return K.check({ label: g[1], sub: g[2], on: style === g[0], fk: fk + g[0], onClick: function () { pick(M.styleValue4(g[0], cur, fallback)); } });
+          })));
       }
 
       s_glass(c, x, b) {
@@ -188,10 +179,10 @@
         };
         var gl = M.glassOf(b, look), follows = !gl.own;
         c.appendChild(K.group({ footer: 'Same as All Screens follows All Screens → Appearance, so this screen changes with the others.' }, [
-          K.check({ label: 'Same as All Screens', sub: 'Now ' + M.glassLabel(gl.house), on: follows, fk: 'glass:house',
+          K.check({ label: 'Same as All Screens', sub: 'Now ' + M.glassShort(gl.house), on: follows, fk: 'glass:house',
                     onClick: function () { pick('house'); } })]));
-        // Blur here starts from All Screens' mode when theirs is a blur too
-        this.glassChoices(c, follows ? null : gl.value, M.isBlur(look.glass) || M.isBright(look.glass) ? look.glass : 'blur', pick, 'glass:', 'Just This Screen');
+        // Glass here starts from All Screens' Glass when theirs is one
+        this.glassChoices(c, follows ? null : gl.value, look.flat === true ? 'clear' : look.glass, pick, 'glass:', 'Just This Screen');
       }
     };
     KIT.install(Methods);

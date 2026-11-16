@@ -197,11 +197,11 @@
       var light = theme === 'light', base = light ? [244, 242, 238] : [20, 21, 23], f = light ? 0.10 : 0.13;
       return '#' + c.map(function (v, i) { var x = Math.round(v * f + base[i] * (1 - f)); return (x < 16 ? '0' : '') + x.toString(16); }).join('');
     }
-    // a page kind's accent as a hex: its own (look.page_accents), else
+    // a page kind's accent as a hex: its Page Color (this screen's, else All Screens': hkSettings.pageColor), else
     // PAGE_ACCENTS' default; null for a page that has none (home, rooms)
     function pageAccentHex(kind) {
       if (!kind || !PAGE_ACCENTS[kind]) return null;
-      var S = window.hkSettings, own = S && S.get ? (S.get('look.page_accents', {}) || {})[kind] : null;
+      var S = window.hkSettings, own = S && S.pageColor ? S.pageColor(kind) : S && S.get ? (S.get('look.page_accents', {}) || {})[kind] : null;
       var a = String(own || PAGE_ACCENTS[kind]).toLowerCase();
       return ACCENTS[a] || (/^#[0-9a-f]{6}$/.test(a) ? a : null);
     }

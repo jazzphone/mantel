@@ -56,7 +56,7 @@ ok('every word is a style, a colon and a few letters and digits', cases.every(fu
   var facts = M.ladderFacts({ glass: g }, {}, {}, { strip: true });
   var rec = M.slowRecommend('hall', facts, [{ name: 'Hall', fps: 30, fps_screen: 'hall', fps_sig: M.ladderSignature(facts), fps_at: 1000 }], 1000);
   ok(g + ': the slow-tablet ladder offers Glass first', !!rec && rec.step === 'glass' && rec.label === 'Bright Glass' &&
-     rec.change.glass === 'clear' && /Glass looks almost the same/.test(rec.says), rec);
+     rec.change.glass === 'clear' && /Clear Glass looks almost the same/.test(rec.says), rec);
 });
 print(fail ? 'FAIL ' + fail + ' LADDER TESTS' : 'ALL ' + pass + ' LADDER TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

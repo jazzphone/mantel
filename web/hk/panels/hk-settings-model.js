@@ -90,7 +90,7 @@
       CLOCK_FACES, CLOCK_LINES, CLOCK_OWN_GROUND, CLOCK_SCALES, CLOCK_STYLES, CLOCK_WEIGHTS, clockRecommend,
       CLOSE_AFTER, CLOUD_STYLES, colorLabel, COPY_GROUPS, COPY_NEVER, copyChanges, copyDefaults, COUNT_KINDS,
       dateLabel, DAY_LOOKS, DAYTIME_SKIES, DESIGN_FACES, DEVICES, ENERGY_PARTS, energyShown, errorText, FLAT_ACCENTS,
-      flatAccentChange, flatAccentSays, flatColorHex, flatColorName, flatColorsOf, flatFieldSays, flatPagesName,
+      flatAccentSays, flatColorHex, flatColorName, flatColorsOf, flatFieldSays, flatPagesName,
       flatSourceLabel, flatTintLabel, foldOptions, FORECAST_BIG, FORECAST_LAYOUTS, forecastSummary, GLASS,
       GLASS_STYLES, glassFooter, glassLabel, glassOf, glassShort, glassStyle, HA_PLACES, hasTabBar, HEADER_PAGES,
       headerOffOn, houseMenuAsBoard, houseMenuSave, houseRoomsAsBoard, houseRoomsSave, IDLE_TIMES, idleLabel,
@@ -130,8 +130,10 @@
       root: root
     };
   }
+  // (the parts' kit as they left it: the names below handed on as they are, phase 33)
+  var PARTS_K = {};
   function runParts() {
-    var K = kit();
+    var K = PARTS_K = kit();
     PARTS.forEach(function (file) { window.hkSettingsModelParts[partKey(file)](K); });
     ACC_TYPES = K.ACC_TYPES; accentChanges = K.accentChanges; accentColorOf = K.accentColorOf; accentOf = K.accentOf;
     ACCENTS = K.ACCENTS; accType = K.accType; amountOf = K.amountOf; amountsFor = K.amountsFor;
@@ -152,7 +154,7 @@
     copyChanges = K.copyChanges; copyDefaults = K.copyDefaults; COUNT_KINDS = K.COUNT_KINDS; dateLabel = K.dateLabel;
     DAY_LOOKS = K.DAY_LOOKS; DAYTIME_SKIES = K.DAYTIME_SKIES; DESIGN_FACES = K.DESIGN_FACES; DEVICES = K.DEVICES;
     ENERGY_PARTS = K.ENERGY_PARTS; energyShown = K.energyShown; errorText = K.errorText;
-    FLAT_ACCENTS = K.FLAT_ACCENTS; flatAccentChange = K.flatAccentChange; flatAccentSays = K.flatAccentSays;
+    FLAT_ACCENTS = K.FLAT_ACCENTS; flatAccentSays = K.flatAccentSays;
     flatColorHex = K.flatColorHex; flatColorName = K.flatColorName; flatColorsOf = K.flatColorsOf;
     flatFieldSays = K.flatFieldSays; flatPagesName = K.flatPagesName; flatSourceLabel = K.flatSourceLabel;
     flatTintLabel = K.flatTintLabel; foldOptions = K.foldOptions; FORECAST_BIG = K.FORECAST_BIG;
@@ -264,9 +266,9 @@
       ['Hourly Forecast', 'house/weather/sensors', 'weather.forecast_hourly', 'weather forecast hourly hours'],
       ['Menu on Tablets & Computers', 'screen', 'menu', 'menu tablet ipad computer off button always open tab bar', true],
       ['Menu on Phones', 'screen', 'menu_phone', 'menu phone iphone android off button tab bar folded upright ipad', true],
-      ['Accent Color', 'screen/accent', 'accent', 'menu color colour accent highlight flat', true],
-      ['Highlight Color', 'screen/accent', 'accent', 'menu color colour accent highlight', true],
-      ['Appearance', 'screen', 'appearance', 'appearance style glass flat look sky background accent', true],
+      ['Accent Color', 'screen/accent', 'accent', 'menu color colour accent highlight flat tab bar', true],
+      ['Page Colors', 'screen/page-colors', 'page_colors', 'page color colour own climate lights soft flat', true],
+      ['Appearance', 'screen', 'appearance', 'appearance style glass flat look looks accent tiles motion', true],
       ['Keep Open Down To', 'screen/menu/side', 'dock_min', 'menu fold width docked always open', true],
       ['Mosaic Lines (Screensaver)', 'house/screensaver', 'saver:mosaic_line', 'screensaver mosaic line thickness color spacing divider border'],
       ['Up To (Mosaic)', 'house/screensaver', 'saver:mosaic_random', 'screensaver mosaic random number photos up to change'],
@@ -315,7 +317,7 @@
       tabletSummary: tabletSummary, phoneSummary: phoneSummary, tabletTab: tabletTab, phoneTab: phoneTab, tabletTabBar: tabletTabBar,
       ACCENTS: ACCENTS, accentOf: accentOf,
       FLAT_ACCENTS: FLAT_ACCENTS, flatColorsOf: flatColorsOf, flatPagesName: flatPagesName, flatAccentSays: flatAccentSays, flatColorName: flatColorName, flatColorHex: flatColorHex,
-      flatSourceLabel: flatSourceLabel, flatTintLabel: flatTintLabel, flatFieldSays: flatFieldSays, flatAccentChange: flatAccentChange, PAGE_ACCENTS: PAGE_ACCENTS, pageAccentOf: pageAccentOf,
+      flatSourceLabel: flatSourceLabel, flatTintLabel: flatTintLabel, flatFieldSays: flatFieldSays, PAGE_ACCENTS: PAGE_ACCENTS, pageAccentOf: pageAccentOf,
         tabPosParts: tabPosParts, tabPosJoin: tabPosJoin, tabPosLabel: tabPosLabel,
       PAGE_HEADERS: PAGE_HEADERS, MENU_KEYS: MENU_KEYS, houseMenuAsBoard: houseMenuAsBoard, houseMenuSave: houseMenuSave,
       TAB_BAR_SCROLLS: TAB_BAR_SCROLLS, TAB_BAR_GLASS: TAB_BAR_GLASS, TAB_BAR_ROOMS: TAB_BAR_ROOMS, roomsPlace: roomsPlace, TAB_BAR_MORE: TAB_BAR_MORE, TAB_BAR_POS: TAB_BAR_POS,
@@ -369,6 +371,10 @@
       camerasModel: camerasModel, autoCameras: autoCameras, livePlan: livePlan, liveYaml: liveYaml, liveNames: liveNames,
       move: move,
       LOOKS: LOOKS, LOOK_KEYS: LOOK_KEYS, LOOK_UNDO_KEYS: LOOK_UNDO_KEYS, LOOK_LABELS: LOOK_LABELS, lookOf: lookOf, lookSays: lookSays, lookChanges: lookChanges, lookUndo: lookUndo,
+      LOOK_HOUSE: PARTS_K.LOOK_HOUSE, houseLookChanges: PARTS_K.houseLookChanges, houseLookUndo: PARTS_K.houseLookUndo,
+      STYLES: PARTS_K.STYLES, GLASS_KINDS: PARTS_K.GLASS_KINDS, styleOf: PARTS_K.styleOf, glassKind: PARTS_K.glassKind,
+      styleValue4: PARTS_K.styleValue4, TILES_OFF: PARTS_K.TILES_OFF, tilesOffName: PARTS_K.tilesOffName,
+      APPEARANCE_DEFAULTS: PARTS_K.APPEARANCE_DEFAULTS,
       mmdd: mmdd, dateLabel: dateLabel, skyDate: skyDate, search: search
     };
   });

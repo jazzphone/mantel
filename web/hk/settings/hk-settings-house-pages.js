@@ -107,7 +107,9 @@
           });
         }
         if (s0 === 'pill' && M.PAGE_PILL_DEFAULTS[key]) return mk('Its Pill on Home', function (c) { self.s_pill(c, null, null, key); });
-        if (s0 === 'accent') return mk('Accent Color', function (c) { self.pageAccent(c, key); });
+        // ITS PAGE COLOR (phase 33: one color per page, Flat's folded in; the address is the Accent Color's before)
+        if (s0 === 'accent') return mk('Page Color', function (c) { self.pageColorPage(c, key, null, null, base); });
+        if (s0 === 'tiles-off') return mk('Tiles When Off', function (c) { self.tilesOffPage(c, null, null, key); });
         if (s0 === 'order' && PAGE_ORDERS[key]) return { title: 'Tile Order', back: [title, base], scope: this.orderScope(key),
                                                         body: function (c) { self.a_pageOrder(c, key); } };
         if (key === 'timers' && s0 === 'house') return mk('House Timers', function (c) { self.h_timers(c); });
@@ -269,18 +271,11 @@
           var own = (this.hs('look.page_pills') || {})[key] || {};
           look.push(K.nav({ label: 'Its Pill on Home', value: Object.keys(own).length ? 'Customized' : 'Default', href: base + '/pill', sk: 'look.page_pills:' + key }));
         }
-        // 7. ITS ACCENT COLOR (2026-10-17): the menu's color for it while a
-        // screen's Highlight Color is Automatic, and in Flat its Automatic
-        // background's shade
-        var pa = M.pageAccentOf(key, this.hs('look.page_accents'));
-        look.push(K.nav({ label: 'Accent Color', value: pa.own ? pa.a.name : 'Default (' + pa.d.name + ')', href: base + '/accent',
-                          tile: ['', pa.a.hex], sk: 'look.page_accents:' + key }));
-        // 8. FLAT COLORS (2026-10-17): Flat's own palette for this page, over
-        // the screens' general colors -- where any screen uses Flat
-        var lookFoot = 'How the page looks on every screen that doesn’t choose its own. Its Accent Color is its color in the menu and in Flat.';
-        if (row && this.flatAnywhere()) {
-          look.push(this.flatColorsNav(this.flatScope('house-page', null, null, key), { tile: false, inherited: 'Same as All Screens' }));
-        }
+        // 7. ITS PAGE COLOR (2026-10-17; phase 33 folded Flat's per-page Accent Color in): the page you're on while
+        // a screen's Accent Color is Automatic, in Flat over it; and, where any screen wears Flat, its Tiles When Off
+        look.push(this.pageColorNav(key, null, base + '/accent'));
+        var lookFoot = 'How the page looks on every screen that doesn’t choose its own. Its Page Color is its color in the menu and its icon’s.';
+        if (row && this.flatAnywhere()) look.push(this.tilesOffNav(null, null, this.flatHere(null), base + '/tiles-off', key));
         if (look.length) c.appendChild(K.group({ header: 'Look', footer: lookFoot }, look));
         // 7. ON SCREENS: every generated screen, whether it shows the page --
         // each a way to that screen's Pages on This Screen, the page's row lit
@@ -1078,21 +1073,22 @@
           return !(r && r.own && r.own.length);
         })[0] || null;
       }
-      // THE LOOKS (2026-10-30, hk_core looks.py; M.LOOKS): each with its
-      // picture and what it is; the one applied last can be undone here
+      // THE LOOKS (2026-10-30, hk_core looks.py; M.LOOKS): each with its picture and what it is; the one applied last
+      // can be undone here. A screen's (x, b), or All Screens' (x null, phase 33: their own settings, one Undo)
       looksPage(c, x, b, base) {
-        var self = this, u = b.look_undo && M.lookOf(b.look_undo.look);
+        var self = this, S = this.data.settings, u0 = x ? b.look_undo : (S.look || {}).look_undo, u = u0 && M.lookOf(u0.look);
         if (u) {
-          c.appendChild(K.group({ footer: 'Puts back what this screen had before ' + u.name + ': its look, its settings and, from the Home Grid editor, its layout.' }, [
+          c.appendChild(K.group({ footer: 'Puts back what ' + (x ? 'this screen' : 'All Screens') + ' had before ' + u.name + ': ' +
+              (x ? 'its look, its settings and, from the Home Grid editor, its layout.' : 'its look and its settings.') }, [
             K.button({ label: 'Undo ' + u.name, fk: 'looks:undo', onClick: function () {
-              K.confirm(self.shadowRoot, { title: 'Undo ' + u.name + '?', message: 'This screen goes back to how it was before.', ok: 'Undo' }).then(function (ok) {
-                if (ok) self.setB(x.path, M.lookUndo(b));
-              });
+              K.confirm(self.shadowRoot, { title: 'Undo ' + u.name + '?', message: (x ? 'This screen goes' : 'All Screens go') + ' back to how it was before.', ok: 'Undo' })
+                .then(function (ok) { if (ok) { if (x) self.setB(x.path, M.lookUndo(b)); else self.setH(M.houseLookUndo(S)); } });
             } })]));
         }
         // (no header: it repeated the page's title, 2026-10-30)
-        c.appendChild(K.group({ footer: 'Each sets this screen’s style and colors, its background, its tiles, the Side Pane, swiping and the ' +
-          'screensaver — its layout stays. To start from a Look’s layout too, use Layout + Look in the Home Grid editor.' },
+        c.appendChild(K.group({ footer: x ? 'Each sets this screen’s style and colors, its background, its tiles, the Side Pane, swiping and the ' +
+            'screensaver — its layout stays. To start from a Look’s layout too, use Layout + Look in the Home Grid editor.'
+          : 'Each sets All Screens’ style and colors, background, tiles, Side Pane, swiping and screensaver options. A screen that chose its own keeps it.' },
           M.LOOKS.map(function (l) { return self.lookCell(l, base + '/looks/' + l.id); })));
       }
       // A LOOK'S CELL: its picture, name and what it is -- a link in the list,
@@ -1108,15 +1104,16 @@
       }
       // ONE LOOK: what it changes on this screen (only what differs), and Apply
       lookPage(c, x, b, l, base) {
-        var self = this, saver = M.saverOptions(b.screensaver_options || this.hs('look.saver'));
-        var r = M.lookChanges(l, b, saver, null);
+        var self = this, r = x ? M.lookChanges(l, b, M.saverOptions(b.screensaver_options || this.hs('look.saver')), null)
+                                : M.houseLookChanges(l, this.data.settings);
         // its cell from the list at the top (a plain row repeating the title before)
         c.appendChild(K.group({}, [this.lookCell(l, null)]));
-        c.appendChild(K.group({ header: 'What Changes', footer: r.rows.length ? 'On this screen only. Its layout stays.' : 'This screen already looks this way.' },
+        c.appendChild(K.group({ header: 'What Changes', footer: r.rows.length ? (x ? 'On this screen only. Its layout stays.' : 'On every screen that follows All Screens.')
+                                                                            : (x ? 'This screen' : 'All Screens') + ' already looks this way.' },
           r.rows.map(function (row) { return K.info({ label: row[0], value: row[1] + ' → ' + row[2] }); })));
         if (r.rows.length) {
           c.appendChild(K.group({ footer: 'Looks → Undo puts it all back.' }, [K.button({ label: 'Use ' + l.name, fk: 'look:apply', onClick: function () {
-            self.setB(x.path, r.changes).then(function () { self.back(base + '/looks'); });
+            (x ? self.setB(x.path, r.changes) : self.setH(r.changes)).then(function () { self.back(base + '/looks'); });
           } })]));
         }
       }

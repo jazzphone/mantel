@@ -716,10 +716,9 @@
         rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
                             fk: 'fpbd:' + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
         c.appendChild(K.group({ footer: 'While Flat is on. A photo here fades as ' + (b ? 'the screen’s' : 'All Screens’') + ' Fade says.' }, rows));
-        // ITS FLAT COLORS, beside its background (the same page key)
-        var fps = this.flatScope(b ? 'screen-page' : 'house-page', x, b, r.key);
-        c.appendChild(K.group({ footer: 'Its Accent Color shades an Automatic background here.' },
-          [this.flatColorsNav(fps, { inherited: b ? 'Same as This Screen' : 'Same as All Screens' })]));
+        // ITS PAGE COLOR, beside its background (the same page key; Flat Colors before phase 33)
+        c.appendChild(K.group({ footer: 'Its Page Color shades an Automatic background here.' },
+          [this.pageColorNav(r.key, b, (b ? '#/screens/' + encodeURIComponent(x.path) : '#/house/appearance') + '/page-colors/' + encodeURIComponent(r.key))]));
         if (isColor) this.flatColorGroup(c, { id: cur, theme: theme, fk: 'fpbd:' + r.key + ':', onPick: function (id) { pick(id); } });
         if (cur === 'photo') {
           var lvl = (r.room && photos.rooms) || (b ? (b.sky_photo || sky.photo) : sky.photo);
@@ -746,12 +745,10 @@
           if (rrows.length) c.appendChild(K.group({ header: 'Each Room', footer: 'A room left alone is the same as Room Pages.' }, rrows));
         }
       }
-      // FLAT COLORS (2026-10-17; hk_house/docs/PLAN-2026-10-17-flat-appearance-colors.md):
-      // Flat's Accent Color and Off Pill Tint, one editor at every scope --
-      // All Screens, a screen, and a page or room on either. A scope:
-      // {kind: 'house' | 'screen' | 'house-page' | 'screen-page', x, b, key}.
-      // Opening any of it writes nothing; a field left alone is inherited,
-      // Automatic stops there.
+      // FLAT'S COLORS (2026-10-17; phase 33 took the Flat Colors page apart): Flat's Tiles When Off (off_tint) and
+      // whether the pages keep their own colors (pages) at every scope -- All Screens, a screen, and a page or room on
+      // either -- and the Accent Color it shares with the other styles. A scope: {kind: 'house' | 'screen' |
+      // 'house-page' | 'screen-page', x, b, key}. A field left alone is inherited, Automatic stops there.
       flatAnywhere() {
         var look = this.data.settings.look || {}, boards = this.data.boards || {};
         return look.flat === true || Object.keys(boards).some(function (p) { return M.glassOf(boards[p], look).effective === 'flat'; });
@@ -761,9 +758,7 @@
         var screen = kind === 'screen' || kind === 'screen-page', page = kind === 'house-page' || kind === 'screen-page';
         var sb = screen ? b : null, row = page ? this.skyRow(key, sb) : null;
         var keys = page ? (row && row.room ? [key, 'rooms'] : [key]) : [];
-        var base = screen ? '#/screens/' + encodeURIComponent(x.path) + '/flat-colors' : '#/house/appearance/flat-colors';
         var sc = { kind: kind, x: x, b: sb, key: key || null, row: row, keys: keys, page: page, screen: screen,
-                   href: page ? base + '/page/' + encodeURIComponent(key) : base, baseHref: base,
                    label: page ? (row ? row.label : key) : screen ? x.title : 'All Screens' };
         sc.own = function () {
           if (kind === 'house') return look.flat_colors || {};
@@ -783,37 +778,34 @@
         };
         return sc;
       }
-      // SAVE a patch ({accent?, off_tint?}: a value, or null to inherit again
-      // -- All Screens': Automatic) at the scope, shown at once; `whole`: the
-      // scope's own replaced (a reset)
-      flatColorsPut(sc, patch, whole) {
+      // SAVE a patch ({off_tint?, pages?, accent?}: a value, or null to inherit again -- All Screens': Automatic) at
+      // the scope, shown at once
+      flatColorsPut(sc, patch) {
         var d = this.data, look = d.settings.look, ch = {};
         var made = function (o) {
-          o = whole ? {} : Object.assign({}, o || {});
+          o = Object.assign({}, o || {});
           Object.keys(patch).forEach(function (f) { if (patch[f] == null) delete o[f]; else o[f] = patch[f]; });
           return o;
         };
         if (sc.kind === 'house') {
           look.flat_colors = Object.assign({ accent: 'auto', off_tint: 'auto', pages: 'accent' }, made(look.flat_colors));
-          if (whole) ch['look.flat_colors'] = look.flat_colors;
-          else Object.keys(patch).forEach(function (f) { ch['look.flat_colors.' + f] = patch[f]; });
+          Object.keys(patch).forEach(function (f) { ch['look.flat_colors.' + f] = patch[f]; });
           return this.setH(ch);
         }
         if (sc.kind === 'house-page') {
           var hp = look.flat_page_colors = Object.assign({}, look.flat_page_colors), hv = made(hp[sc.key]);
           if (Object.keys(hv).length) hp[sc.key] = hv; else delete hp[sc.key];
-          ch['look.flat_page_colors.' + sc.key] = whole ? (Object.keys(hv).length ? hv : null) : patch;
+          ch['look.flat_page_colors.' + sc.key] = patch;
           return this.setH(ch);
         }
         var b = d.boards[sc.x.path] = Object.assign({}, d.boards[sc.x.path]);
         if (sc.kind === 'screen') {
           b.flat_colors = made(b.flat_colors);
-          if (whole) ch.flat_colors = b.flat_colors;
-          else Object.keys(patch).forEach(function (f) { ch['flat_colors.' + f] = patch[f]; });
+          Object.keys(patch).forEach(function (f) { ch['flat_colors.' + f] = patch[f]; });
         } else {
           var bp = b.flat_page_colors = Object.assign({}, b.flat_page_colors), bv = made(bp[sc.key]);
           if (Object.keys(bv).length) bp[sc.key] = bv; else delete bp[sc.key];
-          ch['flat_page_colors.' + sc.key] = whole ? (Object.keys(bv).length ? bv : null) : patch;
+          ch['flat_page_colors.' + sc.key] = patch;
         }
         return this.setB(sc.x.path, ch);
       }
@@ -825,183 +817,70 @@
         var src = M.flatSourceLabel(f, { label: sc.labelOf });
         return src ? 'From ' + src : null;
       }
-      // A ROW THAT LEADS TO A SCOPE'S FLAT COLORS, with what it comes to
-      flatColorsNav(sc, o) {
-        o = o || {};
-        var r = sc.resolved(), own = sc.own(), mine = own.accent != null || own.off_tint != null;
-        var value = sc.kind === 'house' || mine || !sc.page || r.accent.scope === 'own-page' ? M.flatAccentSays(r.accent) +
-                    (r.off_tint.value === 'accent' || r.off_tint.value === 'auto' ? '' : ' · Own Tint')
-                  : (o.inherited || 'Inherited');
-        // (All Screens' and a screen's: the pills' tint -- their accent is
-        // Appearance's Accent Color since 2026-10-29)
-        if (!sc.page) value = M.flatColorName(r.off_tint.value);
-        return K.nav({ label: o.label || 'Flat Colors', value: value, sub: o.sub || null, href: sc.href,
-                       tile: o.tile === false ? null : ['mdi:palette-outline', M.flatColorHex(r.accent.value) || '#8e8e93'],
-                       sk: (sc.screen ? 'b:' : 'look.') + (sc.page ? 'flat_page_colors:' + sc.key : 'flat_colors') });
+      // APPEARANCE'S COLOR GROUP (phase 33, decision 2: one name per thing): the Accent Color; under it, where Flat is
+      // in use and an accent is chosen, Pages Keep Their Own Colors (Flat Colors' Pages before); the Page Colors; and
+      // Flat's Tiles When Off (Off Pill Tint before). x null: All Screens', Flat's rows while any screen wears Flat.
+      appearanceColors(c, x, b) {
+        var flatHere = this.flatHere(x ? b : null), flatAny = x ? flatHere : this.flatAnywhere();
+        var base = x ? '#/screens/' + encodeURIComponent(x.path) : '#/house/appearance';
+        var rows = [this.accentNav(x, b, base + '/accent')];
+        if (flatAny && this.accentOf(x, b).value !== 'auto') rows = rows.concat(this.ownColorsRows(x, b, flatHere));
+        rows.push(K.nav({ label: 'Page Colors', value: this.pageColorsSays(b), href: base + '/page-colors', sk: x ? 'b:page_colors' : 'look.page_accents' }));
+        if (flatAny) rows.push(this.tilesOffNav(x, b, flatHere, x ? base + '/appearance/tiles-off' : base + '/tiles-off'));
+        c.appendChild(K.group({ header: 'Color', footer: 'A page’s own color shows while you’re on it and the Accent Color is Automatic' +
+          (flatAny ? '; in Flat, a color chosen for a page always does.' : '.') }, rows));
       }
-      // THE FLAT COLORS PAGE: the two fields (each its value and whose it
-      // is), what the background does with them, each page's own, the resets
-      flatColorsPage(c, sc) {
-        var self = this, r = sc.resolved(), own = sc.own(), look = this.data.settings.look || {};
-        if (sc.page && !sc.row) {
-          c.appendChild(K.group({ footer: 'This page isn’t on ' + (sc.screen ? 'this screen' : 'any screen') + ', so it has no colors to choose.' }, []));
-          return;
+      // PAGES KEEP THEIR OWN COLORS (flat_colors.pages 'own'): under an Accent Color chosen, the pages that have a
+      // color of their own (Climate blue, Lights yellow…) keep it in Flat, Home and the rooms in the accent
+      ownColorsRows(x, b, flatHere) {
+        var self = this, look = this.data.settings.look || {}, house = ((look.flat_colors || {}).pages) === 'own';
+        if (!x) {
+          return [K.toggle({ label: 'Pages Keep Their Own Colors', sk: 'look.flat_colors:pages', on: house,
+            sub: flatHere ? 'Climate blue, Lights yellow…, in Flat' : 'For screens using Flat',
+            onChange: function (on) { self.flatColorsPut(self.flatScope('house'), { pages: on ? 'own' : 'accent' }); } })];
         }
-        var flatOn = sc.screen ? this.flatHere(sc.b) : this.flatHere(null);
-        var accentHex = M.flatColorHex(r.accent.value);
-        var tintSays = r.off_tint.value === 'accent' ? (accentHex ? 'Match Accent' : 'Match Highlight') : M.flatColorName(r.off_tint.value);
-        var foot = {
-          house:
-            'In Flat, the Accent Color shades an Automatic background and colors the menu and tab bar. Off Pill Tint washes every pill that’s off;' +
-            ' lit pills stay white. Each screen, page and room can choose its own.',
-          screen: 'This screen’s own colors, over All Screens’. Page overrides take priority over general screen colors: a page with colors of its own, here or on All Screens, keeps them.',
-          'house-page': 'This page on every screen, over the screens’ general colors. To change it on one screen only, choose it under that screen’s Flat Colors → Pages.',
-          'screen-page': 'This page on this screen only. It wins over everything else.'
-        }[sc.kind];
-        if (!flatOn) foot += sc.screen ? ' This screen isn’t using Flat now: these wait until it is.' : ' All Screens isn’t using Flat now: these are the colors for any screen that is.';
-        c.appendChild(K.group({ header: sc.page ? 'Flat Colors' : null, footer: foot }, [
-          // (All Screens' and a screen's accent is Appearance's Accent Color
-          // since 2026-10-29; a page's own stays here)
-          !sc.page ? null : K.nav({ label: 'Accent Color', value: M.flatAccentSays(r.accent), sub: this.flatFieldWhere(sc, 'accent', r.accent),
-                  tile: accentHex ? ['', accentHex] : ['mdi:auto-fix', AUTO_ACCENT_TILE], href: sc.href + '/accent',
-                  sk: (sc.screen ? 'b:' : 'look.') + 'flat_colors:accent' }),
-          K.nav({ label: 'Off Pill Tint', value: tintSays, sub: this.flatFieldWhere(sc, 'off_tint', r.off_tint),
-                  tile: M.flatColorHex(r.off_tint.value) ? ['', M.flatColorHex(r.off_tint.value)]
-                      : r.off_tint.value === 'accent' ? ['mdi:link-variant', accentHex || '#8e8e93'] : ['mdi:auto-fix', AUTO_ACCENT_TILE],
-                  href: sc.href + '/tint', sk: (sc.screen ? 'b:' : 'look.') + 'flat_colors:off_tint' })]
-          // WHETHER THE PAGES TAKE IT (All Screens and a screen: a page's own
-          // accent is always its own)
-          .concat(sc.page ? [] : [K.nav({ label: 'Pages', value: M.flatPagesName(r.pages.value),
-                  sub: sc.kind === 'screen' && sc.own().pages != null ? 'Just This Screen' : null,
-                  href: sc.href + '/pages', sk: (sc.screen ? 'b:' : 'look.') + 'flat_colors:pages' })])));
-        this.flatBackgroundGroup(c, sc, r);
-        if (!sc.page) this.flatColorsPages(c, sc);
-        else if (sc.key === 'rooms') this.flatColorsRooms(c, sc);
-        // THE RESETS: Automatic stops inheriting; inherited follows again
-        var auto = (r.accent.value === 'auto' || !sc.page) && r.off_tint.value === 'auto';
-        var mine = (sc.page && own.accent != null) || own.off_tint != null;
-        var acts = [];
-        if (!auto) acts.push(K.button({ label: 'Restore Automatic Colors', fk: 'flatc:auto', onClick: function () {
-          self.flatColorsPut(sc, sc.page ? { accent: 'auto', off_tint: 'auto' } : { off_tint: 'auto' }).then(function (ok) { if (ok) self.announce('Automatic colors restored'); });
-        } }));
-        if (sc.kind !== 'house' && mine) acts.push(K.button({ label: sc.kind === 'screen' ? 'Reset to All Screens' : 'Use Inherited Colors', fk: 'flatc:inherit',
-          onClick: function () { self.flatColorsPut(sc, {}, true).then(function (ok) { if (ok) self.announce('Colors inherited again'); }); } }));
-        if (acts.length) {
-          c.appendChild(K.group({ footer: sc.kind === 'house' ? 'Both back to Automatic: each page’s own Accent Color, each accessory’s own tint. The Background is its own setting.'
-              : 'Restore Automatic Colors: Automatic here, whatever ' + (sc.kind === 'screen' ? 'All Screens chooses' : 'the screens choose') + '. ' +
-                (mine ? (sc.kind === 'screen' ? 'Reset to All Screens' : 'Use Inherited Colors') + ': both fields follow ' + (sc.kind === 'screen' ? 'All Screens' : 'the screen and All Screens') +
-                  ' again. ' : '') +
-                'The Background is its own setting.' }, acts));
-        }
-        // a screen of its own in Flat under a house in Glass: All Screens'
-        // Flat Colors are still where its inherited colors come from
-        if (sc.kind === 'screen' && !this.flatHere(null)) {
-          c.appendChild(K.group({ footer: 'What this screen inherits. Editing them leaves All Screens’ own style as it is.' },
-            [this.flatColorsNav(this.flatScope('house'), { label: 'All Screens’ Flat Colors' })]));
-        }
+        var mine = (b.flat_colors || {}).pages, own = mine === 'own' || mine === 'accent', sc = this.flatScope('screen', x, b);
+        var rows = [K.toggle({ label: 'Pages Keep Their Own Colors', sk: 'b:flat_colors:pages', on: own ? mine === 'own' : house,
+          sub: own ? 'Just This Screen' : 'Climate blue, Lights yellow…, in Flat',
+          onChange: function (on) { self.flatColorsPut(sc, { pages: on ? 'own' : 'accent' }); } })];
+        if (own) rows.push(K.button({ label: 'Reset to All Screens (' + (house ? 'On' : 'Off') + ')', sk: 'b:flat_colors:pages:reset',
+          onClick: function () { self.flatColorsPut(sc, { pages: null }); } }));
+        return rows;
       }
-      // WHAT THE BACKGROUND DOES WITH THEM: an Automatic background takes the
-      // accent's shade; a color, photo or landscape chosen keeps its own --
-      // said, with a way to it and a deliberate way back to Automatic
-      flatBackgroundGroup(c, sc, r) {
-        var self = this, sky = this.data.settings.sky, b = sc.b, theme = this.flatTheme(b);
-        var houseFlat = this.flatHere(null), src = null, label = null, href;
-        var pageMode = null, pageScope = null;
-        sc.keys.forEach(function (k) {
-          if (pageMode) return;
-          var mine = b && (b.sky_flat_pages || {})[k], all = (sky.flat_pages || {})[k];
-          if (mine) { pageMode = mine; pageScope = 'screen'; } else if (all) { pageMode = all; pageScope = 'house'; }
-        });
-        if (pageMode && pageMode !== 'auto') { src = 'page'; label = this.flatModeLabel(pageMode, theme); }
-        else if (!(sc.page && FLAT_OWN[sc.key])) {
-          var bg = (b && b.sky_flat_background) || sky.flat_background || 'color';
-          var col = bg === 'color' ? ((b && b.sky_flat_color) || sky.flat_color || 'auto') : null;
-          if (bg !== 'color' || col !== 'auto') { src = b && (b.sky_flat_background || b.sky_flat_color) ? 'screen' : 'house'; label = bg === 'color' ? this.flatColorLabel(col, theme) :
-            M.BG_LABELS[bg]; }
-        }
-        if (sc.page) href = sc.screen ? '#/screens/' + encodeURIComponent(sc.x.path) + '/sky/page/' + encodeURIComponent(sc.key)
-                                     : (houseFlat ? '#/house/appearance/sky/page/' : '#/house/appearance/sky/flat/page/') + encodeURIComponent(sc.key);
-        else href = sc.screen ? '#/screens/' + encodeURIComponent(sc.x.path) + '/sky' : houseFlat ? '#/house/appearance/sky' : '#/house/appearance/sky/flat';
-        var seed = M.flatColorHex(r.accent.value);
-        var rows = [K.nav({ label: 'Background', href: href, sk: 'flatc:background',
-                            value: src ? label + ' · Separate Choice' : seed ? 'Matches Accent Color' : 'Automatic' })];
-        if (src && seed) {
-          rows.push(K.button({ label: 'Use Automatic Background', fk: 'flatc:bg-auto', onClick: function () {
-            var done;
-            if (src === 'page') {
-              var put = pageScope === 'screen' ? self.flatPut(sc.x, b) : self.flatPut(null, null);
-              var map = Object.assign({}, pageScope === 'screen' ? b.sky_flat_pages : sky.flat_pages);
-              var pk = sc.keys.filter(function (k) { return map[k]; })[0];
-              if (pageScope === 'screen' && (sky.flat_pages || {})[pk]) map[pk] = 'auto'; else delete map[pk];
-              done = put({ sky_flat_pages: map });
-            } else done = (src === 'screen' ? self.flatPut(sc.x, b) : self.flatPut(null, null))({ sky_flat_background: 'color', sky_flat_color: 'auto' });
-            done.then(function (ok) { if (ok) self.announce('Background is Automatic'); });
-          } }));
-        }
-        var say = src ? (seed ? 'A background you chose stays as it is: the accent colors the highlight and the pills, not it. Use Automatic Background to let it match.'
-                              : 'A background you chose stays as it is.')
-                      : seed ? 'An Automatic background is a very light (or, in Dark, very deep) shade of the Accent Color.'
-                             : 'Automatic: ' + (sc.page && FLAT_OWN[sc.key] ? 'a shade of the page’s own Accent Color.' : 'the theme’s own ground.');
-        c.appendChild(K.group({ header: 'Background', footer: say + (src === 'page' ? ' (Chosen for this page.)' : src ? ' (Chosen for ' + (src === 'screen' ? 'this screen' : 'All Screens') + '.)' :
-          '') }, rows));
+      // TILES WHEN OFF, a row: what a scope's tiles that are off are washed in (Flat), and whose it is
+      tilesOffNav(x, b, flatHere, href, key) {
+        var sc = this.flatScope(key ? (x ? 'screen-page' : 'house-page') : (x ? 'screen' : 'house'), x, b, key), r = sc.resolved().off_tint;
+        var hex = M.flatColorHex(r.value), acc = M.flatColorHex(sc.resolved().accent.value);
+        return K.nav({ label: 'Tiles When Off', value: M.tilesOffName(r.value), href: href,
+                       sub: this.flatFieldWhere(sc, 'off_tint', r) || (flatHere ? null : 'For screens using Flat'),
+                       tile: hex ? ['', hex] : r.value === 'accent' ? ['mdi:link-variant', acc || '#8e8e93'] : ['mdi:auto-fix', AUTO_ACCENT_TILE],
+                       sk: (x ? 'b:' : 'look.') + (key ? 'flat_page_colors:' + key + ':off_tint' : 'flat_colors:off_tint') });
       }
-      // EACH PAGE'S OWN, a tap away, from All Screens' or a screen's
-      flatColorsPages(c, sc) {
-        var self = this, rows = this.skyPageKeys(sc.b).rows;
-        if (!rows.length) return;
-        c.appendChild(K.group({ header: 'Pages', footer: 'A page left alone takes the colors above' + (sc.screen ? ', unless All Screens gives it its own.' : '.') },
-          rows.map(function (row) {
-            var ps = self.flatScope(sc.screen ? 'screen-page' : 'house-page', sc.x, sc.b, row.key);
-            var hp = sc.screen ? self.flatScope('house-page', null, null, row.key) : null, hpo = hp ? hp.own() : {};
-            return self.flatColorsNav(ps, { label: row.label, sub: row.custom ? 'Custom page' : null, tile: false,
-              inherited: hp && (hpo.accent != null || hpo.off_tint != null) ? 'From All Screens' : sc.screen ? 'Same as This Screen' : 'Same as All Screens' });
-          })));
-      }
-      flatColorsRooms(c, sc) {
-        var self = this;
-        var rows = this.areasAZ().map(function (aid) {
-          var k = self.roomKey(aid);
-          if (!k) return null;
-          var rs = self.flatScope(sc.kind, sc.x, sc.b, k);
-          return self.flatColorsNav(rs, { label: self.areaName(aid), tile: false, inherited: 'Same as Room Pages' });
-        }).filter(Boolean);
-        if (rows.length) c.appendChild(K.group({ header: 'Each Room', footer: 'A room’s own colors win over Room Pages’.' }, rows));
-      }
-      // ONE FIELD'S CHOICES: Same as / inherited, Automatic, then its colors
-      flatColorsPick(c, sc, f) {
-        var self = this, r = sc.resolved(), own = sc.own()[f], cur = r[f].value, house = sc.kind === 'house';
-        var pick = function (v) {
-          var patch = f === 'accent' && v != null ? M.flatAccentChange(v, r) : (function () { var p = {}; p[f] = v; return p; })();
-          self.flatColorsPut(sc, patch).then(function (ok) {
-            if (ok && patch.off_tint === 'accent') self.announce('Off Pill Tint now matches the accent');
-          });
-        };
+      // TILES WHEN OFF, its page (Off Pill Tint before; the same stored values): Their Own Colors (auto), The Accent
+      // Color (accent) or One Color (a color) -- All Screens', a screen's, or a page's on either (`key`)
+      tilesOffPage(c, x, b, key) {
+        var self = this, sc = this.flatScope(key ? (x ? 'screen-page' : 'house-page') : (x ? 'screen' : 'house'), x, b, key);
+        var r = sc.resolved(), own = sc.own().off_tint, cur = r.off_tint.value, house = sc.kind === 'house';
+        var pick = function (v) { self.flatColorsPut(sc, { off_tint: v }); };
+        var on = function (v) { return (house || own != null) && cur === v; };
         var rows = [];
         if (!house) {
-          var par = sc.parent(f), src = M.flatSourceLabel(par, { label: sc.labelOf });
-          rows.push(K.check({ label: sc.kind === 'screen' ? 'Same as All Screens' : 'Use Inherited ' + (f === 'accent' ? 'Color' : 'Tint'),
-                              sub: 'Now ' + M.flatColorName(par.value) + (src ? ' · ' + src : ''), on: own == null, fk: 'flatc:' + f + ':inherit',
+          var par = sc.parent('off_tint'), src = M.flatSourceLabel(par, { label: sc.labelOf });
+          rows.push(K.check({ label: sc.kind === 'screen' ? 'Same as All Screens' : key && x ? 'Same as This Screen' : 'Same as All Screens',
+                              sub: 'Now ' + M.tilesOffName(par.value) + (src && sc.kind !== 'screen' ? ' · ' + src : ''), on: own == null, fk: 'tilesoff:inherit',
                               onClick: function () { pick(null); } }));
         }
-        var isOwn = function (v) { return (house || own != null) && cur === v; };
-        if (f === 'accent') {
-          rows.push(K.check({ label: 'Automatic', sub: 'Each page’s own Accent Color, as in the other looks; Home and the rooms orange',
-                              tile: ['mdi:auto-fix', AUTO_ACCENT_TILE], on: isOwn('auto'), fk: 'flatc:accent:auto', onClick: function () { pick('auto'); } }));
-          M.FLAT_ACCENTS.forEach(function (p) {
-            rows.push(K.check({ label: p[1], tile: ['', p[2]], on: isOwn(p[2]), fk: 'flatc:accent:' + p[0], onClick: function () { pick(p[2]); } }));
-          });
-        } else {
-          var acc = M.flatColorHex(r.accent.value);
-          rows.push(K.check({ label: 'Automatic', sub: 'Each accessory in a wash of its own color. Flat Dark keeps its plain pills.',
-                              tile: ['mdi:auto-fix', AUTO_ACCENT_TILE], on: isOwn('auto'), fk: 'flatc:tint:auto', onClick: function () { pick('auto'); } }));
-          rows.push(K.check({ label: 'Match Accent', sub: acc ? 'Now ' + M.flatColorName(r.accent.value) + ', and whatever it becomes' : 'The page’s highlight, while the Accent Color is Automatic',
-                              tile: ['mdi:link-variant', acc || '#8e8e93'], on: isOwn('accent'), fk: 'flatc:tint:accent', onClick: function () { pick('accent'); } }));
-        }
-        var named = (f === 'accent' ? M.FLAT_ACCENTS.map(function (p) { return p[2]; }) : []).concat(['auto', 'accent']);
-        var custom = (house || own != null) && named.indexOf(cur) < 0;
-        var start = M.flatColorHex(cur) || (f === 'accent' ? '#8872b4' : '#789484');
-        var row = K.text({ label: 'Your Own Color', sub: custom ? start.toUpperCase() : f === 'accent' ? 'Pick any color.' : 'One tint for every pill, whatever the accent.',
-                           type: 'color', fk: 'flatc:' + f + ':custom', value: start, error: this.err((sc.screen ? 'b:' : 'look.') + 'flat_colors.' + f),
+        // (The Accent Color with none chosen in Flat is the menu's: the page's own while that is Automatic)
+        var ac = r.accent.value !== 'auto' ? { value: r.accent.value, name: M.flatColorName(r.accent.value), hex: M.flatColorHex(r.accent.value) } : this.accentOf(x, b);
+        var acc = ac.value === 'auto' ? null : ac.hex;
+        rows.push(K.check({ label: M.TILES_OFF[0][1], sub: M.TILES_OFF[0][2], tile: ['mdi:auto-fix', AUTO_ACCENT_TILE], on: on('auto'), fk: 'tilesoff:auto',
+                            onClick: function () { pick('auto'); } }));
+        rows.push(K.check({ label: M.TILES_OFF[1][1], sub: acc ? 'Now ' + ac.name + ', and whatever it becomes' : 'The page’s own color, while the Accent Color is Automatic',
+                            tile: ['mdi:link-variant', acc || '#8e8e93'], on: on('accent'), fk: 'tilesoff:accent', onClick: function () { pick('accent'); } }));
+        var custom = (house || own != null) && cur !== 'auto' && cur !== 'accent';
+        var start = M.flatColorHex(cur) || '#789484';
+        var row = K.text({ label: M.TILES_OFF[2][1], sub: custom ? start.toUpperCase() : M.TILES_OFF[2][2], type: 'color', fk: 'tilesoff:custom', value: start,
+                           error: this.err((sc.screen ? 'b:' : 'look.') + 'flat_colors.off_tint'),
                            onCommit: function (t) { if (/^#[0-9a-f]{6}$/i.test(t)) pick(t.toLowerCase()); } });
         var inp = row.querySelector('input');
         if (inp) {
@@ -1010,49 +889,113 @@
         }
         if (custom) row.classList.add('on');
         rows.push(row);
-        var foot = f === 'accent'
-          ?
-            'Shades an Automatic background and colors the menu and tab bar: its icons and the page you’re on. Chosen while Off Pill Tint is Automatic, it sets the tint to Match Accent too;' +
-            ' a tint of your own stays. The Highlight Color stays saved for the other looks.'
-          : 'The wash on pills that are off, and their circles. Lit pills stay white with their own colors; alerts and warnings keep theirs.';
-        c.appendChild(K.group({ header: f === 'accent' ? 'Accent Color' : 'Off Pill Tint', footer: foot }, rows));
+        var flatOn = this.flatHere(sc.screen ? b : null) || (!sc.screen && this.flatAnywhere());
+        c.appendChild(K.group({ footer: 'In Flat, the wash on tiles that are off and their circles. Tiles that are on stay white with their own colors.' +
+          (flatOn ? '' : ' ' + (sc.screen ? 'This screen isn’t using Flat now: this waits until it is.' : 'No screen is using Flat now.')) }, rows));
       }
-      // THE PAGES THAT HAVE A COLOR OF THEIR OWN: the accent, or theirs
-      flatPagesPick(c, sc) {
-        var self = this, own = sc.own().pages, cur = sc.resolved().pages.value, house = sc.kind === 'house';
-        var pick = function (v) { self.flatColorsPut(sc, { pages: v }); };
-        var on = function (v) { return (house || own != null) && cur === v; };
-        var rows = [];
-        if (!house) {
-          var par = M.flatColorsOf(this.data.settings.look || {}, null, []).pages.value;
-          rows.push(K.check({ label: 'Same as All Screens', sub: 'Now ' + M.flatPagesName(par), on: own == null, fk: 'flatc:pages:inherit',
-                              onClick: function () { pick(null); } }));
-        }
-        rows.push(K.check({ label: 'Follow Accent', sub: 'Every page in the Accent Color', on: on('accent'), fk: 'flatc:pages:accent',
-                            onClick: function () { pick('accent'); } }));
-        rows.push(K.check({ label: 'Keep Their Own Colors', sub: 'Climate blue, Lights yellow, Calendar purple…', on: on('own'), fk: 'flatc:pages:own',
-                            onClick: function () { pick('own'); } }));
-        c.appendChild(
-          K.group(
-          {
-          footer:
-          'Pages like Climate and Lights have a color of their own (each page → Look → Highlight Color). Keep Their Own Colors leaves those pages in it, as Automatic does;' +
-          ' Home and the rooms take the Accent Color either way. A page given Flat Colors of its own keeps them.' }, rows));
+      // PAGE COLOR (phase 33, decision 3): a page's own color, one palette everywhere -- All Screens' (look.page_accents;
+      // a room's, which can't be a key there, look.flat_page_colors[room].accent as before) or a screen's own
+      // (flat_page_colors[page].accent, Flat Colors' per-page accent before), over the page's default (PAGE_ACCENTS).
+      // -> {own: this scope's (null: none; a screen's old "auto" stays as it was), house: All Screens' or null, value:
+      // what shows (null: the default), dflt: {name, hex}}
+      pageColorOf(key, b) {
+        var look = this.data.settings.look || {}, hp = (look.flat_page_colors || {})[key] || {};
+        var house = (look.page_accents || {})[key] || (hp.accent && hp.accent !== 'auto' ? hp.accent : null) || null;
+        var mine = b ? (((b.flat_page_colors || {})[key] || {}).accent || null) : null;
+        var d = M.pageAccentOf(key, {}).d;
+        return { own: b ? mine : house, house: house, value: mine && mine !== 'auto' ? mine : house, dflt: d };
       }
-      // the pages of a scope's routes: [] its Flat Colors, ['accent'], ['tint'],
-      // ['page', key, ...] a page's
-      p_flatColors(kind, x, b, sub, mk, backTo) {
-        var self = this, page = sub[0] === 'page' && sub[1], key = page ? decodeURIComponent(sub[1]) : null, rest = page ? sub.slice(2) : sub;
-        var sc = this.flatScope(page ? (kind === 'screen' ? 'screen-page' : 'house-page') : kind, x, b, key);
-        var top = sc.page ? (sc.row ? sc.row.label : 'Page') : 'Flat Colors';
-        var parent = sc.page ? (sc.row && sc.row.room && key !== 'rooms' ? ['Room Pages', sc.baseHref + '/page/rooms'] : ['Flat Colors', sc.baseHref]) : backTo;
-        if (rest[0] === 'pages' && !sc.page) return mk('Pages', function (c) { self.flatPagesPick(c, sc); }, [top, sc.href]);
-        if (rest[0] === 'accent' || rest[0] === 'tint') {
-          return mk(rest[0] === 'accent' ? 'Accent Color' : 'Off Pill Tint', function (c) { self.flatColorsPick(c, sc, rest[0] === 'accent' ? 'accent' : 'off_tint'); }, [top, sc.href]);
+      pageColorName(v, d) { return v ? M.flatColorName(v) : 'Default (' + d.name + ')'; }
+      pageColorHex(v, d) { return (v && M.flatColorHex(v)) || d.hex; }
+      // "Default", "3 Chosen": a scope's Page Colors in a word
+      pageColorsSays(b) {
+        var self = this, n = this.skyPageKeys(b).rows.filter(function (r) { var pc = self.pageColorOf(r.key, b); return b ? pc.own != null : pc.house; }).length;
+        return n ? n + ' Chosen' : b ? 'Same as All Screens' : 'Default';
+      }
+      // A PAGE COLOR ROW, to its page
+      pageColorNav(key, b, href, o) {
+        o = o || {};
+        var pc = this.pageColorOf(key, b);
+        return K.nav({ label: o.label || 'Page Color', value: this.pageColorName(pc.value, pc.dflt), href: href, icon: o.icon || null,
+                       sub: o.sub || (b && pc.own != null ? 'Just This Screen' : null), tile: o.tile === false ? null : ['', this.pageColorHex(pc.value, pc.dflt)],
+                       sk: (b ? 'b:flat_page_colors:' : 'look.page_accents:') + key });
+      }
+      pageColorPut(key, x, b, v) {
+        var o = {};
+        if (b) { o['flat_page_colors.' + key] = { accent: v }; return this.setB(x.path, o); }
+        if (/^[a-z][a-z_]{1,29}$/.test(key)) {
+          var next = Object.assign({}, (this.data.settings.look || {}).page_accents);
+          if (v) next[key] = v; else delete next[key];
+          o['look.page_accents'] = next;
+          // (a page's Flat Accent Color from before goes with it, server side: changes.py page_colors_unfolded)
+          return this.setH(o);
         }
-        var out = mk(top, function (c) { self.flatColorsPage(c, sc); }, parent);
-        // A PAGE'S COLORS PREVIEW THAT PAGE (its address, as the strategy names it)
-        var view = sc.page && sc.screen ? (FLAT_VIEW[key] || (key === 'rooms' ? null : key)) : null;
+        o['look.flat_page_colors.' + key] = { accent: v };
+        return this.setH(o);
+      }
+      // A PAGE'S COLOR, its page: the default (All Screens') or Same as All Screens (a screen's), the eleven colors,
+      // Flat's eight as Soft Colors, your own -- then, in Flat, its Tiles When Off, and Room Pages' rooms
+      pageColorPage(c, key, x, b, base) {
+        var self = this, pc = this.pageColorOf(key, b), mine = pc.own && pc.own !== 'auto' ? String(pc.own).toLowerCase() : null;
+        var put = function (v) { self.pageColorPut(key, x, b, v); };
+        var first = b
+          ? K.check({ label: 'Same as All Screens', sub: 'Now ' + this.pageColorName(pc.house, pc.dflt), tile: ['', this.pageColorHex(pc.house, pc.dflt)],
+                      on: pc.own == null, fk: 'pcolor:inherit', onClick: function () { put(null); } })
+          : K.check({ label: 'Default', sub: pc.dflt.name, tile: ['', pc.dflt.hex], on: !mine, fk: 'pcolor:default', onClick: function () { put(null); } });
+        c.appendChild(K.group({ footer: 'The page’s own color: the page you’re on in the menu and tab bar while the Accent Color is Automatic, and its icon on the Pages screen. ' +
+          'In Flat it wins over the Accent Color and shades an Automatic background.' }, [first]));
+        var on = function (name, hex) { return !!mine && (mine === name || mine === hex); };
+        c.appendChild(K.group({ header: 'Colors' }, M.ACCENTS.map(function (n) {
+          return K.check({ label: n[1], tile: ['', n[2]], on: on(n[0], n[2]), fk: 'pcolor:' + n[0], onClick: function () { put(n[0]); } });
+        })));
+        c.appendChild(K.group({ header: 'Soft Colors' }, M.FLAT_ACCENTS.map(function (n) {
+          return K.check({ label: n[1], tile: ['', n[2]], on: on(n[0], n[2]), fk: 'pcolor:soft:' + n[0], onClick: function () { put(n[2]); } });
+        })));
+        var custom = !!mine && !M.ACCENTS.some(function (n) { return on(n[0], n[2]); }) && !M.FLAT_ACCENTS.some(function (n) { return on(n[0], n[2]); });
+        var start = this.pageColorHex(pc.value, pc.dflt);
+        var row = K.text({ label: 'Your Own Color', sub: custom ? start.toUpperCase() : 'Pick any color.', type: 'color', fk: 'pcolor:custom', value: start,
+                           error: this.err(b ? 'b:flat_page_colors.' + key : 'look.page_accents'),
+                           onCommit: function (t) { if (/^#[0-9a-f]{6}$/i.test(t)) put(t.toLowerCase()); } });
+        var inp = row.querySelector('input');
+        if (inp) {
+          inp.style.cssText = 'flex:none;width:44px;height:30px;padding:0;border-radius:8px;cursor:pointer';
+          inp.addEventListener('change', function () { if (/^#[0-9a-f]{6}$/i.test(inp.value)) put(inp.value.toLowerCase()); });
+        }
+        if (custom) row.classList.add('on');
+        c.appendChild(K.group({ header: 'Custom' }, [row]));
+        var flatHere = this.flatHere(b || null), flatAny = b ? flatHere : this.flatAnywhere();
+        if (flatAny && base) {
+          c.appendChild(K.group({ header: 'In Flat' }, [this.tilesOffNav(x, b, flatHere, base + '/tiles-off', key)]));
+        }
+        if (key === 'rooms' && base) {
+          var rooms = this.areasAZ().map(function (aid) {
+            var k = self.roomKey(aid);
+            return k ? self.pageColorNav(k, b, base.replace(/\/rooms$/, '') + '/' + encodeURIComponent(k), { label: self.areaName(aid), tile: true }) : null;
+          }).filter(Boolean);
+          if (rooms.length) c.appendChild(K.group({ header: 'Each Room', footer: 'A room left alone has Room Pages’ color.' }, rooms));
+        }
+      }
+      // THE PAGE COLORS, a scope's list (All Screens' or a screen's), each a way to its page
+      pageColorsList(c, x, b, base) {
+        var self = this, rows = this.skyPageKeys(b).rows;
+        if (!rows.length) { c.appendChild(K.group({ footer: 'This screen shows no page with a color of its own.' }, [])); return; }
+        c.appendChild(K.group({ footer: b ? 'A page left alone has its color from All Screens (Pages → the page → Look). Choose one here for this screen only.'
+                                          : 'Each page’s own color on every screen; a screen can give a page its own, under its Appearance.' },
+          rows.map(function (r) {
+            return self.pageColorNav(r.key, b, base + '/' + encodeURIComponent(r.key), { label: r.label, sub: r.custom ? 'Custom page' : null });
+          })));
+      }
+      // THE PAGE COLORS' ADDRESSES, All Screens' (x null) or a screen's: [] the list, [key] a page's color,
+      // [key, 'tiles-off'] its Tiles When Off
+      pageColorRoutes(x, b, sub, mk, base, backTo) {
+        var self = this, key = sub[0] ? decodeURIComponent(sub[0]) : null, row = key ? this.skyRow(key, b || null) : null;
+        if (!key) return mk('Page Colors', function (c) { self.pageColorsList(c, x, b, base); }, backTo);
+        var label = row ? row.label : key, back = row && row.room && key !== 'rooms' ? ['Room Pages', base + '/rooms'] : ['Page Colors', base];
+        var here = base + '/' + encodeURIComponent(key);
+        if (sub[1] === 'tiles-off') return mk('Tiles When Off', function (c) { self.tilesOffPage(c, x, b, key); }, [label, here]);
+        var out = mk(label, function (c) { self.pageColorPage(c, key, x, b, here); }, back);
+        // A PAGE'S COLOR PREVIEWS THAT PAGE (its address, as the strategy names it)
+        var view = x ? (FLAT_VIEW[key] || (key === 'rooms' ? null : key)) : null;
         if (view && out.preview) out.previewView = view;
         return out;
       }

@@ -955,6 +955,39 @@ def _pane_group(name: str) -> Callable[[Any], Any]:
 
 
 HOUSE.update({f"side_pane.{g}": _pane_group(g) for g in S.PANE_GROUPS})
+# A LOOK AT ALL SCREENS' UNDO (phase 33, looks.py HOUSE_KEYS): the Look last applied there and All Screens' settings
+# before it ({look, was: {path: value}}), each value checked as that setting is; null once undone
+LOOK_HOUSE_PATHS = tuple(LOOKS.HOUSE_KEYS.values()) + (LOOKS.HOUSE_ACCENT_FLAT,) + tuple(f"side_pane.{g}" for g in S.PANE_GROUPS)
+
+
+def _house_look_undo(v: Any) -> dict[str, Any] | None:
+    if v is None:
+        return None
+    if not isinstance(v, dict) or set(v) - {"look", "was"} or not LOOKS.look(v.get("look")) or not isinstance(v.get("was"), dict):
+        raise Invalid("look_undo")
+    was = {}
+    for k, x in v["was"].items():
+        if k not in LOOK_HOUSE_PATHS:
+            raise Invalid("look_undo")
+        was[k] = _flat_field("accent", x) if k == LOOKS.HOUSE_ACCENT_FLAT else HOUSE[k](x)
+    return {"look": v["look"], "was": was}
+
+
+HOUSE["look.look_undo"] = _house_look_undo
+
+
+# PAGE COLOR (phase 33): the pages' colors written whole (look.page_accents) take the place of the Flat Accent Colors
+# they had before (model fold_page_colors reads those as their Page Colors), so the old fields go from the store with
+# them -- and a page given a color now loses an old Flat "auto" too, which would stop it showing in Flat
+def page_colors_unfolded(fpc: Any, pa: Mapping[str, Any]) -> dict[str, Any]:
+    out = {}
+    for k, f in (fpc or {}).items() if isinstance(fpc, Mapping) else ():
+        a = f.get("accent") if isinstance(f, Mapping) else None
+        if a not in (None, "") and S.PAGE_COLOR_KEY.match(str(k)) and (a != "auto" or k in pa):
+            f = {x: y for x, y in f.items() if x != "accent"}
+        if f:
+            out[k] = f
+    return out
 # (a patch of Flat's image look, the Glass looks' (image_look), or one page's Flat image look)
 IMAGE_HOUSE = re.compile(r"^sky\.(flat_image_look|image_look)\.patch$|^sky\.flat_page_image_looks\.([a-z0-9][a-z0-9_-]{0,39})$")
 FLAT_HOUSE = re.compile(r"^look\.flat_colors\.(accent|off_tint|pages)$|^look\.flat_page_colors\.([a-z0-9][a-z0-9_-]{0,39})$")
@@ -1007,8 +1040,9 @@ def apply_house(options: Mapping[str, Any], changes: Mapping[str, Any],
             # FLAT COLORS' PATCHES (flat_patch): made over the store as it is
             fm = FLAT_HOUSE.match(path)
             if fm:
-                lk = dash.get("look") if isinstance(dash.get("look"), dict) else {}
-                lk = {**now["look"], **{k: v for k, v in lk.items() if k in now["look"]}}
+                # (made over this call's earlier writes too, as IMAGE_HOUSE: a setting put back to its default leaves
+                # the store, and the look as read before would bring the old value back -- a Look's Undo at All Screens)
+                lk = dict(S.merged({**dict(options), S.CONF_DASHBOARD: dash})["look"])
                 if fm.group(1):
                     lk["flat_colors"] = {**S.FLAT_COLORS_DEFAULT,
                                          **flat_patch(lk["flat_colors"], {fm.group(1): value})}
@@ -1035,6 +1069,9 @@ def apply_house(options: Mapping[str, Any], changes: Mapping[str, Any],
         # (only what differs from its default is stored: settings.only_set)
         cur = dash.get(section) if isinstance(dash.get(section), dict) else {}
         dash[section] = S.house_stored(section, {**{k: v for k, v in cur.items() if k in now[section]}, key: got})
+        if path == "look.page_accents" and "flat_page_colors" in dash[section]:
+            dash[section] = S.house_stored(section, {**dash[section],
+                                                     "flat_page_colors": page_colors_unfolded(dash[section]["flat_page_colors"], got)})
         if section == "counts":
             # A kind saved now is no longer read from its older list
             # (kinds.LEGACY): keeping it would be a second answer nobody

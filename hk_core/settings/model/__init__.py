@@ -69,8 +69,8 @@ from .defaults import (DEFAULTS, KIOSK_ENGINES, MOSAIC_COLORS, PAGES_SCREEN_CLOC
     SAVER_DAY_LOOKS, SAVER_DEFAULTS, SAVER_EACH, SAVER_ENERGY_PARTS, SAVER_ENGINES, SAVER_FADE_BACK, SAVER_FC_EVERY,
     SAVER_FOCUS, SAVER_FORECAST_BIG, SAVER_FORECAST_LAYOUTS, SAVER_INTS, SAVER_MOSAIC, SAVER_MUSIC_PARTS,
     SAVER_ORDERS, SAVER_RANGES, SAVER_SHOWS, SAVER_STARTS, SAVER_WEATHER_PARTS, SIDE_PANE_DEFAULTS,)
-from .pages_screen_rules import (_pages_icons, _pages_widgets, CARD_OPTIONS_MAX, merged, OPTIONAL_CARDS, pages_screen,
-    PAGES_SCREEN_CHECKS, pages_screen_own, pages_screen_resolved, THIRD_PARTY,)
+from .pages_screen_rules import (_pages_icons, _pages_widgets, CARD_OPTIONS_MAX, fold_page_colors, merged, OPTIONAL_CARDS,
+    PAGE_COLOR_KEY, pages_screen, PAGES_SCREEN_CHECKS, pages_screen_own, pages_screen_resolved, THIRD_PARTY,)
 from .saver_rules import as_client, card_options, saver_options
 from .side_pane_rules import (_PANE_OLD_BOARD, _PANE_OLD_SAVER, _saver_pane, NP_PANE, pane_group, pane_resolved,
     pane_section, pane_sections, side_pane, side_pane_lifted, side_pane_own,)
@@ -248,7 +248,9 @@ __all__ = [
     'menu_own',
     'menu_per_setting',
     'MENU_STYLES',
+    'fold_page_colors',
     'merged',
+    'PAGE_COLOR_KEY',
     'MOSAIC_COLORS',
     'new_board',
     'notify_dnd',

@@ -1,6 +1,6 @@
 // FLAT COLORS (2026-10-17): the resolver's acceptance matrix
 // (hk_house/docs/PLAN-2026-10-17-flat-appearance-colors.md §11), the palette's
-// roles, the tiles' off pills, the menu's highlight and the background seed.
+// roles, the tiles' off pills, the menu's accent and the background seed.
 // Each field is resolved on its own; Automatic is not inheritance.
 if (typeof HK_ROOT === 'undefined') throw new Error('run through tests/run');
 load(HK_ROOT + '/tests/dom.js');
@@ -150,7 +150,7 @@ S._apply({ look: { flat: false, glass: 'blur', flat_colors: { accent: SAGE, off_
 ok('Glass: no palette at all', C.flatPalette() === null);
 S._apply({ look: { flat: true, flat_colors: { accent: SAGE } }, boards: { 'dashboard-x': { flat: false } }, sky: {} });
 ok('a screen that opts out of Flat: no palette', C.flatPalette() === null);
-ok('...and its highlight is the Highlight Color', C.menu.accent().flat === undefined);
+ok('...and its menu takes the Accent Color as saved', C.menu.accent().flat === undefined);
 // a standalone Flat screen under Glass reads All Screens' Flat defaults
 S._apply({ look: { flat: false, glass: 'blur', flat_colors: { accent: SAGE, off_tint: 'accent' } }, boards: { 'dashboard-x': { flat: true } }, sky: {} });
 ok('a Flat screen under a Glass house uses All Screens’ Flat Colors', C.flatPalette() && C.flatPalette().seed === SAGE);
@@ -185,10 +185,28 @@ ok('a source label names where it comes from', M.flatSourceLabel(R(GC, kitchen, 
   M.flatSourceLabel(R(GC, kitchen, ['calendar']).accent, { title: 'Kitchen' }));
 ok('a preset reads by its name, your own by Custom', M.flatColorName(SAGE) === 'Sage' && M.flatColorName('#123456') === 'Custom' && M.flatColorName('auto') === 'Automatic' &&
   M.flatColorName('accent') === 'Match Accent');
-// choosing an accent where the tint is Automatic links it, in one change
-ok('choosing an accent over an Automatic tint links it at that scope', JSON.stringify(M.flatAccentChange(SAGE, R(look(), null, []))) === JSON.stringify({ accent: SAGE, off_tint: 'accent' }));
-ok('...over an inherited custom tint leaves the tint alone', JSON.stringify(M.flatAccentChange(SAGE, R(look({ off_tint: TINT }), {}, []))) === JSON.stringify({ accent: SAGE }));
-ok('...over a matched tint leaves the binding alone', JSON.stringify(M.flatAccentChange(ROSE, R(look({ accent: SAGE, off_tint: 'accent' }), null, []))) === JSON.stringify({ accent: ROSE }));
+// (phase 33, decision 4: choosing an accent no longer links Tiles When Off -- test_settingsmodel.js accentChanges)
+ok('Tiles When Off reads by its new names', M.tilesOffName('auto') === 'Their Own Colors' && M.tilesOffName('accent') === 'The Accent Color' &&
+  M.tilesOffName(TINT) === 'One Color');
+
+// ---- PAGE COLOR (phase 33, decision 3): a page's own color, Flat's per-page accent folded in --------------
+// All Screens' Page Color (look.page_accents, where the server reads a page's old Flat accent: model.py
+// fold_page_colors) is the page's own in Flat: over the screens' general accent, as a Flat page accent was
+r = R(Object.assign(look({ accent: SAGE }), { page_accents: { climate: ROSE } }), { flat_colors: { accent: LAV } }, ['climate']);
+ok('a page given a color shows it in Flat, over the screen’s accent', v(r, 'accent') === ROSE && r.accent.scope === 'house-page' && r.accent.page === 'climate');
+r = R(Object.assign(look({ accent: SAGE }), { page_accents: { climate: 'pink' } }), { flat_page_colors: { climate: { accent: HARBOR } } }, ['climate']);
+ok('...a screen’s own color for the page wins there', v(r, 'accent') === HARBOR && r.accent.scope === 'screen-page');
+ok('...a page with no color of its own follows as before', v(R(Object.assign(look({ accent: SAGE }), { page_accents: { lights: 'pink' } }), null, ['climate']), 'accent') === SAGE);
+r = R(Object.assign(look({ accent: SAGE }), { page_accents: { climate: ROSE } }, { flat_page_colors: { climate: { accent: 'auto' } } }), null, ['climate']);
+ok('...an old Flat Automatic for the page still stops there', v(r, 'accent') === 'auto' && r.accent.scope === 'house-page');
+ok('...its Tiles When Off is its own still', v(R(Object.assign(look({ off_tint: 'accent' }, { climate: { off_tint: TINT } }), { page_accents: { climate: ROSE } }), null, ['climate']), 'off_tint') ===
+  TINT);
+S._apply({ look: { flat: false, page_accents: { climate: 'pink' } }, boards: { 'dashboard-x': { flat_page_colors: { lights: { accent: HARBOR }, water: { accent: 'auto' } } } }, sky: {} });
+location.pathname = '/dashboard-x/climate';
+ok('pageColor: All Screens’ for the page', S.pageColor('climate') === 'pink' && S.pageColor('climate', null) === 'pink');
+ok('...a screen’s own over it, an old Automatic choosing none', S.pageColor('lights') === HARBOR && S.pageColor('water') === null && S.pageColor('lights', null) === null);
+ok('the page’s color is its icon’s (Pages screen, tab bar) on that screen', C.pageAccentHex('lights') === HARBOR && C.pageAccentHex('climate') === '#ff375f' &&
+  C.pageAccentHex('water') === '#64d2ff');
 
 // ---- a photo's Tint (Sky / Background -> Tint): the photo turned to a color --
 ok('the fade is the theme’s own wash, tint or not', C.flatFade(50, 'light') === 'rgba(238,236,230,0.460)' && C.flatFade(50, 'dark') === 'rgba(10,11,12,0.450)');
@@ -201,7 +219,7 @@ S._apply({ look: { flat: true, flat_theme: 'light' }, boards: { 'dashboard-x': {
   sky: { flat_background: 'photo', photo: '/local/p.jpg', flat_tint: 'accent' } });
 ok('a screen’s own tint over All Screens’', S.flatBackground(null, false).tint === '#112233');
 location.pathname = '/dashboard-x/climate';
-ok('...and with no Flat accent, the page’s own highlight', C.flatAccentHex() === '#0a84ff');
+ok('...and with no Flat accent, the page’s own color', C.flatAccentHex() === '#0a84ff');
 
 // ---- Pages: follow the accent, or keep their own (2026-10-17, the user) ---
 var PO = look({ accent: SAGE, off_tint: 'accent', pages: 'own' });
@@ -222,9 +240,29 @@ ok('the dashboard: Climate’s palette is its own blue', C.flatPalette({ board: 
 ok('...its Match Accent tint too', C.flatPalette({ board: null, keys: ['climate'] }).tint === '#0a84ff');
 S._apply({ look: { flat: true, flat_theme: 'light', flat_colors: { accent: SAGE, off_tint: 'accent', pages: 'own' }, page_accents: { lights: 'pink' } },
   boards: { 'dashboard-x': { accent: 'orange' } }, sky: {} });
-ok('...blue under an orange Highlight Color too', C.flatPalette({ board: null, keys: ['climate'] }).seed === '#0a84ff');
-ok('...a page’s own Highlight Color is its color', C.flatPalette({ board: null, keys: ['lights'] }).seed === '#ff375f');
+ok('...blue under an orange Accent Color too', C.flatPalette({ board: null, keys: ['climate'] }).seed === '#0a84ff');
+ok('...a page’s own Page Color is its color', C.flatPalette({ board: null, keys: ['lights'] }).seed === '#ff375f');
 ok('...Home’s is Sage', C.flatPalette({ board: null, keys: [] }).seed === SAGE);
+
+// ---- A HOUSE'S COLORS FROM BEFORE PHASE 33 READ THE SAME (decisions 2-6) ---------------------------------------
+// fixtures/look_carry.json: a house's settings as they were (2026-11-15: a Flat screen in green with white tiles off and
+// the pages in their own colors; Glass screens carrying Flat colors they don't wear; Automatic and a gray of one's own),
+// with what the code before phase 33 resolved from them. Today's must resolve the same, page by page.
+(function () {
+  var F = JSON.parse(read(HK_ROOT + '/tests/fixtures/look_carry.json')), bad = [];
+  S._apply({ look: F.look, boards: F.boards, sky: {} });
+  Object.keys(F.boards).forEach(function (bk) {
+    Object.keys(F.pages).forEach(function (pk) {
+      location.pathname = '/' + bk + '/' + F.paths[pk];
+      var pal = C.flatPalette({ board: F.boards[bk], keys: F.pages[pk] }), m = C.menu.accent();
+      var got = { pal: pal ? [pal.seed, pal.tint, pal.tinted, pal.ground] : null, menu: [m.color, m.on, m.base, !!m.flat],
+                  icon: C.pageAccentHex(pk === 'home' ? null : pk), idle: pal ? C.flatIdle('#ff9f0a', false, pal) : null };
+      if (JSON.stringify(got) !== JSON.stringify(F.expect[bk + ' ' + pk])) bad.push(bk + ' ' + pk + ': ' + JSON.stringify(got));
+    });
+  });
+  ok('a house’s colors from before read the same: every screen, every page (' + Object.keys(F.expect).length + ')', bad.length === 0, bad);
+})();
+location.pathname = '/dashboard-x/0';
 
 print(fail ? 'FLAT COLORS: ' + fail + ' FAILED' : 'ALL ' + pass + ' FLAT COLORS TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

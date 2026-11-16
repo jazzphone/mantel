@@ -1,0 +1,464 @@
+{
+ "about": [
+  "Phase 33 (decisions 2-6): a house's color settings from before (2026-11-15) and what the dashboard resolved from them then:",
+  "Flat's palette (seed, tint, washed, ground), the menu's accent (color, on, base, Flat), a page's icon color and an off tile's wash.",
+  "Written by the code before phase 33; tests/test_flatcolors.js reads the same settings through today's and expects the same colors."
+ ],
+ "look": {
+  "flat": false,
+  "glass": "blur",
+  "flat_colors": {
+   "accent": "auto",
+   "off_tint": "auto",
+   "pages": "accent"
+  },
+  "flat_page_colors": {},
+  "page_accents": {}
+ },
+ "boards": {
+  "flat-green": {
+   "flat": true,
+   "flat_colors": {
+    "accent": "green",
+    "off_tint": "#ffffff",
+    "pages": "own"
+   },
+   "accent": "green"
+  },
+  "glass-teal": {
+   "flat_colors": {
+    "accent": "#006d8f",
+    "off_tint": "accent",
+    "pages": "own"
+   },
+   "accent": "orange"
+  },
+  "glass-teal-2": {
+   "flat_colors": {
+    "accent": "#006d8f",
+    "off_tint": "accent",
+    "pages": "own"
+   },
+   "accent": "orange"
+  },
+  "glass-auto": {
+   "accent": "auto"
+  },
+  "glass-gray": {
+   "accent": "#8a94a6"
+  }
+ },
+ "pages": {
+  "home": [],
+  "climate": [
+   "climate"
+  ],
+  "lights": [
+   "lights"
+  ],
+  "calendar": [
+   "calendar"
+  ],
+  "weather": [
+   "weather"
+  ],
+  "room-kitchen": [
+   "room-kitchen",
+   "rooms"
+  ]
+ },
+ "paths": {
+  "home": "0",
+  "climate": "climate",
+  "lights": "lights",
+  "calendar": "calendar",
+  "weather": "weather",
+  "room-kitchen": "room-kitchen"
+ },
+ "expect": {
+  "flat-green home": {
+   "pal": [
+    "#30d158",
+    "#ffffff",
+    true,
+    "#182d1f"
+   ],
+   "menu": [
+    "#30d158",
+    "#fff",
+    "#30d158",
+    true
+   ],
+   "icon": null,
+   "idle": {
+    "pill": "#555659",
+    "well": "#77787b",
+    "glyph": "#ffffff"
+   }
+  },
+  "flat-green climate": {
+   "pal": [
+    "#0a84ff",
+    "#ffffff",
+    true,
+    "#132335"
+   ],
+   "menu": [
+    "#0a84ff",
+    "#fff",
+    "#0a84ff",
+    true
+   ],
+   "icon": "#0a84ff",
+   "idle": {
+    "pill": "#555659",
+    "well": "#77787b",
+    "glyph": "#ffffff"
+   }
+  },
+  "flat-green lights": {
+   "pal": [
+    "#ffd60a",
+    "#ffffff",
+    true,
+    "#332e15"
+   ],
+   "menu": [
+    "#ffd60a",
+    "#fff",
+    "#ffd60a",
+    true
+   ],
+   "icon": "#ffd60a",
+   "idle": {
+    "pill": "#555659",
+    "well": "#77787b",
+    "glyph": "#ffffff"
+   }
+  },
+  "flat-green calendar": {
+   "pal": [
+    "#bf5af2",
+    "#ffffff",
+    true,
+    "#2a1e33"
+   ],
+   "menu": [
+    "#bf5af2",
+    "#fff",
+    "#bf5af2",
+    true
+   ],
+   "icon": "#bf5af2",
+   "idle": {
+    "pill": "#555659",
+    "well": "#77787b",
+    "glyph": "#ffffff"
+   }
+  },
+  "flat-green weather": {
+   "pal": [
+    "#64d2ff",
+    "#ffffff",
+    true,
+    "#1e2e35"
+   ],
+   "menu": [
+    "#64d2ff",
+    "#fff",
+    "#64d2ff",
+    true
+   ],
+   "icon": "#64d2ff",
+   "idle": {
+    "pill": "#555659",
+    "well": "#77787b",
+    "glyph": "#ffffff"
+   }
+  },
+  "flat-green room-kitchen": {
+   "pal": [
+    "#30d158",
+    "#ffffff",
+    true,
+    "#182d1f"
+   ],
+   "menu": [
+    "#30d158",
+    "#fff",
+    "#30d158",
+    true
+   ],
+   "icon": null,
+   "idle": {
+    "pill": "#555659",
+    "well": "#77787b",
+    "glyph": "#ffffff"
+   }
+  },
+  "glass-teal home": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  },
+  "glass-teal climate": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#0a84ff",
+   "idle": null
+  },
+  "glass-teal lights": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#ffd60a",
+   "idle": null
+  },
+  "glass-teal calendar": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#bf5af2",
+   "idle": null
+  },
+  "glass-teal weather": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#64d2ff",
+   "idle": null
+  },
+  "glass-teal room-kitchen": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  },
+  "glass-teal-2 home": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  },
+  "glass-teal-2 climate": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#0a84ff",
+   "idle": null
+  },
+  "glass-teal-2 lights": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#ffd60a",
+   "idle": null
+  },
+  "glass-teal-2 calendar": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#bf5af2",
+   "idle": null
+  },
+  "glass-teal-2 weather": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#64d2ff",
+   "idle": null
+  },
+  "glass-teal-2 room-kitchen": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  },
+  "glass-auto home": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  },
+  "glass-auto climate": {
+   "pal": null,
+   "menu": [
+    "#0a84ff",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#0a84ff",
+   "idle": null
+  },
+  "glass-auto lights": {
+   "pal": null,
+   "menu": [
+    "#ffd60a",
+    "#000",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#ffd60a",
+   "idle": null
+  },
+  "glass-auto calendar": {
+   "pal": null,
+   "menu": [
+    "#bf5af2",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#bf5af2",
+   "idle": null
+  },
+  "glass-auto weather": {
+   "pal": null,
+   "menu": [
+    "#64d2ff",
+    "#000",
+    "#ff9f0a",
+    false
+   ],
+   "icon": "#64d2ff",
+   "idle": null
+  },
+  "glass-auto room-kitchen": {
+   "pal": null,
+   "menu": [
+    "#ff9f0a",
+    "#fff",
+    "#ff9f0a",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  },
+  "glass-gray home": {
+   "pal": null,
+   "menu": [
+    "#8a94a6",
+    "#fff",
+    "#8a94a6",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  },
+  "glass-gray climate": {
+   "pal": null,
+   "menu": [
+    "#8a94a6",
+    "#fff",
+    "#8a94a6",
+    false
+   ],
+   "icon": "#0a84ff",
+   "idle": null
+  },
+  "glass-gray lights": {
+   "pal": null,
+   "menu": [
+    "#8a94a6",
+    "#fff",
+    "#8a94a6",
+    false
+   ],
+   "icon": "#ffd60a",
+   "idle": null
+  },
+  "glass-gray calendar": {
+   "pal": null,
+   "menu": [
+    "#8a94a6",
+    "#fff",
+    "#8a94a6",
+    false
+   ],
+   "icon": "#bf5af2",
+   "idle": null
+  },
+  "glass-gray weather": {
+   "pal": null,
+   "menu": [
+    "#8a94a6",
+    "#fff",
+    "#8a94a6",
+    false
+   ],
+   "icon": "#64d2ff",
+   "idle": null
+  },
+  "glass-gray room-kitchen": {
+   "pal": null,
+   "menu": [
+    "#8a94a6",
+    "#fff",
+    "#8a94a6",
+    false
+   ],
+   "icon": null,
+   "idle": null
+  }
+ }
+}

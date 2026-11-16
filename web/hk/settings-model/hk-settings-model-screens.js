@@ -371,10 +371,10 @@
     // patch over the screen's) and the layout it starts from.
     var LOOK_KEYS = ["flat", "flat_theme", "glass", "accent", "tab_bar_glass", "tile_style", "sky", "sky_background", "sky_color", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion",
       "sky_wallpaper_color", "sky_animations", "sky_weather", "sky_precipitation", "sky_moving", "sky_decorations", "sky_liveliness", "swipe_pages", "side_pane", "screensaver", "screensaver_options",
-      "camera_live_video"];
+      "camera_live_video", "sky_flat_background", "sky_flat_color"];
     var LOOK_UNDO_KEYS = ["flat", "flat_theme", "glass", "accent", "tab_bar_glass", "tile_style", "sky", "sky_background", "sky_color", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion",
       "sky_wallpaper_color", "sky_animations", "sky_weather", "sky_precipitation", "sky_moving", "sky_decorations", "sky_liveliness", "swipe_pages", "side_pane", "screensaver", "screensaver_options",
-      "camera_live_video", "home_style", "home_grid"];
+      "camera_live_video", "sky_flat_background", "sky_flat_color", "home_style", "home_grid"];
     var LOOKS = [
       {"id": "homeview", "name": "HomeView", "about": "Square tiles, centered, over a slow-moving wallpaper in Bright Glass, with the Side Pane and the Analog Numbers clock.",
         "art": ["#1f4b8d", "#375b91", "#0b285d", "#ff9500"], "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]},
@@ -384,12 +384,14 @@
         "sections": [{"kind": "weather", "size": "more"}, {"kind": "calendar", "size": "more"}, {"kind": "now_playing", "size": "more", "when": "active"}]}}, "screensaver": true},
         "saver": {"show": "clock", "clock_style": "numbers", "clock_bg": "gradient", "clock_motion": "slow"}},
       {"id": "flat", "name": "Flat", "about": "Clean and solid: no blur, high contrast, the cards on one dark color.", "art": ["#1c1c1e", "#1c1c1e", "#1c1c1e", "#0a84ff"],
-        "layout": {"cell": "tile", "starters": ["A"]}, "settings": {"flat": true, "flat_theme": "dark", "accent": "blue", "tab_bar_glass": "tinted", "tile_style": "home", "swipe_pages": "auto",
-        "screensaver": true}, "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still"}},
+        "layout": {"cell": "tile", "starters": ["A"]}, "settings": {"flat": true, "flat_theme": "dark", "accent": "blue", "tab_bar_glass": "tinted", "tile_style": "home",
+          "sky_flat_background": "color",
+        "sky_flat_color": "stone", "swipe_pages": "auto", "screensaver": true}, "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still"}},
       {"id": "performance", "name": "Performance",
-        "about": "The lightest setup for a slow wall tablet: Glass, no rain or snow, nothing moving in front of the cards, no live camera, and a still screensaver.",
+        "about": "The lightest setup for a slow wall tablet: Glass over a still color, nothing moving in front of the cards, no live camera, and a still screensaver.",
         "art": ["#2b3140", "#3a4152", "#202531", "#ff9500"], "layout": {"cell": "tile", "starters": ["Q"]},
-        "settings": {"flat": false, "glass": "clear", "accent": "orange", "tab_bar_glass": "tinted", "tile_style": "home", "sky_animations": false, "sky_precipitation": false, "sky_moving": "behind",
+        "settings": {"flat": false, "glass": "clear", "accent": "orange", "tab_bar_glass": "tinted", "tile_style": "home", "sky": true, "sky_background": "color",
+        "sky_color": "graphite", "sky_animations": false, "sky_precipitation": false, "sky_moving": "behind",
         "sky_decorations": false, "sky_wallpaper_motion": "off", "camera_live_video": false, "screensaver": true},
         "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still", "zoom": false}},
       {"id": "holiday", "name": "Holiday Whimsy",
@@ -424,9 +426,10 @@
     // screensaver's options now): the changes to send, its Undo (the screen's
     // own values before), and the rows the sheet shows ([label, was, becomes])
     // -- only what differs. `layout`: the Layout + Look's grid, if any.
-    var LOOK_LABELS = { flat: 'Flat Colors', flat_theme: 'Flat Theme', glass: 'Style', accent: 'Accent Color', tab_bar_glass: 'Tab Bar Glass',
+    var LOOK_LABELS = { flat: 'Flat', flat_theme: 'Flat Theme', glass: 'Style', accent: 'Accent Color', tab_bar_glass: 'Tab Bar Glass',
       tile_style: 'Tile Style', tile_icons: 'Icons', sky: 'Sky', sky_background: 'Background', sky_color: 'Color', sky_wallpaper: 'Wallpaper',
-      sky_wallpaper_night: 'Night Version', sky_wallpaper_motion: 'Wallpaper Motion', sky_animations: 'Animations', sky_weather: 'Weather',
+      sky_wallpaper_night: 'Night Version', sky_wallpaper_motion: 'Wallpaper Motion', sky_flat_background: 'Background in Flat', sky_flat_color: 'Color in Flat', sky_animations: 'Animations',
+        sky_weather: 'Weather',
       sky_precipitation: 'Rain & Snow', sky_moving: 'Moving Things', sky_decorations: 'Decorations', sky_liveliness: 'Liveliness',
       swipe_pages: 'Swipe Between Pages', side_pane: 'Side Pane', screensaver: 'Screensaver', screensaver_options: 'Screensaver Options',
       camera_live_video: 'Live Camera', home_style: 'Home', home_grid: 'Layout' };
@@ -440,6 +443,8 @@
       var o = lists[k] && lists[k].filter(function (x) { return x[0] === v; })[0];
       if (o) return o[1];
       if (k === 'side_pane') return v.dashboard && v.dashboard.show === 'off' ? 'Off' : 'On, beside Home';
+      if (k === 'tab_bar_glass' && v === 'house') return 'Same as Screen';
+      if (v === 'auto') return 'Automatic';
       if (k === 'screensaver_options') return 'The Look’s Options';
       if (k === 'home_grid') return 'The Look’s starter';
       if (typeof v === 'string') return v.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
@@ -473,13 +478,68 @@
       return ch;
     }
 
+    // A LOOK AT ALL SCREENS (phase 33, looks.py HOUSE_KEYS -- the same table, tests/test_hk_core_looks.py): each screen
+    // setting a Look sets, by its All Screens name; the Accent Color also Flat's (look.flat_colors.accent), the Side
+    // Pane by its groups, the screensaver's options look.saver. A screen's own `sky` and screensaver switch have none.
+    var LOOK_HOUSE = { flat: 'look.flat', flat_theme: 'look.flat_theme', glass: 'look.glass', accent: 'menu.accent',
+      tab_bar_glass: 'menu.bar_glass', tile_style: 'look.tile_style', sky_background: 'sky.background', sky_color: 'sky.color',
+      sky_wallpaper: 'sky.wallpaper', sky_wallpaper_night: 'sky.wallpaper_night', sky_wallpaper_motion: 'sky.wallpaper_motion',
+      sky_wallpaper_color: 'sky.wallpaper_color', sky_animations: 'sky.animations', sky_weather: 'sky.weather',
+      sky_precipitation: 'sky.precipitation', sky_moving: 'sky.moving', sky_decorations: 'sky.decorations',
+      sky_liveliness: 'sky.liveliness_all', swipe_pages: 'menu.swipe_pages', camera_live_video: 'cameras.live',
+      sky_flat_background: 'sky.flat_background', sky_flat_color: 'sky.flat_color', screensaver_options: 'look.saver' };
+    // All Screens' setting at a path ("look.flat_colors.accent" one deeper), null when it has none
+    function housePath(S, path) {
+      var parts = path.split('.'), v = S || {};
+      for (var i = 0; i < parts.length && v != null; i++) v = v[parts[i]];
+      return v === undefined ? null : v;
+    }
+    // WHAT A LOOK CHANGES AT ALL SCREENS (`S`: the settings as read): the changes to send (All Screens' own; a screen
+    // with its own values keeps them), its Undo (look.look_undo: the values before) and the sheet's rows, as lookChanges
+    function houseLookChanges(look, S) {
+      var ch = {}, was = {}, rows = [], seen = {};
+      var same = function (a, c) { return JSON.stringify(a == null ? null : a) === JSON.stringify(c == null ? null : c); };
+      var put = function (path, v) { was[path] = housePath(S, path); ch[path] = v; return !same(was[path], v); };
+      Object.keys(look.settings).forEach(function (k) {
+        var v = look.settings[k];
+        if (k === 'side_pane') {
+          var before = {}, moved = false;
+          Object.keys(v).forEach(function (g) { before[g] = housePath(S, 'side_pane.' + g); if (put('side_pane.' + g, v[g])) moved = true; });
+          if (moved) rows.push([LOOK_LABELS[k], lookSays(k, Object.assign({}, (S || {}).side_pane, before)), lookSays(k, v)]);
+          return;
+        }
+        var path = LOOK_HOUSE[k];
+        if (!path || seen[path]) return;
+        seen[path] = 1;
+        if (put(path, v)) rows.push([LOOK_LABELS[k] || k, lookSays(k, was[path]), lookSays(k, v)]);
+        if (k === 'accent') put('look.flat_colors.accent', v);
+      });
+      var saver = housePath(S, 'look.saver') || {};
+      if (look.saver) {
+        was['look.saver'] = saver;
+        ch['look.saver'] = Object.assign({}, saver, look.saver);
+        if (Object.keys(look.saver).some(function (o) { return !same(saver[o], look.saver[o]); })) rows.push([LOOK_LABELS.screensaver_options, 'Your Options', 'The Look’s Options']);
+      }
+      ch['look.look_undo'] = { look: look.id, was: was };
+      return { changes: ch, rows: rows };
+    }
+    // ...and its UNDO: All Screens' values back, the Undo spent
+    function houseLookUndo(S) {
+      var u = housePath(S, 'look.look_undo');
+      if (!u || !u.was) return null;
+      var ch = JSON.parse(JSON.stringify(u.was));
+      ch['look.look_undo'] = null;
+      return ch;
+    }
+
     // what the shell and the later parts use of this one
     K.BRIGHT_DIM_MAX = BRIGHT_DIM_MAX; K.CLOCK_ALIGNS = CLOCK_ALIGNS; K.CLOCK_BELOW = CLOCK_BELOW;
     K.CLOCK_BESIDE = CLOCK_BESIDE; K.CLOCK_DATES = CLOCK_DATES; K.CLOCK_FACES = CLOCK_FACES;
     K.CLOCK_LINES = CLOCK_LINES; K.CLOCK_SCALES = CLOCK_SCALES; K.CLOCK_WEIGHTS = CLOCK_WEIGHTS;
     K.forecastSummary = forecastSummary; K.IDLE_TIMES = IDLE_TIMES; K.idleLabel = idleLabel;
     K.idleTimeline = idleTimeline; K.LOOK_KEYS = LOOK_KEYS; K.LOOK_LABELS = LOOK_LABELS;
-    K.LOOK_UNDO_KEYS = LOOK_UNDO_KEYS; K.lookChanges = lookChanges; K.lookOf = lookOf; K.LOOKS = LOOKS;
+    K.LOOK_UNDO_KEYS = LOOK_UNDO_KEYS; K.LOOK_HOUSE = LOOK_HOUSE; K.houseLookChanges = houseLookChanges; K.houseLookUndo = houseLookUndo; K.lookChanges = lookChanges; K.lookOf = lookOf;
+      K.LOOKS = LOOKS;
     K.lookSays = lookSays; K.lookUndo = lookUndo; K.npShowAs = npShowAs; K.PANE_CAMERA_NAMES = PANE_CAMERA_NAMES;
     K.PANE_DEFAULTS = PANE_DEFAULTS; K.PANE_DIM_GLASS = PANE_DIM_GLASS; K.PANE_DIM_MAX = PANE_DIM_MAX;
     K.PANE_GROUPS = PANE_GROUPS; K.PANE_KINDS = PANE_KINDS; K.PANE_MAX = PANE_MAX; K.PANE_PLACES = PANE_PLACES;

@@ -283,11 +283,14 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              # kind -> {name, icon, color}; empty is each pill's own
              # ("Play Music" can read "Apple Music")
              "page_pills": {},
-             # EACH PAGE'S HIGHLIGHT (2026-10-17): page kind -> an accent
-             # (ACCENTS or "#rrggbb"), the current page's color when a
-             # screen's Highlight Color is Automatic; missing: hk-base.js
-             # PAGE_ACCENTS' default for it
+             # EACH PAGE'S COLOR, its Page Color (2026-10-17; phase 33): page kind -> an accent (ACCENTS, Flat's
+             # soft colors or "#rrggbb"): the page you're on while a screen's Accent Color is Automatic, and in
+             # Flat the page's own over the Accent Color; missing: hk-base.js PAGE_ACCENTS' default for it. A
+             # page's Flat Accent Color from before is read as it (merged: fold_page_colors).
              "page_accents": {},
+             # THE LOOK LAST APPLIED TO ALL SCREENS (phase 33, looks.py HOUSE_KEYS) and All Screens' settings
+             # before it ({look, was: {path: value}}), for its one Undo; None: nothing to undo
+             "look_undo": None,
              # FLAT COLORS (2026-10-17, flat_colors() above): All Screens'
              # two fields, and each page's own
              "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {},

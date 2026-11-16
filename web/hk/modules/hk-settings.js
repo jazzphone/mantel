@@ -345,14 +345,19 @@
   var FLAT_FIELDS = ['accent', 'off_tint'];
   var OWN_COLOR_PAGES = ['climate', 'lights', 'security', 'doors_windows', 'calendar', 'weather', 'energy', 'power',
                          'water', 'music', 'live_tv', 'cameras', 'vacuums', 'timers'];
+  // PAGE COLOR (phase 33, decision 3): a page's own color -- this screen's (its flat_page_colors[page].accent), else
+  // All Screens' (look.page_accents, where the server reads a page's Flat Accent Color from before: model.py
+  // fold_page_colors) -- is the page's Accent Color here, over the screen's general one: a color chosen for a page
+  // shows on it. Glass shows it on the page you're on while the Accent Color is Automatic (pageColor).
   function resolveFlatColors(look, b, keys) {
     look = look || {}; keys = keysOf(keys || []);
-    var hp = look.flat_page_colors || {}, hb = look.flat_colors || {};
+    var hp = look.flat_page_colors || {}, hb = look.flat_colors || {}, pa = look.page_accents || {};
     var bp = (b && b.flat_page_colors) || {}, bb = (b && b.flat_colors) || {};
     var c = [];
     keys.forEach(function (k) {
       if (b) c.push({ o: bp[k], scope: 'screen-page', page: k });
       c.push({ o: hp[k], scope: 'house-page', page: k });
+      if (typeof pa[k] === 'string' && pa[k]) c.push({ o: { accent: pa[k] }, scope: 'house-page', page: k });
     });
     if (b) c.push({ o: bb, scope: 'screen', page: null });
     c.push({ o: hb, scope: 'house', page: null });
@@ -372,6 +377,16 @@
       out.accent = { value: 'auto', scope: 'own-page', page: own };
     }
     return out;
+  }
+  // A PAGE'S COLOR on a screen (`b`: its item, raw; null: All Screens'): the screen's own (flat_page_colors[key].accent),
+  // else All Screens' Page Color (look.page_accents); null when neither chose one (the page's default, PAGE_ACCENTS).
+  // A screen's "auto" (Flat's Automatic, before phase 33) chooses none.
+  function pageColor(key, b) {
+    if (b === undefined) b = boardHere();
+    var mine = b && b.flat_page_colors && b.flat_page_colors[key] && b.flat_page_colors[key].accent;
+    if (typeof mine === 'string' && mine && mine !== 'auto') return mine.toLowerCase();
+    var all = (get('look', {}) || {}).page_accents || {};
+    return typeof all[key] === 'string' && all[key] ? all[key].toLowerCase() : null;
   }
   // THE PAGE THIS IS, as its background knows it: the view's sky_page /
   // sky_room (hk-strategy.js skyPages), read off the panel's config the way
@@ -746,7 +761,7 @@
       reducedMotion: reducedMotion,
       pageSky: pageSky,
       flatBackground: flatBackground,
-      flatColors: flatColors, resolveFlatColors: resolveFlatColors, viewKeys: function () { return viewKeys().keys; },
+      flatColors: flatColors, resolveFlatColors: resolveFlatColors, pageColor: pageColor, viewKeys: function () { return viewKeys().keys; },
       pageBackdrop: pageBackdrop,
       pagePhoto: pagePhoto,
       photoLook: photoLook,
