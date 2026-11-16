@@ -12,6 +12,8 @@
         PN = KIT.PN;
 
     var h, K, M;
+    // THE DECORATIONS' TWO STYLES (sky.decoration_style), a menu at both levels (phase 33)
+    var DECOR_STYLES = [['old', 'Old Decorations'], ['new', 'New Decorations']];
     // (set when the page starts, not now: the shell calls bindLate() once it has assigned them)
     KIT.late.push(function (s) {
       h = s.h; K = s.K; M = s.M;
@@ -21,164 +23,33 @@
     // defines them). They are written here exactly as they were in the class. (`extends` an `any`: only so the type
     // checker lets `this` have the properties the shell's class gives it; nothing makes an instance of this.)
     var Methods = class extends /** @type {any} */ (Object) {
+      // A SCREEN'S BACKGROUND (phase 33): the page All Screens' is, in the style the screen wears -- each row Same as All
+      // Screens until it is this screen's own (bgPage)
       s_sky(c, x, b) {
-        var self = this, sky = this.data.settings.sky, rows = [];
-        if (this.flatHere(b)) { this.flatSky(c, x, b, '#/screens/' + encodeURIComponent(x.path) + '/sky'); return; }
-        // WHAT THESE SETTINGS REACH: the live sky only -- Home, the room pages
-        // and any page set to Live Sky or a backdrop. A page screen whose pages
-        // keep their own color shows none of it; say so, and the way to change it.
-        var pk = this.skyPageKeys(b), base = '#/screens/' + encodeURIComponent(x.path);
-        var bds = (this.data.choices || {}).sky_backdrops || [];
-        // THE BACKGROUND FIRST (2026-10-13; was the Live Sky switch): Same as
-        // All Screens, or this screen's own Live Sky, Color or Photo. A screen
-        // whose Live Sky was turned off (b.sky false) reads as Color: Black --
-        // what it showed -- and any choice here turns it back on.
-        var skySw = (this.data.settings.look || {}).sky_switch;
-        var pageScreen = !!(pk.only && pk.only.keys.length), legacyOff = b.sky === false;
-        if (!pageScreen) {
-          var ownMode = legacyOff ? 'color' : b.sky_background, hMode = sky.background || 'live', mode = ownMode || hMode;
-          var bgRows = [K.previewPick({ label: 'Background', sub: ownMode ? 'Just This Screen' : null, sk: 'b:sky_background', value: mode,
-            options: M.SKY_BACKGROUNDS, picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, b.sky_wallpaper || sky.wallpaper, null, b.sky_wallpaper_color || sky.wallpaper_color); },
-              onChange: function (v) {
-              var ch = { sky_background: v, sky: true };
-              if (legacyOff && v === 'color' && !b.sky_color) ch.sky_color = 'black';
-              self.setB(x.path, ch);
-            } })];
-          if (ownMode) bgRows.push(K.button({ label: 'Reset to All Screens (' + M.BG_LABELS[hMode] + ')', sk: 'b:sky_background:reset',
-            onClick: function () { self.setB(x.path, { sky_background: null, sky: true }); } }));
-          var foot = [M.BG_SAYS[mode]];
-          if (legacyOff) foot.push('This screen’s Live Sky was turned off, so it shows Black.');
-          if (mode === 'live' && x.generated && skySw) foot.push('It also follows ' + this.name(skySw) + ' (All Screens → Appearance → Background → Sky Switch).');
-          if (!x.generated) foot.push('A screen written in YAML shows it wherever its YAML puts the sky.');
-          c.appendChild(K.group({ footer: foot.join(' ') }, bgRows));
-          if (mode === 'color') {
-            this.colorGroup(c, { id: legacyOff ? (b.sky_color || 'black') : (b.sky_color || null), follow: ['Same as All Screens', sky.color || 'midnight'],
-              custom: b.sky_custom || sky.gradient_custom, fk: 'bcolor:', scope: 'b:sky_custom:' + x.path,
-              onPick: function (id) {
-                var ch = { sky_color: id, sky: true };
-                if (legacyOff) ch.sky_background = 'color';
-                if (id === 'custom' && !b.sky_custom) ch.sky_custom = sky.gradient_custom || self.dusk();
-                self.setB(x.path, ch);
-              },
-              onCustom: function (v) { self.setB(x.path, { sky_custom: v }); } });
-            this.skyPagesGroup(c, x, b);
-            this.skyResetGroup(c, x, b);
-            return;
-          }
-          if (mode === 'photo') {
-            this.photoGroup(c, { url: b.sky_photo || null, from: sky.photo || null, fromLabel: 'All Screens’ photo', fk: 'bphoto', sk: 'b:sky_photo',
-              footer: 'Shown on Home, the room pages, and every page without a color of its own.',
-              onSet: function (url) { var was = b.sky_photo; self.setB(x.path, { sky_photo: url, sky: true }).then(function (ok) { if (ok) self.photoForget(was); }); } });
-            this.photoLookGroup(c, { look: b.sky_photo_look || sky.photo_look, own: !!b.sky_photo_look, sk: 'b:sky_photo_look', follow: 'All Screens',
-              onSet: function (v) { self.setB(x.path, { sky_photo_look: v }); } });
-            this.flatImageGroup(c, x, b, null, true);
-            this.skyPagesGroup(c, x, b);
-            this.skyResetGroup(c, x, b);
-            return;
-          }
-          if (mode === 'landscapes') {
-            this.landscapeGroup(c, { value: b.sky_landscape || null, house: sky.landscape || 'every:1440', fk: 'bland', sk: 'b:sky_landscape',
-              href: base + '/sky/landscape', footer: 'Shown on Home, the room pages, and every page without a color of its own.',
-              onSet: function (v) { self.setB(x.path, { sky_landscape: v, sky: true }); } });
-            this.photoLookGroup(c, { look: b.sky_landscape_look || sky.landscape_look, own: !!b.sky_landscape_look, sk: 'b:sky_landscape_look', follow: 'All Screens',
-              onSet: function (v) { self.setB(x.path, { sky_landscape_look: v }); } });
-            this.flatImageGroup(c, x, b, null, true);
-            this.skyPagesGroup(c, x, b);
-            this.skyResetGroup(c, x, b);
-            return;
-          }
-          if (mode === 'wallpaper') {
-            this.wallpaperGroup(c, { value: b.sky_wallpaper || null, house: sky.wallpaper || 'ribbons', night: b.sky_wallpaper_night || null,
-              nightHouse: sky.wallpaper_night || 'auto', fk: 'bwall', sk: 'b:sky_wallpaper',
-              motion: b.sky_wallpaper_motion || null, motionHouse: sky.wallpaper_motion || 'off',
-              onMotion: function (v) { self.setB(x.path, { sky_wallpaper_motion: v }); },
-              color: b.sky_wallpaper_color || null, colorHouse: sky.wallpaper_color || 'blue',
-              onColor: function (v) { self.setB(x.path, { sky_wallpaper_color: v }); },
-              footer: 'Shown on Home, the room pages, and every page without a color of its own.',
-              onSet: function (v, motion) { var ch = { sky_wallpaper: v, sky: true }; if (motion) ch.sky_wallpaper_motion = motion; self.setB(x.path, ch); },
-              onNight: function (v) { self.setB(x.path, { sky_wallpaper_night: v }); } });
-            this.skyPagesGroup(c, x, b);
-            this.skyResetGroup(c, x, b);
-            return;
-          }
-        }
-        if (pageScreen) {
-          var now = pk.rows.map(function (r) { return { r: r, n: self.skyPageNow(r, b) }; });
-          var liveOnes = now.filter(function (o) { return o.n.live; });
-          c.appendChild(K.group({ header: 'This Screen’s Pages', footer: liveOnes.length
-              ? 'The Live Sky settings below reach ' + liveOnes.map(function (o) { return o.r.label; }).join(' and ') + '. ' +
-                (liveOnes.length < now.length ? 'The rest keep their own background.' : '')
-              : 'This screen has no Home page. Each page’s background — its own color, a Color, a Photo or the Live Sky — is chosen here.' },
-            now.map(function (o) {
-              return K.nav({ label: o.r.label + ' Background', value: o.n.mode ? M.skyModeLabel(o.n.mode, bds) : M.skyAutoLabel(o.r),
-                             href: base + '/sky/page/' + encodeURIComponent(o.r.key), sk: 'b:sky_pages:' + o.r.key });
-            })));
-          // nothing here shows the live sky: none of its settings to show
-          if (!liveOnes.length) { this.skyResetGroup(c, x, b); return; }
-        }
-        // Pause When Not in Focus only while anything moves here, Rain & Snow
-        // only while there is weather (2026-10-10), as on All Screens' page
-        var moving = b.sky_animations != null ? b.sky_animations : sky.animations !== false;
-        var weathery = b.sky_weather != null ? b.sky_weather : sky.weather !== false;
-        [['animations', 'Animations'], ['focus_pause', 'Pause When Not in Focus', moving],
-         ['weather', 'Weather'], ['precipitation', 'Rain & Snow', weathery]].forEach(function (entry) {
-          if (entry.length > 2 && !entry[2]) return;
-          var key = 'sky_' + entry[0], own = b[key] != null, house = sky[entry[0]] !== false;
-          rows.push(K.toggle({ label: entry[1], sk: 'b:' + key, on: own ? b[key] : house,
-            sub: own ? 'Just This Screen' : null, onChange: function (v) { var o = {}; o[key] = v; self.setB(x.path, o); } }));
-          if (own) rows.push(K.button({ label: 'Reset to All Screens (' + (house ? 'On' : 'Off') + ')', sk: 'b:' + key + ':reset',
-            onClick: function () { var o = {}; o[key] = null; self.setB(x.path, o); } }));
-        });
-        // THE SKY'S LOOK, each as All Screens' tabs (2026-10-09): the shared
-        // value until changed, then this screen's own and a way back
-        var wideS = this.hasAttribute('wide');
-        var segOwn = function (label, key, opts, houseVal) {
-          var own = b[key] != null && b[key] !== '';
-          rows.push(K.seg({ label: label, sub: own ? 'Just This Screen' : null, sk: 'b:' + key, stack: !wideS,
-            value: own ? b[key] : houseVal, options: opts,
-            onChange: function (v) { var o = {}; o[key] = v; self.setB(x.path, o); } }));
-          if (own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(opts, houseVal) + ')', sk: 'b:' + key + ':reset',
-            onClick: function () { var o = {}; o[key] = null; self.setB(x.path, o); } }));
-        };
-        segOwn('Moving Things', 'sky_moving', M.SKY_MOVING, sky.moving || 'behind');
-        segOwn('Clouds', 'sky_cloud_style', M.CLOUD_STYLES, sky.cloud_style || 'classic');
-        segOwn('Daytime Sky', 'sky_daytime', M.DAYTIME_SKIES, sky.daytime || 'natural');
-        // a page screen's backdrop is its pages' (above): no second one here
-        if (!(pk.only && pk.only.keys.length)) {
-          rows.push(K.nav({ label: 'Sky Colors', sk: 'b:sky_gradient', href: '#/screens/' + encodeURIComponent(x.path) + '/sky/backdrop',
-            sub: b.sky_gradient == null ? null : 'Just This Screen',
-            value: this.backdropLabel(b.sky_gradient == null ? sky.gradient : b.sky_gradient) }));
-        }
-        c.appendChild(K.group({ header: 'Live Sky', footer: 'This screen follows All Screens until you change a setting here. Animations off also ' +
-          'stops a running fan’s icon spinning, and hides falling rain and snow.' }, rows));
-        // SEASONAL DECORATIONS: their own page (its Decoration Style, Liveliness and the rest)
-        var decOn = b.sky_decorations != null ? b.sky_decorations : sky.decorations !== false;
-        c.appendChild(K.group({}, [K.nav({ label: 'Seasonal Decorations', value: decOn ? 'On' : 'Off', href: base + '/sky/decorations', sk: 'b:sky_decorations' })]));
-        // a whole screen's pages, under its sky (a page screen lists its own
-        // at the top)
-        if (!(pk.only && pk.only.keys.length)) this.skyPagesGroup(c, x, b);
+        this.bgPage(c, this.bgPlace(x, b, this.flatHere(b), '#/screens/' + encodeURIComponent(x.path) + '/sky'));
+      }
+      // ...and its Advanced: the same for every screen (Hemisphere, the sources, the Sky Switch)
+      s_skyAdvanced(c) {
+        c.appendChild(K.group({ footer: 'These are the same for every screen.' }, []));
+        this.h_skyAdvanced(c);
       }
       // A SCREEN'S SEASONAL DECORATIONS (phase 32, a page of their own): the switch, their style, and how lively they are -- each All Screens'
-      // until it is this screen's own, then with its way back
+      // until it is this screen's own (phase 33: a switch set back to All Screens' follows it again; a menu's first choice)
       s_skyDecor(c, x, b) {
         var self = this, sky = this.data.settings.sky, rows = [], base = '#/screens/' + encodeURIComponent(x.path);
         var own = b.sky_decorations != null, house = sky.decorations !== false;
-        rows.push(K.toggle({ label: 'Seasonal Decorations', sk: 'b:sky_decorations', on: own ? b.sky_decorations : house, sub: own ? 'Just This Screen' : null,
-          onChange: function (v) { self.setB(x.path, { sky_decorations: v }); } }));
-        if (own) rows.push(K.button({ label: 'Reset to All Screens (' + (house ? 'On' : 'Off') + ')', sk: 'b:sky_decorations:reset',
-          onClick: function () { self.setB(x.path, { sky_decorations: null }); } }));
-        var dstyle = [['old', 'Old Decorations'], ['new', 'New Decorations']], dkey = 'sky_decoration_style', down = b[dkey] != null && b[dkey] !== '';
-        rows.push(K.seg({ label: 'Decoration Style', sub: down ? 'Just This Screen' : null, sk: 'b:' + dkey, stack: !this.hasAttribute('wide'),
-          value: down ? b[dkey] : (sky.decoration_style || 'old'), options: dstyle, onChange: function (v) { self.setB(x.path, { sky_decoration_style: v }); } }));
-        if (down) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(dstyle, sky.decoration_style || 'old') + ')', sk: 'b:' + dkey + ':reset',
-          onClick: function () { self.setB(x.path, { sky_decoration_style: null }); } }));
+        rows.push(K.toggle({ label: 'Seasonal Decorations', sk: 'b:sky_decorations', on: own ? b.sky_decorations : house, sub: own ? 'Just This Screen' : 'Same as All Screens',
+          onChange: function (v) { self.setB(x.path, { sky_decorations: v === house ? null : v }); } }));
+        var dkey = 'sky_decoration_style', down = b[dkey] != null && b[dkey] !== '', dh = M.choiceLabel(DECOR_STYLES, sky.decoration_style || 'old');
+        rows.push(K.select({ label: 'Decoration Style', sub: down ? 'Just This Screen' : 'Same as All Screens', sk: 'b:' + dkey, value: down ? b[dkey] : '',
+          options: [['', 'Same as All Screens (' + dh + ')', dh]].concat(DECOR_STYLES), onChange: function (v) { self.setB(x.path, { sky_decoration_style: v || null }); } }));
         // LIVELINESS, this screen's own (2026-10-09), as All Screens' is: one
         // preset for every occasion, or Custom -- each occasion its own (Each
         // Occasion). Only while anything moves here.
         var moves = b.sky_animations != null ? b.sky_animations : sky.animations !== false;
         if (moves) {
           var hAll = sky.liveliness_all || 'classic';
-          rows.push(K.select({ label: 'Liveliness', sub: b.sky_liveliness ? 'Just This Screen' : null, sk: 'b:sky_liveliness',
+          rows.push(K.select({ label: 'Liveliness', sub: b.sky_liveliness ? 'Just This Screen' : 'Same as All Screens', sk: 'b:sky_liveliness',
             value: b.sky_liveliness || '',
             options: [['', 'Same as All Screens (' + M.livelyPresetLabel(hAll) + ')', M.livelyPresetLabel(hAll)]].concat(M.LIVELY_ALL),
             onChange: function (v) {
@@ -203,176 +74,20 @@
           }
           // only where the screen's room can tell it is empty
           if (b.idle_room && M.roomSensors(this.client, b.idle_room).length) {
-            rows.push(K.toggle({ label: 'Calm When Nobody\u2019s Around', sub: 'Half as much moving while ' + this.areaName(b.idle_room) +
+            rows.push(K.toggle({ label: 'Calm When Nobody’s Around', sub: 'Half as much moving while ' + this.areaName(b.idle_room) +
                 ' has been empty for 5 minutes', sk: 'b:sky_calm_empty', on: !!b.sky_calm_empty,
               onChange: function (v) { self.setB(x.path, { sky_calm_empty: v }); } }));
           }
         }
         c.appendChild(K.group({ footer: 'This screen follows All Screens until you change a setting here. Decorations use the dates and themes for All Screens.' }, rows));
       }
-      s_backdrop(c, x, b) {
-        var self = this, sky = this.data.settings.sky;
-        var back = '#/screens/' + encodeURIComponent(x.path) + '/sky';
-        // A PAGE SCREEN: its backdrop is its pages' -- each one's, here, and
-        // nothing else (it has no Home or room page for a general backdrop)
-        var pk = this.skyPageKeys(b);
-        if (pk.only && pk.only.keys.length) { this.pageBackdrops(c, x, b, pk); return; }
-        c.appendChild(K.group({ footer: 'Follows the backdrop and custom colors for All Screens as they change.' }, [
-          K.check({ label: 'Same as All Screens', sub: 'Now ' + this.backdropLabel(sky.gradient), on: b.sky_gradient == null,
-            fk: 'bbackdrop:house', onClick: function () { self.setB(x.path, M.backdropFollow(b)); self.back(back); } })]));
-        var pick = function (id) {
-          var changes = { sky_gradient: id };
-          if (id === 'custom' && !b.sky_custom) {
-            var dusk = self.data.choices.sky_backdrops.filter(function (p) { return p.id === 'dusk'; })[0];
-            var start = sky.gradient_custom || dusk;
-            changes.sky_custom = { day: start.day.slice(), night: start.night.slice() };
-          }
-          self.setB(x.path, changes);
-          if (id !== 'custom') self.back(back);
-        };
-        c.appendChild(K.group({ header: 'The Sky — Just This Screen', footer: 'The live sky’s colors on Home, the room pages, Weather and Calendar, with its weather and decorations over it.' },
-          this.backdropRows(b.sky_gradient, b.sky_custom || sky.gradient_custom, pick, 'bbackdrop:')));
-        // A following screen has no selected own row, including Live.
-        if (b.sky_gradient === 'custom') this.customBackdrop(c, b.sky_custom || sky.gradient_custom, 'b:sky_custom:' + x.path, function (v) {
-          self.setB(x.path, { sky_custom: v });
-        });
-      }
       // A PAGE SCREEN'S BACKDROP: for each of its pages, Same as All Screens,
-      // its own Page Color, the live sky or a fixed backdrop -- one list, the
-      // page's name over it
+      // its own sky, the live sky or a fixed backdrop -- one list, the page's
+      // name over it
       pageBackdrops(c, x, b, pk) {
-        var self = this;
-        pk.rows.forEach(function (r) { self.pagePicker(c, x, b, r, pk.rows.length === 1); });
+        var self = this, o = this.bgPlace(x, b, this.flatHere(b), '#/screens/' + encodeURIComponent(x.path) + '/sky');
+        pk.rows.forEach(function (r) { self.bgPagePicker(c, o, r, pk.rows.length === 1); });
         this.skyResetGroup(c, x, b);
-      }
-      // ONE PAGE'S BACKGROUND (2026-10-13: the Background's choices, page by
-      // page): Automatic (All Screens) or Same as All Screens (a screen), its
-      // own Page Color, the Live Sky, a still Color or a Photo -- for All
-      // Screens (x, b null) or one screen. Stored as before ({page: 'own' |
-      // 'live' | a color id | 'photo'}); a page's own photo in page_photos.
-      // `alone`: the screen's only page (its background is the screen's).
-      pagePicker(c, x, b, r, alone) {
-        var self = this, sky = this.data.settings.sky, all = sky.pages || {};
-        var bds = (this.data.choices || {}).sky_backdrops || [];
-        var mine = b ? (b.sky_pages || {}) : all;
-        var photos = b ? (b.sky_page_photos || {}) : (sky.page_photos || {});
-        var custom = b ? (b.sky_custom || sky.gradient_custom) : sky.gradient_custom;
-        var cur = mine[r.key] || '';
-        var isColor = cur && cur !== 'own' && cur !== 'live' && cur !== 'photo' && cur !== 'landscapes' && cur !== 'wallpaper';
-        var put = function (ch) {
-          if (b) { ch.sky = true; return self.setB(x.path, ch); }
-          var hc = {};
-          Object.keys(ch).forEach(function (k) { hc['sky.' + { sky_pages: 'pages', sky_page_photos: 'page_photos', sky_page_looks: 'page_looks', sky_custom: 'gradient_custom' }[k]] = ch[k]; });
-          return self.setH(hc);
-        };
-        var pick = function (id) {
-          var next = Object.assign({}, mine);
-          if (id) next[r.key] = id; else delete next[r.key];
-          var ch = { sky_pages: next };
-          if (id === 'custom' && !(b ? b.sky_custom : sky.gradient_custom)) ch.sky_custom = sky.gradient_custom || self.dusk();
-          put(ch);
-        };
-        // the color a page set to Color starts with: the screen's, else All Screens'
-        var startColor = (b && b.sky_color) || sky.color || 'midnight';
-        // a room's page follows Room Pages (All Screens' choice for the room
-        // first, on a screen)
-        var roomsNow = (b && (b.sky_pages || {}).rooms) || all.rooms;
-        var first = b && all[r.key] ? ['Same as All Screens', 'Now ' + M.skyModeLabel(all[r.key], bds)]
-                  : r.room ? ['Same as Room Pages', 'Now ' + (roomsNow ? M.skyModeLabel(roomsNow, bds) : 'the screen’s Background')]
-                  : ['Automatic', r.own ? 'Its own color' : r.custom ? 'As written' : 'The screen’s Background'];
-        var rows = [K.check({ label: first[0], sub: first[1], on: !cur, fk: 'pbd:' + r.key + ':auto', onClick: function () { pick(''); } })];
-        if (r.own) rows.push(K.check({ label: 'Page Color', sub: 'The page’s own color', on: cur === 'own', fk: 'pbd:' + r.key + ':own',
-                                       tile: ['mdi:palette-swatch', C.green], onClick: function () { pick('own'); } }));
-        rows.push(K.check({ label: 'Live Sky', sub: 'The moving sky, with ' + (b ? 'this screen’s' : 'All Screens’') + ' weather and decorations', on: cur === 'live',
-                            fk: 'pbd:' + r.key + ':live', tile: ['mdi:weather-sunset', C.blue], onClick: function () { pick('live'); } }));
-        rows.push(K.check({ label: 'Color', sub: isColor ? M.skyModeLabel(cur, bds) : 'A still color', on: isColor, fk: 'pbd:' + r.key + ':color',
-                            tile: ['mdi:palette', C.purple], onClick: function () { if (!isColor) pick(startColor); } }));
-        rows.push(K.check({ label: 'Photo', sub: photos[r.key] ? 'Its own photo' : 'A photo, still', on: cur === 'photo', fk: 'pbd:' + r.key + ':photo',
-                            tile: ['mdi:image', C.orange], onClick: function () { pick('photo'); } }));
-        rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
-                            fk: 'pbd:' + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
-        // (2026-10-30) the screen's Wallpaper
-        var wn = window.hkWallpapers, wid = (b && b.sky_wallpaper) || sky.wallpaper || 'ribbons', wcol = (b && b.sky_wallpaper_color) || sky.wallpaper_color;
-        rows.push(K.check({ label: 'Wallpaper', sub: 'Our own art, as ' + (b ? 'the screen' : 'All Screens') + ' has it', on: cur === 'wallpaper',
-                            fk: 'pbd:' + r.key + ':wallpaper', tile: ['mdi:wallpaper', wn ? 'center / cover url("' + wn.url(wid, false, wcol) + '")' : C.purple],
-                            onClick: function () { pick('wallpaper'); } }));
-        c.appendChild(K.group({ header: alone === false ? r.label : null, footer: (alone ? r.label + ' is this screen’s only page, so its background is the screen’s. ' : '') +
-          'Page Color, Color, Photo, Landscapes and Wallpaper are still: no sun, moon, stars, weather or decorations.' }, rows));
-        if (isColor) {
-          this.colorGroup(c, { id: cur, custom: custom, fk: 'pbd:' + r.key + ':',
-            onPick: function (id) { pick(id); },
-            onCustom: function (v) { put({ sky_custom: v }); }, scope: b ? 'b:sky_custom:' + x.path : 'sky.gradient_custom' });
-        }
-        if (cur === 'photo') {
-          var lvl = (r.room && photos.rooms) || (b ? (b.sky_photo || sky.photo) : sky.photo);
-          this.photoGroup(c, { url: photos[r.key] || null, from: lvl || null,
-            fromLabel: r.room && photos.rooms ? 'Room Pages’ photo' : b ? 'the screen’s photo' : 'All Screens’ photo',
-            fk: 'pphoto:' + r.key, sk: b ? 'b:sky_page_photos' : 'sky.page_photos', header: 'Its Photo',
-            footer: 'Without a photo of its own, the page shows ' + (r.room ? 'Room Pages’ photo, else ' : '') + (b ? 'the screen’s' : 'All Screens’') + ' Background photo.',
-            onSet: function (url) {
-              var was = photos[r.key], next = Object.assign({}, photos);
-              if (url) next[r.key] = url; else delete next[r.key];
-              put({ sky_page_photos: next }).then(function (ok) { if (ok) self.photoForget(was); });
-            } });
-          // ITS LOOK (2026-10-13): its own, else (a room) Room Pages', else the
-          // screen's -- each a page apart, a photo of the room its own blur
-          var looks = b ? (b.sky_page_looks || {}) : (sky.page_looks || {});
-          var lvlLook = b ? (b.sky_photo_look || sky.photo_look) : sky.photo_look;
-          var inLook = (r.room && looks.rooms) || lvlLook;
-          this.photoLookGroup(c, { look: looks[r.key] || inLook, own: !!looks[r.key], sk: (b ? 'b:sky_page_looks:' : 'sky.page_looks:') + r.key,
-            follow: r.room && looks.rooms ? 'Room Pages’ Look' : b ? 'the Screen’s Look' : 'All Screens’ Look',
-            onSet: function (v) {
-              var next = Object.assign({}, looks);
-              if (v) next[r.key] = v; else delete next[r.key];
-              put({ sky_page_looks: next });
-            } });
-        }
-        // LANDSCAPES on a page: the screen's landscape (which one is the
-        // Background's choice), with a Look of its own -- else the screen's
-        // landscape look
-        if (cur === 'landscapes') {
-          var llooks = b ? (b.sky_page_looks || {}) : (sky.page_looks || {});
-          var landLook = b ? (b.sky_landscape_look || sky.landscape_look) : sky.landscape_look;
-          this.photoLookGroup(c, { look: llooks[r.key] || (r.room && llooks.rooms) || landLook, own: !!llooks[r.key],
-            sk: (b ? 'b:sky_page_looks:' : 'sky.page_looks:') + r.key,
-            follow: r.room && llooks.rooms ? 'Room Pages’ Look' : b ? 'the Screen’s Look' : 'All Screens’ Look',
-            onSet: function (v) {
-              var next = Object.assign({}, llooks);
-              if (v) next[r.key] = v; else delete next[r.key];
-              put({ sky_page_looks: next });
-            } });
-        }
-        // ROOM PAGES: each room's own, a tap away (also in its Room Settings)
-        if (r.key === 'rooms') {
-          var base = b ? '#/screens/' + encodeURIComponent(x.path) + '/sky/page/' : '#/house/appearance/sky/page/';
-          var rrows = this.areasAZ().map(function (aid) {
-            var k = self.roomKey(aid);
-            if (!k) return null;
-            var n = self.skyPageNow({ key: k, room: true }, b);
-            return K.nav({ label: self.areaName(aid), icon: ((self.client.areas || {})[aid] || {}).icon || 'mdi:texture-box',
-                           value: n.own ? M.skyModeLabel(n.mode, bds) : 'Same as Room Pages', href: base + encodeURIComponent(k), sk: (b ? 'b:sky_pages:' : 'sky.pages:') + k });
-          }).filter(Boolean);
-          if (rrows.length) c.appendChild(K.group({ header: 'Each Room', footer: 'A room left alone is the same as Room Pages. A photo of the room itself, say, behind its page.' }, rrows));
-        }
-      }
-      // THE PAGES, under Sky / Background: each page and its background, a
-      // tap away -- where people look for it, not inside the sky's Backdrop
-      skyPagesGroup(c, x, b, header) {
-        var self = this, bds = (this.data.choices || {}).sky_backdrops || [];
-        var pk = this.skyPageKeys(b);
-        var base = b ? '#/screens/' + encodeURIComponent(x.path) + '/sky/page/' : '#/house/appearance/sky/page/';
-        // ALL SCREENS': a page under Pages has its background there (its Look),
-        // since 2026-10-16 -- here are the rest: Room Pages, custom pages
-        var rows = b ? pk.rows : pk.rows.filter(function (r) { return !M.pageOf(r.key); });
-        if (!rows.length) return;
-        c.appendChild(K.group({ header: header || 'Pages', sk: b ? 'b:sky_pages' : 'sky.pages',
-          footer: 'Each page’s background: Automatic (its own color, or the Background above), the Live Sky, a still Color, or a Photo.' +
-            (b ? ' A page left alone follows All Screens.' : ' Each screen can choose its own. Climate, Lights and the other pages have theirs under Pages.') },
-          rows.map(function (r) {
-            var n = self.skyPageNow(r, b);
-            return K.nav({ label: r.label, sub: r.custom ? 'Custom page' : null, value: n.mode ? M.skyModeLabel(n.mode, bds) : M.skyAutoLabel(r),
-                           href: base + encodeURIComponent(r.key), sk: (b ? 'b:sky_pages:' : 'sky.pages:') + r.key });
-          })));
       }
       // FLAT'S BACKGROUNDS (2026-10-16; settings.py FLAT_BACKGROUNDS). Flat
       // draws no live sky, so while a screen wears it, Sky / Background is
@@ -398,7 +113,7 @@
         return p ? (theme === 'light' && p.light_label) || p.label : id;
       }
       flatModeLabel(mode, theme) {
-        return mode === 'photo' ? 'Photo' : mode === 'landscapes' ? 'Landscapes' : this.flatColorLabel(mode, theme);
+        return mode === 'photo' || mode === 'landscapes' || mode === 'live' || mode === 'wallpaper' ? M.BG_LABELS[mode] : this.flatColorLabel(mode, theme);
       }
       // a page's Flat background now: {mode (its own, else All Screens'), own}
       flatPageNow(row, b) {
@@ -430,9 +145,600 @@
           return self.setH(o);
         };
       }
+      // THE BACKGROUND, ONE SHAPE IN EVERY STYLE (phase 33, decision 7; the owner: "keep all background styles available
+      // for all modes, including flat. Let the user decide here"). Every Background page -- All Screens', a screen's,
+      // in the glass looks or in Flat -- is drawn from a PLACE: {x, b (a screen's; null All Screens'), flat (Flat's
+      // own store: sky.flat_background, a screen's sky_flat_background, the pages' sky_flat_pages -- each style keeps
+      // its own choice, so a house that set one background for Glass and another for Flat keeps both), base (the
+      // page's address), mode (what it shows), ownMode (a screen's own, else null), sk(k), put(changes), whose(own)}
+      bgPlace(x, b, flat, base) {
+        var self = this, sky = this.data.settings.sky || {};
+        var o = { x: x, b: b, flat: !!flat, base: base, title: 'Background' };
+        o.modeKey = flat ? 'sky_flat_background' : 'sky_background';
+        // a screen whose Live Sky was turned off (b.sky false) reads as Color: Black -- what it showed (the glass looks)
+        o.legacyOff = !flat && !!b && b.sky === false;
+        o.houseMode = (flat ? sky.flat_background || 'color' : sky.background) || 'live';
+        o.ownMode = b ? (o.legacyOff ? 'color' : b[o.modeKey] || null) : null;
+        o.mode = o.ownMode || o.houseMode;
+        // a board's key (sky_*) as it is stored here: the screen's own, or All Screens' sky.*
+        o.sk = function (k) { return b ? 'b:' + k : 'sky.' + (k === 'sky_custom' ? 'gradient_custom' : k.replace(/^sky_/, '')); };
+        o.put = function (ch) {
+          if (b) return self.setB(x.path, ch);
+          var hc = {};
+          Object.keys(ch).forEach(function (k) { if (k !== 'sky') hc[o.sk(k)] = ch[k]; });
+          return self.setH(hc);
+        };
+        // WHOSE A VALUE IS, a screen's row subtitle (phase 33: the one idiom)
+        o.whose = function (own) { return b ? (own ? 'Just This Screen' : 'Same as All Screens') : null; };
+        return o;
+      }
+      // A BACKGROUND PAGE'S OWN ADDRESSES, the same under All Screens' and a screen's: the Colors (the live sky's,
+      // `backdrop`; a still Color's, `color`), Adjust Photo (`photo`), and each page's, with its own Colors and Adjust
+      // Photo. `mk(title, body, back)`; null for any other.
+      bgRoute(sub, o, mk) {
+        var self = this, back = [o.title, o.base];
+        if (sub[0] === 'backdrop' || sub[0] === 'color') return mk('Colors', function (c) { self.bgColors(c, o, sub[0] === 'backdrop' ? 'live' : 'still', null); }, back);
+        if (sub[0] === 'photo') return mk('Adjust Photo', function (c) { self.adjustPhoto(c, o, null); }, back);
+        if (sub[0] !== 'page' || !sub[1]) return null;
+        var key = decodeURIComponent(sub[1]), row = this.skyRow(key, o.b), page = o.base + '/page/' + encodeURIComponent(key);
+        var pageBack = [row ? row.label : 'Page', page];
+        if (sub[2] === 'color') return mk('Colors', function (c) { if (row) self.bgColors(c, o, 'still', row); }, pageBack);
+        if (sub[2] === 'photo') return mk('Adjust Photo', function (c) { if (row) self.adjustPhoto(c, o, row); }, pageBack);
+        return mk(row ? row.label : 'Page', function (c) {
+          if (row) self.bgPagePicker(c, o, row);
+          else c.appendChild(K.group({ footer: 'This page isn’t on ' + (o.b ? 'this screen' : 'any screen') + ', so it has no background to choose.' }, []));
+        }, row && row.room && key !== 'rooms' ? ['Room Pages', o.base + '/page/rooms'] : back);
+      }
+      // THE PAGE: the five backgrounds, each with a picture; the chosen one's own settings; every page's background (at
+      // both levels: every page and Rooms); Advanced; Reset Background...
+      bgPage(c, o) {
+        var self = this, sky = this.data.settings.sky || {}, b = o.b, x = o.x;
+        var pk = this.skyPageKeys(b);
+        if (b && pk.only && pk.only.keys.length) { this.bgPageScreen(c, o, pk); return; }
+        var mode = o.mode, wall = (b && b.sky_wallpaper) || sky.wallpaper, wcol = (b && b.sky_wallpaper_color) || sky.wallpaper_color;
+        var ground = this.flatTheme(b) === 'light' ? '#ECEAE5' : '#24252A';
+        var rows = [K.previewPick({ label: 'Background', sub: o.whose(!!o.ownMode), sk: o.sk(o.modeKey), value: mode, options: M.SKY_BACKGROUNDS,
+          // (Flat's Color: one solid color, its theme's ground)
+          picture: function (v, w, ht) { return o.flat && v === 'color' ? self.bgKindThumb('solid', w, ht, null, ground) : self.bgKindThumb(v, w, ht, wall, null, wcol); },
+          onChange: function (v) {
+            var ch = {};
+            ch[o.modeKey] = v;
+            if (!o.flat) { ch.sky = true; if (o.legacyOff && v === 'color' && !b.sky_color) ch.sky_color = 'black'; }
+            o.put(ch);
+          } })];
+        // (a Color: which one, on the Colors page)
+        if (mode === 'color') rows.push(this.bgColorNav(o));
+        var says = o.flat ? { color: 'A solid color behind the cards, in its Light or Dark tone.', photo: 'A photo of your own, still, faded behind the cards.',
+                              landscapes: 'One of ' + PN() + '’s landscape photos, still, faded behind the cards.' } : {};
+        var foot = [says[mode] || M.BG_SAYS[mode]];
+        if (!b) foot.push('Each screen, and each page, can choose its own.');
+        if (o.legacyOff) foot.push('This screen’s Live Sky was turned off, so it shows Black.');
+        var skySw = (this.data.settings.look || {}).sky_switch;
+        if (b && mode === 'live' && x.generated && skySw) foot.push('It also follows ' + this.name(skySw) + ' (Advanced → Sky Switch).');
+        if (b && !x.generated) foot.push('A screen written in YAML shows it wherever its YAML puts the sky.');
+        c.appendChild(K.group({ footer: foot.join(' ') }, rows));
+        if (mode === 'live') this.liveSkyGroups(c, o);
+        else if (mode === 'photo') this.bgPhotoGroup(c, o);
+        else if (mode === 'landscapes') this.bgLandscapeGroup(c, o);
+        else if (mode === 'wallpaper') this.bgWallpaperGroup(c, o);
+        this.bgPagesGroup(c, o, pk, 'Pages');
+        this.bgEnd(c, o);
+      }
+      // A PAGE SCREEN (no Home page): its pages' backgrounds first, then the Live Sky's settings while any of them shows it
+      bgPageScreen(c, o, pk) {
+        var self = this, now = pk.rows.map(function (r) { return { r: r, n: self.bgPageNow(o, r) }; });
+        var live = now.filter(function (e) { return e.n.mode === 'live' || (!e.n.mode && (o.flat ? !FLAT_OWN[e.r.key] && o.mode === 'live' : e.n.live)); });
+        this.bgPagesGroup(c, o, pk, 'This Screen’s Pages', live.length
+          ? 'The Live Sky settings below reach ' + live.map(function (e) { return e.r.label; }).join(' and ') + '.' + (live.length < now.length ? ' The rest keep their own background.' : '')
+          : 'This screen has no Home page. Each page’s background is chosen here.');
+        if (live.length) this.liveSkyGroups(c, o);
+        this.bgEnd(c, o);
+      }
+      // THE BACKGROUND'S COLOR, a tap away (the Colors page): the glass looks' still colors, Flat's tones
+      bgColorNav(o) {
+        var sky = this.data.settings.sky || {}, b = o.b, own, value;
+        if (o.flat) { own = b ? b.sky_flat_color : null; value = this.flatColorLabel(own || sky.flat_color || 'auto', this.flatTheme(b)); }
+        else { own = b ? (o.legacyOff ? b.sky_color || 'black' : b.sky_color) : null; value = this.backdropLabel(own || sky.color || 'midnight'); }
+        return K.nav({ label: 'Color', value: value, sub: o.whose(!!own), href: o.base + '/color', sk: o.sk(o.flat ? 'sky_flat_color' : 'sky_color') });
+      }
+      bgPhotoGroup(c, o) {
+        var self = this, sky = this.data.settings.sky || {}, b = o.b, x = o.x, extra = [this.adjustPhotoNav(o, null)];
+        var says = 'Shown on Home, the room pages, and every page without a background of its own.';
+        this.photoGroup(c, b ? { url: b.sky_photo || null, from: sky.photo || null, fromLabel: 'All Screens’ photo', fk: 'bphoto', sk: 'b:sky_photo', footer: says, extra: extra,
+                                 onSet: function (url) {
+                                   var was = b.sky_photo, ch = { sky_photo: url };
+                                   if (!o.flat) ch.sky = true;
+                                   self.setB(x.path, ch).then(function (ok) { if (ok) self.photoForget(was); });
+                                 } }
+                             : { url: sky.photo || null, fk: 'hphoto', sk: 'sky.photo', footer: says + ' Each screen can use a photo of its own.', extra: extra,
+                                 onSet: function (url) { var was = sky.photo; self.setH({ 'sky.photo': url }).then(function (ok) { if (ok) self.photoForget(was); }); } });
+      }
+      bgLandscapeGroup(c, o) {
+        var sky = this.data.settings.sky || {}, b = o.b, extra = [this.adjustPhotoNav(o, null)];
+        var says = 'Shown on Home, the room pages, and every page without a background of its own.';
+        this.landscapeGroup(c, b ? { value: b.sky_landscape || null, house: sky.landscape || 'every:1440', fk: 'bland', sk: 'b:sky_landscape', href: o.base + '/landscape',
+                                     footer: says, extra: extra, onSet: function (v) { var ch = { sky_landscape: v }; if (!o.flat) ch.sky = true; o.put(ch); } }
+                                 : { value: sky.landscape || 'every:1440', fk: 'hland', sk: 'sky.landscape', href: '#/house/appearance/sky/landscape',
+                                     footer: says + ' Each screen can choose its own.', extra: extra, onSet: function (v) { o.put({ sky_landscape: v }); } });
+      }
+      bgWallpaperGroup(c, o) {
+        var sky = this.data.settings.sky || {}, b = o.b, says = 'Shown on Home, the room pages, and every page without a background of its own.';
+        var put = function (ch) { if (b && !o.flat) ch.sky = true; return o.put(ch); };
+        this.wallpaperGroup(c, b ? { value: b.sky_wallpaper || null, house: sky.wallpaper || 'ribbons', night: b.sky_wallpaper_night || null,
+                                     nightHouse: sky.wallpaper_night || 'auto', fk: 'bwall', sk: 'b:sky_wallpaper',
+                                     motion: b.sky_wallpaper_motion || null, motionHouse: sky.wallpaper_motion || 'off',
+                                     color: b.sky_wallpaper_color || null, colorHouse: sky.wallpaper_color || 'blue', footer: says,
+                                     onMotion: function (v) { o.put({ sky_wallpaper_motion: v }); }, onColor: function (v) { o.put({ sky_wallpaper_color: v }); },
+                                     onSet: function (v, motion) { var ch = { sky_wallpaper: v }; if (motion) ch.sky_wallpaper_motion = motion; put(ch); },
+                                     onNight: function (v) { o.put({ sky_wallpaper_night: v }); } }
+                                 : { value: sky.wallpaper || 'ribbons', night: sky.wallpaper_night || 'auto', fk: 'hwall', sk: 'sky.wallpaper',
+                                     footer: says + ' Each screen can choose its own.',
+                                     motion: sky.wallpaper_motion || 'off', onMotion: function (v) { o.put({ sky_wallpaper_motion: v }); },
+                                     color: sky.wallpaper_color || 'blue', onColor: function (v) { o.put({ sky_wallpaper_color: v }); },
+                                     onSet: function (v, motion) { var ch = { sky_wallpaper: v }; if (motion) ch.sky_wallpaper_motion = motion; put(ch); },
+                                     onNight: function (v) { o.put({ sky_wallpaper_night: v }); } });
+      }
+      // THE LIVE SKY'S SETTINGS, the same rows at both levels (phase 33: menus where a screen's had segments, the same
+      // subtitles). On a screen each row says whose it is; a switch set back to All Screens' value follows it again, a
+      // menu's first choice is "Same as All Screens (Classic)".
+      liveSkyGroups(c, o) {
+        var sky = this.data.settings.sky || {}, b = o.b, rows = [];
+        var says = function (own, text) { return b ? o.whose(own) + ' · ' + text : text; };
+        var isOn = function (name) { var k = 'sky_' + name; return b && b[k] != null ? b[k] : sky[name] !== false; };
+        var toggle = function (name, label, text) {
+          var k = 'sky_' + name, own = !!b && b[k] != null, house = sky[name] !== false;
+          rows.push(K.toggle({ label: label, sub: says(own, text), sk: o.sk(k), on: own ? b[k] : house,
+            onChange: function (v) { var ch = {}; ch[k] = b && v === house ? null : v; o.put(ch); } }));
+        };
+        var menu = function (name, label, text, opts, dflt) {
+          var k = 'sky_' + name, own = !!b && b[k] != null && b[k] !== '', house = sky[name] || dflt, hl = M.choiceLabel(opts, house);
+          rows.push(K.select({ label: label, sub: says(own, text), sk: o.sk(k), value: b ? (own ? b[k] : '') : house,
+            options: (b ? [['', 'Same as All Screens (' + hl + ')', hl]] : []).concat(opts),
+            onChange: function (v) { var ch = {}; ch[k] = v || null; o.put(ch); } }));
+        };
+        // Pause When Not in Focus and Moving Things only while anything moves, Rain & Snow only while there is weather
+        // to fall (2026-10-10)
+        var moving = isOn('animations');
+        toggle('animations', 'Animations', 'Drifting clouds, falling rain and snow, the seasons');
+        if (moving) {
+          toggle('focus_pause', 'Pause When Not in Focus', 'On a computer, while another window is in front');
+          menu('moving', 'Moving Things', 'Rain, snow, leaves, birds and confetti', M.SKY_MOVING, 'behind');
+        }
+        toggle('weather', 'Weather', 'Clouds, rain, snow and fog');
+        if (isOn('weather')) toggle('precipitation', 'Rain & Snow', moving ? 'Off, the clouds and fog still move' : 'Not shown while Animations are off');
+        menu('cloud_style', 'Clouds', 'Classic haze or photographic clouds', M.CLOUD_STYLES, 'classic');
+        menu('daytime', 'Daytime Sky', 'How bright the daytime blue runs', M.DAYTIME_SKIES, 'natural');
+        var gOwn = !!b && b.sky_gradient != null;
+        rows.push(K.nav({ label: 'Colors', sub: says(gOwn, 'The live sky’s own colors'), sk: o.sk('sky_gradient'), href: o.base + '/backdrop',
+                          value: this.backdropLabel(gOwn ? b.sky_gradient : sky.gradient) }));
+        var dOwn = !!b && b.sky_decorations != null, decOn = dOwn ? b.sky_decorations : sky.decorations !== false;
+        rows.push(K.nav({ label: 'Seasonal Decorations', sub: says(dOwn, 'Holidays, seasons and occasions'), sk: o.sk('sky_decorations'),
+                          href: (b ? o.base : '#/house/appearance/sky') + '/decorations', value: decOn ? (sky.themes || []).length + ' On' : 'Off' }));
+        c.appendChild(K.group({ header: 'Live Sky', footer: 'Animations off also stops a running fan’s icon spinning and hides falling rain and snow.' +
+          (b ? ' This screen follows All Screens until you change a setting here.' : ' Each screen can choose its own.') }, rows));
+      }
+      // A PAGE'S BACKGROUND NOW, in this place's style: {mode (its own, else All Screens'), own, live, label}
+      bgPageNow(o, r) {
+        if (o.flat) {
+          var f = this.flatPageNow(r, o.b);
+          return { mode: f.mode, own: f.own, live: f.mode === 'live', label: f.mode ? this.flatModeLabel(f.mode, this.flatTheme(o.b)) : this.flatAutoLabel(r) };
+        }
+        var n = this.skyPageNow(r, o.b);
+        return { mode: n.mode, own: n.own, live: n.live, label: n.mode ? M.skyModeLabel(n.mode, (this.data.choices || {}).sky_backdrops || []) : M.skyAutoLabel(r) };
+      }
+      // EVERY PAGE AND ROOMS, at both levels (phase 33: All Screens' listed Timeline and Room Pages alone)
+      bgPagesGroup(c, o, pk, header, footer) {
+        var self = this, b = o.b, sk = o.sk(o.flat ? 'sky_flat_pages' : 'sky_pages');
+        if (!pk.rows.length) return;
+        c.appendChild(K.group({ header: header, sk: sk, footer: footer || 'Each page’s background: Automatic (' + (o.flat ? 'its own tone' : 'its own sky') +
+            ', or the Background above), or one of its own.' + (b ? ' A page left alone follows All Screens.' : ' Each screen can choose its own.') },
+          pk.rows.map(function (r) {
+            var n = self.bgPageNow(o, r);
+            var sub = [r.custom ? 'Custom page' : null, b ? o.whose(n.own) : null].filter(Boolean).join(' · ') || null;
+            return K.nav({ label: r.label, sub: sub, value: n.label, href: o.base + '/page/' + encodeURIComponent(r.key), sk: sk + ':' + r.key });
+          })));
+      }
+      // THE PAGE'S LAST ROWS: (All Screens) the other style's own Background, which a screen wearing it follows;
+      // Advanced; Reset Background...
+      bgEnd(c, o) {
+        var self = this, sky = this.data.settings.sky || {};
+        if (!o.b) {
+          var houseFlat = this.flatHere(null), boards = this.data.boards || {};
+          var others = o.flat !== houseFlat ? [] : Object.keys(boards).filter(function (p) { return boards[p] && self.flatHere(boards[p]) !== houseFlat; });
+          if (others.length) {
+            var names = others.map(function (p) { var d = self.dash(p); return d ? d.title : p; });
+            c.appendChild(K.group({ footer: names.join(', ') + (others.length > 1 ? ' wear ' : ' wears ') + (houseFlat ? 'a glass look' : 'Flat') +
+                ', which keeps a background of its own.' }, [
+              K.nav({ label: houseFlat ? 'For Screens Using Glass' : 'For Screens Using Flat', sk: houseFlat ? 'sky.background' : 'sky.flat_background',
+                      value: houseFlat ? M.BG_LABELS[sky.background || 'live'] : this.flatSummary(null), href: '#/house/appearance/sky/' + (houseFlat ? 'glass' : 'flat') })]));
+          }
+        }
+        c.appendChild(K.group({}, [K.nav({ label: 'Advanced', sub: 'Hemisphere, sources, the Sky Switch', href: o.base + '/advanced', fk: 'sky:advanced' })]));
+        this.skyResetGroup(c, o.x, o.b);
+      }
+      // COLORS (phase 33: Sky Colors and Background -> Color, one picker): the live sky's own colors (`live`: Live Sky
+      // first), the Background's still Color, or a page's (`r`) -- the same seventeen; Flat's Color its tones
+      bgColors(c, o, which, r) {
+        var self = this, sky = this.data.settings.sky || {}, b = o.b;
+        if (r) { this.bgPageColors(c, o, r); return; }
+        var custom = b ? (b.sky_custom || sky.gradient_custom) : sky.gradient_custom, scope = b ? 'b:sky_custom:' + o.x.path : 'sky.gradient_custom';
+        var startCustom = function (ch, id) { if (id === 'custom' && !(b ? b.sky_custom : sky.gradient_custom)) ch.sky_custom = sky.gradient_custom || self.dusk(); return ch; };
+        if (which === 'still' && o.flat) {
+          this.flatColorGroup(c, { id: b ? (b.sky_flat_color || null) : (sky.flat_color || 'auto'), follow: b ? ['Same as All Screens', sky.flat_color || 'auto'] : null,
+            auto: true, theme: this.flatTheme(b), fk: b ? 'bflat:' : 'hflat:', header: null, onPick: function (id) { o.put({ sky_flat_color: id }); } });
+          return;
+        }
+        if (which === 'still') {
+          this.colorGroup(c, { id: b ? (o.legacyOff ? b.sky_color || 'black' : b.sky_color || null) : sky.color || 'midnight',
+            follow: b ? ['Same as All Screens', sky.color || 'midnight'] : null, custom: custom, scope: scope, fk: b ? 'bcolor:' : 'hcolor:', header: null,
+            footer: 'A still color behind the cards, the top of the screen to the bottom: its day colors while the sun is up, its night ones after.',
+            onPick: function (id) {
+              var ch = startCustom({ sky_color: id }, id);
+              if (b) ch.sky = true;
+              if (o.legacyOff) ch.sky_background = 'color';
+              o.put(ch);
+            },
+            onCustom: function (v) { o.put({ sky_custom: v }); } });
+          return;
+        }
+        // (a page screen's live sky is its pages': each one's, here)
+        var pk = this.skyPageKeys(b);
+        if (b && pk.only && pk.only.keys.length) { this.pageBackdrops(c, o.x, b, pk); return; }
+        this.colorGroup(c, { live: true, id: b ? (b.sky_gradient == null ? null : b.sky_gradient) : sky.gradient || 'live',
+          follow: b ? ['Same as All Screens', sky.gradient || 'live'] : null, custom: custom, scope: scope, fk: b ? 'bbackdrop:' : 'hbackdrop:', header: null,
+          footer: 'The live sky’s colors on Home, the room pages, Weather and Calendar. Its weather, decorations and animations still show over it.' +
+            (b ? '' : ' Each screen can choose its own.'),
+          onPick: function (id) { o.put(b && id == null ? M.backdropFollow(b) : startCustom({ sky_gradient: id }, id)); },
+          onCustom: function (v) { o.put({ sky_custom: v }); } });
+      }
+      // EACH PAGE'S OWN, in this place's style: {mine (here), all (All Screens'), key, pick(page, id | '')}
+      bgPageMap(o) {
+        var self = this, sky = this.data.settings.sky || {}, b = o.b, key = o.flat ? 'sky_flat_pages' : 'sky_pages';
+        var all = (o.flat ? sky.flat_pages : sky.pages) || {}, mine = b ? b[key] || {} : all;
+        return { mine: mine, all: all, key: key, pick: function (k, id) {
+          var next = Object.assign({}, mine), ch = {};
+          if (id) next[k] = id; else delete next[k];
+          ch[key] = next;
+          if (!o.flat && id === 'custom' && !(b ? b.sky_custom : sky.gradient_custom)) ch.sky_custom = sky.gradient_custom || self.dusk();
+          if (b && !o.flat) ch.sky = true;
+          return o.put(ch);
+        } };
+      }
+      bgPageColors(c, o, r) {
+        var sky = this.data.settings.sky || {}, b = o.b, pm = this.bgPageMap(o), cur = pm.mine[r.key] || null;
+        var pick = function (id) { pm.pick(r.key, id); };
+        if (o.flat) { this.flatColorGroup(c, { id: cur, theme: this.flatTheme(b), fk: 'fpbd:' + r.key + ':', header: null, onPick: pick }); return; }
+        this.colorGroup(c, { id: cur, custom: b ? (b.sky_custom || sky.gradient_custom) : sky.gradient_custom, fk: 'pbd:' + r.key + ':', header: null,
+          scope: b ? 'b:sky_custom:' + o.x.path : 'sky.gradient_custom', onPick: pick, onCustom: function (v) { o.put({ sky_custom: v }); } });
+      }
+      // ONE PAGE'S BACKGROUND (2026-10-13; phase 33: the same choices in every style). What it follows first ("Same as
+      // All Screens (Photo)", "Same as Room Pages (Live Sky)") or Automatic, its own sky (the glass looks' pages that have
+      // one), then the five; under it, the chosen one's own: its Color, its Photo, Adjust Photo. Stored as before (the
+      // glass looks' {page: 'own' | 'live' | a color id | 'photo' | 'landscapes' | 'wallpaper'}, Flat's {page: 'auto' |
+      // a Flat color | ...}); a page's own photo in page_photos. `alone`: the screen's only page.
+      bgPagePicker(c, o, r, alone) {
+        var self = this, sky = this.data.settings.sky || {}, b = o.b, flat = o.flat, theme = this.flatTheme(b), bds = (this.data.choices || {}).sky_backdrops || [];
+        var pm = this.bgPageMap(o), all = pm.all, cur = pm.mine[r.key] || '', p = flat ? 'fpbd:' : 'pbd:';
+        var photos = b ? (b.sky_page_photos || {}) : (sky.page_photos || {}), page = o.base + '/page/' + encodeURIComponent(r.key);
+        var kinds = { own: 1, auto: 1, live: 1, photo: 1, landscapes: 1, wallpaper: 1 }, isColor = !!cur && !kinds[cur];
+        var pick = function (id) { pm.pick(r.key, id); };
+        var label = function (m) { return flat ? self.flatModeLabel(m, theme) : M.skyModeLabel(m, bds); };
+        var roomsNow = (b && pm.mine.rooms) || all.rooms;
+        var follow = b && all[r.key] ? 'Same as All Screens (' + label(all[r.key]) + ')'
+                   : r.room ? 'Same as Room Pages (' + (roomsNow ? label(roomsNow) : 'Automatic') + ')' : null;
+        var autoSays = !flat ? (r.own ? 'Its own sky' : r.custom ? 'As written' : 'The screen’s Background')
+          : FLAT_OWN[r.key] ? (M.PAGE_ACCENTS[r.key] ? 'A light or dark shade of its Accent Color (' + M.pageAccentOf(r.key, this.hs('look.page_accents')).a.name + ')'
+                                                     : 'Its own tone, in Light and Dark')
+          : 'The screen’s Background (' + this.flatSummary(b) + ')';
+        var rows = [];
+        if (follow) rows.push(K.check({ label: follow, on: !cur, fk: p + r.key + (flat ? ':follow' : ':auto'), onClick: function () { pick(''); } }));
+        // (Flat stores Automatic of its own, over what it follows; the glass looks' Automatic is what it follows)
+        if (!follow || flat) {
+          rows.push(K.check({ label: 'Automatic', sub: autoSays, on: follow ? cur === 'auto' : !cur || cur === 'auto', fk: p + r.key + ':auto',
+                              tile: flat ? ['mdi:auto-fix', C.green] : null, onClick: function () { pick(follow ? 'auto' : ''); } }));
+        }
+        if (!flat && r.own) rows.push(K.check({ label: 'Its Own Sky', sub: 'The page’s own colors', on: cur === 'own', fk: p + r.key + ':own',
+                                                tile: ['mdi:palette-swatch', C.green], onClick: function () { pick('own'); } }));
+        rows.push(K.check({ label: 'Live Sky', sub: 'The moving sky, with ' + (b ? 'this screen’s' : 'All Screens’') + ' weather and decorations', on: cur === 'live',
+                            fk: p + r.key + ':live', tile: ['mdi:weather-sunset', C.blue], onClick: function () { pick('live'); } }));
+        var startColor = flat ? (b && b.sky_flat_color && b.sky_flat_color !== 'auto' && b.sky_flat_color) || (sky.flat_color !== 'auto' && sky.flat_color) || 'stone'
+                              : (b && b.sky_color) || sky.color || 'midnight';
+        rows.push(K.check({ label: 'Color', sub: isColor ? label(cur) : flat ? 'A solid color' : 'A still color', on: isColor, fk: p + r.key + ':color',
+                            tile: ['mdi:palette', C.purple], onClick: function () { if (!isColor) pick(startColor); } }));
+        rows.push(K.check({ label: 'Photo', sub: photos[r.key] ? 'Its own photo' : 'A photo, still', on: cur === 'photo', fk: p + r.key + ':photo',
+                            tile: ['mdi:image', C.orange], onClick: function () { pick('photo'); } }));
+        rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
+                            fk: p + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
+        // (2026-10-30) the screen's Wallpaper
+        var wn = window.hkWallpapers, wid = (b && b.sky_wallpaper) || sky.wallpaper || 'ribbons', wcol = (b && b.sky_wallpaper_color) || sky.wallpaper_color;
+        rows.push(K.check({ label: 'Wallpaper', sub: 'Our own art, as ' + (b ? 'the screen' : 'All Screens') + ' has it', on: cur === 'wallpaper',
+                            fk: p + r.key + ':wallpaper', tile: ['mdi:wallpaper', wn ? 'center / cover url("' + wn.url(wid, false, wcol) + '")' : C.purple],
+                            onClick: function () { pick('wallpaper'); } }));
+        c.appendChild(K.group({ header: alone === false ? r.label : null, footer: (alone ? r.label + ' is this screen’s only page, so its background is the screen’s. ' : '') +
+          (!flat && r.own ? 'Its Own Sky, ' : '') + 'Color, Photo, Landscapes and Wallpaper are still: no sun, moon, stars, weather or decorations.' }, rows));
+        // ITS OWN: the Color, a tap away; its Photo; Adjust Photo wherever a photo or a landscape shows (in Flat, a page's
+        // own treatment reaches the screen's photo too)
+        var inherited = !cur ? (b && all[r.key]) || (r.room && roomsNow) || null : null;
+        var shows = cur && cur !== 'auto' ? cur : inherited && inherited !== 'auto' ? inherited : flat && FLAT_OWN[r.key] ? 'color' : flat ? o.mode : null;
+        if (isColor) c.appendChild(K.group({}, [K.nav({ label: 'Color', value: label(cur), href: page + '/color', sk: o.sk(pm.key) + ':' + r.key + ':color' })]));
+        if (cur === 'photo') {
+          var lvl = (r.room && photos.rooms) || (b ? (b.sky_photo || sky.photo) : sky.photo);
+          this.photoGroup(c, { url: photos[r.key] || null, from: lvl || null,
+            fromLabel: r.room && photos.rooms ? 'Room Pages’ photo' : b ? 'the screen’s photo' : 'All Screens’ photo',
+            fk: 'pphoto:' + r.key, sk: b ? 'b:sky_page_photos' : 'sky.page_photos', header: 'Its Photo', extra: [this.adjustPhotoNav(o, r)],
+            footer: 'Without a photo of its own, the page shows ' + (r.room ? 'Room Pages’ photo, else ' : '') + (b ? 'the screen’s' : 'All Screens’') + ' Background photo.',
+            onSet: function (url) {
+              var was = photos[r.key], next = Object.assign({}, photos);
+              if (url) next[r.key] = url; else delete next[r.key];
+              o.put({ sky_page_photos: next }).then(function (ok) { if (ok) self.photoForget(was); });
+            } });
+        } else if (cur === 'landscapes' || (flat && (shows === 'photo' || shows === 'landscapes'))) c.appendChild(K.group({}, [this.adjustPhotoNav(o, r)]));
+        // ITS FLAT COLORS, beside its background (the same page key)
+        if (flat) {
+          var fps = this.flatScope(b ? 'screen-page' : 'house-page', o.x, b, r.key);
+          c.appendChild(K.group({ footer: 'Its Accent Color shades an Automatic background here.' },
+            [this.flatColorsNav(fps, { inherited: b ? 'Same as This Screen' : 'Same as All Screens' })]));
+        }
+        // ROOM PAGES: each room's own, a tap away (also in its Room Settings)
+        if (r.key === 'rooms') {
+          var rrows = this.areasAZ().map(function (aid) {
+            var k = self.roomKey(aid);
+            if (!k) return null;
+            var n = self.bgPageNow(o, { key: k, room: true });
+            return K.nav({ label: self.areaName(aid), icon: ((self.client.areas || {})[aid] || {}).icon || 'mdi:texture-box',
+                           value: n.own ? n.label : 'Same as Room Pages', href: o.base + '/page/' + encodeURIComponent(k), sk: o.sk(pm.key) + ':' + k });
+          }).filter(Boolean);
+          if (rrows.length) c.appendChild(K.group({ header: 'Each Room', footer: 'A room left alone is the same as Room Pages. A photo of the room itself, say, behind its page.' }, rrows));
+        }
+      }
+      // ADJUST PHOTO's ROW, under a photo or a landscape: the starting point's name (Balanced, Off ...)
+      adjustPhotoNav(o, r) {
+        var I = window.hkFlatImage, sky = this.data.settings.sky || {}, b = o.b, value = null, own = false;
+        if (I) {
+          var keys = r ? (/^room-/.test(r.key) ? [r.key, 'rooms'] : [r.key]) : [];
+          value = this.photoStarts(o.flat)[I.preset(o.flat ? I.resolve(sky, b, keys).value : I.resolveGlass(sky, b).value)];
+        }
+        if (b && !r) {
+          var has = function (v) { return !!v && Object.keys(v).length > 0; };
+          own = o.flat ? has(b.sky_flat_image_look) || ['sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light'].some(function (k) { return b[k] != null; })
+                       : has(b.sky_image_look) || !!b[o.mode === 'landscapes' ? 'sky_landscape_look' : 'sky_photo_look'];
+        }
+        return K.nav({ label: 'Adjust Photo', value: value, sub: r ? null : o.whose(own),
+                       href: o.base + (r ? '/page/' + encodeURIComponent(r.key) : '') + '/photo', fk: 'sky:adjust' + (r ? ':' + r.key : '') });
+      }
+      // the starting points by name (hkFlatImage.preset's): 'legacy' is Flat's Previous Look, the glass looks' Off
+      photoStarts(flat) {
+        return { legacy: flat ? 'Previous Look' : 'Off', original: 'Original', soft: 'Soft', balanced: 'Balanced', rich: 'Rich', washed: 'Washed', custom: 'Custom' };
+      }
+      // ADJUST PHOTO (phase 33, decision 8; the owner: "it seems like we may lose functionality here? So please be
+      // cautious, to make sure that - especially for the image/photo presets, it is retained"). One page for a photo or
+      // a landscape -- the Background's (r null) or a page's own -- with every control its three treatments had, the
+      // same stored keys, nothing converted:
+      //   Starting Point -- Image Look's (Off, or Flat's Previous Look; Original, Soft, Balanced, Rich, Washed; Custom
+      //     once adjusted), each with its picture; first, on a screen or a page, what it follows
+      //   Adjust -- the starting point's own sliders (Strength, Depth, Brightness, Fade) over a live preview; under
+      //     Flat's Previous Look, its older Fade
+      //   Blur & Dim -- the glass looks' photo Look (photo_look / landscape_look / a page's page_looks)
+      //   Color -- the starting point's Color and Tint Color; the glass looks' Saturation, Color Tint and Tint Strength;
+      //     Flat's older Tint, Tint Color, Tint Strength and Tint Brightness while Previous Look is in use
+      // Image Look is Flat's (sky.flat_image_look, a screen's, a page's: hkFlatImage.resolve) or the glass looks'
+      // (sky.image_look, a screen's: resolveGlass -- the screen's for every photo on it, a page's too). Opening it
+      // writes nothing; a patch keeps the fields it doesn't name.
+      adjustPhoto(c, o, r) {
+        var self = this, I = window.hkFlatImage, sky = this.data.settings.sky || {}, b = o.b, x = o.x, glass = !o.flat;
+        if (!I) { c.appendChild(K.group({}, [K.info({ label: 'Loading…', value: '' })])); return; }
+        var key = r && !glass ? r.key : null, keys = key ? (/^room-/.test(key) ? [key, 'rooms'] : [key]) : [];
+        var resolved = glass ? I.resolveGlass(sky, b) : I.resolve(sky, b, keys), look = resolved.value;
+        var field = glass ? 'sky_image_look' : key ? 'sky_flat_page_image_looks.' + key : 'sky_flat_image_look';
+        var path = b ? field : 'sky.' + field.replace(/^sky_/, '');
+        var own = glass ? (b ? b.sky_image_look : sky.image_look) || {}
+                  : key ? ((b ? b.sky_flat_page_image_looks : sky.flat_page_image_looks) || {})[key] || {}
+                      : (b ? b.sky_flat_image_look : sky.flat_image_look) || {};
+        var patchPath = key ? path : path + '.patch';
+        var patch = function (value) { var ch = {}; ch[patchPath] = value; return b ? self.setB(x.path, ch) : self.setH(ch); };
+        var source = function (name) { return M.flatSourceLabel(resolved.from[name]) || 'Built-in Default'; };
+        // WHAT IT FOLLOWS (its "Same as ..."): the look resolved again without this place's own
+        var parent = null, follows = null;
+        if (b || key) {
+          var S2 = JSON.parse(JSON.stringify(sky)), B2 = b ? JSON.parse(JSON.stringify(b)) : null;
+          if (glass) B2.sky_image_look = {};
+          else if (key) delete ((b ? B2.sky_flat_page_image_looks : S2.flat_page_image_looks) || {})[key];
+          else B2.sky_flat_image_look = {};
+          var pr = glass ? I.resolveGlass(S2, B2) : I.resolve(S2, B2, keys);
+          parent = pr.value;
+          follows = M.flatSourceLabel(pr.from.mode) || (key && /^room-/.test(key) ? 'Room Pages' : 'All Screens');
+          if (follows === 'This Screen' && !b) follows = 'All Screens';
+        }
+        var labels = this.photoStarts(!glass), active = I.preset(look);
+        var notes = { legacy: glass ? 'The photo as it is, with Blur & Dim below.' : 'Your previous look: the Fade and Tint below.', original: 'Keep the photograph’s colors.',
+          soft: 'Quiet color and gentle shadows.', balanced: 'Clear scenery with a moderate tint.', rich: 'Deeper shadows and richer color.', washed: 'A faint backdrop behind the cards.' };
+        var legacyTint = glass ? 'none' : (b && b.sky_flat_tint) || sky.flat_tint || 'none';
+        var choose = function (name) {
+          var v = name === 'original' || name === 'legacy' ? { mode: name } : Object.assign({}, I.presets[name]);
+          if (resolved.from.color.scope === 'default' && /^#/.test(legacyTint)) v.color = legacyTint;
+          patch(v);
+        };
+        // THE PICTURE IT IS PREVIEWED ON: this place's photo or landscape, else a sample landscape
+        var palette = M.flatColorsOf(this.data.settings.look || {}, b, keys);
+        var seed = M.flatColorHex(palette.accent.value);
+        var menuAccent = b ? b.accent : (this.data.settings.menu || {}).accent;
+        var legacyAccent = menuAccent === 'auto' ? M.pageAccentOf(key || 'home', (this.data.settings.look || {}).page_accents).a.hex : M.accentOf(menuAccent).hex;
+        var color = look.color === 'accent' ? seed || legacyAccent : look.color;
+        var theme = glass ? 'dark' : this.flatTheme(b), list = this.landscapes() || [];
+        var landscape = M.landscapeFile((b && b.sky_landscape) || sky.landscape || 'every:1440', list);
+        var photos = b && b.sky_page_photos || {}, housePhotos = sky.page_photos || {}, pageMode = null, photo = null, rkeys = r ? (r.room ? [r.key, 'rooms'] : [r.key]) : [];
+        var pmap = glass ? 'sky_pages' : 'sky_flat_pages', hmap = glass ? 'pages' : 'flat_pages';
+        rkeys.some(function (k) { pageMode = (b && b[pmap] || {})[k] || (sky[hmap] || {})[k]; return !!pageMode; });
+        rkeys.some(function (k) { photo = photos[k] || housePhotos[k]; return !!photo; });
+        var mode = pageMode && pageMode !== 'auto' ? pageMode : o.mode;
+        var src = mode === 'photo' ? photo || (b && b.sky_photo) || sky.photo : null;
+        var example = mode !== 'landscapes' && !src;
+        if (!src && landscape) src = '/hk/landscapes/' + landscape;
+        var image = new Image(), paints = [], preview = null;
+        function addPreview(canvas, style, overlay) {
+          paints.push(function () {
+            if (!canvas.isConnected) return;
+            try {
+              I.paint(canvas, image, style, style.color === 'accent' ? seed || legacyAccent : style.color, canvas.className === 'flat-image-thumb' ? 180 : 640);
+              if (overlay) overlay.style.background = I.fade(style.fade, theme);
+              canvas.style.opacity = '1';
+            } catch (e) { canvas.style.opacity = '0'; }
+          });
+        }
+        // 1. STARTING POINT
+        var start = [];
+        if (parent) {
+          start.push(K.check({ label: 'Same as ' + follows + ' (' + labels[I.preset(parent)] + ')', on: !Object.keys(own).length, fk: 'fi:follow',
+                               onClick: function () { patch(null); } }));
+        }
+        var mine = !parent || Object.keys(own).length > 0;
+        ['legacy', 'original', 'soft', 'balanced', 'rich', 'washed'].forEach(function (name) {
+          var row = K.check({ label: labels[name], sub: notes[name], on: mine && active === name, fk: 'fi:' + name, onClick: function () { choose(name); } });
+          if (name !== 'legacy') {
+            var box = h('span', { class: 'flat-image-mini', 'aria-hidden': 'true' });
+            var cv = h('canvas', { class: 'flat-image-thumb' }), wash = h('span', { class: 'flat-image-wash' });
+            box.appendChild(cv); box.appendChild(wash); row.insertBefore(box, row.firstChild);
+            addPreview(cv, Object.assign({}, look, name === 'original' ? { mode: 'original' } : I.presets[name]), wash);
+          }
+          start.push(row);
+        });
+        // (Custom: a starting point adjusted -- said, not chosen)
+        if (active === 'custom') start.push(K.check({ label: 'Custom', sub: 'A starting point, adjusted', on: mine, fk: 'fi:custom', onClick: function () {} }));
+        c.appendChild(this.withError(K.group({ header: 'Starting Point', footer: active === 'legacy'
+          ? (glass ? 'Choose a starting point to tint the photo as Flat does: its color, depth and fade.' : 'Choose a starting point to use the newer tint controls.')
+          : 'A starting point keeps your photo and color choice. Adjusting it makes it Custom.' +
+            (glass && r ? ' It is ' + (b ? 'this screen’s' : 'All Screens’') + ', for every photo and landscape.' : key ? ' This page’s own wins over the screen’s.' : '') },
+          start), patchPath));
+        // 2. ADJUST: the starting point's sliders over the preview; Flat's older Fade under Previous Look
+        var adjust = [], imageColor = [];
+        var previewLook = Object.assign({}, look);
+        if (look.mode !== 'legacy') {
+          preview = h('div', { class: 'cell photoprev' });
+          var frame = h('div', { class: 'flat-image-preview' });
+          frame.setAttribute('data-source', src || '');
+          var canvas = h('canvas', { 'aria-label': 'Adjusted photo preview', role: 'img' }), overlay = h('span', { class: 'flat-image-wash' });
+          frame.appendChild(canvas); frame.appendChild(overlay); preview.appendChild(frame);
+          var where = r ? r.label : (x && x.title) || 'All Screens';
+          preview.appendChild(h('small', { text: src ? (example ? 'Sample landscape · choose Photo or Landscapes to use this look.' : 'Preview · ' + where) :
+            'Choose a photo or landscape to preview the look.' }));
+          addPreview(canvas, previewLook, overlay);
+          adjust.push(preview);
+          var fields = look.mode === 'tinted' ? ['strength', 'depth', 'brightness', 'fade'] : ['brightness', 'fade'];
+          var help = { strength: 'Grayscale to full color', depth: 'Soft shadows to richer neighboring hues', brightness: 'Lighten or darken the image’s midtones',
+            fade: 'Soften the image behind the cards' };
+          var signed = function (n) { return n > 0 ? '+' + n : String(n); };
+          fields.forEach(function (name) {
+            var title = name.charAt(0).toUpperCase() + name.slice(1), says;
+            if (name === 'brightness') { says = []; for (var n = -50; n <= 50; n++) says.push(signed(n)); }
+            var row = K.slider({ label: title, sub: help[name] + ' · ' + source(name), sk: path + ':' + name, value: look[name], min: name === 'brightness' ? -50 : 0,
+              max: name === 'brightness' ? 50 : 100, step: 5, labels: says, unit: name === 'brightness' ? '' : '%',
+              onChange: function (v) { var change = {}; change[name] = v; patch(change); } });
+            if (says) { var out = row.querySelector('.val'); if (out) out.textContent = signed(look[name]); }
+            row.querySelector('input').addEventListener('input', function (e) {
+              previewLook[name] = +e.target.value; if (image.complete && image.naturalWidth) paints[paints.length - 1]();
+            });
+            adjust.push(row);
+            if (own[name] != null && parent) {
+              var pv = name === 'brightness' ? signed(parent[name]) : parent[name] + '%';
+              adjust.push(K.button({ label: 'Same as ' + follows + ' (' + pv + ')', fk: 'fi:' + name + ':follow', onClick: function () { var v = {}; v[name] = null; patch(v); } }));
+            }
+          });
+          if (look.mode === 'tinted') {
+            imageColor.push(K.seg({ label: 'Color', sub: source('color'), value: look.color === 'accent' ? 'accent' : 'own', sk: path + ':color',
+              options: [['accent', 'Match Accent'], ['own', 'Your Own Color']], onChange: function (v) { patch({ color: v === 'accent' ? 'accent' : color }); } }));
+            if (look.color !== 'accent') {
+              var cr = K.text({ label: 'Tint Color', type: 'color', fk: 'fi:color', value: look.color, onCommit: function (v) { patch({ color: v }); } });
+              var input = cr.querySelector('input'); input.addEventListener('change', function () { patch({ color: input.value }); }); imageColor.push(cr);
+            }
+            if (own.color != null && parent) {
+              imageColor.push(K.button({ label: 'Same as ' + follows + ' (' + (parent.color === 'accent' ? 'Match Accent' : String(parent.color).toUpperCase()) + ')',
+                                         fk: 'fi:color:follow', onClick: function () { patch({ color: null }); } }));
+            }
+          }
+        }
+        var older = !glass && look.mode === 'legacy' ? this.flatFadeParts(o) : null;
+        if (older) adjust = adjust.concat(older.fade);
+        if (adjust.length) {
+          c.appendChild(this.withError(K.group({ header: 'Adjust', footer: older ?
+            'How far the photo fades behind the cards: Light washes it toward limestone, Dark toward black. 0% shows the photo as taken.'
+            : 'Strength, Depth, Brightness and Fade are independent. Adjusting one makes the starting point Custom.' }, adjust), older ? o.sk('sky_flat_fade') : patchPath));
+        }
+        // 3. BLUR & DIM, and the glass looks' color: their photo Look -- the Background's photo or landscape, or a page's
+        var gl = null;
+        if (glass) {
+          var land = r ? false : o.mode === 'landscapes', lk = land ? 'sky_landscape_look' : 'sky_photo_look';
+          if (r) {
+            var looks = b ? (b.sky_page_looks || {}) : (sky.page_looks || {});
+            var lvlLook = pageMode === 'landscapes' ? (b ? (b.sky_landscape_look || sky.landscape_look) : sky.landscape_look) : (b ? (b.sky_photo_look || sky.photo_look) : sky.photo_look);
+            gl = this.photoLookParts({ look: looks[r.key] || (r.room && looks.rooms) || lvlLook, own: !!looks[r.key], sk: o.sk('sky_page_looks') + ':' + r.key,
+              follow: r.room && looks.rooms ? 'Room Pages' : b ? 'This Screen' : 'All Screens',
+              onSet: function (v) {
+                var next = Object.assign({}, looks);
+                if (v) next[r.key] = v; else delete next[r.key];
+                o.put({ sky_page_looks: next });
+              } });
+          } else {
+            gl = this.photoLookParts({ look: b ? b[lk] || sky[lk.slice(4)] : sky[lk.slice(4)], own: b ? !!b[lk] : undefined, sk: o.sk(lk), follow: 'All Screens',
+              onSet: function (v) { var ch = {}; ch[lk] = v; o.put(ch); } });
+          }
+          c.appendChild(this.withError(K.group({ header: 'Blur & Dim', footer: 'A soft or darker photo keeps the cards easy to read.' }, gl.blur), gl.own === undefined ? o.sk(lk) : null));
+        }
+        // 4. COLOR
+        var colorRows = imageColor.concat(gl ? gl.color : []).concat(older ? older.tint : []);
+        if (colorRows.length) {
+          c.appendChild(K.group({ header: 'Color', footer: older ? 'Tint turns the photo to one color, keeping its own light and dark: the page’s accent, or one of your own.'
+              : [imageColor.length ? 'Match Accent follows the page’s accent; Your Own Color stays as it is.' : null,
+                 gl ? 'Color Tint washes one of the Colors over it: its day colors while the sun is up, its night ones after.' : null].filter(Boolean).join(' ') }, colorRows));
+        }
+        if (gl && gl.back.length) c.appendChild(K.group({ footer: 'Blur, Dim, Saturation and Color Tint, together.' }, gl.back));
+        image.onload = function () { paints.forEach(function (paint) { paint(); }); };
+        image.onerror = function () { if (preview) { var note = preview.querySelector('small'); if (note) note.textContent = 'The image could not be loaded. Your look is kept.'; } };
+        if (src) image.src = src;
+      }
+      // FLAT'S OLDER FADE AND TINT (2026-10-17), shown on Adjust Photo while Previous Look is in use: the theme's ground
+      // washed over the photo, and the color it leans to (none, the page's accent, or your own), how strong and how
+      // bright. A screen's or All Screens' (a page's photo fades as its screen's): {fade: [rows], tint: [rows]}
+      flatFadeParts(o) {
+        var sky = this.data.settings.sky || {}, b = o.b, put = this.flatPut(o.x, b);
+        var one = function (k, dflt) { var own = !!b && b[k] != null, house = sky[k.slice(4)]; house = house == null ? dflt : house; return { own: own, house: house, value: own ? b[k] : house }; };
+        var fade = one('sky_flat_fade', 50), tint = one('sky_flat_tint', 'none'), amt = one('sky_flat_tint_amount', 60), lt = one('sky_flat_tint_light', 50);
+        var back = function (rows, k, label) { if (b && one(k).own) rows.push(K.button(
+          { label: 'Same as All Screens (' + label + ')', sk: o.sk(k) + ':reset', onClick: function () { var ch = {}; ch[k] = null; put(ch); } })); };
+        var sub = function (f) { return b ? (f.own ? 'Just This Screen' : 'Same as All Screens') : null; };
+        var fadeRows = [K.slider({ label: 'Fade', sub: sub(fade), sk: o.sk('sky_flat_fade'), value: fade.value, min: 0, max: 100, step: 5, unit: '%',
+                                   onChange: function (v) { put({ sky_flat_fade: v }); } })];
+        back(fadeRows, 'sky_flat_fade', fade.house + '%');
+        var tv = tint.value || 'none', mine = /^#/.test(tv), tintRows = [];
+        tintRows.push(K.seg({ label: 'Tint', sub: sub(tint), sk: o.sk('sky_flat_tint'), value: mine ? 'own' : tv, stack: !this.hasAttribute('wide'),
+          options: [['none', 'None'], ['accent', 'Match Accent'], ['own', 'Your Own']], onChange: function (v) { put({ sky_flat_tint: v === 'own' ? (mine ? tv : '#7e9b83') : v }); } }));
+        if (mine) {
+          var row = K.text({ label: 'Tint Color', sub: tv.toUpperCase(), type: 'color', fk: o.sk('sky_flat_tint') + ':color', value: tv,
+                             onCommit: function (v) { if (/^#[0-9a-f]{6}$/i.test(v)) put({ sky_flat_tint: v.toLowerCase() }); } });
+          var inp = row.querySelector('input');
+          if (inp) {
+            inp.style.cssText = 'flex:none;width:44px;height:30px;padding:0;border-radius:8px;cursor:pointer';
+            inp.addEventListener('change', function () { if (/^#[0-9a-f]{6}$/i.test(inp.value)) put({ sky_flat_tint: inp.value.toLowerCase() }); });
+          }
+          tintRows.push(row);
+        }
+        back(tintRows, 'sky_flat_tint', M.flatTintLabel(tint.house));
+        // ...how strong (2026-10-17, the user: a light one, or a strong one), and how bright: stored 0-100, 50 the photo
+        // as it is, said -50..+50
+        if (tv !== 'none') {
+          tintRows.push(K.slider({ label: 'Tint Strength', sub: sub(amt), sk: o.sk('sky_flat_tint_amount'), value: amt.value, min: 0, max: 100, step: 5, unit: '%',
+                                   onChange: function (v) { put({ sky_flat_tint_amount: v }); } }));
+          back(tintRows, 'sky_flat_tint_amount', amt.house + '%');
+          var says = [];
+          for (var n = 0; n <= 100; n++) says.push(n === 50 ? '0' : (n > 50 ? '+' : '−') + Math.abs(n - 50));
+          tintRows.push(K.slider({ label: 'Tint Brightness', sub: sub(lt), sk: o.sk('sky_flat_tint_light'), value: lt.value, min: 0, max: 100, step: 5, labels: says,
+                                   onChange: function (v) { put({ sky_flat_tint_light: v }); } }));
+          back(tintRows, 'sky_flat_tint_light', says[lt.house]);
+        }
+        return { fade: fadeRows, tint: tintRows };
+      }
       // THE COLORS: the theme's tone of each, then your own. o = { id (own,
       // or null following), follow ([label, id] or null), auto (offer
-      // Automatic), theme, onPick(id | null), fk }
+      // Automatic), theme, onPick(id | null), fk, header (null: none) }
       flatColorGroup(c, o) {
         var self = this, rows = [], light = o.theme === 'light';
         var tone = function (id) {
@@ -440,7 +746,7 @@
           var p = self.flatColors().filter(function (x) { return x.id === id; })[0] || self.flatColors()[0];
           return p ? p[light ? 'light' : 'dark'] : (light ? '#EEECE6' : '#17181A');
         };
-        if (o.follow) rows.push(K.check({ label: o.follow[0], sub: 'Now ' + this.flatColorLabel(o.follow[1], o.theme), on: !o.id, fk: o.fk + 'follow',
+        if (o.follow) rows.push(K.check({ label: o.follow[0] + ' (' + this.flatColorLabel(o.follow[1], o.theme) + ')', on: !o.id, fk: o.fk + 'follow',
                                           onClick: function () { o.onPick(null); } }));
         if (o.auto) rows.push(K.check({ label: 'Automatic', sub: 'Stone here; Climate, Lights, Security, Calendar and Weather each in a tone of their own',
                                         on: o.id === 'auto', fk: o.fk + 'auto', tile: ['mdi:auto-fix', tone('stone')], onClick: function () { o.onPick('auto'); } }));
@@ -458,293 +764,8 @@
         }
         if (own) row.classList.add('on');
         rows.push(row);
-        c.appendChild(K.group({ header: o.header || 'Color', footer: 'Shown in their ' + (light ? 'Light' : 'Dark') +
+        c.appendChild(K.group({ header: o.header === undefined ? 'Color' : o.header, footer: 'Shown in their ' + (light ? 'Light' : 'Dark') +
           ' tones: each color has a Light and a Dark tone, and follows the Theme under Appearance. Solid, with nothing drawn on it.' }, rows));
-      }
-      // One editor and resolver for house, screen, page, and room image looks.
-      // Opening writes nothing; patches preserve unrelated fields in the store.
-      // `glass` (2026-10-24, the owner): the same Image Look for the Glass
-      // looks' Photo and Landscapes, kept apart from Flat's (sky.image_look, a
-      // screen's sky_image_look; hkFlatImage.resolveGlass), over the dark
-      // ground; Off there is the photo with its Photo Look alone
-      flatImageGroup(c, x, b, key, glass) {
-        var self = this, I = window.hkFlatImage, sky = this.data.settings.sky || {};
-        if (!I) return 'legacy';
-        var keys = key ? (/^room-/.test(key) ? [key, 'rooms'] : [key]) : [];
-        var resolved = glass ? I.resolveGlass(sky, b) : I.resolve(sky, b, keys), look = resolved.value;
-        var field = glass ? 'sky_image_look' : key ? 'sky_flat_page_image_looks.' + key : 'sky_flat_image_look';
-        var path = b ? field : 'sky.' + field.replace(/^sky_/, '');
-        var own = glass ? (b ? b.sky_image_look : sky.image_look) || {}
-                  : key ? ((b ? b.sky_flat_page_image_looks : sky.flat_page_image_looks) || {})[key] || {}
-                      : (b ? b.sky_flat_image_look : sky.flat_image_look) || {};
-        var patchPath = key ? path : path + '.patch';
-        var patch = function (value) { var ch = {}; ch[patchPath] = value; return b ? self.setB(x.path, ch) : self.setH(ch); };
-        var source = function (name) { return M.flatSourceLabel(resolved.from[name]) || 'Built-in Default'; };
-        var labels = { legacy: glass ? 'Off' : 'Previous Look', original: 'Original', soft: 'Soft', balanced: 'Balanced', rich: 'Rich', washed: 'Washed', custom: 'Custom' };
-        var notes = { original: 'Keep the photograph’s colors.', soft: 'Quiet color and gentle shadows.', balanced: 'Clear scenery with a moderate tint.', rich: 'Deeper shadows and richer color.',
-          washed: 'A faint backdrop behind the cards.' };
-        var active = I.preset(look);
-        var legacyTint = glass ? 'none' : (b && b.sky_flat_tint) || sky.flat_tint || 'none';
-        var choose = function (name) {
-          var v = name === 'original' || name === 'legacy' ? { mode: name } : Object.assign({}, I.presets[name]);
-          if (resolved.from.color.scope === 'default' && /^#/.test(legacyTint)) v.color = legacyTint;
-          patch(v);
-        };
-        var rows = [K.select({ label: 'Image Look', sub: labels[active] + ' · ' + source('mode'), sk: path, fk: 'fi:look', value: active,
-          options: Object.keys(labels).map(function (name) { return [name, labels[name]]; }),
-          onChange: function (name) { if (name !== 'custom') choose(name); } })];
-        if (Object.keys(own).length) rows.push(K.button({ label: key || b ? 'Use Inherited Image Settings' : 'Reset Image Settings', fk: 'fi:reset', onClick: function () { patch(null); } }));
-        c.appendChild(this.withError(K.group({ header: 'Image Look', footer: look.mode === 'legacy'
-          ? (glass ? 'The picture as it is, with the Look above. Choose a starting point to tint it as Flat does: its color, depth and fade.'
-                   : 'Your previous appearance is kept. Choose a look below to use the new tint controls.')
-          : 'Choose a starting point, then Adjust if you want. A look keeps your image and color choice. Page choices take priority over general screen settings.' }, rows), patchPath));
-
-        var palette = M.flatColorsOf(this.data.settings.look || {}, b, keys);
-        var seed = M.flatColorHex(palette.accent.value);
-        var menuAccent = b ? b.accent : (this.data.settings.menu || {}).accent;
-        var legacyAccent = menuAccent === 'auto' ? M.pageAccentOf(key || 'home', (this.data.settings.look || {}).page_accents).a.hex : M.accentOf(menuAccent).hex;
-        var color = look.color === 'accent' ? seed || legacyAccent : look.color;
-        var theme = glass ? 'dark' : this.flatTheme(b), list = this.landscapes() || [];
-        var landscape = M.landscapeFile((b && b.sky_landscape) || sky.landscape || 'every:1440', list);
-        var photos = b && b.sky_page_photos || {}, housePhotos = sky.page_photos || {};
-        var pageMode = null, photo = null;
-        keys.some(function (k) { pageMode = (b && b.sky_flat_pages || {})[k] || (sky.flat_pages || {})[k]; return !!pageMode; });
-        keys.some(function (k) { photo = photos[k] || housePhotos[k]; return !!photo; });
-        var mode = glass ? (b && b.sky_background) || sky.background || 'live'
-          : pageMode && pageMode !== 'auto' ? pageMode : key && FLAT_OWN[key] ? 'color' : (b && b.sky_flat_background) || sky.flat_background || 'color';
-        var src = mode === 'photo' ? photo || (b && b.sky_photo) || sky.photo : null;
-        var example = mode !== 'landscapes' && !src;
-        if (!src && landscape) src = '/hk/landscapes/' + landscape;
-        var image = new Image(), paints = [];
-        function addPreview(canvas, style, overlay) {
-          paints.push(function () {
-            if (!canvas.isConnected) return;
-            try {
-              I.paint(canvas, image, style, style.color === 'accent' ? seed || legacyAccent : style.color, canvas.className === 'flat-image-thumb' ? 180 : 640);
-              if (overlay) overlay.style.background = I.fade(style.fade, theme);
-              canvas.style.opacity = '1';
-            } catch (e) { canvas.style.opacity = '0'; }
-          });
-        }
-        var presetRows = Object.keys(notes).map(function (name) {
-          var button = K.check({ label: labels[name], sub: notes[name], on: active === name, fk: 'fi:' + name, onClick: function () { choose(name); } });
-          var box = h('span', { class: 'flat-image-mini', 'aria-hidden': 'true' });
-          var cv = h('canvas', { class: 'flat-image-thumb' }), wash = h('span', { class: 'flat-image-wash' });
-          box.appendChild(cv); box.appendChild(wash); button.insertBefore(box, button.firstChild);
-          var style = Object.assign({}, look, name === 'original' ? { mode: 'original' } : I.presets[name]);
-          addPreview(cv, style, wash); return button;
-        });
-        c.appendChild(K.group({ header: 'Starting Points' }, presetRows));
-        if (look.mode !== 'legacy') {
-          var preview = h('div', { class: 'cell photoprev' }), frame = h('div', { class: 'flat-image-preview' });
-          frame.setAttribute('data-source', src || '');
-          var canvas = h('canvas', { 'aria-label': 'Image look preview', role: 'img' }), overlay = h('span', { class: 'flat-image-wash' });
-          frame.appendChild(canvas); frame.appendChild(overlay); preview.appendChild(frame);
-          preview.appendChild(h('small', { text: src ? (example ? 'Sample landscape · choose Photo or Landscapes to use this look.' : 'Preview · ' + (key || (x && x.title) || 'All Screens')) :
-            'Choose a photo or landscape to preview the look.' }));
-          var previewLook = Object.assign({}, look); addPreview(canvas, previewLook, overlay);
-          var colorRows = [preview];
-          if (look.mode === 'tinted') {
-            colorRows.push(K.seg({ label: 'Color', sub: source('color'), value: look.color === 'accent' ? 'accent' : 'own', sk: path + ':color',
-              options: [['accent', 'Match Accent'], ['own', 'Your Own Color']], onChange: function (v) { patch({ color: v === 'accent' ? 'accent' : color }); } }));
-            if (look.color !== 'accent') {
-              var cr = K.text({ label: 'Tint Color', type: 'color', fk: 'fi:color', value: look.color, onCommit: function (v) { patch({ color: v }); } });
-              var input = cr.querySelector('input'); input.addEventListener('change', function () { patch({ color: input.value }); }); colorRows.push(cr);
-            }
-            if (own.color != null) colorRows.push(K.button({ label: 'Use Inherited Color', onClick: function () { patch({ color: null }); } }));
-          }
-          c.appendChild(K.group({ footer: 'Match Accent follows this page’s effective accent. Your Own Color stays independent.' }, colorRows));
-          var adjustId = path + ':' + (x && x.path || 'house');
-          this._flatImageAdjust = this._flatImageAdjust || {};
-          var details = h('details', { class: 'flat-image-adjust' }); details.open = !!this._flatImageAdjust[adjustId];
-          details.appendChild(h('summary', { class: 'cell', text: 'Adjust' }));
-          details.addEventListener('toggle', function () { self._flatImageAdjust[adjustId] = details.open; });
-          var sliders = [], fields = look.mode === 'tinted' ? ['strength', 'depth', 'brightness', 'fade'] : ['brightness', 'fade'];
-          var help = { strength: 'Grayscale to full color', depth: 'Soft shadows to richer neighboring hues', brightness: 'Lighten or darken the image’s midtones',
-            fade: 'Soften the image behind the cards' };
-          fields.forEach(function (name) {
-            var title = name.charAt(0).toUpperCase() + name.slice(1), says;
-            if (name === 'brightness') { says = []; for (var n = -50; n <= 50; n++) says.push(n > 0 ? '+' + n : String(n)); }
-            var row = K.slider({ label: title, sub: help[name] + ' · ' + source(name), sk: path + ':' + name, value: look[name], min: name === 'brightness' ? -50 : 0,
-              max: name === 'brightness' ? 50 : 100, step: 5, labels: says, unit: name === 'brightness' ? '' : '%',
-              onChange: function (v) { self._flatImageAdjust[adjustId] = details.open; var change = {}; change[name] = v; patch(change); } });
-            if (says) { var out = row.querySelector('.val'); if (out) out.textContent = look[name] > 0 ? '+' + look[name] : String(look[name]); }
-            row.querySelector('input').addEventListener('input', function (e) {
-              previewLook[name] = +e.target.value; if (image.complete && image.naturalWidth) paints[paints.length - 1]();
-            });
-            sliders.push(row);
-            if (own[name] != null) sliders.push(K.button({ label: 'Use Inherited ' + title, onClick: function () { var v = {}; v[name] = null; patch(v); } }));
-          });
-          details.appendChild(K.group({ footer: 'Strength, Depth, Brightness, and Fade are independent. Adjusting a preset makes it Custom.' }, sliders)); c.appendChild(details);
-        }
-        image.onload = function () { paints.forEach(function (paint) { paint(); }); };
-        image.onerror = function () { if (preview) { var note = preview.querySelector('small'); if (note) note.textContent = 'The image could not be loaded. Your look is kept.'; } };
-        if (src) image.src = src;
-        return look.mode;
-      }
-      // THE FADE over a photo: the theme's ground washed over it, so the
-      // cards stay easy to read. o = { value, house (a screen's: All Screens'),
-      // own, onSet(v | null), sk }
-      flatFadeGroup(c, o) {
-        var self = this;
-        var rows = [K.slider({ label: 'Fade', sub: o.house === undefined ? null : (o.own ? 'Just This Screen' : null), sk: o.sk,
-                               value: o.value, min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { o.onSet(v); } })];
-        if (o.own) rows.push(K.button({ label: 'Reset to All Screens (' + o.house + '%)', sk: o.sk + ':reset', onClick: function () { o.onSet(null); } }));
-        // TINT (2026-10-17, the user): the color the fade leans to -- none
-        // (the theme's own), the page's accent, or one of your own
-        var t = o.tint, tv = t.value || 'none', own = /^#/.test(tv);
-        rows.push(K.seg({ label: 'Tint', sub: t.house === undefined ? null : (t.own ? 'Just This Screen' : null), sk: t.sk,
-          value: own ? 'own' : tv, options: [['none', 'None'], ['accent', 'Match Accent'], ['own', 'Your Own']], stack: !this.hasAttribute('wide'),
-          onChange: function (v) { t.onSet(v === 'own' ? (own ? tv : '#7e9b83') : v); } }));
-        if (own) {
-          var row = K.text({ label: 'Tint Color', sub: tv.toUpperCase(), type: 'color', fk: t.sk + ':color', value: tv,
-                             onCommit: function (x) { if (/^#[0-9a-f]{6}$/i.test(x)) t.onSet(x.toLowerCase()); } });
-          var inp = row.querySelector('input');
-          if (inp) {
-            inp.style.cssText = 'flex:none;width:44px;height:30px;padding:0;border-radius:8px;cursor:pointer';
-            inp.addEventListener('change', function () { if (/^#[0-9a-f]{6}$/i.test(inp.value)) t.onSet(inp.value.toLowerCase()); });
-          }
-          rows.push(row);
-        }
-        if (t.own) rows.push(K.button({ label: 'Reset Tint to All Screens (' + M.flatTintLabel(t.house) + ')', sk: t.sk + ':reset', onClick: function () { t.onSet(null); } }));
-        // ...and how strong (2026-10-17, the user: a light one, or a strong one)
-        if (tv !== 'none') {
-          var ta = o.tintAmount;
-          rows.push(K.slider({ label: 'Tint Strength', sub: ta.house === undefined ? null : (ta.own ? 'Just This Screen' : null), sk: ta.sk,
-                               value: ta.value, min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { ta.onSet(v); } }));
-          if (ta.own) rows.push(K.button({ label: 'Reset Strength to All Screens (' + ta.house + '%)', sk: ta.sk + ':reset', onClick: function () { ta.onSet(null); } }));
-          // ...and how bright: stored 0-100, 50 the photo as it is, said -50..+50
-          var tb = o.tintLight, says = [];
-          for (var n = 0; n <= 100; n++) says.push(n === 50 ? '0' : (n > 50 ? '+' : '−') + Math.abs(n - 50));
-          rows.push(K.slider({ label: 'Tint Brightness', sub: tb.house === undefined ? null : (tb.own ? 'Just This Screen' : null), sk: tb.sk,
-                               value: tb.value, min: 0, max: 100, step: 5, labels: says, onChange: function (v) { tb.onSet(v); } }));
-          if (tb.own) rows.push(K.button({ label: 'Reset Brightness to All Screens (' + says[tb.house] + ')', sk: tb.sk + ':reset', onClick: function () { tb.onSet(null); } }));
-        }
-        void self;
-        c.appendChild(this.withError(K.group({ footer: 'How far the background fades behind the cards: Light washes it toward limestone, Dark toward black. 0% shows the photo as taken. ' +
-          'Tint turns the photo to one color, keeping its own light and dark: the page’s accent (its Flat Accent Color, else its own Accent Color), or one of your own. Strength is how far;' +
-            ' Brightness lightens or darkens it.' }, rows), o.sk));
-      }
-      flatSky(c, x, b, base) {
-        var self = this, sky = this.data.settings.sky, theme = this.flatTheme(b), put = this.flatPut(x, b);
-        var hMode = sky.flat_background || 'color', own = b ? b.sky_flat_background : null, mode = own || hMode;
-        var bgRows = [K.previewPick({ label: 'Background', sub: b ? (own ? 'Just This Screen' : null) : null, sk: b ? 'b:sky_flat_background' : 'sky.flat_background',
-          value: mode, options: [['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes']],
-          // (Flat's Color: one solid color, its theme's ground)
-          picture: function (v, w, ht) { return self.bgKindThumb(v === 'color' ? 'solid' : v, w, ht, null, theme === 'light' ? '#ECEAE5' : '#24252A'); },
-          onChange: function (v) { put({ sky_flat_background: v }); } })];
-        if (own) bgRows.push(K.button({ label: 'Reset to All Screens (' + M.BG_LABELS[hMode] + ')', sk: 'b:sky_flat_background:reset',
-                                        onClick: function () { put({ sky_flat_background: null }); } }));
-        var says = { color: 'A solid color behind the cards.', photo: 'A photo of your own, still, faded behind the cards.',
-                     landscapes: 'One of ' + PN() + '’s landscape photos, still, faded behind the cards.' };
-        c.appendChild(K.group({ footer: says[mode] + ' Flat shows no Live Sky: its sun, weather and decorations come back with the other looks, as you left them. ' +
-          (b ? 'Each page can choose its own below.' : 'Each screen, and each page, can choose its own.') }, bgRows));
-        if (mode === 'color') {
-          this.flatColorGroup(c, { id: b ? (b.sky_flat_color || null) : (sky.flat_color || 'auto'), follow: b ? ['Same as All Screens', sky.flat_color || 'auto'] : null,
-            auto: true, theme: theme, fk: b ? 'bflat:' : 'hflat:', onPick: function (id) { put({ sky_flat_color: id }); } });
-        }
-        if (mode === 'photo') {
-          this.photoGroup(c, b ? { url: b.sky_photo || null, from: sky.photo || null, fromLabel: 'All Screens’ photo', fk: 'bphoto', sk: 'b:sky_photo',
-                                   footer: 'The same photo the other looks use.',
-                                   onSet: function (url) { var was = b.sky_photo; self.setB(x.path, { sky_photo: url }).then(function (ok) { if (ok) self.photoForget(was); }); } }
-                               : { url: sky.photo || null, fk: 'hphoto', sk: 'sky.photo', footer: 'The same photo the other looks use.',
-                                   onSet: function (url) { var was = sky.photo; self.setH({ 'sky.photo': url }).then(function (ok) { if (ok) self.photoForget(was); }); } });
-        }
-        if (mode === 'landscapes') {
-          this.landscapeGroup(c, b ? { value: b.sky_landscape || null, house: sky.landscape || 'every:1440', fk: 'bland', sk: 'b:sky_landscape', href: base + '/landscape',
-                                       onSet: function (v) { self.setB(x.path, { sky_landscape: v }); } }
-                                   : { value: sky.landscape || 'every:1440', fk: 'hland', sk: 'sky.landscape', href: '#/house/appearance/sky/landscape',
-                                       onSet: function (v) { self.setH({ 'sky.landscape': v }); } });
-        }
-        // the fade reaches every photo here -- a page's own too -- so it shows
-        // wherever a photo can be
-        var hFade = sky.flat_fade == null ? 50 : sky.flat_fade, fOwn = !!b && b.sky_flat_fade != null;
-        var hTint = sky.flat_tint || 'none', tOwn = !!b && b.sky_flat_tint != null;
-        var hAmt = sky.flat_tint_amount == null ? 60 : sky.flat_tint_amount, aOwn = !!b && b.sky_flat_tint_amount != null;
-        var hLight = sky.flat_tint_light == null ? 50 : sky.flat_tint_light, lOwn = !!b && b.sky_flat_tint_light != null;
-        if (this.flatImageGroup(c, x, b, null) === 'legacy') this.flatFadeGroup(c,
-          { value: fOwn ? b.sky_flat_fade : hFade, house: b ? hFade : undefined, own: fOwn, sk: b ? 'b:sky_flat_fade' : 'sky.flat_fade',
-                                onSet: function (v) { put({ sky_flat_fade: v }); },
-                                tint: { value: tOwn ? b.sky_flat_tint : hTint, house: b ? hTint : undefined, own: tOwn, sk: b ? 'b:sky_flat_tint' : 'sky.flat_tint',
-                                        onSet: function (v) { put({ sky_flat_tint: v }); } },
-                                tintAmount: { value: aOwn ? b.sky_flat_tint_amount : hAmt, house: b ? hAmt : undefined, own: aOwn,
-                                              sk: b ? 'b:sky_flat_tint_amount' : 'sky.flat_tint_amount', onSet: function (v) { put({ sky_flat_tint_amount: v }); } },
-                                tintLight: { value: lOwn ? b.sky_flat_tint_light : hLight, house: b ? hLight : undefined, own: lOwn,
-                                             sk: b ? 'b:sky_flat_tint_light' : 'sky.flat_tint_light', onSet: function (v) { put({ sky_flat_tint_light: v }); } } });
-        this.flatPagesGroup(c, x, b, base);
-        this.skyResetGroup(c, x, b);
-      }
-      // THE PAGES' Flat backgrounds, a tap away
-      flatPagesGroup(c, x, b, base) {
-        var self = this, rows = this.skyPageKeys(b).rows, theme = this.flatTheme(b);
-        if (!rows.length) return;
-        c.appendChild(K.group({ header: 'Pages', sk: b ? 'b:sky_flat_pages' : 'sky.flat_pages',
-          footer: 'Each page’s background: Automatic (its own tone, or the Background above), a Color, a Photo or Landscapes.' + (b ? ' A page left alone follows All Screens.' : '') },
-          rows.map(function (r) {
-            var n = self.flatPageNow(r, b);
-            return K.nav({ label: r.label, sub: r.custom ? 'Custom page' : null, value: n.mode ? self.flatModeLabel(n.mode, theme) : self.flatAutoLabel(r),
-                           href: base + '/page/' + encodeURIComponent(r.key), sk: (b ? 'b:sky_flat_pages:' : 'sky.flat_pages:') + r.key });
-          })));
-      }
-      // ONE PAGE'S Flat background: Same as All Screens / Room Pages, Automatic,
-      // a Color, a Photo or Landscapes
-      flatPagePicker(c, x, b, r, base) {
-        var self = this, sky = this.data.settings.sky, all = sky.flat_pages || {}, theme = this.flatTheme(b), put = this.flatPut(x, b);
-        var mine = b ? (b.sky_flat_pages || {}) : all, photos = b ? (b.sky_page_photos || {}) : (sky.page_photos || {});
-        var cur = mine[r.key] || '';
-        var isColor = !!cur && cur !== 'auto' && cur !== 'photo' && cur !== 'landscapes';
-        var pick = function (v) {
-          var next = Object.assign({}, mine);
-          if (v) next[r.key] = v; else delete next[r.key];
-          put({ sky_flat_pages: next });
-        };
-        var roomsNow = (b && (b.sky_flat_pages || {}).rooms) || all.rooms;
-        var follow = b && all[r.key] ? ['Same as All Screens', 'Now ' + this.flatModeLabel(all[r.key], theme)]
-                   : r.room ? ['Same as Room Pages', 'Now ' + (roomsNow ? this.flatModeLabel(roomsNow, theme) : 'the screen’s Background')] : null;
-        var autoSays = FLAT_OWN[r.key] ? (M.PAGE_ACCENTS[r.key] ? 'A light or dark shade of its Accent Color (' + M.pageAccentOf(r.key, this.hs('look.page_accents')).a.name + ')' :
-          'Its own tone, in Light and Dark')
-                                       : 'The screen’s Background (' + this.flatSummary(b) + ')';
-        var rows = [];
-        if (follow) rows.push(K.check({ label: follow[0], sub: follow[1], on: !cur, fk: 'fpbd:' + r.key + ':follow', onClick: function () { pick(''); } }));
-        rows.push(K.check({ label: 'Automatic', sub: autoSays, on: follow ? cur === 'auto' : (!cur || cur === 'auto'), fk: 'fpbd:' + r.key + ':auto',
-                            tile: ['mdi:auto-fix', C.green], onClick: function () { pick(follow ? 'auto' : ''); } }));
-        rows.push(K.check({ label: 'Color', sub: isColor ? this.flatColorLabel(cur, theme) : 'A solid color', on: isColor, fk: 'fpbd:' + r.key + ':color',
-                            tile: ['mdi:palette', C.purple], onClick: function () {
-                              if (!isColor) pick((b && b.sky_flat_color && b.sky_flat_color !== 'auto' && b.sky_flat_color) || (sky.flat_color !== 'auto' && sky.flat_color) || 'stone'); } }));
-        rows.push(K.check({ label: 'Photo', sub: photos[r.key] ? 'Its own photo' : 'A photo, still', on: cur === 'photo', fk: 'fpbd:' + r.key + ':photo',
-                            tile: ['mdi:image', C.orange], onClick: function () { pick('photo'); } }));
-        rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
-                            fk: 'fpbd:' + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
-        c.appendChild(K.group({ footer: 'While Flat is on. A photo here fades as ' + (b ? 'the screen’s' : 'All Screens’') + ' Fade says.' }, rows));
-        // ITS FLAT COLORS, beside its background (the same page key)
-        var fps = this.flatScope(b ? 'screen-page' : 'house-page', x, b, r.key);
-        c.appendChild(K.group({ footer: 'Its Accent Color shades an Automatic background here.' },
-          [this.flatColorsNav(fps, { inherited: b ? 'Same as This Screen' : 'Same as All Screens' })]));
-        if (isColor) this.flatColorGroup(c, { id: cur, theme: theme, fk: 'fpbd:' + r.key + ':', onPick: function (id) { pick(id); } });
-        if (cur === 'photo') {
-          var lvl = (r.room && photos.rooms) || (b ? (b.sky_photo || sky.photo) : sky.photo);
-          this.photoGroup(c, { url: photos[r.key] || null, from: lvl || null,
-            fromLabel: r.room && photos.rooms ? 'Room Pages’ photo' : b ? 'the screen’s photo' : 'All Screens’ photo',
-            fk: 'pphoto:' + r.key, sk: b ? 'b:sky_page_photos' : 'sky.page_photos', header: 'Its Photo',
-            footer: 'The same photo the other looks use for this page.',
-            onSet: function (url) {
-              var was = photos[r.key], next = Object.assign({}, photos);
-              if (url) next[r.key] = url; else delete next[r.key];
-              put({ sky_page_photos: next }).then(function (ok) { if (ok) self.photoForget(was); });
-            } });
-        }
-        this.flatImageGroup(c, x, b, r.key);
-        if (r.key === 'rooms') {
-          var rrows = this.areasAZ().map(function (aid) {
-            var k = self.roomKey(aid);
-            if (!k) return null;
-            var n = self.flatPageNow({ key: k, room: true }, b);
-            return K.nav({ label: self.areaName(aid), icon: ((self.client.areas || {})[aid] || {}).icon || 'mdi:texture-box',
-                           value: n.own ? self.flatModeLabel(n.mode, theme) : 'Same as Room Pages', href: base + '/page/' + encodeURIComponent(k),
-                           sk: (b ? 'b:sky_flat_pages:' : 'sky.flat_pages:') + k });
-          }).filter(Boolean);
-          if (rrows.length) c.appendChild(K.group({ header: 'Each Room', footer: 'A room left alone is the same as Room Pages.' }, rrows));
-        }
       }
       // FLAT COLORS (2026-10-17; hk_house/docs/PLAN-2026-10-17-flat-appearance-colors.md):
       // Flat's Accent Color and Off Pill Tint, one editor at every scope --

@@ -1,8 +1,8 @@
 """The Glass looks' Image Look (2026-10-24) against the fictional home, never a household.
 
 A Blur screen on Landscapes with Image Look Balanced must show the treated picture (a blob address on the sky's
-photo layer, tinted: its colors pulled toward one hue), and Settings must offer the Image Look under the Glass
-looks' Landscapes and save a choice there.
+photo layer, tinted: its colors pulled toward one hue), and Settings must offer the starting points on the Glass
+looks' Adjust Photo (phase 33: one page for every photo treatment) and save a choice there.
 
     python tools/headless/glass_image_look_check.py [--shots DIRECTORY]
 """
@@ -61,17 +61,16 @@ async def main():
             assert plain['url'].startswith('/hk/landscapes/'), plain
             assert tinted['url'].startswith('blob:'), tinted
             assert tinted['spread'] < plain['spread'] * 0.6, got        # pulled toward one hue
-            # Settings: the Glass looks' Landscapes offer the Image Look, and it saves
-            await b.open(origin + '/settings#/house/sky', cookie)
-            assert await b.wait("!!document.querySelector('hk-settings-panel')?.shadowRoot?.textContent.includes('Image Look')", 20)
-            await b.eval(DEEP + "window.sel=deep(document.querySelector('hk-settings-panel').shadowRoot,'select').find(s=>[...s.options].some(o=>o.value==='balanced'));"
-                         "sel.value='balanced';sel.dispatchEvent(new Event('change'));void 0")
+            # Settings: the Glass looks' Adjust Photo offers the starting points, and one saves
+            await b.open(origin + '/settings#/house/sky/photo', cookie)
+            assert await b.wait("!!document.querySelector('hk-settings-panel')?.shadowRoot?.textContent.includes('Starting Point')", 20)
+            await b.eval(DEEP + "window.sel=deep(document.querySelector('hk-settings-panel').shadowRoot,'[data-fk=\"fi:balanced\"]')[0];sel.click();void 0")
             assert await b.wait("(document.querySelector('hk-settings-panel').data.settings.sky.image_look||{}).mode==='tinted'", 15), \
-                await b.eval("JSON.stringify([document.querySelector('hk-settings-panel').data.settings.sky.image_look, sel&&sel.value])")
+                await b.eval("JSON.stringify([document.querySelector('hk-settings-panel').data.settings.sky.image_look, !!sel])")
             if args.shots:
                 await b.screenshot(args.shots / 'settings.png')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: the Glass looks show the treated landscape, and Settings offers and saves the Image Look')
+            print('PASS: the Glass looks show the treated landscape, and Adjust Photo offers and saves its starting point')
 
 asyncio.run(main())

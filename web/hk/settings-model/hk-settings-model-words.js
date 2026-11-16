@@ -472,13 +472,12 @@
         else if (p[1] === 'menu' && p[2] === 'status') out = 'house/rooms/status';
         // APPEARANCE AND MENU, REORGANIZED (2026-10-29): Sky / Background
         // under Appearance; one Accent Color there; each kind of menu a page
-        else if (p[1] === 'sky' && !(p[2] === 'page' && pageOf(p[3]))) out = ['house', 'appearance', 'sky'].concat(p.slice(2)).join('/');
-        else if (p[1] === 'appearance' && p[2] === 'sky' && p[3] === 'page' && pageOf(p[4])) out = 'page/' + p[4] + '/background';
+        // (a page's background is under Background -> Pages again since phase 33, every page listed there)
+        else if (p[1] === 'sky') out = ['house', 'appearance', 'sky'].concat(p.slice(2)).join('/');
         else if (p[1] === 'menu' && p[2] === 'accent') out = 'house/appearance/accent';
         else if (p[1] === 'appearance' && p[2] === 'flat-colors' && p[3] === 'accent') out = 'house/appearance/accent';
         else if (p[1] === 'menu' && (p[2] === 'tablets' || p[2] === 'phones')) out = p[3] === 'style' ? 'house/menu/side/' + p[2] : 'house/menu';
         else if (p[1] === 'appearance' && p[2] === 'pill' && pageOf(p[3])) out = 'page/' + p[3] + '/pill';
-        else if (p[1] === 'sky' && p[2] === 'page' && pageOf(p[3])) out = 'page/' + p[3] + '/background';
       } else if (p[0] === 'screens' && p[1] && (p[2] === 'menu' || p[2] === 'flat-colors') && p[3] === 'accent' && !p[4]) {
         out = 'screens/' + p[1] + '/accent';
       } else if (p[0] === 'screens' && p[1] && p[2] === 'menu' && (p[3] === 'tablets' || p[3] === 'phones')) {

@@ -437,8 +437,9 @@ ok('rooms summary', M.roomsSummary(hb) === '2 on Home' && M.roomsSummary({ room_
   var F = M.routeForward;
   ok('Sky / Background is under Appearance', F('house/sky') === 'house/appearance/sky' && F('house/sky/woodland/fall') === 'house/appearance/sky/woodland/fall' &&
      F('house/sky/page/rooms') === 'house/appearance/sky/page/rooms');
-  ok('...a page\'s background still goes to its page', F('house/sky/page/climate') === 'page/climate/background' &&
-     F('house/appearance/sky/page/climate') === 'page/climate/background');
+  // (phase 33: every page's background is under Background -> Pages again, at both levels)
+  ok('...a page\'s background is under Background', F('house/sky/page/climate') === 'house/appearance/sky/page/climate' &&
+     F('house/appearance/sky/page/climate') === null);
   ok('the Highlight Color is the Accent Color', F('house/menu/accent') === 'house/appearance/accent' &&
      F('house/appearance/flat-colors/accent') === 'house/appearance/accent' && F('screens/den/menu/accent') === 'screens/den/accent' &&
      F('screens/den/flat-colors/accent') === 'screens/den/accent');
@@ -459,8 +460,9 @@ ok('sky summary: all off and an own backdrop', M.skySummary({ sky_animations: fa
   'No Animation, No Weather, No Decorations, Own Backdrop');
 ok('sky summary: true is an own setting too', M.skySummary({ sky_animations: true }) === 'Own Settings');
 ok('sky summary: stored own colors count', M.skySummary({ sky_custom: {} }) === 'Own Settings');
-ok('search includes the backdrop picker (Sky Colors, 2026-10-13)', M.search('backdrop', [{path:'dashboard-test',title:'Test'}]).some(
-  function(r) { return r.label === 'Sky Colors' && r.route === 'house/appearance/sky/backdrop'; }));
+ok('search includes the backdrop picker (Colors, 2026-10-13; Sky Colors until phase 33)', M.search('backdrop', [{path:'dashboard-test',title:'Test'}]).some(
+  function(r) { return r.label === 'Colors' && r.route === 'house/appearance/sky/backdrop'; }));
+ok('...and Adjust Photo, by its starting points', M.search('balanced', []).some(function (r) { return r.route === 'house/appearance/sky/photo'; }));
 ok('search finds the Background\u2019s photo', M.search('photo', [{path:'dashboard-test',title:'Test'}]).some(function(r) { return r.route === 'house/appearance/sky'; }));
 
 // No Button: offered only with the swipe on (or when it is the choice), and

@@ -197,25 +197,26 @@
       });
     }
     // what Automatic means for a page, in words
-    // (a page left alone says Automatic: the user, 2026-10-17 -- "Page
-    // Color" there read as if Page Color had been picked)
+    // (a page left alone says Automatic: the user, 2026-10-17 -- its own
+    // sky's name there read as if it had been picked)
     function skyAutoLabel(row) {
       return 'Automatic';
     }
     // a mode in words: 'own', 'live', 'photo' or a backdrop id (backdrops: [{id, label}])
     function skyModeLabel(mode, backdrops) {
-      if (mode === 'own') return 'Page Color';
+      // (the page's own colors, "Page Color" until phase 33: the name went to a page's color in the menu)
+      if (mode === 'own') return 'Its Own Sky';
       if (mode === 'photo') return 'Photo';
       if (mode === 'landscapes') return 'Landscapes';
       if (mode === 'wallpaper') return 'Wallpaper';
       var b = (backdrops || []).filter(function (x) { return x.id === mode; })[0];
       return b ? b.label : mode === 'live' ? 'Live Sky' : mode;
     }
-    // the choices for one page: Automatic (or Same as All Screens), Page Color
+    // the choices for one page: Automatic (or Same as All Screens), Its Own Sky
     // where it has one, the live sky, then every fixed backdrop
     function skyModeOptions(row, backdrops, first) {
       var out = [['', first]];
-      if (row.own) out.push(['own', 'Page Color']);
+      if (row.own) out.push(['own', 'Its Own Sky']);
       (backdrops || []).forEach(function (b) { out.push([b.id, b.label]); });
       return out;
     }
