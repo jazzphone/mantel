@@ -6,9 +6,15 @@ A Look is the screen settings it sets (its style and colours, its background and
 Tile Style, the Side Pane, swiping between pages, the screensaver), and the layout it starts from: square cells
 or tiles, and the editor's starters it prefers, the first one that fits the screen type winning.
 
-Shown in two places (hk-settings.js): a screen's Looks page (the settings alone, its layout kept) and the Home Grid
-editor's Layout + Look starters (the layout too). Applied per screen, never All Screens', after a sheet that says
-what will change; the screen's own values before are kept as `look_undo`, so one Undo puts them back.
+Shown in three places (hk-settings.js): a screen's Looks page and All Screens' (phase 33, decision 6: first on
+Appearance, the settings alone, the layout kept) and the Home Grid editor's Layout + Look starters (the layout too).
+Applied after a sheet that says what will change. On a screen, its own values before are kept as `look_undo`, so one
+Undo puts them back; at All Screens the Look writes All Screens' own settings (HOUSE_KEYS: the same settings by their
+All Screens names) and keeps theirs before as `look.look_undo` -- a screen with its own values keeps them.
+
+A Look sets everything it stands for, its background included (the owner, 2026-11-16: "You can have Flat -
+Performance, which choses a color for example"): Flat its own background keys (Flat keeps them apart: sky_flat_*),
+the others the Glass looks' (sky_background).
 
 This is the one list: hk-settings-model.js LOOKS mirrors it (test_hk_core_looks.py reads both and compares).
 Every value is checked as a screen's settings are (changes.apply_board), so a Look can never write what a
@@ -23,7 +29,8 @@ from typing import Any
 SET_KEYS = ("flat", "flat_theme", "glass", "accent", "tab_bar_glass", "tile_style",
             "sky", "sky_background", "sky_color", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_wallpaper_color",
             "sky_animations", "sky_weather", "sky_precipitation", "sky_moving", "sky_decorations", "sky_liveliness",
-            "swipe_pages", "side_pane", "screensaver", "screensaver_options", "camera_live_video")
+            "swipe_pages", "side_pane", "screensaver", "screensaver_options", "camera_live_video",
+            "sky_flat_background", "sky_flat_color")
 UNDO_KEYS = SET_KEYS + ("home_style", "home_grid")
 
 PANE_HOME = {"side": "right", "headings": True, "dashboard": {"show": "home", "sections": [
@@ -51,15 +58,15 @@ LOOKS: tuple[dict[str, Any], ...] = (
      "art": ["#1c1c1e", "#1c1c1e", "#1c1c1e", "#0a84ff"],
      "layout": {"cell": "tile", "starters": ["A"]},
      "settings": {"flat": True, "flat_theme": "dark", "accent": "blue", "tab_bar_glass": "tinted", "tile_style": "home",
-                  "swipe_pages": "auto", "screensaver": True},
+                  "sky_flat_background": "color", "sky_flat_color": "stone", "swipe_pages": "auto", "screensaver": True},
      "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still"}},
     {"id": "performance", "name": "Performance",
-     "about": "The lightest setup for a slow wall tablet: Glass, no rain or snow, nothing moving in front of the "
+     "about": "The lightest setup for a slow wall tablet: Glass over a still color, nothing moving in front of the "
               "cards, no live camera, and a still screensaver.",
      "art": ["#2b3140", "#3a4152", "#202531", "#ff9500"],
      "layout": {"cell": "tile", "starters": ["Q"]},
      "settings": {"flat": False, "glass": "clear", "accent": "orange", "tab_bar_glass": "tinted", "tile_style": "home",
-                  "sky_animations": False, "sky_precipitation": False, "sky_moving": "behind", "sky_decorations": False,
+                  "sky": True, "sky_background": "color", "sky_color": "graphite", "sky_animations": False, "sky_precipitation": False, "sky_moving": "behind", "sky_decorations": False,
                   "sky_wallpaper_motion": "off", "camera_live_video": False, "screensaver": True},
      "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still", "zoom": False}},
     {"id": "holiday", "name": "Holiday Whimsy",
@@ -108,6 +115,23 @@ LOOKS: tuple[dict[str, Any], ...] = (
      "saver": {"show": "photos", "starts_after": 60, "photo_titles": True, "time_behind": True}},
 )
 IDS = tuple(x["id"] for x in LOOKS)
+
+# A LOOK AT ALL SCREENS (phase 33): each screen setting a Look sets, by its All Screens name. The Accent Color is also
+# Flat's (look.flat_colors.accent, written beside it as Appearance's Accent Color does); the Side Pane by its groups
+# (side_pane.<group>); the screensaver's options are look.saver. A screen's own `sky` (a Live Sky switched off before
+# 2026-10-13) and its screensaver switch have no All Screens setting: left alone there.
+HOUSE_KEYS = {
+    "flat": "look.flat", "flat_theme": "look.flat_theme", "glass": "look.glass", "accent": "menu.accent",
+    "tab_bar_glass": "menu.bar_glass", "tile_style": "look.tile_style",
+    "sky_background": "sky.background", "sky_color": "sky.color", "sky_wallpaper": "sky.wallpaper",
+    "sky_wallpaper_night": "sky.wallpaper_night", "sky_wallpaper_motion": "sky.wallpaper_motion",
+    "sky_wallpaper_color": "sky.wallpaper_color", "sky_animations": "sky.animations", "sky_weather": "sky.weather",
+    "sky_precipitation": "sky.precipitation", "sky_moving": "sky.moving", "sky_decorations": "sky.decorations",
+    "sky_liveliness": "sky.liveliness_all", "swipe_pages": "menu.swipe_pages", "camera_live_video": "cameras.live",
+    "sky_flat_background": "sky.flat_background", "sky_flat_color": "sky.flat_color", "screensaver_options": "look.saver",
+}
+HOUSE_SKIPPED = ("sky", "screensaver")
+HOUSE_ACCENT_FLAT = "look.flat_colors.accent"
 BY_ID = {x["id"]: x for x in LOOKS}
 
 

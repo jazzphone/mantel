@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import copy
+import re
 from typing import Any
+from ..looks import IDS as LOOK_IDS
 from ..saver_designs import HOLIDAYS as SAVER_HOLIDAYS
 from .schema import (_one_of, _PLACE, _typed, BRIGHT_PAGES, CONF_DASHBOARD, FLAT_BACKGROUNDS, flat_color, flat_colors,
     FLAT_COLORS_DEFAULT, FLAT_FADE, flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, flat_tint,
@@ -80,6 +82,27 @@ def pages_screen_resolved(house: Any, own: Any) -> dict[str, Any]:
     return {**(pages_screen(house) or copy.deepcopy(PAGES_SCREEN_DEFAULTS)), **(pages_screen_own(own) or {})}
 
 
+# PAGE COLOR (phase 33, decision 3: one color per page, the 2026-10-17 Flat Colors' per-page Accent Color folded in):
+# All Screens' color for a page is look.page_accents[page]; a page given a Flat color before (look.flat_page_colors
+# [page].accent) reads as that, its Page Color -- so the page shows exactly that color in Flat, where a color chosen
+# for a page wins over the screen's Accent Color (hk-settings.js resolveFlatColors), and now in the other styles too.
+# Read here, never rewritten until the page's color is next chosen (changes.py strips the old field then). A key
+# that can't be a page_accents key (a room's, room-<area>) and "auto" (Flat's stop) stay where they are.
+PAGE_COLOR_KEY = re.compile(r"^[a-z][a-z_]{1,29}$")
+
+
+def fold_page_colors(look: dict[str, Any]) -> None:
+    pa, fpc = dict(look.get("page_accents") or {}), {}
+    for k, f in (look.get("flat_page_colors") or {}).items():
+        a = f.get("accent")
+        if a and a != "auto" and PAGE_COLOR_KEY.match(k):
+            pa[k] = a
+            f = {x: v for x, v in f.items() if x != "accent"}
+        if f:
+            fpc[k] = f
+    look["page_accents"], look["flat_page_colors"] = pa, fpc
+
+
 def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     """The stored settings over the defaults, section by section."""
     from .saver_rules import saver_options
@@ -116,6 +139,9 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     out["look"]["page_accents"] = page_accents(out["look"].get("page_accents")) or {}
     out["look"]["flat_colors"] = {**FLAT_COLORS_DEFAULT, **(flat_colors(out["look"].get("flat_colors")) or {})}
     out["look"]["flat_page_colors"] = flat_page_colors(out["look"].get("flat_page_colors")) or {}
+    fold_page_colors(out["look"])
+    lu = out["look"].get("look_undo")
+    out["look"]["look_undo"] = lu if isinstance(lu, dict) and lu.get("look") in LOOK_IDS and isinstance(lu.get("was"), dict) else None
     sk = out["sky"]
     if sk.get("flat_background") not in FLAT_BACKGROUNDS:
         sk["flat_background"] = "color"

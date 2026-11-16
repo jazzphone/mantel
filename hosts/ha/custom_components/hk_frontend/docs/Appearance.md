@@ -6,55 +6,86 @@ Assistant’s header and sidebar show.
 ## Every screen
 
 **All Screens → Appearance.** How every screen that doesn’t choose its own
-looks, on one page:
+looks, on one page, top to bottom:
 
-- **Style**: the Appearance Style, then only that style’s own settings. Its
-  footer names the screens that keep their own look (each a link to it),
-  since a change here doesn’t reach them.
-- **Colors**: the **Accent Color**, and **Flat Colors** while any screen
-  wears Flat.
-- **Background**: **[Sky / Background](Live-Sky.md)** (its own sidebar
-  entry before; the old address opens it here).
-- **Tab Bar Look**: the [tab bar’s](Tab-Bar.md) **Tab Bar Glass**.
+- **Look**: a whole look in one step (HomeView, Flat, Performance and the
+  rest), its style, colors and background together. The row says the Look
+  last used, or *Custom*. See [Looks](#looks).
+- **Style**: **Glass**, **Frosted**, **Tinted** or **Flat**, then only that
+  style’s own settings. Glass is **Clear**, **Blurred** or **Bright**, a row
+  of its own while Glass is chosen. Its footer names the screens that keep
+  their own look (each a link to it), since a change here doesn’t reach them.
+- **Color**: the **Accent Color**, the **Page Colors**, and in Flat
+  **Tiles When Off** (with **Pages Keep Their Own Colors** under a chosen
+  accent).
+- **Tiles**: **Tile Style** and **Icons**. **Motion**: whether pages slide and
+  cards animate.
+- **Advanced**: the [tab bar’s](Tab-Bar.md) **Tab Bar Glass**, and how
+  Blurred and Bright glass are drawn (**Blur Drawing**).
+- **Reset Appearance…**: everything on the page back to its default, asked
+  first. The Background and the pages’ colors stay.
 
-**The Accent Color** is one choice for the menu’s highlight (its icons and
-the page you’re on, the tab bar’s too) and Flat’s accent: **Automatic** (in
-Flat, Flat’s own; elsewhere each page’s color, Home and the rooms orange),
-Apple’s eleven system colors, or **Your Own Color**. In Flat it also shades
-an Automatic background. It was the **Highlight Color** (under Menu) and
-Flat’s Accent Color before; both keep what you saved, and a Flat screen that
-had an accent of its own keeps it, as *Just This Screen*.
+The Background is its own page: **[Background](Live-Sky.md)** in the sidebar.
+
+**One name for each color.** The **Accent Color** colors the menu, the tab
+bar and the page you’re on: **Automatic** (each page in its Page Color, Home
+and the rooms orange), Apple’s eleven system colors, or **Your Own Color**.
+In Flat it also shades an Automatic background. A **Page Color** is a page’s
+own (Pages → the page → Look, or **Page Colors** here): Apple’s eleven, Flat’s
+eight **Soft Colors** (Amber, Sage, Harbor, Lavender, Rose, Slate, Teal and
+Clay), or your own. The page you’re on wears it while the Accent Color is
+Automatic, and its icon on the Pages screen does; in Flat, a color chosen for
+a page wins over the Accent Color. **Tiles When Off** (Flat) is what washes a
+tile that is off: **Their Own Colors**, **The Accent Color**, or **One
+Color**. Choosing an Accent Color leaves it as it is.
+
+These replace earlier names: the Highlight Color is the Accent Color, Flat
+Colors’ per-page Accent Color is the Page Color (a page given a Flat color
+keeps exactly that color), Off Pill Tint is Tiles When Off, Tint from
+Background is Color from Background, the Appearance Style is the Style and
+Blur Mode is Blur Drawing. Their old addresses open the new pages.
 
 ![The Appearance page in HK Settings](images/settings-appearance.webp)
 
 | Setting | Default | What it does |
 |---|---|---|
-| Glass Style | Glass | How pills, tiles, chips, scenes and keypads look: **Glass**, the original see-through glass, with the status chips and the round menu button beside them blurring what’s behind them. **Frosted**, a milky material with no blur: it costs nothing per frame on any device. **Tinted**, the Home app’s look: a flat dark plate with no blur anywhere on the page, the lightest on any device — see [Tinted](#tinted) below. **Blur**, what’s behind the glass blurred — choose how with **Blur Mode**. |
-| Blur Mode | Shared Layer | Shown when the Glass Style is Blur: **Shared Layer**, **Pre-rendered (Experimental)** or **Each Card**. What each costs and can’t do: [Blur Mode](#blur-mode) below. |
-| Frost | 50% | Shown when the Glass Style is Frosted. How milky it is, 0 to 100%. |
-| Tint from Background | Off | Shown when the Glass Style is Frosted. On: each card's frost takes the color of the page behind it (the sky at the card's height, the scenery's ground lower down) instead of one gray, at one darkness so white text reads the same on every page. It changes with the live sky through the day. Cards in pop-ups, the screensaver and Music (album art) keep the gray. Costs nothing per frame. |
-| Blur | 50% | Shown when the Glass Style is Blur, in any Blur Mode. How strong the blur is, 0 to 100%: 50% is 20 px, 100% is 40 px. |
-| Darkness | 50% | Shown when the Glass Style is Tinted. How much of the background shows through an off card: 0% is 40% dark, 50% is 75%, 100% is 90%. |
-| Icon Circles | Dark | Shown when the Glass Style is Tinted. **Dark**, as the Home app draws the circle behind an off accessory’s icon, or **Light**, which keeps its shape over dark scenery. |
+| Style | Glass | How pills, tiles, chips, scenes and keypads look: **Glass**, see-through, **Clear** (the original, with the status chips and the round menu button blurring what’s behind them), **Blurred** (what’s behind the glass blurred, drawn as **Blur Drawing** says) or **Bright** (a light glass that brings out the colors behind it). **Frosted**, a milky material with no blur: it costs nothing per frame on any device. **Tinted**, the Home app’s look: a flat dark plate with no blur anywhere on the page, the lightest on any device — see [Tinted](#tinted) below. **Flat**: opaque, no blur and no live sky effects. |
+| Blur Drawing | Shared Layer | Under **Advanced**, with Blurred or Bright glass: **Shared Layer**, **Pre-rendered (Experimental)** or **Each Card**. What each costs and can’t do: [Blur Drawing](#blur-drawing) below. |
+| Frost | 50% | Shown with Frosted. How milky it is, 0 to 100%. |
+| Color from Background | Off | Shown with Frosted. On: each card's frost takes the color of the page behind it (the sky at the card's height, the scenery's ground lower down) instead of one gray, at one darkness so white text reads the same on every page. It changes with the live sky through the day. Cards in pop-ups, the screensaver and Music (album art) keep the gray. Costs nothing per frame. |
+| Blur | 50% | Shown with Blurred glass. How strong the blur is, 0 to 100%: 50% is 20 px, 100% is 40 px. |
+| Darkness | 50% | Shown with Tinted. How much of the background shows through an off card: 0% is 40% dark, 50% is 75%, 100% is 90%. |
+| Icon Circles | Dark | Shown with Tinted. **Dark**, as the Home app draws the circle behind an off accessory’s icon, or **Light**, which keeps its shape over dark scenery. |
 | Page Pills | Default | Every page pill: the pills in a screen’s Scenes row that open a page. Tap one to set its name, icon and color, the same on every screen ([Home Page](Home-Page.md#scenes-and-page-pills)). |
 
-![The Glass Style page: Glass, Frosted, Tinted and Blur, with Blur Mode's three choices under it](images/settings-glass-style.webp)
-*All Screens → Appearance → Glass Style: the four styles, and with Blur chosen, its Blur Mode below.*
+![The Style page](images/settings-glass-style.webp)
+*All Screens → Appearance → Style: the four styles.*
+
+### Looks
+
+**Appearance → Look** opens the Looks, each with what it is. Tapping one shows
+what it changes (only what differs) and **Use** it. At All Screens it sets All
+Screens’ own settings: a screen that chose its own keeps it. On a screen it
+sets that screen’s. Each Look sets its background too: Flat and Performance
+choose a color. **Undo** on the Looks page puts back what was there before
+the last one.
 
 The four styles side by side:
 
 | Style | What blurs | What it costs | Best for |
 |---|---|---|---|
-| **Glass** (the default) | Only the status chips and the round menu button | Little | Most screens |
-| **Frosted** | Nothing: a milky plate | Nothing per frame | Any device; the plate can take the page's color (**Tint from Background**) |
+| **Glass**, Clear (the default) | Only the status chips and the round menu button | Little | Most screens |
+| **Frosted** | Nothing: a milky plate | Nothing per frame | Any device; the plate can take the page's color (**Color from Background**) |
 | **Tinted** | Nothing on the page: the Home app's flat dark plate | The least of all | A slow wall tablet, or anyone who wants the Home app's look |
-| **Blur** | Whatever is behind the glass, made as **Blur Mode** says | From light (Pre-rendered) to the heaviest (Each Card) | The see-through look; see [Blur Mode](#blur-mode) |
+| **Glass**, Blurred or Bright | Whatever is behind the glass, made as **Blur Drawing** says | From light (Pre-rendered) to the heaviest (Each Card) | The see-through look; see [Blur Drawing](#blur-drawing) |
+| **Flat** | Nothing, and no live sky effects | The least per frame | A slow tablet, with Motion off as well |
 
-### Blur Mode
+### Blur Drawing
 
-With the Glass Style on **Blur**, **Blur Mode** chooses how the blur is
-made. All three look alike standing still; they differ in what they cost
-and what they show while things move.
+With Blurred or Bright glass, **Appearance → Advanced → Blur Drawing**
+chooses how the blur is made (it was Blur Mode). All three look alike
+standing still; they differ in what they cost and what they show while
+things move.
 
 | Mode | Good at | Gives up | Best for |
 |---|---|---|---|
@@ -108,7 +139,7 @@ accessory opens an HK detail sheet is **HK Detail Sheets**, under
 When a wall tablet draws fewer than 45 frames a second on a screen, HK
 Settings suggests ONE change on that screen’s **Appearance**, under its Style,
 and never more than one at a time. For example: *“Kitchen Tablet draws 38
-frames a second with Blur. Glass looks almost the same and is lighter.”* The
+frames a second with Blurred Glass. Clear Glass looks almost the same and is lighter.”* The
 button changes that screen only (All Screens’ is never changed), and **Use
 Flat** is beside it. Nothing changes until you tap one. All Screens →
 Appearance lists each screen with a suggestion, linked to its page.
@@ -118,7 +149,7 @@ that doesn’t use one skips it:
 
 | | The suggestion | The button |
 |---|---|---|
-| 1 | The style: **Blur**, **Frosted** or **Tinted** | **Use Glass on This Screen** |
+| 1 | The style: **Blurred** or **Bright** glass, **Frosted** or **Tinted** | **Use Clear Glass on This Screen** |
 | 2 | The sky’s **Rain & Snow** | **Turn Off Rain & Snow on This Screen** (the clouds and fog stay) |
 | 3 | **Moving Things** in front of the cards | **Put Moving Things Behind on This Screen** |
 | 4 | The sky’s **Animations** | **Turn Off Animations on This Screen** (the sky holds still) |
@@ -142,19 +173,23 @@ Settings wherever it is opened.
 ## One screen
 
 **Screens → (a screen) → Appearance**, one row on the screen’s page with its
-style and whether it is its own. Its page is laid out as All Screens’: the
-Style, the Colors (its **Accent Color**, *Same as All Screens* until it
-chooses one), the Background and, for a screen with the tab bar, its
-**Tab Bar Glass**.
+style and whether it is its own. Its page is All Screens’, built the same:
+the Look, the Style, the Color (its **Accent Color**, *Same as All Screens*
+until it chooses one, and **Page Colors**: a page’s color on this screen
+only), the Tiles, Motion, Advanced and **Reset Appearance…**, which puts the
+whole page back to following All Screens.
 
 | Setting | Default | What it does |
 |---|---|---|
-| Glass Style | Same as All Screens | **Same as All Screens** (the row says *Same as All Screens* under its name, and the glass it follows, *Glass*), or under **Just This Screen** **Glass**, **Frosted**, **Tinted** or **Blur** — and with Blur, its **Blur Mode**: **Shared Layer**, **Pre-rendered (Experimental)** or **Each Card**. See [Appearance](#every-screen) for what each looks like and costs. |
-| Frost / Blur / Darkness | Same as All Screens | Shown for the amount this screen’s glass uses. Moving it gives this screen its own amount. |
+| Style | Same as All Screens | **Same as All Screens** (the row says *Now* and the style it follows), or under **Just This Screen** **Glass**, **Frosted**, **Tinted** or **Flat**. Glass’s **Clear**, **Blurred** or **Bright** row is on Appearance; picking one gives this screen its own style. See [Appearance](#every-screen) for what each looks like and costs. |
+| Frost / Blur / Darkness | Same as All Screens | Shown for the amount this screen’s style uses. Moving it gives this screen its own amount. |
 | Icon Circles | Same as All Screens | Shown when this screen uses Tinted. Choosing one gives this screen its own; **Reset to All Screens** goes back to following All Screens. |
 | Reset to All Screens (50%) | — | Shown once the screen has its own amount, with All Screens’ amount. Goes back to following All Screens. |
-| Tint from Background | Same as All Screens | Shown when this screen uses Frosted. Turning it on or off gives this screen its own; **Reset to All Screens** goes back to following All Screens. |
-| Sky / Background | Same as All Screens | The screen’s [Sky / Background](Live-Sky.md#the-background) page, which starts with its **Background**: **Live Sky**, **Color**, **Photo** or **Landscapes**, Same as All Screens until changed. With the Live Sky, its own **Moving Things**, **Pause When Not in Focus**, **Rain & Snow**, Clouds and the rest are there too, each Same as All Screens until changed. Reads **Black** for a screen whose Live Sky was turned off before (it shows Black; any choice there turns it back on). A YAML screen shows the Background wherever its YAML puts the sky. |
+| Color from Background | Same as All Screens | Shown when this screen uses Frosted. Turning it on or off gives this screen its own; **Reset to All Screens** goes back to following All Screens. |
+| Page Colors | Same as All Screens | Each page this screen shows: **Same as All Screens** (its color there), or a color for this screen only. In Flat, each page’s **Tiles When Off** is there too. |
+
+The screen’s **[Background](Live-Sky.md#the-background)** is a row of its own
+on the screen’s page.
 
 ## Home Assistant header & sidebar
 

@@ -120,18 +120,13 @@
       return Object.assign(said(v), { own: own, house: house });
     }
     // CHOOSING IT: both, in one write -- {house: setH's changes} or {screen:
-    // setB's}; in Flat, Off Pill Tint left Automatic follows a chosen color
-    // (flatAccentChange). `v` null: back to All Screens' (a screen).
-    function accentChanges(v, b, tintAuto) {
-      if (!b) {
-        var h = { 'menu.accent': v, 'look.flat_colors.accent': v };
-        if (v !== 'auto' && tintAuto) h['look.flat_colors.off_tint'] = 'accent';
-        return h;
-      }
+    // setB's}. `v` null: back to All Screens' (a screen). Tiles When Off is
+    // its own choice: choosing an accent no longer sets it too (phase 33,
+    // decision 4; a tint already stored stays as it is).
+    function accentChanges(v, b) {
+      if (!b) return { 'menu.accent': v, 'look.flat_colors.accent': v };
       if (v == null) return Object.assign(menuOwnReset(b, 'accent'), { 'flat_colors.accent': null });
-      var s = Object.assign(menuOwnSet(b, { accent: v }), { 'flat_colors.accent': v });
-      if (v !== 'auto' && tintAuto) s['flat_colors.off_tint'] = 'accent';
-      return s;
+      return Object.assign(menuOwnSet(b, { accent: v }), { 'flat_colors.accent': v });
     }
     // FLAT COLORS (2026-10-17; settings.py flat_colors, hk-settings.js
     // resolveFlatColors): Accent Color's presets -- hk-base.js FLAT_ACCENTS,
@@ -159,6 +154,20 @@
       for (var i = 0; i < FLAT_ACCENTS.length; i++) if (FLAT_ACCENTS[i][2] === v) return FLAT_ACCENTS[i][1];
       for (var j = 0; j < ACCENTS.length; j++) if (ACCENTS[j][0] === v || ACCENTS[j][2] === v) return ACCENTS[j][1];
       return /^#[0-9a-f]{6}$/.test(v) ? 'Custom' : 'Automatic';
+    }
+    // RESET APPEARANCE (phase 33), All Screens': every setting on Appearance at its default (hk_core DEFAULTS --
+    // tests/test_look_colors.py holds the two equal); never the Background, the pages' colors or a Look's Undo
+    var APPEARANCE_DEFAULTS = { 'look.flat': false, 'look.flat_theme': 'dark', 'look.glass': 'clear', 'look.frost': 50, 'look.blur': 50,
+      'look.tint': 50, 'look.well': 'dark', 'look.frost_tint': false, 'look.motion': true, 'look.bright': 50, 'look.bright_dim': 0,
+      'look.bright_pages': 'home', 'look.tile_style': 'auto', 'look.tile_icons': 'auto', 'menu.accent': 'orange', 'menu.bar_glass': 'house',
+      'look.flat_colors': { accent: 'auto', off_tint: 'auto', pages: 'accent' } };
+    // TILES WHEN OFF (phase 33; was Off Pill Tint, flat_colors.off_tint): auto, accent or a color, in words
+    var TILES_OFF = [['auto', 'Their Own Colors', 'Each tile in a wash of its own color. Flat Dark keeps its plain tiles.'],
+                     ['accent', 'The Accent Color', 'Every tile that’s off in a wash of the Accent Color, whatever it becomes.'],
+                     ['own', 'One Color', 'One color for every tile that’s off, whatever the Accent Color.']];
+    function tilesOffName(v) {
+      v = String(v || 'auto').toLowerCase();
+      return v === 'auto' ? TILES_OFF[0][1] : v === 'accent' ? TILES_OFF[1][1] : TILES_OFF[2][1];
     }
     // ...and as a swatch (null: none -- Automatic, Match Accent)
     function flatColorHex(v) {
@@ -194,15 +203,6 @@
     function flatFieldSays(f, o) {
       var src = flatSourceLabel(f, o);
       return flatColorName(f.value) + (src ? ' · ' + src : '');
-    }
-    // CHOOSING AN ACCENT is one coordinated change: where the tint in effect
-    // is Automatic, it links to the accent in the same write; a tint already
-    // matched, or a color of its own (here or inherited), is left as it is.
-    // `r`: the scope's resolved colors before the change.
-    function flatAccentChange(value, r) {
-      var out = { accent: value };
-      if (value !== 'auto' && r && r.off_tint && r.off_tint.value === 'auto') out.off_tint = 'accent';
-      return out;
     }
     // TAB POSITION as two choices: level with the date ('') or a distance from
     // the top in px or % (settings.py tab_position) -- [mode, number, unit]
@@ -350,7 +350,7 @@
     // ...as a row's value, the style alone ("Bright Glass", not "Bright Glass
     // · Shared Layer": its mode is on the Style page)
     function glassShort(v) {
-      return isBlur(v) ? 'Blur' : isBright(v) ? 'Bright Glass' : glassLabel(v);
+      return isBlur(v) ? 'Blurred Glass' : isBright(v) ? 'Bright Glass' : glassLabel(v);
     }
     // this screen's glass: its own, or All Screens'
     function glassOf(b, look) {
@@ -379,7 +379,7 @@
       if (style ===
         'flat'
         ) return 'Opaque surfaces with no blur or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
-      if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Tint from Background: each card takes the color of the page behind it instead of one gray.';
+      if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Color from Background: each card takes the color of the page behind it instead of one gray.';
       if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
       if (
         isBright(
@@ -454,7 +454,7 @@
     // what the tablet drew with (`drew`) and what the change gives (`why`)
     var LADDER = [
       { id: 'glass', applies: function (f) { return !!HEAVY_LOOKS[glassStyle(f.style)]; },
-        button: 'Use Glass on This Screen', change: { flat: false, glass: 'clear' }, flat: true,
+        button: 'Use Clear Glass on This Screen', change: { flat: false, glass: 'clear' }, flat: true,
         after: function (f) { return Object.assign({}, f, { style: 'clear' }); } },
       { id: 'rain', applies: function (f) { return f.rain; }, label: 'Rain & Snow',
         drew: 'Rain & Snow on', why: 'Without them the clouds and fog still drift, and it is lighter.',
@@ -493,7 +493,7 @@
       var label = step.label, says, then = null;
       if (step.id === 'glass') {
         label = (GLASS_STYLES.filter(function (g) { return g[0] === kind; })[0] || [0, kind])[1];
-        says = who + label + '. ' + (kind === 'blur' || kind === 'bright' ? 'Glass looks almost the same and is lighter.'
+        says = who + label + '. ' + (kind === 'blur' || kind === 'bright' ? 'Clear Glass looks almost the same and is lighter.'
           : 'Flat is the lightest look: no blur or moving sky. With Motion off as well, nothing animates.');
       } else says = who + step.drew + '. ' + step.why;
       // the next step, if one would still apply once this one is taken
@@ -507,11 +507,11 @@
     // what the shell and the later parts use of this one
     K.accentChanges = accentChanges; K.accentColorOf = accentColorOf; K.amountOf = amountOf;
     K.amountsFor = amountsFor; K.choiceLabel = choiceLabel; K.DEVICES = DEVICES; K.FLAT_ACCENTS = FLAT_ACCENTS;
-    K.flatAccentChange = flatAccentChange; K.flatAccentSays = flatAccentSays; K.flatColorHex = flatColorHex;
+    K.flatAccentSays = flatAccentSays; K.flatColorHex = flatColorHex;
     K.flatColorName = flatColorName; K.flatColorsOf = flatColorsOf; K.flatFieldSays = flatFieldSays;
     K.flatPagesName = flatPagesName; K.flatSourceLabel = flatSourceLabel; K.flatTintLabel = flatTintLabel;
     K.foldOptions = foldOptions; K.glassFooter = glassFooter; K.glassLabel = glassLabel; K.glassOf = glassOf;
-    K.glassShort = glassShort; K.HA_PLACES = HA_PLACES; K.hasTabBar = hasTabBar;
+    K.glassShort = glassShort; K.TILES_OFF = TILES_OFF; K.tilesOffName = tilesOffName; K.APPEARANCE_DEFAULTS = APPEARANCE_DEFAULTS; K.HA_PLACES = HA_PLACES; K.hasTabBar = hasTabBar;
     K.houseMenuAsBoard = houseMenuAsBoard; K.houseMenuSave = houseMenuSave; K.KIND_KEYS = KIND_KEYS;
     K.kindUsers = kindUsers; K.LADDER = LADDER; K.ladderFacts = ladderFacts; K.ladderSignature = ladderSignature;
     K.MENU_KEYS = MENU_KEYS; K.MENU_KINDS = MENU_KINDS; K.menuFor = menuFor; K.menuKind = menuKind;

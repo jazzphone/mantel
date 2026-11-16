@@ -110,7 +110,7 @@ what helps most:
   most smoothly, the Now Playing bar up or not; **Shared Layer** is fine
   until the page scrolls under the bar. **Tinted** blurs nothing on the page
   and is the lightest of all. See
-  [Appearance → Blur Mode](Appearance.md#blur-mode).
+  [Appearance → Advanced → Blur Drawing](Appearance.md#blur-drawing).
 - **Rain & Snow** off keeps the clouds but drops the falling weather;
   **Animations** off stills the whole sky ([Live Sky](Live-Sky.md#choose-its-look)).
 - **Live First Camera** off makes the camera strip all snapshots: no video to

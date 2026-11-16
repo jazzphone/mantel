@@ -54,7 +54,13 @@ def test_the_settings_page_has_the_same_looks(tmp_path):
                        + "".join(f"load({json.dumps(str(x))});\n" for x in web_sources.parts("web/hk/panels/hk-settings-model.js"))
                        + f"load({json.dumps(str(ROOT / 'web/hk/panels/hk-settings-model.js'))});\n"
                        "print(JSON.stringify({looks: window.hkSettingsModel.LOOKS, set: window.hkSettingsModel.LOOK_KEYS,"
-                       " undo: window.hkSettingsModel.LOOK_UNDO_KEYS}));\n")
+                       " undo: window.hkSettingsModel.LOOK_UNDO_KEYS, house: window.hkSettingsModel.LOOK_HOUSE,"
+                       " reset: window.hkSettingsModel.APPEARANCE_DEFAULTS}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
     assert out["looks"] == json.loads(json.dumps(list(L.LOOKS)))
     assert out["set"] == list(L.SET_KEYS) and out["undo"] == list(L.UNDO_KEYS)
+    # a Look at All Screens (phase 33): the same settings by the same All Screens names
+    assert out["house"] == L.HOUSE_KEYS
+    # Reset Appearance (phase 33): All Screens' Appearance back to the server's own defaults
+    d = M.merged(None)
+    assert out["reset"] == {k: d[k.split(".")[0]][k.split(".", 1)[1]] for k in out["reset"]}

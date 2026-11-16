@@ -80,7 +80,7 @@ ok('off tiles stay distinct from raised cards; controls share the configuration 
     C.FLAT.light['--acc-cell']);
 ok('Calendar and Weather keep a tone of their own; Home takes the background',C.flatOwnGround('calendar')&&C.flatOwnGround('weather')&&C.flatOwnGround('energy')&&C.flatOwnGround('climate')&&
     !C.flatOwnGround('home'));
-ok('Highlight Color Automatic reads as Automatic',M.accentOf('auto').auto===true&&M.accentOf('auto').name==='Automatic');
+ok('Accent Color Automatic reads as Automatic',M.accentOf('auto').auto===true&&M.accentOf('auto').name==='Automatic');
 ok('page highlight defaults: dashboard and settings agree',JSON.stringify(C.PAGE_ACCENTS)===JSON.stringify(M.PAGE_ACCENTS));
 ok('a page of its own highlight, else its default',M.pageAccentOf('climate',{climate:'green'}).value==='green'&&M.pageAccentOf('climate',{}).value==='blue'&&M.pageAccentOf('climate',{}).own===false);
 S._apply({look:{flat:true,flat_theme:'light',page_accents:{climate:'red'}},sky:{}});

@@ -211,7 +211,7 @@
             ', a Color or a Photo. A screen can choose its own.' }, [
             K.nav({ label: 'Background', icon: 'mdi:image-outline', sk: (rflat ? 'sky.flat_pages:' : 'sky.pages:') + rk, href: '#/house/appearance/sky/page/' + encodeURIComponent(rk),
                     value: rm.own ? (rflat ? this.flatModeLabel(rm.mode, this.flatTheme(null)) : M.skyModeLabel(rm.mode, (this.data.choices || {}).sky_backdrops || [])) : 'Same as Room Pages' })]
-            .concat(this.flatAnywhere() ? [this.flatColorsNav(this.flatScope('house-page', null, null, rk), { icon: 'mdi:palette-outline', inherited: 'Same as Room Pages' })] : [])));
+            .concat([this.pageColorNav(rk, null, '#/house/appearance/page-colors/' + encodeURIComponent(rk), { icon: 'mdi:palette-outline', tile: false })])));
         }
       }
       // A ROOM PAGE'S OWN BACKGROUND KEY: its address, as the screens name it

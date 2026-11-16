@@ -220,7 +220,14 @@
         // APPEARANCE (2026-10-29): one row on the screen's page, this page laid
         // out as All Screens' Appearance
         var ab = ['Appearance', base + '/appearance'];
+        if (s === 'appearance' && sub[1] === 'advanced' && sub[2] === 'blur') {
+          return mkl('Blur Drawing', function (c) { self.blurDrawing(c, x, b); }, ['Advanced', base + '/appearance/advanced']);
+        }
+        if (s === 'appearance' && sub[1] === 'advanced') return mkl('Advanced', function (c) { self.appearanceAdvanced(c, x, b); }, ab);
+        if (s === 'appearance' && sub[1] === 'tiles-off') return mkl('Tiles When Off', function (c) { self.tilesOffPage(c, x, b, null); }, ab);
         if (s === 'appearance') return mkl('Appearance', function (c) { self.s_appearance(c, x, b); });
+        // A PAGE'S OWN COLOR ON THIS SCREEN (phase 33: Flat Colors' pages before)
+        if (s === 'page-colors') return this.pageColorRoutes(x, b, sub.slice(1), mkl, base + '/page-colors', ab);
         if (s === 'sidepane') return this.p_sidePane(path, sub.slice(1), [x.title, base]);
         // NOW PLAYING OPTIONS (2026-10-30): the screen's own Now Playing, laid
         // out as All Screens' (its rows were under Behavior on its page)
@@ -228,7 +235,7 @@
         // LOOKS (2026-10-30, hk_core looks.py): a whole look in one step, and its Undo
         var lb = ['Looks', base + '/looks'];
         if (s === 'looks' && sub[1] && M.lookOf(sub[1])) return mkl(M.lookOf(sub[1]).name, function (c) { self.lookPage(c, x, b, M.lookOf(sub[1]), base); }, lb);
-        if (s === 'looks') return mkl('Looks', function (c) { self.looksPage(c, x, b, base); });
+        if (s === 'looks') return mkl('Looks', function (c) { self.looksPage(c, x, b, base); }, ab);
         if (s === 'accent') return mkl('Accent Color', function (c) { self.accentPage(c, x, b); }, ab);
         if (s === 'menu-pages' && x.generated) s = 'pages';
         if (s === 'menu-pages') return mk('Pages in Menu', function (c) { self.s_menuPages(c, x, b); });
@@ -273,8 +280,7 @@
                     srow && srow.room ? ['Room Pages', base + '/sky/page/rooms'] : ['Background', base + '/sky']);
         }
         if (s === 'sky') return mkl('Background', function (c) { self.s_sky(c, x, b); }, ab);
-        if (s === 'glass') return mkl('Appearance Style', function (c) { self.s_glass(c, x, b); }, ab);
-        if (s === 'flat-colors') return this.p_flatColors('screen', x, b, sub.slice(1), mkl, ab);
+        if (s === 'glass') return mkl('Style', function (c) { self.s_glass(c, x, b); }, ab);
         if (s === 'copy') return mk('Copy Settings', function (c) { self.s_copy(c, x, b); });
         if (s === 'more') return mk('More for This Screen', function (c) { self.s_more(c, x, b); });
         // SLEEP SCREEN is each tablet's since 1.14: a screen's old address opens
@@ -1195,39 +1201,9 @@
         return K.esc(names.length ? 'Used by ' + (names.length > 2 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names.join(' and ')) +
             '. A screen can set any of these as its own, in its Menu.' : 'Not used on any screen. These wait until a screen uses it.');
       }
-      // A PAGE'S HIGHLIGHT (look.page_accents): its default first, then the
-      // colors and your own -- the page you're on in the menu, while a
-      // screen's Accent Color is Automatic
-      pageAccent(c, key) {
-        var self = this, all = this.hs('look.page_accents') || {}, pa = M.pageAccentOf(key, all);
-        var put = function (v) {
-          var next = Object.assign({}, all);
-          if (v) next[key] = v; else delete next[key];
-          self.setH({ 'look.page_accents': next });
-        };
-        c.appendChild(
-          K.group(
-          {
-          footer:
-          'The page’s own color: in the menu when you’re on it, while a screen’s Accent Color is Automatic, and in Flat a very light or very dark shade of it is the page’s Automatic background. ' +
-          'Choosing another Background overrides that.' }, [
-          K.check({ label: 'Default', sub: pa.d.name, tile: ['', pa.d.hex], on: !pa.own, fk: 'paccent:default', onClick: function () { put(null); } })]));
-        c.appendChild(K.group({ header: 'Colors' }, M.ACCENTS.map(function (x) {
-          return K.check({ label: x[1], tile: ['', x[2]], on: pa.own && !pa.a.custom && pa.a.hex === x[2], fk: 'paccent:' + x[0], onClick: function () { put(x[0]); } });
-        })));
-        var row = K.text({ label: 'Your Own Color', sub: pa.own && pa.a.custom ? pa.a.hex : 'Pick any color.', type: 'color', fk: 'paccent:custom',
-                           value: pa.a.hex, error: this.err('look.page_accents'),
-                           onCommit: function (t) { if (/^#[0-9a-f]{6}$/i.test(t)) put(t.toLowerCase()); } });
-        var inp = row.querySelector('input');
-        if (inp) {
-          inp.style.cssText = 'flex:none;width:44px;height:30px;padding:0;border-radius:8px;cursor:pointer';
-          inp.addEventListener('change', function () { if (/^#[0-9a-f]{6}$/i.test(inp.value)) put(inp.value.toLowerCase()); });
-        }
-        c.appendChild(K.group({ header: 'Custom' }, [row]));
-      }
-      // ACCENT COLOR (2026-10-29): the menu's highlight and Flat's accent, one
-      // choice (M.accentColorOf) -- All Screens' (b null) or a screen's, whose
-      // first row is Same as All Screens
+      // ACCENT COLOR (2026-10-29): the menu's color and Flat's accent, one choice (M.accentColorOf) -- All Screens' (b
+      // null) or a screen's, whose first row is Same as All Screens. Choosing one no longer sets Tiles When Off too
+      // (phase 33, decision 4).
       accentOf(x, b) {
         var look = this.data.settings.look || {}, houseFlat = this.flatHere(null);
         return M.accentColorOf(look, this.data.settings.menu || {}, b, b ? this.flatHere(b) : houseFlat, houseFlat);
@@ -1235,30 +1211,25 @@
       accentNav(x, b, href) {
         var ac = this.accentOf(x, b);
         return K.nav({ label: 'Accent Color', value: ac.name, href: href, sk: b ? 'b:accent' : 'menu.accent',
-                       sub: b && ac.own ? 'Just This Screen' : null,
+                       sub: b && ac.own ? 'Just This Screen' : 'The menu, the tab bar and the page you’re on',
                        tile: ['', ac.hex || AUTO_ACCENT_TILE] });
       }
       accentPage(c, x, b) {
-        var self = this, ac = this.accentOf(x, b), flat = b ? this.flatHere(b) : this.flatHere(null);
-        var sc = this.flatScope(b ? 'screen' : 'house', x, b), tintAuto = flat && sc.resolved().off_tint.value === 'auto';
-        // (the page stays, its checkmark moved: as Flat Colors' pickers do)
-        var pick = function (v) {
-          return b ? self.setB(x.path, M.accentChanges(v, b, tintAuto)) : self.setH(M.accentChanges(v, null, tintAuto));
-        };
+        var self = this, ac = this.accentOf(x, b);
+        // (the page stays, its checkmark moved)
+        var pick = function (v) { return b ? self.setB(x.path, M.accentChanges(v, b)) : self.setH(M.accentChanges(v, null)); };
         var mine = !b || ac.own, cur = String(ac.value || '').toLowerCase();
         var named = function (n) { return mine && (cur === n[0] || cur === n[2]); };
         var rows = [];
         if (b) rows.push(K.check({ label: 'Same as All Screens', sub: 'Now ' + ac.house.name, on: !ac.own, fk: 'accent:inherit',
                                    tile: ['', ac.house.hex || AUTO_ACCENT_TILE], onClick: function () { pick(null); } }));
         rows.push(K.check({ label: 'Automatic', tile: ['', AUTO_ACCENT_TILE], on: mine && cur === 'auto', fk: 'accent:auto',
-          sub: flat ? 'In Flat, Flat’s own: each page’s Accent Color, Home and the rooms orange.'
-                    : 'The page you’re on in its own color (Climate blue, Lights yellow…), Home and the rooms orange.',
+          sub: 'The page you’re on in its Page Color (Climate blue, Lights yellow…), Home and the rooms orange.',
           onClick: function () { pick('auto'); } }));
         M.ACCENTS.forEach(function (n) {
           rows.push(K.check({ label: n[1], tile: ['', n[2]], on: named(n), fk: 'accent:' + n[0], onClick: function () { pick(n[0]); } }));
         });
-        c.appendChild(K.group({ footer: 'Colors the menu’s icons, the tab bar and the page you’re on. In Flat it also shades an Automatic background and, while Off Pill Tint matches it, the pills.' },
-          rows));
+        c.appendChild(K.group({ footer: 'Colors the menu’s icons, the tab bar and the page you’re on. In Flat it also shades an Automatic background.' }, rows));
         var custom = mine && cur !== 'auto' && !M.ACCENTS.some(function (n) { return named(n); });
         var row = K.text({ label: 'Your Own Color', sub: custom ? ac.name + ' · ' + (ac.hex || '').toUpperCase() : 'Pick any color.', type: 'color', fk: 'accent:custom',
                            value: ac.hex || '#ff9f0a', error: this.err('menu.accent') || this.err('b:accent'),

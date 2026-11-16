@@ -1735,23 +1735,24 @@
     // the view's address, its kind's color; Home, the rooms and the rest
     // HK's orange
     // by page kind, each page's own (HK Settings -> the page -> Look ->
-    // Highlight Color, look.page_accents, 2026-10-17) else these; a view's
+    // Page Color, look.page_accents, 2026-10-17) else these; a view's
     // address names its kind (PAGE_OF_PATH where the two differ).
     // hk-settings-model.js PAGE_ACCENTS is the same table (tests/test_flat.js).
     var PAGE_ACCENTS = { climate: 'blue', lights: 'yellow', security: 'teal', doors_windows: 'teal',
                          calendar: 'purple', weather: 'cyan', energy: 'green', power: 'green', water: 'cyan',
                          music: 'pink', live_tv: 'indigo', cameras: 'red', vacuums: 'mint', timers: 'orange' };
     var PAGE_OF_PATH = { 'doors-windows': 'doors_windows', playmusic: 'music', 'music-browse': 'music', 'live-tv': 'live_tv' };
-    // THE HIGHLIGHT COLOR AS SAVED, here: the screen's (else All Screens',
+    // THE ACCENT COLOR AS SAVED, here: the screen's (else All Screens',
     // resolved into the board), Automatic the page's own -- a hex
     function legacyAccentHex() {
       var a = String(boardOf(dashSeg()).accent || 'orange').toLowerCase();
       if (a === 'auto') a = pageAccent();
       return ACCENTS[a] || (/^#[0-9a-f]{6}$/.test(a) ? a : ACCENTS.orange);
     }
+    // (a page's Page Color: this screen's, else All Screens', hkSettings.pageColor; phase 33)
     function pageAccent() {
       var seg = String(location.pathname).split('/')[2] || '', kind = PAGE_OF_PATH[seg] || seg;
-      var S = window.hkSettings, own = S && S.get ? (S.get('look.page_accents', {}) || {})[kind] : null;
+      var S = window.hkSettings, own = S && S.pageColor ? S.pageColor(kind) : S && S.get ? (S.get('look.page_accents', {}) || {})[kind] : null;
       return own || PAGE_ACCENTS[kind] || 'orange';
     }
     // An always-open menu needs room for it: its item's "Always open when the

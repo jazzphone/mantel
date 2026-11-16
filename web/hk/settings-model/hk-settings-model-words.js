@@ -275,10 +275,10 @@
     // (Shared Layer), blur_pre (Pre-rendered), blur_each (Each Card)
     var GLASS_STYLES = [
       ['flat', 'Flat', 'A clean, opaque look designed for smoother performance. No blur and no live sky effects. Especially useful on slower tablets, with Motion off as well.'],
-      ['clear', 'Glass', 'The original see-through glass. The status chips blur what’s behind them.'],
+      ['clear', 'Clear Glass', 'The original see-through glass. The status chips blur what’s behind them.'],
       ['frosted', 'Frosted', 'A milky material with no blur. Costs nothing per frame on any device.'],
       ['tinted', 'Tinted', 'The Home app’s dark plate, with no blur anywhere on the page. The lightest on any device; sheets and pop-ups still blur while open.'],
-      ['blur', 'Blur', 'What’s behind the glass, blurred. Choose how in Blur Mode.'],
+      ['blur', 'Blurred Glass', 'What’s behind the glass, blurred. How it’s drawn: Appearance → Advanced → Blur Drawing.'],
       // BRIGHT GLASS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase D): the
       // sixth look, in Blur's three modes (BRIGHT_MODES)
       ['bright', 'Bright Glass', 'A light, clear glass that brings out the colors behind it. Best over a wallpaper.']
@@ -299,7 +299,7 @@
     // (every style but Blur and Bright Glass, then their modes -- a style
     // added later is in)
     var GLASS = GLASS_STYLES.filter(function (s) { return s[0] !== 'blur' && s[0] !== 'bright'; }).concat(BLUR_MODES.map(function (m) {
-      return [m[0], 'Blur · ' + m[1], m[2]];
+      return [m[0], 'Blurred Glass · ' + m[1], m[2]];
     })).concat(BRIGHT_MODES.map(function (m) {
       return [m[0], 'Bright Glass · ' + m[1], m[2]];
     }));
@@ -315,6 +315,27 @@
       var mode = isBlur(cur) || isBright(cur) ? cur : (isBlur(fallback) || isBright(fallback) ? fallback : 'blur');
       var at = ['', '_pre', '_each'].filter(function (x) { return mode === 'blur' + x || mode === 'bright' + x; })[0] || '';
       return style + at;
+    }
+    // THE FOUR STYLES (phase 33, decision 5): Glass is Clear, Blurred or Bright (the Glass, Blur and Bright Glass
+    // before: the same stored values, look.glass / a screen's glass: clear, blur*, bright*), then Frosted, Tinted and
+    // Flat (look.flat / a screen's flat). Each a checkmark row and one sentence; Glass's kind a segmented row on
+    // Appearance, Blur's drawing (BLUR_MODES) under Appearance -> Advanced.
+    var STYLES = [
+      ['glass', 'Glass', 'See-through glass over the background: Clear, Blurred, or Bright to bring out the colors behind it.'],
+      ['frosted', 'Frosted', 'A milky material with no blur. Costs nothing per frame on any device.'],
+      ['tinted', 'Tinted', 'The Home app’s dark plate, with no blur anywhere on the page. The lightest on any device; sheets and pop-ups still blur while open.'],
+      ['flat', 'Flat', 'A clean, opaque look for smoother performance: no blur and no live sky effects. Useful on slower tablets, with Motion off as well.']
+    ];
+    var GLASS_KINDS = [['clear', 'Clear'], ['blur', 'Blurred'], ['bright', 'Bright']];
+    // the style a stored value is one of ('flat' for Flat), and Glass's kind
+    function styleOf(v) { return v === 'flat' || v === 'frosted' || v === 'tinted' ? v : 'glass'; }
+    function glassKind(v) { return isBlur(v) ? 'blur' : isBright(v) ? 'bright' : 'clear'; }
+    // the value saved when a style is picked: Glass keeps a Glass already chosen (`cur`), else `fallback`'s (All
+    // Screens' on a screen), else Clear; Glass's kind keeps the Blur Drawing already chosen (styleValue)
+    function styleValue4(style, cur, fallback) {
+      if (style !== 'glass') return style;
+      if (cur && cur !== 'flat' && styleOf(cur) === 'glass') return cur;
+      return fallback && fallback !== 'flat' && styleOf(fallback) === 'glass' ? fallback : 'clear';
     }
     // the style a stored value belongs to
     function glassStyle(v) {
@@ -475,11 +496,16 @@
         else if (p[1] === 'sky' && !(p[2] === 'page' && pageOf(p[3]))) out = ['house', 'appearance', 'sky'].concat(p.slice(2)).join('/');
         else if (p[1] === 'appearance' && p[2] === 'sky' && p[3] === 'page' && pageOf(p[4])) out = 'page/' + p[4] + '/background';
         else if (p[1] === 'menu' && p[2] === 'accent') out = 'house/appearance/accent';
-        else if (p[1] === 'appearance' && p[2] === 'flat-colors' && p[3] === 'accent') out = 'house/appearance/accent';
+        // FLAT COLORS, TAKEN APART (phase 33): each old address to where its setting is now -- the general ones on
+        // Appearance (Accent Color, Pages Keep Their Own Colors, Tiles When Off), a page's in its Look group (its Page
+        // Color, its Tiles When Off), a room's among the Page Colors
+        else if (p[1] === 'appearance' && p[2] === 'flat-colors') out = flatColorsForward('house/appearance', p.slice(3), true);
         else if (p[1] === 'menu' && (p[2] === 'tablets' || p[2] === 'phones')) out = p[3] === 'style' ? 'house/menu/side/' + p[2] : 'house/menu';
         else if (p[1] === 'appearance' && p[2] === 'pill' && pageOf(p[3])) out = 'page/' + p[3] + '/pill';
         else if (p[1] === 'sky' && p[2] === 'page' && pageOf(p[3])) out = 'page/' + p[3] + '/background';
-      } else if (p[0] === 'screens' && p[1] && (p[2] === 'menu' || p[2] === 'flat-colors') && p[3] === 'accent' && !p[4]) {
+      } else if (p[0] === 'screens' && p[1] && p[2] === 'flat-colors') {
+        out = flatColorsForward('screens/' + p[1], p.slice(3), false);
+      } else if (p[0] === 'screens' && p[1] && p[2] === 'menu' && p[3] === 'accent' && !p[4]) {
         out = 'screens/' + p[1] + '/accent';
       } else if (p[0] === 'screens' && p[1] && p[2] === 'menu' && (p[3] === 'tablets' || p[3] === 'phones')) {
         out = 'screens/' + p[1] + '/menu' + (p[4] === 'style' ? '/side/' + p[3] : '');
@@ -491,6 +517,16 @@
         out = 'page/' + (p[2] === 'vacuums' ? 'vacuums' : 'security') + '/order';
       }
       return out && out !== p.join('/') ? out : null;
+    }
+    // an old Flat Colors address (`rest`: what followed flat-colors) at All Screens' (`house`) or a screen's (`at`)
+    function flatColorsForward(at, rest, house) {
+      var app = house ? at : at + '/appearance';
+      if (rest[0] === 'accent') return at + '/accent';
+      if (rest[0] === 'tint') return app + '/tiles-off';
+      if (rest[0] !== 'page' || !rest[1]) return app;
+      var k = rest[1], tint = rest[2] === 'tint';
+      if (house && pageOf(k)) return 'page/' + k + (tint ? '/tiles-off' : rest[2] === 'accent' ? '/accent' : '');
+      return at + '/page-colors/' + k + (tint ? '/tiles-off' : '');
     }
     // A SCREEN SHOWS A PAGE: its Pages on This Screen ([] every page)
     function screenShows(b, key) {
@@ -729,7 +765,8 @@
     K.CLOCK_BGS = CLOCK_BGS; K.CLOCK_COLORS = CLOCK_COLORS; K.CLOCK_STYLES = CLOCK_STYLES;
     K.clockRecommend = clockRecommend; K.CLOSE_AFTER = CLOSE_AFTER; K.CLOUD_STYLES = CLOUD_STYLES;
     K.colorLabel = colorLabel; K.COUNT_KINDS = COUNT_KINDS; K.DAYTIME_SKIES = DAYTIME_SKIES; K.errorText = errorText;
-    K.GLASS = GLASS; K.GLASS_STYLES = GLASS_STYLES; K.glassStyle = glassStyle; K.haName = haName;
+    K.GLASS = GLASS; K.GLASS_STYLES = GLASS_STYLES; K.glassStyle = glassStyle; K.STYLES = STYLES; K.GLASS_KINDS = GLASS_KINDS;
+    K.styleOf = styleOf; K.glassKind = glassKind; K.styleValue4 = styleValue4; K.haName = haName;
     K.HEADER_PAGES = HEADER_PAGES; K.headerOffOn = headerOffOn; K.isBlur = isBlur; K.isBright = isBright;
     K.LANDSCAPE_EVERY = LANDSCAPE_EVERY; K.landscapeFile = landscapeFile; K.landscapeLabel = landscapeLabel;
     K.LIVELY = LIVELY; K.LIVELY_ALL = LIVELY_ALL; K.LIVELY_OFTEN = LIVELY_OFTEN; K.LIVELY_PRESETS = LIVELY_PRESETS;

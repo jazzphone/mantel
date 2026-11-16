@@ -105,7 +105,12 @@
         "errorText",
         "refusals",
         "accentOf",
-        "ACCENTS"
+        "ACCENTS",
+        "STYLES",
+        "GLASS_KINDS",
+        "styleOf",
+        "glassKind",
+        "styleValue4"
       ]
     },
     {
@@ -148,7 +153,6 @@
         "flatSourceLabel",
         "flatTintLabel",
         "flatFieldSays",
-        "flatAccentChange",
         "tabPosParts",
         "tabPosJoin",
         "tabPosLabel",
@@ -186,7 +190,10 @@
         "LADDER",
         "LADDER_THEN",
         "slowRecommend",
-        "SKY_PAGE_LABELS"
+        "SKY_PAGE_LABELS",
+        "APPEARANCE_DEFAULTS",
+        "TILES_OFF",
+        "tilesOffName"
       ]
     },
     {
@@ -399,7 +406,11 @@
         "LOOK_LABELS",
         "lookSays",
         "lookChanges",
-        "lookUndo"
+        "lookUndo",
+        "LOOK_HOUSE",
+        "housePath",
+        "houseLookChanges",
+        "houseLookUndo"
       ]
     }
   ],
