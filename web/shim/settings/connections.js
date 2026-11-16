@@ -277,7 +277,8 @@ function pConnection(kind) {
     if (kind === 'homepod') {
       // HELPERPOD, THE HOMEPOD TIMER READER (phase 28): its address, then the 6-digit pairing code it shows (Save trades it
       // for HelperPod's token), or the token itself
-      c.appendChild(group({ header: 'Pairing Code or Token', footer: 'HelperPod shows a 6-digit pairing code: in its Settings (Mantel), its setup assistant and its page. Type it here; it works once and lasts 10 minutes. Or paste HelperPod’s token.' }, [
+      c.appendChild(group({ header: 'Pairing Code or Token', footer: 'HelperPod shows a 6-digit pairing code: in its Settings ' +
+        '(Mantel), its setup assistant and its page. Type it here; it works once and lasts 10 minutes. Or paste HelperPod’s token.' }, [
         field('conn-homepod', 'token', 'Code or Token', { type: 'password', maxlength: 4096 }),
         button('Test', test('token'), { fk: 'mx:homepod-token-test' }), button('Save', save('token'), { fk: 'mx:homepod-token-save' })]));
       if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
