@@ -280,8 +280,10 @@
       // A TABLET'S DAY LEFT ALONE (Wall Tablets, 1.14): Touched -> Home ->
       // the screensaver -> dark, each where it starts
       '.cell.tl{display:block;padding:14px 16px 12px}',
-      '.tl .track{display:flex;height:30px;border-radius:8px;overflow:hidden;gap:2px}',
-      '.tl .seg{display:flex;align-items:center;justify-content:center;min-width:0;padding:0 6px;font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      // (one bar, round only at its two ends: its parts are square where they meet -- the owner, 2026-11-16 -- and never
+      // the segmented control's capsules, whose class they share)
+      '.tl .track{display:flex;height:30px;border-radius:15px;overflow:hidden;gap:2px}',
+      '.tl .seg{border-radius:0;max-width:none;display:flex;align-items:center;justify-content:center;min-width:0;padding:0 6px;font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.tl .use{background:#0a84ff}.tl .home{background:#30b0c7}.tl .saver{background:#bf5af2}.tl .dark{background:#636366}',
       '.tl .ticks{position:relative;min-height:34px;margin-top:6px;font-size:12px;line-height:16px;color:var(--hk-label2)}',
       '.tl .ticks span.last{position:relative;display:block;white-space:normal}',
