@@ -55,37 +55,60 @@
           if (b.np_style || b.np_side || b.np_bar || b.np_bar_phone) own.push(K.nav({ label: (self.dash(pth) || {}).title || pth, value: M.npSummary(b, np),
             href: '#/screens/' + encodeURIComponent(pth) + '/nowplaying', sk: 'np:screen:' + pth }));
         });
-        if (own.length) c.appendChild(K.group({ header: 'Screens With Their Own', footer: 'These screens choose their own, on their Now Playing Options.' }, own));
+        if (own.length) c.appendChild(K.group({ header: 'Screens With Their Own', footer: 'These screens choose their own, on their Now Playing page.' }, own));
         void wide;
       }
-      // A SCREEN'S NOW PLAYING OPTIONS (2026-10-30): All Screens' Now Playing,
-      // by device, each choice Same as All Screens until it is the screen's
-      // own -- and one Reset for them all
+      // A SCREEN'S NOW PLAYING (2026-10-30; phase 33: its switch, Timer Bar and On Every Page are here, from More for This
+      // Screen): its switch, then All Screens' Now Playing by device, each choice Same as All Screens until it is the
+      // screen's own -- and one Reset for them all. Hide After has no key of its own: it is All Screens'.
       s_nowPlaying(c, x, b) {
-        var self = this, path = x.path, hnp = this.npHouse();
+        var self = this, path = x.path, hnp = this.npHouse(), gen = x.generated;
         var set = function (ch) { return self.setB(path, ch); };
         var lab = function (list, v) { return M.choiceLabel(list, v); };
-        if (!b.now_playing || b.np_style === undefined) {
-          c.appendChild(K.group({ footer: 'Now Playing is off on this screen. Turn it on on the screen’s page.' }, [
-            K.nav({ label: x.title, href: '#/screens/' + encodeURIComponent(path), fk: 'np:screen' })]));
+        if (!gen) {
+          c.appendChild(K.group({ footer: 'A dashboard written in YAML draws its own Now Playing.' }, []));
           return;
         }
-        var npSel = function (key, label, list, hv) {
-          var own = b[key];
-          return K.select({ label: label, sk: 'b:' + key, sub: own ? 'Just This Screen' : null, value: own || '',
-            options: [['', 'Same as All Screens (' + lab(list, hv) + ')', lab(list, hv)]].concat(list),
-            onChange: function (v) { var o = {}; o[key] = v || null; set(o); } });
-        };
-        var inPane = M.paneHasMusic(this.paneNow(path));
-        // (Show As: the bar, or the Side Pane's Now Playing -- its page, 2026-10-30)
-        c.appendChild(K.group({ header: 'Tablets & Computers', footer: inPane
-          ? 'In the Side Pane while it shows; the bar wherever the pane doesn’t.'
-          : 'The bar slides in when music starts.' }, [
-          this.paneLink(path, 'np', 'b:np_style'),
-          npSel('np_bar', 'Bar Position', M.NP_BARS, hnp.bar)]));
-        c.appendChild(K.group({ header: 'Phones', footer: 'Phones always use the bar.' }, [
-          npSel('np_bar_phone', 'Bar Position', M.NP_BARS, hnp.bar_phone)]));
-        if (M.npOwn(b)) {
+        c.appendChild(K.group({ footer: 'The music playing, in a side pane or a bar.' }, [
+          K.toggle({ label: 'Now Playing', sk: 'b:now_playing', on: b.now_playing, onChange: function (on) { set({ now_playing: on }); } })]));
+        if (b.now_playing && b.np_style !== undefined) {
+          var whose = function (own) { return own ? 'Just This Screen' : 'Same as All Screens'; };
+          var npSel = function (key, label, list, hv) {
+            var own = b[key];
+            return K.select({ label: label, sk: 'b:' + key, sub: whose(own), value: own || '',
+              options: [['', 'Same as All Screens (' + lab(list, hv) + ')', lab(list, hv)]].concat(list),
+              onChange: function (v) { var o = {}; o[key] = v || null; set(o); } });
+          };
+          var inPane = M.paneHasMusic(this.paneNow(path));
+          // (Show As: the bar, or the Side Pane's Now Playing -- its page, 2026-10-30)
+          var showAs = K.nav({ label: 'Show As', value: M.npShowAs(this.paneNow(path)), sub: whose(b.np_style || b.np_side),
+                               href: '#/screens/' + encodeURIComponent(path) + '/sidepane', sk: 'b:np_style' });
+          c.appendChild(K.group({ header: 'Tablets & Computers', footer: inPane
+            ? 'In the Side Pane while it shows; the bar wherever the pane doesn’t.'
+            : 'The bar slides in when music starts.' }, [showAs, npSel('np_bar', 'Bar Position', M.NP_BARS, hnp.bar)]));
+          c.appendChild(K.group({ header: 'Phones', footer: 'Phones always use the bar.' }, [
+            npSel('np_bar_phone', 'Bar Position', M.NP_BARS, hnp.bar_phone)]));
+          // (All Screens' alone: how long it stays after the music is paused or stops)
+          c.appendChild(K.group({ header: 'Paused or Stopped', footer: 'The same on every screen: change it in All Screens → Now Playing.' }, [
+            K.nav({ label: 'Hide After', value: M.choiceLabel(M.NP_GRACES, hnp.grace), sub: 'Same as All Screens', href: '#/house/nowplaying', sk: 'np:grace' })]));
+        }
+        // THE TIMER BAR (shown once the integration knows it: an older one would drop it) and the bars on every page
+        var trows = [];
+        if (b.timer_bar !== undefined) {
+          // needs the quick_timers.yaml package (its running-timers sensor): off and dimmed while it is missing
+          var qtOn = !!(this.client.states || {})['sensor.running_quick_timers'];
+          trows.push(K.toggle({ label: 'Timer Bar', sk: 'b:timer_bar', on: b.timer_bar, disabled: !qtOn && !b.timer_bar,
+                                sub: 'Running quick timers, docked along the bottom — over the player when music plays.' +
+                                     (qtOn ? '' : ' Needs the quick_timers.yaml package in Home Assistant.'),
+                                onChange: function (on) { set({ timer_bar: on }); } }));
+        }
+        if (b.bar_all_pages !== undefined && (b.now_playing || b.timer_bar)) {
+          trows.push(K.toggle({ label: 'On Every Page', sk: 'b:bar_all_pages', on: b.bar_all_pages,
+                                sub: 'The bar on every page of this screen, not Home alone.',
+                                onChange: function (on) { set({ bar_all_pages: on }); } }));
+        }
+        if (trows.length) c.appendChild(K.group({ header: 'Bars' }, trows));
+        if (b.now_playing && M.npOwn(b)) {
           c.appendChild(K.group({ footer: 'Every choice above follows All Screens → Now Playing again.' }, [
             K.button({ label: 'Reset to All Screens', sk: 'b:np_options:reset', onClick: function () {
               var o = {};

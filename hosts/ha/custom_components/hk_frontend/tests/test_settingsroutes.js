@@ -464,14 +464,40 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
     ok(h + ' draws', draw(go(h)).err, null);
   });
   ok('opening every one of them wrote nothing', writes.length, 0);
-  // PHASE 32: a screen's page, in the iOS shape -- More for This Screen, choice pages, Reset to All Screens, one footer
+  // PHASE 33: a screen's page mirrors the sidebar's Look & Feel group; More for This Screen is Advanced; one footer
   var mp = text(draw(go('#/screens/dashboard-k')).box);
-  ok('a screen’s page: Home Page, Pages with its Menu, Look, then One More for This Screen row', ['Home Page', 'Pages', 'Menu', 'Look', 'More for This Screen', 'Wall Tablets',
-    'Copy Settings From…'].every(function (w) { return mp.indexOf(w) >= 0; }), true);
-  ok('...Now Playing, Pop-ups and the Screensaver are on that page, not this one', /Allow Pop-ups|Fit a car/.test(mp), false);
-  var mo = text(draw(go('#/screens/dashboard-k/more')).box);
-  ok('More for This Screen has them: Pop-ups, Screensaver, Header, Car Browser', ['Pop-ups', 'Screensaver', 'Header', 'Car Browser'].every(function (w) { return mo.indexOf(w) >= 0; }), true);
-  ok('a value that follows All Screens is the value, never Same as All Screens (Cameras, Rooms, Page Headers)', /Same as All Screens/.test(mp), false);
+  ok('a screen’s page: Home Page, Look & Feel, Pages, Wall Tablets, Advanced -- in that order', ['Home Page', 'Look & Feel', 'Pages', 'Wall Tablets', 'Advanced'].map(
+    function (w) { return mp.indexOf(w); }).every(function (n, i, a) { return n >= 0 && (i === 0 || n > a[i - 1]); }), true);
+  ok('...no More for This Screen, no Looks row, no Copy Settings row (that is Advanced’s)', /More for This Screen|Looks|Copy Settings From/.test(mp), false);
+  var lfRows = ['Appearance', 'Background', 'Menu & Navigation', 'Side Pane', 'Now Playing', 'Screensaver'];
+  var lfAt = lfRows.map(function (w) { return mp.indexOf(' | ' + w + ' | '); });
+  ok('Look & Feel has the sidebar’s six rows, in the sidebar’s order', lfAt.every(function (n, i) { return n > mp.indexOf('Look & Feel') && (i === 0 || n > lfAt[i - 1]); }), true);
+  var sideLF = (P.sideGroups.call(pg, '').filter(function (g) { return g.header === 'Look & Feel'; })[0] || { rows: [] }).rows.map(function (r) { return r.label; });
+  ok('...the sidebar’s own names (its rows, as the sidebar draws them)', JSON.stringify(sideLF), JSON.stringify(lfRows));
+  var kmain = draw(go('#/screens/dashboard-k')).box;
+  ok('...each says whose it is: Appearance follows All Screens, Menu & Navigation has its own Tab Bar Size and accent',
+     /Same as All Screens/.test(text(byFk(kmain, 'b:appearance'))) && /Just This Screen/.test(text(byFk(kmain, 'b:menu_own'))), true);
+  ok('...Now Playing, Pop-ups and the Screensaver’s switch are on their own pages, not this one', /Allow Pop-ups|Fit a car|Timer Bar/.test(mp), false);
+  var mo = text(draw(go('#/screens/dashboard-k/advanced')).box);
+  ok('Advanced has them: Copy Settings, Alerts on This Screen (Pop-ups), Home Assistant Header & Sidebar, Car Browser',
+     ['Copy Settings From…', 'Alerts on This Screen', 'Allow Pop-ups', 'Home Assistant Header & Sidebar', 'Car Browser'].every(function (w) { return mo.indexOf(w) >= 0; }), true);
+  ok('...More for This Screen’s old address opens it', go('#/screens/dashboard-k/more').title, 'Advanced');
+  // A screen's Now Playing page: its switch first, then All Screens' groups, the Timer Bar and On Every Page (from More)
+  var kb0 = boards['dashboard-k'];
+  Object.assign(kb0, { now_playing: false, np_style: '', timer_bar: false, bar_all_pages: false });
+  var npOff = text(draw(go('#/screens/dashboard-k/nowplaying')).box);
+  ok('a screen’s Now Playing page: the switch, with its options not drawn while it is off', /Now Playing/.test(npOff) && !/Tablets & Computers|Bar Position/.test(npOff), true);
+  ok('...and the Timer Bar there too (it was on More for This Screen)', /Timer Bar/.test(npOff), true);
+  kb0.now_playing = true;
+  var npOn = text(draw(go('#/screens/dashboard-k/nowplaying')).box);
+  ok('...on: All Screens’ groups (Show As, Bar Position, Phones, Paused or Stopped), each Same as All Screens until changed',
+     ['Tablets & Computers', 'Show As', 'Bar Position', 'Phones', 'Paused or Stopped', 'Hide After', 'On Every Page'].every(function (w) { return npOn.indexOf(w) >= 0; }) &&
+     /Same as All Screens/.test(npOn), true);
+  ok('...the page is called Now Playing', go('#/screens/dashboard-k/nowplaying').title, 'Now Playing');
+  ['now_playing', 'np_style', 'timer_bar', 'bar_all_pages'].forEach(function (k) { delete kb0[k]; });
+  var homeTop = mp.split('Look & Feel')[0], pagesTail = mp.slice(mp.indexOf('Pages on This Screen'), mp.indexOf('Wall Tablets'));
+  ok('a value that follows All Screens is the value on Home Page and Pages, never Same as All Screens (Cameras, Rooms, Page Headers)',
+     /Same as All Screens/.test(homeTop) || /Same as All Screens/.test(pagesTail), false);
   var cm = draw(go('#/screens/dashboard-k/menu/choose/tablets')).box;
   ok('a screen’s Menu on tablets is a choice page: Off, Button, Always Open, Tab Bar', ['off', 'button', 'open', 'tabbar'].every(function (k) { return !!byFk(cm, 'menu:tablets:' + k); }), true);
   ok('...its checkmark is on the Tab Bar', byFk(cm, 'menu:tablets:tabbar').attrs['aria-checked'], 'true');
@@ -525,7 +551,7 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('...a screen’s too, whether its menu follows or not', go('#/screens/dashboard-k/menu/accent').title, 'Accent Color');
   ok('the device pages open Menu & Navigation', go('#/house/menu/tablets').title, 'Menu & Navigation');
   ok('...a button style the Side Menu’s', go('#/house/menu/tablets/style').title === 'Button Style' && go('#/house/menu/tablets/style').back[1] === '#/house/menu/side', true);
-  ok('a screen’s device page opens its Menu', go('#/screens/dashboard-k/menu/phones').title, 'Menu');
+  ok('a screen’s device page opens its Menu & Navigation', go('#/screens/dashboard-k/menu/phones').title, 'Menu & Navigation');
   // All Screens -> Appearance
   var ap = text(draw(go('#/house/appearance')).box);
   ok('All Screens’ Appearance: Style (with Tile Style), Colors & Background, Tab Bar',
@@ -544,7 +570,10 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('a screen’s Menu Settings lists only the kinds it uses', /Side Menu/.test(sm) && /Edge Tab/.test(sm) && /Tab Bar/.test(sm), true);
   var nm = draw(go('#/screens/dashboard-c/menu')).box;
   ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu') && !!byFk(nm, 'b:menu_phone') &&
-    !/Navigation/.test(text(nm)), true);
+    !/Side Menu|Edge Tab|Tab Bar/.test(text(nm)), true);
+  ok('a screen’s Menu & Navigation is All Screens’: Navigation with its Pages Screen, Gestures, Rooms and Header (Header on Phones too)',
+     ['Navigation', 'Pages Screen', 'Gestures', 'Rooms and Header', 'Rooms in the Menu', 'Back Button & Title', 'Header on Phones'].every(function (w) { return sm.indexOf(w) >= 0; }), true);
+  ok('...the page is called Menu & Navigation, as the sidebar’s row is', go('#/screens/dashboard-k/menu').title, 'Menu & Navigation');
    ok('...and its page has the one Menu row, its menus in words', /Off/.test(text(draw(go('#/screens/dashboard-c')).box)) && !byFk(draw(go('#/screens/dashboard-c')).box, 'b:menu'), true);
   var tbp = draw(go('#/screens/dashboard-k/menu/tab-bar')).box;
   ok('its Tab Bar page: Size Just This Screen, and said once that the rest follows All Screens', /Just This Screen/.test(text(tbp)) && /follows All Screens until/.test(text(tbp)) &&
@@ -557,9 +586,9 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
     JSON.stringify(['b', 'dashboard-k', { button_phone: 'chip', menu_own: ['accent', 'tab_bar_size', 'button_phone'] }]));
   // a screen's page: Appearance one row; Back Button & Title in its Header
   var main = text(draw(go('#/screens/dashboard-k')).box);
-  ok('a screen’s Appearance is one row: its style as the value, never “Same as All Screens”',
-     /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && !/Same as All Screens/.test(main), true);
-  ok('...Back Button & Title beside its other header settings, on More for This Screen', /Back Button & Title/.test(text(draw(go('#/screens/dashboard-k/more')).box)), true);
+  ok('a screen’s Appearance is one row: its style as the value, and whose it is (this one follows All Screens)',
+     /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && /Same as All Screens/.test(text(byFk(draw(go('#/screens/dashboard-k')).box, 'b:appearance'))), true);
+  ok('...Back Button & Title beside its other header settings, on Menu & Navigation', /Back Button & Title/.test(text(draw(go('#/screens/dashboard-k/menu')).box)), true);
   ok('...no Sky group of its own any more', main.split('Sky / Background').length - 1, 0);
   var sa = text(draw(go('#/screens/dashboard-k/appearance')).box);
   ok('a screen’s Appearance: laid out as All Screens’', ['Style', 'Colors', 'Background', 'Accent Color', 'Teal', 'Just This Screen', 'Tab Bar Glass'].every(
@@ -661,14 +690,14 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   // HOME ASSISTANT: no reports; this device's own sample, under This Device on the screen it measured
   pg._host = null; pg._health = undefined;
   localStorage.setItem('hk-fps', JSON.stringify({ fps: 31.6, at: Date.now() - 60000, screen: 'dashboard-k', style: 'blur' }));
-  var dp = draw(go('#/screens/dashboard-k/more')).box, dt = text(dp);
+  var dp = draw(go('#/screens/dashboard-k/advanced')).box, dt = text(dp);
   ok('This Device: this device’s own number, on the screen it measured', /Recommended for This Device/.test(dt) &&
      /This device draws 32 frames a second with Blur/.test(dt) && dt.indexOf('Recommended for This Device') > dt.indexOf('Car Browser'), true);
   ok('...with the same two buttons', !!byFk(dp, 'rec:glass') && !!byFk(dp, 'rec:flat'), true);
-  ok('...not on another screen’s page', /for This Device/.test(text(draw(go('#/screens/dashboard-c/more')).box)), false);
+  ok('...not on another screen’s page', /for This Device/.test(text(draw(go('#/screens/dashboard-c/advanced')).box)), false);
   ok('...nor on the Appearance page (its home is This Device)', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
   localStorage.removeItem('hk-fps');
-  ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k/more')).box)), false);
+  ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k/advanced')).box)), false);
   // ...the ladder too: the next step from a new sample, none from one drawn with something else on
   var mine = function (b2, fps) {
     return JSON.stringify({ fps: fps, at: Date.now() - 60000, screen: 'dashboard-k', style: 'clear',
@@ -676,11 +705,11 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   };
   kb.glass = 'clear';
   localStorage.setItem('hk-fps', mine(kb, 33));
-  var dr = draw(go('#/screens/dashboard-k/more')).box;
+  var dr = draw(go('#/screens/dashboard-k/advanced')).box;
   ok('This Device: once the style is Glass, the next step from a sample drawn with it', /Recommended for This Device/.test(text(dr)) &&
      /This device draws 33 frames a second with Rain & Snow on\./.test(text(dr)) && !!byFk(dr, 'rec:rain'), true);
   localStorage.setItem('hk-fps', mine(Object.assign({}, kb, { glass: 'blur' }), 33));
-  ok('...but nothing from one drawn with Blur still on', /for This Device/.test(text(draw(go('#/screens/dashboard-k/more')).box)), false);
+  ok('...but nothing from one drawn with Blur still on', /for This Device/.test(text(draw(go('#/screens/dashboard-k/advanced')).box)), false);
   localStorage.removeItem('hk-fps');
   kb.glass = 'house';
   ok('opening every one of them wrote nothing', writes.length, 0);

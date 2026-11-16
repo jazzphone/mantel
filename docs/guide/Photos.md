@@ -98,8 +98,8 @@ platform, Setup Check says so, and the screens use their own Focus setting.
 **Mantel Photos Album** to an album. To go back to the Home Assistant folder,
 pick the folder again.
 
-**One screen.** Open that screen's page, then **More for This Screen →
-Screensaver → Screensaver Options**, and tap **Photos**. Set **Show** to:
+**One screen.** Open that screen's page, then **Look & Feel →
+Screensaver**, and tap **Photos**. Set **Show** to:
 
 - **Screensaver Photos (All Screens)**: whatever every screen shows, or
 - an album, or

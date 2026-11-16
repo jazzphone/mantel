@@ -430,6 +430,16 @@ ok('rooms summary', M.roomsSummary(hb) === '2 on Home' && M.roomsSummary({ room_
   ok('search finds each kind of menu', ['side', 'edge-tab', 'tab-bar'].every(function (k) {
     return M.SEARCH.some(function (s) { return s[1] === 'house/menu/' + k && s[2] === 'menu:' + k; }); }));
   ok('...and Back Button & Title', M.search('page header', []).some(function (r) { return r.route === 'house/menu/header'; }));
+  // PHASE 33: More for This Screen is gone; search finds each of its rows where it went
+  var scr = [{ path: 'dash', title: 'Dash' }];
+  var at = function (q, label) { var r = M.search(q, scr).filter(function (x) { return x.label === label; })[0]; return r && r.route; };
+  ok('...Timer Bar and Now Playing on the screen’s Now Playing page', [at('timer bar', 'Timer Bar'), at('now playing', 'Now Playing')].join(), 'screens/dash/nowplaying,screens/dash/nowplaying');
+  ok('...Pop-ups, Notifications and Car Browser on its Advanced', [at('pop-ups', 'Allow Pop-ups'), at('allow notifications', 'Allow Notifications'), at('tesla', 'Car Browser')].join(),
+     'screens/dash/advanced,screens/dash/advanced,screens/dash/advanced');
+  ok('...Back Button & Title and Header on Phones on its Menu & Navigation', [at('back title', 'Back Button & Title'), at('phone weather', 'Header on Phones')].join(),
+     'screens/dash/menu,screens/dash/menu');
+  ok('...its Screensaver on the Screensaver page', at('screensaver slideshow', 'Screensaver'), 'screens/dash/screensaver');
+  ok('...nothing is left pointing at /more', 'abcdefghijklmnopqrstuvwxyz'.split('').every(function (q) { return M.search(q, scr).every(function (r) { return !/\/more$/.test(r.route); }); }));
   var moved = function (s) { return /^(house\/(menu|appearance|sky)|screen)/.test(s[1]) && M.routeForward(s[1].replace(/^screen/, 'screens/x')); };
   ok('no Appearance, Sky or Menu search row points at a moved address', !M.SEARCH.some(moved),
      M.SEARCH.filter(moved).map(function (s) { return s[1]; }));
