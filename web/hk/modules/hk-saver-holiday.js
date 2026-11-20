@@ -523,6 +523,18 @@
       var n = prop.querySelector('.hlnum') || heroEl.querySelector('.num');
       if (n && cur && cur.days) { n.textContent = cur.days; n.style.minWidth = ''; }
     }
+    // [tree lights inside the glass above the couch, of them covered by the frame's picture] (null: no window)
+    function glassFront() {
+      var f = data && data.frame, g = data && data.win;
+      if (!f || !g || !data.bulbs) return null;
+      var x = f.img.getContext('2d'), k = f.img.width / f.r[2], n = 0, on = 0;
+      data.bulbs.forEach(function (b) {
+        if (b.x < g.x || b.x > g.x + g.w || b.y < g.y || b.y > Math.min(g.y + g.h, data.clipBottom || 1e9)) return;
+        n++;
+        try { if (x.getImageData(Math.floor((b.x - f.r[0]) * k), Math.floor((b.y - f.r[1]) * k), 1, 1).data[3] > 200) on++; } catch (e) { /* unreadable */ }
+      });
+      return [n, on];
+    }
     // A SLIDE SHOWING AT MIDNIGHT rolls over on its next tick: the count, or the next holiday
     function tick() {
       if (!alive || !showing || !cur || !HH()) return;
@@ -583,10 +595,13 @@
       },
       showing: function () { return showing; },
       // for the checks: what it shows and where its pieces stand
+      // (tools/headless/holiday_scenes_check: the tree's lights seen through the window's glass, and how many of them
+      // the frame the effects draw back over the snow covers -- each, or the snow falls over the tree)
       info: function () {
         return { id: cur ? cur.id : null, days: cur ? cur.days : null, scene: el.getAttribute('scene'), fx: el.getAttribute('fx'), W: W, H: H, Z: Z,
                  running: fx.running(), counts: fx.counts(), foot: data ? data.foot : null, feet: data ? data.feet : null,
-                 floorY: data && data.place ? data.place.floorY : null, win: data ? data.win : null, canvases: el.querySelectorAll('canvas').length };
+                 floorY: data && data.place ? data.place.floorY : null, win: data ? data.win : null, canvases: el.querySelectorAll('canvas').length,
+                 glassFront: glassFront() };
       },
       destroy: function () {
         alive = false; showing = false;

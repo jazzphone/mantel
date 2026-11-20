@@ -35,6 +35,7 @@
     /** @type {any} */ var bigFor = '';
     /** @type {any} */ var cornerAsked = false;
     /** @type {any} */ var cornerAt = 0;
+    /** @type {any} */ var cornerRaf = 0;
     /** @type {any} */ var ckLoad = null;
     /** @type {any} */ var ckRun = 0;
     /** @type {any} */ var ckArgs = null;
@@ -120,8 +121,16 @@
         bigFor = ST.cfg.forecast_big + '|' + ST.cfg.forecast_planted;
         ST.bigCtl = F.mount(fc, { kind: 'weather', flat: false, h24: ST.cfg.clock_24, big: ST.cfg.forecast_big, weather: weatherEntity(), client: clientNow(),
                                planted: ST.cfg.forecast_planted, sky: ST.fSky,
-                               onReadings: function (n) { if (ST.host) ST.host.setAttribute('fcn', String(n)); } });
+                               onReadings: function (n) { if (ST.host) ST.host.setAttribute('fcn', String(n)); cornerSoon(); } });
+        cornerSoon();
       });
+    }
+    // THE SLIDE CORNER UNDER BIG WEATHER'S LINES AS IT COMES IN (2026-11-20): Big Weather is drawn a moment after the
+    // slide begins, so the corner was first placed over a slide with no words yet and dropped below its two lines only
+    // once the fade was done -- a jump the owner saw. Placed again on the next frame, while it is still faint
+    function cornerSoon() {
+      if (cornerRaf) return;
+      cornerRaf = requestAnimationFrame(function () { cornerRaf = 0; var k = slideNow(); if (ST.scn && (k === 'forecast_big' || k === 'forecast')) cornerDraw(k); });
     }
     function updateBand() {
       if (!ST.host) return;
@@ -160,11 +169,31 @@
       return { font: cs.fontStyle + ' ' + cs.fontWeight + ' 1em ' + cs.fontFamily, family: cs.fontFamily, weight: cs.fontWeight, style: cs.fontStyle,
                color: /^rgba?\(0, 0, 0, 0\)$|transparent/.test(cs.color) ? null : cs.color };
     }
+    // a corner stack's words and small pictures, as one box on the screen (null: nothing shown)
+    function stackInk(st) {
+      var box = null;
+      var add = function (r) {
+        if (!(r.width > 0 && r.height > 0)) return;
+        box = box ? { left: Math.min(box.left, r.left), top: Math.min(box.top, r.top), right: Math.max(box.right, r.right), bottom: Math.max(box.bottom, r.bottom) }
+          : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      };
+      (function walk(n) {
+        if (n.nodeType === 3) {
+          if (!n.textContent.trim()) return;
+          var rg = document.createRange(); rg.selectNodeContents(n); add(rg.getBoundingClientRect());
+          return;
+        }
+        if (n.nodeType !== 1 || n.tagName === 'STYLE' || (n.style && n.style.display === 'none')) return;
+        if (/^(svg|img|canvas)$/i.test(n.tagName)) { add(n.getBoundingClientRect()); return; }
+        if (n.shadowRoot) walk(n.shadowRoot);
+        for (var c = n.firstChild; c; c = c.nextSibling) walk(c);
+      })(st);
+      return box;
+    }
     function slideCorner() {
       if (!ST.host || !ST.root) return;
       var key = slideNow(), LM = window.hkSaverLayout, WG = window.hkSaverWidgets;
-      setAttr(ST.host, 'scorner', !!key);
-      if (!key) { if (ST.scn) ST.scn.key = null; return; }
+      if (!key) { setAttr(ST.host, 'scorner', false); if (ST.scn) ST.scn.key = null; return; }
       // (the pieces' files asked for once: a load that fails is not asked again from here -- asking again on its failure
       // spun the page, 2026-11-02, the harness's forecast slide; the 0.1.104 rule: nothing wakes itself)
       if (!LM || !WG) {
@@ -185,6 +214,10 @@
         ST.scn = { el: el, tl: tl, tr: tr, p: {}, u: 0, minT: null };
       }
       cornerDraw(key);
+      // ...and only then shown: a corner made now fades in with the slide, as one already made does (2026-11-20, the
+      // owner: the clock and Home Status "isn't smooth" from the photos to a slide -- made under [scorner], the first
+      // slide's corner was there at once, over the photos' own time still fading)
+      if (!ST.host.hasAttribute('scorner')) { void ST.scn.el.offsetWidth; ST.host.setAttribute('scorner', ''); }
       // (and once the slide has come in and drawn its words: what it shows is laid out as it fades in)
       if (ST.scn.key !== key) { ST.scn.key = key; clearTimeout(ST.scn.againT); ST.scn.againT = setTimeout(function () { if (ST.scn && slideNow() === key) cornerDraw(key); }, CROSSFADE_MS + 150); }
       if (!ST.scn.minT) ST.scn.minT = setTimeout(function tick() { if (!ST.scn) return; ST.scn.minT = setTimeout(tick, 60000 - Date.now() % 60000 + 50); if (slideNow()) cornerDraw(slideNow()); },
@@ -224,7 +257,10 @@
         st.style.marginTop = '';
         var first = [].filter.call(st.children, function (e) { return e.style.display !== 'none'; })[0], ink = first && inkOf(first);
         if (!ink || !(k1 > 0)) return;
-        st.style.marginTop = -((ink.y0 - st.getBoundingClientRect().top) / k1) + 'px';
+        // (a nudge of the line's own room above its letters, never more than the line is tall: words measured mid-change
+        // must not carry the stack off its corner)
+        var lift = (ink.y0 - st.getBoundingClientRect().top) / k1;
+        if (Math.abs(lift) <= first.offsetHeight) st.style.marginTop = -lift + 'px';
       });
       // CLEAR OF THE SLIDE'S OWN WORDS (2026-11-03, the owner: "Sometimes the Widgets... overlap or collide with the
       // Slides"): each side's stack drops below whatever of the slide it would meet -- Big Weather's two lines at the top,
@@ -233,19 +269,29 @@
       var sl = key === 'energy' ? ST.enCtl && ST.enCtl.el : key === 'weather' ? Layout.WX.ctl && Layout.WX.ctl.el : key === 'holiday' ? Layout.HL.ctl && Layout.HL.ctl.el : key === 'timer' ?
         Layout.TM.ctl && Layout.TM.ctl.el : key ===
         'forecast' || key === 'forecast_big' ? ST.root.querySelector('.fc') : null;
+      // A stack is measured by its words, not its box (as wide as its widest piece's box), and drops only to under the
+      // slide's top lines: one that would go past the top third has met the slide's body, nothing to clear -- it stays
+      // at the top (2026-11-20, the owner: beside the Side Pane the Weather slide's time went "all the way at the
+      // bottom", dropped below each of its rows in turn)
       if (sl && k1 > 0) {
-        var marks = slideMarks(sl), gap1 = 1.6 * u * k1;
+        var marks = slideMarks(sl), gap1 = 1.6 * u * k1, band = hr1.top + R.room.h * k1 / 3;
         [ST.scn.tl, ST.scn.tr].forEach(function (st) {
+          var at = st.style.marginTop, b;
           for (var n = 0; n < 4; n++) {
-            var b = st.getBoundingClientRect();
-            if (!b.height) return;
+            b = stackInk(st);
+            if (!b) return;
             var hit = marks.filter(function (r) { return r.left < b.right + gap1 && b.left < r.right + gap1 && r.top < b.bottom + gap1 && b.top < r.bottom + gap1; });
-            if (!hit.length) return;
+            if (!hit.length) break;
             var low = Math.max.apply(null, hit.map(function (r) { return r.bottom; }));
             st.style.marginTop = (parseFloat(st.style.marginTop) || 0) + (low + gap1 - b.top) / k1 + 'px';
           }
+          b = stackInk(st);
+          if (b && b.top > band) st.style.marginTop = at;
         });
       }
+      // ...and however it was measured, a stack is never moved off its corner's top third
+      var top3 = hr1.top + R.room.h * k1 / 3;
+      [ST.scn.tl, ST.scn.tr].forEach(function (st) { var b2 = st.style.marginTop && stackInk(st); if (b2 && b2.top > top3) st.style.marginTop = ''; });
       // (the music's words below the corner, wherever its words now end)
       if (key === 'music') Screens.layoutMusic();
     }

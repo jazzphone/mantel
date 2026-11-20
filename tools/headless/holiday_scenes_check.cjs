@@ -97,6 +97,9 @@ const measure = () => {
           say(m.info.id === hol && m.info.days === days && m.info.scene === scene, name + ': ' + hol + ', ' + days + ' days, in ' + scene, [m.info.id, m.info.days, m.info.scene]);
           say(!m.bad.length, name + ': every word in its place, the corner and the row clear, nothing floats', m.bad);
           say(m.info.running && m.info.fx === 'full', name + ': its effects run while it is up', [m.info.running, m.info.fx]);
+          // (beside the Side Pane the tree stands in front of the window: the frame drawn back over the snow carries it)
+          const gf = m.info.glassFront;
+          if (gf && gf[0]) say(gf[1] === gf[0], name + ': the tree in front of the window, never the frame over it', gf);
           if (input.shots && tsz === 100) await page.screenshot({ path: input.shots + '/' + eng + '-' + sn + '-' + tag + '.png' });
           await page.close();
         }

@@ -447,12 +447,23 @@ let lastMinuteDone = false;
         const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
         const SHOWS_OF = { music: ['music'], forecast: ['weather'], forecast_big: ['weather', 'time'], weather: ['weather', 'readings'], energy: ['energy'], holiday: ['holiday'], timer: ['timer'] };
         const slides = want === 'look-fb' ? ['forecast'] : [null, 'music', 'forecast', 'weather', 'energy', 'holiday', 'timer'];
+        let faded = false;
         for (const sl of slides) {
           // (the Holiday slide, phase 20: a pinned day, so a holiday is near whatever the real date -- November 8, 2026,
           // Thanksgiving 18 days away in its painted dining room; the clock's timers keep running)
           if (sl === 'holiday') await page.clock.setFixedTime(new Date(2026, 10, 8, 12, 0, 0));
-          const shown = await page.evaluate((sl) => window.hkSaver.previewSlide ? window.hkSaver.previewSlide(sl) : false, sl);
-          await settle(sl ? 2600 : 600);
+          // (and the slide corner a moment in: how faint it is, where its two stacks stand)
+          const early = await page.evaluate(async (sl) => {
+            const shown = window.hkSaver.previewSlide ? window.hkSaver.previewSlide(sl) : false;
+            await new Promise((r) => setTimeout(r, 150));
+            const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+            const sr = deep(document).find((e) => e.tagName === 'HK-SCREENSAVER').shadowRoot, scn = sr.querySelector('.scn'),
+              top = (s) => { const e = sr.querySelector(s); return e ? e.getBoundingClientRect().top : null; };
+            return { shown, op: scn ? +getComputedStyle(scn).opacity : null, tl: top('.scs.tl'), tr: top('.scs.tr') };
+          }, sl);
+          const shown = early.shown;
+          // (Big Weather: past its fade, 3 s, when the old corner first moved under its lines)
+          await settle(want === 'look-fb' ? 3400 : sl ? 2600 : 600);
           const m = await look();
           const t2 = tag + (sl ? ' under ' + (want === 'look-fb' ? 'forecast, big' : sl) : '');
           if (!m) { say(false, t2 + ': the screensaver is up', m); continue; }
@@ -479,6 +490,15 @@ let lastMinuteDone = false;
           const key = want === 'look-fb' ? 'forecast_big' : sl;
           const own = /-own$/.test(screen), want4 = ['time', 'date', 'weather', 'status'].filter((k) => SHOWS_OF[key].indexOf(k) < 0 && !(own && k === 'weather'));
           say(m.scorner && !m.layShown, t2 + ': the layout steps aside, the slide corner is up', [m.scorner, m.layShown]);
+          // (2026-11-20, the owner: from the photos to a slide the clock and Home Status "isn't smooth": the first slide's
+          // corner was there at once, and under Big Weather it dropped below its lines only once the fade was done)
+          if (!faded) { faded = true; say(early.op !== null && early.op < 0.5, t2 + ': ...the corner fades in with the first slide, never at once', early.op); }
+          if (sl !== 'music') {
+            const late = await page.evaluate(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+              const sr = deep(document).find((e) => e.tagName === 'HK-SCREENSAVER').shadowRoot, top = (s) => { const e = sr.querySelector(s); return e ? e.getBoundingClientRect().top : null; };
+              return { tl: top('.scs.tl'), tr: top('.scs.tr') }; });
+            say(Math.abs(late.tl - early.tl) <= 2 && Math.abs(late.tr - early.tr) <= 2, t2 + ': ...placed as it comes in, never moved once it shows', [early, late]);
+          }
           say(['time', 'date', 'weather', 'status'].every((k) => !!m.corner[k] === (want4.indexOf(k) >= 0)), t2 + ': ...its corner adds ' + want4.join(', ') + ' and nothing else',
               Object.keys(m.corner).filter((k) => m.corner[k]));
           say(want4.every((k) => !m.corner[k] || inScr(m.corner[k])), t2 + ': ...inside the screen', m.corner);

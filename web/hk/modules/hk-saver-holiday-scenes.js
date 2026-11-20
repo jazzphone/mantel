@@ -167,6 +167,28 @@
     return fc;
   }
 
+  // WHAT THE EFFECTS DRAW BACK OVER THE WINDOW'S SNOW OR LEAVES (2026-11-20): the frame and drapes, and every piece
+  // standing in front of the window -- beside a Side Pane the Christmas tree overlaps it, and the frame drawn back over
+  // the snow covered the tree ("the christmas tree in the holiday is showing the window over it"). Cut from the finished
+  // picture, so they are lit and dimmed as the room is (the frame alone, unlit, showed its box over the wall).
+  // `front`: [piece, its drawn box] in front of the window
+  function frameFront(c, d, front, q) {
+    var f = d.frame;
+    if (!f) return;
+    var r = f.r, fc = f.img, x = fc.getContext('2d'), cv = c.canvas;
+    front.forEach(function (p) {
+      var b = p[1];
+      if (!b || b[0] > r[0] + r[2] || b[0] + b[2] < r[0] || b[1] > r[1] + r[3] || b[1] + b[3] < r[1]) return;
+      x.drawImage(REAL[p[0]], (b[0] - r[0]) * q, (b[1] - r[1]) * q, b[2] * q, b[3] * q);
+    });
+    // (the source kept inside the picture: a window running off the top edge is cut where the screen ends)
+    var sx = Math.max(0, r[0] * q), sy = Math.max(0, r[1] * q), ex = Math.min(cv.width, (r[0] + r[2]) * q), ey = Math.min(cv.height, (r[1] + r[3]) * q);
+    if (ex <= sx || ey <= sy) return;
+    x.globalCompositeOperation = 'source-in';
+    x.drawImage(cv, sx, sy, ex - sx, ey - sy, sx - r[0] * q, sy - r[1] * q, ex - sx, ey - sy);
+    x.globalCompositeOperation = 'source-over';
+  }
+
   // ---------------------------------------------------------------- the rooms' shared layout
   // THE ROOM (the mock-up's room()): the back wall's floor line is foot - 96 Z (34 upright); the chair rail 118 Z
   // above it, the paper border above the rail. The TV's old box (the board's place in the other rooms), the
@@ -275,7 +297,8 @@
     d.glints = d.bulbs.map(function (b) { return [b.x + 18 * k, b.y + 26 * k]; });
     d.star = [tr[0] + tr[2] * 0.5, tr[1] + tr[2] * 0.068, tr[2] * 0.075];
     d.feet = { tree: feetAt('room-tree', P.tree) };
-    if (P.pile) { shadowFor(c, 'room-presents-pile', P.pile, Z, false, true); drawFit(c, 'room-presents-pile', P.pile); d.feet.pile = feetAt('room-presents-pile', P.pile); }
+    var pr = null;
+    if (P.pile) { shadowFor(c, 'room-presents-pile', P.pile, Z, false, true); pr = drawFit(c, 'room-presents-pile', P.pile); d.feet.pile = feetAt('room-presents-pile', P.pile); }
     shadowFor(c, 'room-entertainment-center', P.unit, Z, true);
     var un = drawFit(c, 'room-entertainment-center', P.unit), ku = un[2] / 2400;
     d.feet.unit = feetAt('room-entertainment-center', P.unit);
@@ -308,6 +331,7 @@
     var vg = c.createRadialGradient(W * 0.58, H * 0.55, Math.min(W, H) * 0.25, W * 0.58, H * 0.55, Math.max(W, H) * 0.8);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.6)'); c.fillStyle = vg; c.fillRect(0, 0, W, H);
     c.fillStyle = 'rgba(10,14,40,.14)'; c.fillRect(0, 0, W, H);
+    frameFront(c, d, [['room-couch', cr], ['room-tree', tr], ['room-presents-pile', pr], ['room-entertainment-center', un], ['room-garland', [un[0], un[1], un[2], gh]]], q);
   }
   // ---------------------------------------------------------------- HALLOWEEN: a haunted house on a hill
   function hauntReal(c, c2, W, H, Z, d) {
@@ -360,9 +384,9 @@
     // the table brought forward -- big, near the front of the floor, the hero -- and the board in front of its near end
     var hb = P.treeBack || P.tree, pb = P.presentsBack || P.presents;
     shadowFor(c, 'thanks-hutch', hb, Z, true);
-    drawFit(c, 'thanks-hutch', hb);
+    var hr = drawFit(c, 'thanks-hutch', hb), vr = null;
     d.feet = { hutch: feetAt('thanks-hutch', hb) };
-    if (pb) { var hv = [pb[0] - pb[2] * 0.1, pb[1], pb[2] * 1.2, pb[3]]; shadowFor(c, 'thanks-harvest', hv, Z, false, true); drawFit(c, 'thanks-harvest', hv); }
+    if (pb) { var hv = [pb[0] - pb[2] * 0.1, pb[1], pb[2] * 1.2, pb[3]]; shadowFor(c, 'thanks-harvest', hv, Z, false, true); vr = drawFit(c, 'thanks-harvest', hv); }
     var tall = H > W * 1.05, bv = P.tv, foot = P.stand[1] + P.stand[3];
     var tw = tall ? Math.min(W * 0.98, 720 * Z) : Math.min(660 * Z, W - (bv[0] + bv[2] * 0.7) - 4 * Z), th = tw * 656 / 1240;
     var tx = tall ? (W - tw) / 2 : bv[0] + bv[2] * 0.7, tbox = [tx, foot - 4 * Z - th, tw, th];
@@ -375,9 +399,10 @@
     d.steam = tr ? T.steam.map(function (o) { return [tr[0] + o.x * k, tr[1] + o.y * k, k]; }) : [];
     shadowFor(c, 'thanks-console', P.stand, Z);
     d.boardDrawn = drawFit(c, 'thanks-board', P.tv);       // (flames and steam behind it stay hidden)
-    drawFit(c, 'thanks-console', P.stand);
+    var or = drawFit(c, 'thanks-console', P.stand);
     d.feet.console = feetAt('thanks-console', P.stand);
     mood(c, W, H, [W * 0.62, H * 0.3], '255,170,100', 0.16, 0.1);
+    frameFront(c, d, [['thanks-hutch', hr], ['thanks-harvest', vr], ['thanks-table', tr], ['thanks-board', d.boardDrawn], ['thanks-console', or]], q);
   }
   // ---------------------------------------------------------------- NEW YEAR'S: a rooftop party at midnight
   function newyearReal(c, W, H, Z, d, M) {
