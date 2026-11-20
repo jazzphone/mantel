@@ -34,6 +34,7 @@ MISSING_TTL = 3600            # ...a song with none found is asked about again a
 RETRY = 120                   # ...a search that failed (Music Assistant away)
 KEEP = 400                    # songs remembered at most (the oldest go first)
 SEARCH_LIMIT = 10
+START_KNOWN_AFTER = 10.0      # seconds after the host read Music Assistant whole before a song seen is one that started
 LIVE = ("playing", "paused")
 
 
@@ -100,9 +101,10 @@ def _by(track: Mapping[str, Any], artist: str) -> bool:
     return bool(names and want) and (want in names or names[0] in want)
 
 
-def pick(tracks: Any, title: str, artist: str, album: str | None) -> str | None:
-    """The cover of the song among search results: the same title (exactly, else without its "(...)"), by the same
-    artist, on the same album first; None when no result is that song."""
+def match(tracks: Any, title: str, artist: str, album: str | None) -> tuple[str | None, float | None]:
+    """The song among search results: (its cover, its length in seconds) -- the same title (exactly, else without its
+    "(...)"), by the same artist, on the same album first, the first such with a picture; (None, None) when no result
+    is that song."""
     rows = [t for t in tracks if isinstance(t, Mapping)] if isinstance(tracks, list) else []
     for same in (lambda t: _norm(t.get("name")) == _norm(title), lambda t: _bare(t.get("name")) == _bare(title)):
         songs = [t for t in rows if same(t) and _by(t, artist)]
@@ -111,8 +113,14 @@ def pick(tracks: Any, title: str, artist: str, album: str | None) -> str | None:
         for t in on_album + songs:
             got = _image(t) or _image(t.get("album"))
             if got:
-                return got
-    return None
+                d = t.get("duration")
+                return got, float(d) if isinstance(d, (int, float)) and not isinstance(d, bool) and d > 0 else None
+    return None, None
+
+
+def pick(tracks: Any, title: str, artist: str, album: str | None) -> str | None:
+    """``match``'s cover."""
+    return match(tracks, title, artist, album)[0]
 
 
 Key = tuple[str, str, str]
@@ -126,7 +134,7 @@ class StreamCovers:
 
     def __init__(self, search: Callable[[str], Awaitable[Any]], clock: Callable[[], float] = time.monotonic) -> None:
         self._search, self._clock = search, clock
-        self._kept: dict[Key, tuple[str | None, float]] = {}
+        self._kept: dict[Key, tuple[str | None, float | None, float]] = {}     # key -> (cover, length, expires)
         self._asking: set[Key] = set()
 
     @staticmethod
@@ -139,12 +147,18 @@ class StreamCovers:
         got = self._kept.get(k) if k else None
         return got[0] if got else None
 
+    def length(self, title: Any, artist: Any, album: Any) -> float | None:
+        """The found song's length in seconds (the progress bar's: the device sending gives none)."""
+        k = self.key(title, artist, album)
+        got = self._kept.get(k) if k else None
+        return got[1] if got else None
+
     def due(self, title: Any, artist: Any, album: Any) -> bool:
         k = self.key(title, artist, album)
         if k is None or k in self._asking:
             return False
         got = self._kept.get(k)
-        return got is None or self._clock() >= got[1]
+        return got is None or self._clock() >= got[2]
 
     async def look(self, title: str, artist: str, album: str | None) -> bool:
         k = self.key(title, artist, album)
@@ -155,18 +169,53 @@ class StreamCovers:
             try:
                 answer = await self._search(f"{title} {artist}")
             except Exception:  # noqa: BLE001 -- Music Assistant away: asked again after RETRY
-                self._keep(k, None, RETRY)
+                self._keep(k, None, None, RETRY)
                 return False
             tracks = answer.get("tracks") if isinstance(answer, Mapping) else None
-            url = pick(tracks, title, artist, album)
-            had = self._kept.get(k, (None, 0))[0]
-            self._keep(k, url, FOUND_TTL if url else MISSING_TTL)
+            url, length = match(tracks, title, artist, album)
+            had = self._kept.get(k, (None, None, 0))[0]
+            self._keep(k, url, length, FOUND_TTL if url else MISSING_TTL)
             return url is not None and url != had
         finally:
             self._asking.discard(k)
 
-    def _keep(self, k: Key, url: str | None, ttl: float) -> None:
+    def _keep(self, k: Key, url: str | None, length: float | None, ttl: float) -> None:
         self._kept.pop(k, None)
-        self._kept[k] = (url, self._clock() + ttl)
+        self._kept[k] = (url, length, self._clock() + ttl)
         while len(self._kept) > KEEP:
             self._kept.pop(next(iter(self._kept)))
+
+
+# -- where the song is ------------------------------------------------------------------------------------------------
+class SongClock:
+    """Where an AirPlayed song is, for the progress bar (2026-11-20, the owner: "the song progress bar isn't showing
+    always"): the HomeView sends the HomePods the song but no length and no position -- the HomePods report position 0,
+    "seeking" -- so Music Assistant has none to give. Per session: the song's start is when it was first seen playing,
+    paused time left out, and a real position Music Assistant reports (``reported``: seconds, at a wall time) wins. A
+    session first seen just after the host started (``known_start`` false: the song was already playing) has no
+    position until its next song.
+
+    ``see`` answers (position, at): the position at wall time ``at`` -- the same pair until the play state changes,
+    so a speaker's state changes only when it should -- or None when where the song is isn't known."""
+
+    def __init__(self) -> None:
+        # session -> [song key, position, at (wall), playing, known]
+        self._s: dict[str, list[Any]] = {}
+
+    def see(self, session: str, song: Any, playing: bool, now: float, known_start: bool = True,
+            reported: tuple[float, float] | None = None) -> tuple[float, float] | None:
+        st = self._s.get(session)
+        if st is None or st[0] != song:
+            known = known_start or st is not None
+            st = self._s[session] = [song, 0.0, now, playing, known]
+        elif st[3] != playing:              # a pause: the position held; a play: counted from now
+            st[1] = st[1] + (now - st[2] if st[3] else 0.0)
+            st[2], st[3] = now, playing
+        if reported is not None and reported[0] > 0:
+            pos, at = reported
+            here = st[1] + (at - st[2] if st[3] else 0.0)
+            if not st[4] or abs(here - pos) > 3:
+                st[1], st[2], st[4] = float(pos), float(at), True
+        while len(self._s) > KEEP:
+            self._s.pop(next(iter(self._s)))
+        return (st[1], st[2]) if st[4] else None

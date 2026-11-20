@@ -19,7 +19,9 @@ every Music card, the Side Pane and the screensaver read "?". So, while Music As
   image from Music Assistant (media_art.py), never from HA's media proxy.
 * **A song AirPlayed from another device** (an iPhone, a HomeView) gets its cover from Music Assistant's search: a
   HomeView sends the HomePods no artwork, so Music Assistant's picture of it answers 404. Looked up once per song in the
-  background (hk_core.music.airplay ``StreamCovers``); until then, and for a song not found, Music Assistant's.
+  background (hk_core.music.airplay ``StreamCovers``); until then, and for a song not found, Music Assistant's. The
+  HomeView sends no length or position either: the found song's length, and where it is counted from when it was first
+  seen (``SongClock``), make its progress bar.
 * **Which entity is which player**: the entity registry's ``music_assistant`` entries (music.ma_players), Mantel's
   copy, which outlives an HA restart. A speaker's name is HA's last ``friendly_name`` for it, else MA's.
 * **Music Assistant away**: the last states stay for ``GRACE`` seconds (MA restarting), then read ``unavailable``.
@@ -194,6 +196,9 @@ class MusicStates:
         self._stop: Callable[[], None] | None = None
         self._task: asyncio.Task | None = None
         self.covers = AP.StreamCovers(self._search)
+        self.song_clock = AP.SongClock()
+        self.wall: Callable[[], float] = time.time
+        self.loaded_wall = 0.0                  # when Music Assistant was last read whole (a song playing then: no start)
         self._looks: set[asyncio.Task] = set()
 
     @property
@@ -270,6 +275,7 @@ class MusicStates:
         self.players = {p["player_id"]: p for p in players if isinstance(p, dict) and isinstance(p.get("player_id"), str)}
         self.queues = {q["queue_id"]: q for q in queues if isinstance(q, dict) and isinstance(q.get("queue_id"), str)}
         self.loaded, self.lost_at = True, None
+        self.loaded_wall = self.wall()
         self.sync()
 
     def _event(self, ev: dict) -> None:
@@ -325,7 +331,7 @@ class MusicStates:
             if p is None or away:
                 p = {"player_id": pid, "available": False}
             out[eid] = ha_state(eid, p, self.players, self.queues, entity_of, self.names.get(eid))
-            self._stream_cover(eid, p, out[eid][1])
+            self._stream_extras(eid, p, *out[eid])
         return out
 
     # -- an AirPlayed song's cover (the module docstring) --------------------------------------------------------
@@ -335,9 +341,11 @@ class MusicStates:
             raise ConnectionError("no Music Assistant")
         return await client.search(query, ["track"], limit=AP.SEARCH_LIMIT)
 
-    def _stream_cover(self, eid: str, p: Mapping[str, Any], attrs: dict[str, Any]) -> None:
+    def _stream_extras(self, eid: str, p: Mapping[str, Any], state: str, attrs: dict[str, Any]) -> None:
+        """An AirPlayed song's cover, and its length and position for the progress bar (hk_core.music.airplay)."""
         media = p.get("current_media") if isinstance(p.get("current_media"), Mapping) else {}
-        if AP.session_of(media.get("uri")) is None:
+        sid = AP.session_of(media.get("uri"))
+        if sid is None:
             return
         song = (attrs.get("media_title"), attrs.get("media_artist"), attrs.get("media_album_name"))
         url = self.covers.cover(*song)
@@ -351,6 +359,21 @@ class MusicStates:
                 return
             self._looks.add(task)
             task.add_done_callback(self._looks.discard)
+        if state not in ("playing", "paused") or attrs.get("media_duration"):
+            return
+        # (the clock from the song's first sighting, before its length is known: the lookup takes a moment)
+        now, el, at = self.wall(), media.get("elapsed_time"), media.get("elapsed_time_last_updated")
+        reported = (float(el), float(at)) if isinstance(el, (int, float)) and isinstance(at, (int, float)) else None
+        where = self.song_clock.see(sid, AP.StreamCovers.key(*song), state == "playing", now,
+                                    known_start=now - self.loaded_wall > AP.START_KNOWN_AFTER, reported=reported)
+        length = self.covers.length(*song)
+        if where is None or not length:
+            attrs.pop("media_position", None)
+            attrs.pop("media_position_updated_at", None)
+            return
+        attrs["media_duration"] = round(length)
+        attrs["media_position"] = min(round(where[0]), round(length))
+        attrs["media_position_updated_at"] = _iso(where[1])
 
     async def _look(self, title: str, artist: str, album: str | None) -> None:
         if await self.covers.look(title, artist, album) and self.loaded:

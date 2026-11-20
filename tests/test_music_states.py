@@ -344,9 +344,12 @@ async def test_a_batch_without_a_media_player_never_lists_the_speakers(on):
     assert calls, "a media player HA adds is still looked at"
 
 
-async def test_an_airplayed_songs_cover_is_looked_up_when_music_assistant_has_none(on):
+async def test_an_airplayed_songs_cover_is_looked_up_when_music_assistant_has_none(on, monkeypatch):
     """A HomeView AirPlaying to the HomePods (hk_core.music.airplay): the HomePods give Music Assistant no artwork, so its
-    picture answers 404; Mantel looks the song up once and draws that cover on every room of the session."""
+    picture answers 404; Mantel looks the song up once and draws that cover on every room of the session. Nor any length
+    or position: the found song's length, and the position counted from when it was first seen, make the progress bar."""
+    monkeypatch.setitem(MF.TRACKS[0], "duration", 197)
+    on.app["music"].states.loaded_wall = 0.0           # (a song that started after Mantel did)
     stream = "apple-device://{}/snFake::STREAM"
     for e in (K, D):
         await on.playing(e, media_title="Song 1", media_artist="Band", media_album_name="Fictional",
@@ -355,6 +358,13 @@ async def test_an_airplayed_songs_cover_is_looked_up_when_music_assistant_has_no
     await wait_for(lambda: st(on, K)["a"].get("entity_picture") == want and st(on, D)["a"].get("entity_picture") == want)
     assert st(on, K)["a"]["entity_picture_local"].startswith(f"/api/media/{K}/art?v=")
     assert len([f for f in on.ma.frames if f["command"] == "music/search"]) == 1, "one search for the song"
+    a = st(on, K)["a"]
+    assert a["media_duration"] == 197 and 0 <= a["media_position"] <= 2 and a["media_position_updated_at"]
+    assert st(on, D)["a"]["media_position_updated_at"] == a["media_position_updated_at"], "one clock for the session"
+    # paused: where it is, held
+    await on.playing(K, "paused")
+    assert st(on, K)["a"]["media_duration"] == 197 and st(on, K)["a"]["media_position_updated_at"] != \
+        a["media_position_updated_at"]
     # music Music Assistant plays itself keeps Music Assistant's cover, with no search
     await on.playing(C, media_title="Song 2", media_artist="Band", media_content_id="library://track/2", image=COVER)
     assert st(on, C)["a"]["entity_picture"] == COVER

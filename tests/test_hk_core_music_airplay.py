@@ -89,3 +89,32 @@ def test_covers_are_looked_up_once_and_a_failure_is_asked_again_later():
         # no title or artist: nothing to look up
         assert not c.due("", "A Singer", None) and c.cover(None, None, None) is None
     asyncio.run(run())
+
+
+def test_the_found_song_carries_its_length():
+    rows = [dict(track("Snow Day", "A Singer", "Winter"), duration=201)]
+    assert A.match(rows, "Snow Day", "A Singer", "Winter") == ("https://img.example.test/Winter.jpg", 201.0)
+    assert A.match([track("Snow Day", "A Singer", "Winter")], "Snow Day", "A Singer", "Winter")[1] is None
+    assert A.match([], "Snow Day", "A Singer", None) == (None, None)
+
+
+def test_where_an_airplayed_song_is_counted_from_when_it_was_first_seen():
+    c = A.SongClock()
+    # first seen playing at 100: at 0 then; the same pair while nothing changes (a state changes only when it should)
+    assert c.see("s", "song1", True, 100.0) == (0.0, 100.0)
+    assert c.see("s", "song1", True, 130.0) == (0.0, 100.0)
+    # paused at 130: held at 30 s; played again at 200: 30 s, counted from 200
+    assert c.see("s", "song1", False, 130.0) == (30.0, 130.0)
+    assert c.see("s", "song1", True, 200.0) == (30.0, 200.0)
+    # the next song starts at 0
+    assert c.see("s", "song2", True, 250.0) == (0.0, 250.0)
+    # a real position Music Assistant reports wins when it differs by more than 3 s; a 0 is no report
+    assert c.see("s", "song2", True, 260.0, reported=(42.0, 259.0)) == (42.0, 259.0)
+    assert c.see("s", "song2", True, 262.0, reported=(0.0, 262.0)) == (42.0, 259.0)
+    assert c.see("s", "song2", True, 263.0, reported=(45.5, 262.0)) == (42.0, 259.0)
+    # a session first seen just after the host started: playing already, so where it is isn't known...
+    assert c.see("t", "song1", True, 300.0, known_start=False) is None
+    assert c.see("t", "song1", True, 310.0, known_start=False) is None
+    # ...until its next song, or a real position
+    assert c.see("t", "song2", True, 400.0, known_start=False) == (0.0, 400.0)
+    assert c.see("u", "song1", True, 500.0, known_start=False, reported=(80.0, 499.0)) == (80.0, 499.0)
