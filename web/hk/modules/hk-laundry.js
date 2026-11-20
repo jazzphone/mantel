@@ -190,12 +190,12 @@
       if (id.indexOf('sensor.') !== 0 || !/wash|dryer|laundry/.test(t) || NOT_RE.test(t) || (e && mineDev[devKey(e, id)])) return;
       var src = typeof a.source === 'string' ? a.source : '', p = a.device_class === 'power' ? id
         : a.device_class === 'energy' && src.indexOf('sensor.') === 0 && ((states[src] || {}).attributes || {}).device_class === 'power' ? src : null;
-      if (p && !circ.some(function (c) { return c.id === p; })) circ.push({ id: p, t: t, area: e ? e.area_id || (devs[e.device_id] || {}).area_id || null : null });
+      if (p && !circ.some(function (c) { return c.id === p; })) circ.push({ id: p, via: p !== id ? id : null, t: t, area: e ? e.area_id || (devs[e.device_id] || {}).area_id || null : null });
     });
     out.forEach(function (m) {
       var want = m.kind === 'dryer' ? /dry|laundry/ : /wash|laundry/, ok = circ.filter(function (c) { return want.test(c.t); });
       var c = ok.filter(function (x) { return m.area && x.area === m.area; })[0] || ok[0];
-      if (c) m.power = c.id;
+      if (c) { m.power = c.id; CIRCUIT[c.id] = c.via || c.id; }
     });
     // two machines both named Washer: the second says which
     var had = {};
@@ -205,6 +205,14 @@
   // (saved: the settings page passes its own copy; a screen reads the settings feed)
   // (found once per registry: the generated pages ask for every tile, and finding walks every entity)
   var memo = { ents: null, devs: null, n: -1, list: null };
+  // A CIRCUIT FOUND, KEPT (2026-11-20, the owner: "Any idea why the Laundry Machine is no longer showing power?"): the
+  // circuit's watts are found through the energy sensor named for the laundry that is summed from them (the house's
+  // sensor.laundry_circuit, from a Refoss channel named for nothing). The search reads no state a screen keeps
+  // (unrecorded), so once a screen narrowed to what it reads, that energy sensor was gone, the next search found no
+  // circuit and the machine's own 0 W stood in for it. Now: each circuit's power sensor -> the sensor it was found
+  // through, read by the machine when told (look), so the screen keeps both; and a search on a screen without it keeps
+  // the circuit an earlier one found, while its watts are still here
+  var CIRCUIT = {};
   function machines(client, saved) {
     if (saved === undefined) saved = setting('features.laundry', null);
     if (Array.isArray(saved) && saved.length) return saved.filter(function (m) { return m && m.id; });
@@ -213,6 +221,9 @@
     // (a scan of every entity is no screen's need: the host doesn't keep the whole house for it -- hkShell.unrecorded)
     var shell = global.hkShell, list = shell && typeof shell.unrecorded === 'function'
       ? shell.unrecorded(function () { return found(client); }) || [] : found(client);
+    var was = {};
+    (memo.list || []).forEach(function (m) { if (CIRCUIT[m.power]) was[m.id] = m.power; });
+    list.forEach(function (m) { if (was[m.id] && !CIRCUIT[m.power] && stOf(client, was[m.id])) m.power = was[m.id]; });
     memo = { ents: ents, devs: devs, n: n, list: list };
     return list;
   }
@@ -295,6 +306,7 @@
     var pr = stOf(client, m.progress), pct = pr && runs(state) ? num(pr.state) : null;
     if (pct !== null) pct = Math.max(0, Math.min(100, pct));
     var dr = stOf(client, m.door), rm = stOf(client, m.remote), pw = stOf(client, m.power);
+    if (CIRCUIT[m.power] && CIRCUIT[m.power] !== m.power) stOf(client, CIRCUIT[m.power]);   // (kept: A CIRCUIT FOUND, KEPT)
     var o = {
       id: m.id, name: m.name || KIND_NAMES[kind], kind: kind, state: leak ? 'leak' : state, machine: state, src: src,
       left: t.left, ends: t.ends, pct: pct, leak: leak, held: h, runs: runs(state),

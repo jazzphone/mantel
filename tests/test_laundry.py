@@ -175,6 +175,13 @@ put('sensor.em_channel_16_power', '451', { device_class: 'power', unit_of_measur
 put('sensor.laundry_circuit', '307.4', { device_class: 'energy', unit_of_measurement: 'kWh', source: 'sensor.em_channel_16_power' }, 'd5');
 const house = { states, entities: ents, devices: { d1: { area_id: 'laundry_room', model: 'WD53DBA900H' }, d2: { area_id: 'laundry_room' }, d3: { area_id: 'utility' }, d4: { area_id: 'utility' }, d5: { area_id: 'garage' } } };
 out.found = L.found(house);
+// A SCREEN THAT NARROWED (2026-11-20): it keeps only the states its cards read when told; the search reads none
+const only = (ids) => Object.assign({}, house, { states: Object.fromEntries(Object.keys(house.states).filter((k) => ids.has(k)).map((k) => [k, house.states[k]])) });
+const whole = L.machines(house, null)[0], read = new Set();
+L.look(Object.assign({}, house, { states: new Proxy(house.states, { get: (t, k) => { read.add(k); return t[k]; } }) }), whole, NOW);
+const kept = only(read), dropped = new Set(read); dropped.delete('sensor.laundry_circuit');
+out.narrowed = { whole: whole.power, read: [...read].filter((k) => /circuit|channel/.test(k)).sort(), kept: L.machines(kept, null)[0].power,
+  without: L.machines(only(dropped), null)[0].power };
 const w = out.found[0];
 out.look = L.look(house, w, NOW);
 out.controls = L.controls(house, w);
@@ -225,6 +232,17 @@ def test_machines_are_found_on_their_devices(page):
     assert (lg_w["kind"], lg_d["kind"]) == ("washer", "dryer") and lg_w["id"] != lg_d["id"]
     assert "sensor.dryer_plug_power" not in f                       # (a plug is added by hand)
     assert len({m["id"] for m in page["found"]}) == len(page["found"])
+
+
+@needs_node
+def test_a_narrowed_screen_keeps_the_circuit(page):
+    # (2026-11-20, the owner: "Any idea why the Laundry Machine is no longer showing power?" -- a screen narrowed to what
+    # its cards read lost sensor.laundry_circuit, and the next search took the machine's own 0 W)
+    n = page["narrowed"]
+    assert n["whole"] == "sensor.em_channel_16_power"
+    assert n["read"] == ["sensor.em_channel_16_power", "sensor.laundry_circuit"]     # (the machine reads what it was found through)
+    assert n["kept"] == "sensor.em_channel_16_power"
+    assert n["without"] == "sensor.em_channel_16_power"                              # (a search without it keeps the circuit found)
 
 
 @needs_node
