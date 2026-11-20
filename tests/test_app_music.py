@@ -178,3 +178,16 @@ async def test_a_child_without_rooms_sees_no_speakers_and_cannot_play(house):
 async def test_without_a_credential_nothing(house):
     r = await house.client.get("/api/app/music")
     assert r.status == 401
+
+
+def test_one_airplay_session_is_one_context():
+    """A HomeView AirPlaying to several HomePods (hk_core.music.airplay): no group in Music Assistant, one session each."""
+    K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
+    cfg = {"speakers": [{"name": "Kitchen", "entity": K}, {"name": "Den", "entity": D}, {"name": "Cody's Room", "entity": C}]}
+    def st(s, sid, **a):
+        return {"s": s, "a": dict(a, media_title="Song 1", group_members=[],
+                                  media_content_id=f"apple-device://ap-{s}/{sid}::STREAM"), "lc": 5.0}
+    states = {K: st("playing", "snA"), D: st("playing", "snA"), C: st("playing", "snB")}
+    got = app_music.contexts(cfg, states)
+    assert [(c["key"], c["kind"], c["members"], c.get("airplay")) for c in got] == [
+        (K, "group", [K, D], True), (C, "room", [C], None)]

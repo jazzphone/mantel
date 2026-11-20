@@ -1661,3 +1661,31 @@ async def test_a_saved_playlist_is_looked_up_in_the_background_and_the_feed_foll
             break
     assert mine and mine[0]["image"] == f"/ma/imageproxy/{MF.PROXY_ID}?size=256", got
     await ws.close()
+
+
+async def test_play_pause_on_an_airplay_session_reaches_every_room_of_it(on):
+    """A HomeView AirPlaying to several HomePods (hk_core.music.airplay): one Play / Pause on the screen is a pause sent
+    to every room of the session -- a pause each, never a toggle each."""
+    await on.connected()
+    for e in (K, D):
+        await on.playing(e, media_title="Song 1", media_artist="Band", media_content_id=f"apple-device://{e}/snFake::STREAM")
+    await on.playing(C, media_content_id="library://playlist/1")
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    r = await on.command(ws, id=2, **SVC("music_transport", player=D, command="play_pause"))
+    assert r["result"]["response"] == {"ok": True}, r
+    assert sorted(on.ma.sent(), key=str) == [("players/cmd/pause", {"player_id": "ma-den"}),
+                                             ("players/cmd/pause", {"player_id": "ma-kitchen"})]
+    await ws.close()
+    # one who may control only their own room of the session: their room alone (the rest are not theirs)
+    await on.playing(C, media_title="Song 1", media_artist="Band", media_content_id="apple-device://c/snFake::STREAM")
+    await on.m.user("cody", "child")
+    uid = on.app["accounts"].db.execute("SELECT id FROM users WHERE username='cody'").fetchone()["id"]
+    on.app["rbac"].set_scopes("user", uid, ["cody_room"])
+    await on.login("cody", "child")
+    ws = await on.socket()
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=3, **SVC("music_transport", player=C, command="play_pause"))
+    assert r["result"]["response"] == {"ok": True}, r
+    assert on.ma.sent()[n:] == [("players/cmd/play_pause", {"player_id": "ma-cody"})]
+    await ws.close()

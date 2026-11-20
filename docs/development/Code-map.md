@@ -380,6 +380,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `talk_live.py` — LIVE TALK
   - `tv_stream.py` — Live TV's transcode command
 - **hk_core/music/**
+  - `airplay.py` — Music AirPlayed from another device to several HomePods
   - `airplay_groups.py` — AirPlay Groups' status page, as Mantel's Connections screen reads it
   - `announcements.py` — Announcements, for display only
   - `checks.py` — The checks Music's forms share

@@ -166,6 +166,38 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   eq('this page\'s song in a room its buttons do not reach: one card, both rooms', cards(p).length === 1 && rooms(cards(p)[0]).length, 2);
 })();
 
+// ONE AIRPLAY SESSION (2026-11-20, hk_core/music/airplay.py): a HomeView AirPlaying to every HomePod. Each stream names
+// the session (apple-device://<player>/<session>::STREAM): its rooms are ONE context, drawn as a group, `airplay`
+(function () {
+  function sess(k, sid, extra) { return airplay('Santa Tell Me', Object.assign({ media_content_id: 'apple-device://ap-' + k + '/' + sid + '::STREAM' }, extra || {})); }
+  var all = {};
+  HK_ROOMS.forEach(function (r, i) { all[r] = sess(i, 'snHomeView'); });
+  var h = hassOf(all);
+  var cs = M.contexts(h);
+  eq('eight rooms of one AirPlay session: one context', cs.length, 1);
+  ok('...a group of every room, marked airplay', cs[0].kind === 'group' && cs[0].members.length === HK_ROOMS.length && cs[0].airplay === true, cs[0]);
+  ok('...named as a group is ("Kitchen +8")', /\+/.test(M.label(cs[0])), M.label(cs[0]));
+  eq('...never a preset, though its rooms are Everywhere\'s', cs[0].preset, undefined);
+  eq('...and the page\'s own music: no house list', page(h, cs[0].key)._e.house.children.length, 0);
+  eq('...the player line\'s rooms (hkMusic.together): every room of the session', M.together(h, h.states[HK_ROOMS[3]]).length, HK_ROOMS.length);
+  // a room paused or idle in the session is a room of it while paused, not when idle; another session is its own
+  h = hassOf({});
+  h.states[e('kitchen')] = sess('kitchen', 'snA');
+  h.states[e('office')] = sess('office', 'snA', { media_title: 'Something Else' });
+  h.states[e('loft')] = Object.assign(sess('loft', 'snA'), { state: 'idle' });
+  h.states[e('living_room')] = sess('living_room', 'snB');
+  cs = M.contexts(h);
+  ok('the session decides, not the title; an idle room is not in it; another session is its own',
+     cs.length === 2 && JSON.stringify(cs[0].members) === JSON.stringify([e('kitchen'), e('office')]) && cs[1].members.length === 1 && !cs[1].airplay, cs);
+  // a real Music Assistant group is never folded into a session
+  var g = [e('kitchen'), e('living_room')];
+  h = hassOf({});
+  h.states[e('kitchen')] = airplay('Dynamite', { group_members: g });
+  h.states[e('living_room')] = airplay('Dynamite', { group_members: g });
+  cs = M.contexts(h);
+  ok('an MA group: no airplay mark', cs.length === 1 && !cs[0].airplay, cs);
+})();
+
 // _houseFit: what the column has left once the player has its room
 (function () {
   var fit = Card.prototype._houseFit;

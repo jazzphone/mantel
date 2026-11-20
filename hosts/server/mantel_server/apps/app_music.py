@@ -33,6 +33,8 @@ from typing import Any
 
 from aiohttp import web
 
+from hk_core.music import airplay as AP
+
 from ..storage import user_data as UD
 from .app_auth import app_route
 from ..connectors import allowed_ids, may_feature
@@ -128,11 +130,19 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
         gm = list(dict.fromkeys(part_of.get(e, e) for e in ((st.get("a") or {}).get("group_members") or [])))
         gm = [e for e in gm if e in known and not _ignored(dict(states.get(e) or {}, entity_id=e), cfg)]
         members = gm if len(gm) > 1 else [eid]
+        # (one AirPlay session is one thing playing: hk_core.music.airplay, as hkMusic.contexts)
+        sid = AP.session_of((st.get("a") or {}).get("media_content_id")) if len(members) == 1 else None
+        if sid is not None:
+            members += [o["entity"] for o in rooms if o["entity"] != eid and o["entity"] not in seen
+                        and _active(o["entity"], states, cfg)
+                        and AP.session_of(((states.get(o["entity"]) or {}).get("a") or {}).get("media_content_id")) == sid]
         seen.update(members)
         lead = members[0]
         c = ctx(lead, "group" if len(members) > 1 else "room", members, states.get(lead) or st)
         pre = next((p for p in presets if len(members) > 1 and sorted(p["members"]) == sorted(members)), None)
-        if pre is not None:
+        if sid is not None and len(members) > 1:
+            c["airplay"] = True
+        elif pre is not None:
             c["preset"] = pre.get("name")
         out.append(c)
     return out

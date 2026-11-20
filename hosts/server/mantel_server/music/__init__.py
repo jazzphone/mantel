@@ -69,7 +69,7 @@ from contextvars import ContextVar
 from typing import Any
 
 from hk_core.house import area_of
-from hk_core.music import engine as E
+from hk_core.music import airplay as AP, engine as E
 from hk_core.music import queue as Q
 from hk_core.music import settings as S
 from hk_core.music.config import Item, MusicConfig
@@ -531,14 +531,17 @@ class MantelMusic:
                 res = {"ok": False, "message": f"{', '.join(still)} did not stop."}
         return self._done(res, f"stop {'everything' if whole else targets}", rid, t0)
 
-    async def transport(self, player: str, command: str, level: float | None = None) -> dict[str, Any]:
+    async def transport(self, player: str, command: str, level: float | None = None,
+                        together: list[str] | None = None) -> dict[str, Any]:
+        """``together``: the other rooms of its AirPlay session Play / Pause may reach (the host's ``_session_rooms``)."""
         cfg = self.config
         fail = E.check_player(cfg, player)
         if fail:
             return fail
         async with self._tlocks[player]:
-            if command == "play_pause":
-                ok = await self._call("media_player", "media_play_pause", {"entity_id": player})
+            if command == "play_pause":     # (an AirPlay session: every room of it, hk_core.music.airplay)
+                service, target = AP.play_pause(self.house, together or [], player)
+                ok = await self._call("media_player", service, {"entity_id": target})
             elif command == "next":
                 ok = await self._call("media_player", "media_next_track", {"entity_id": player})
             elif command == "previous":
@@ -1241,6 +1244,9 @@ class MusicHost:
             speakers = E.own_players(cfg, names, op == SERVICE_STOP and not a.get("rooms"))
             if op in (SERVICE_PLAY, SERVICE_TRANSFER):
                 speakers += self._others(principal, op, cfg, a)
+            if op == SERVICE_TRANSPORT and a.get("command") == "play_pause":
+                a["together"] = self._session_rooms(principal, op, cfg, a["player"])
+                speakers += cfg.players_of(a["together"])
         players |= {q for e in speakers for q in [self.engine._attr(e, "active_queue")] if isinstance(q, str) and q}
         for e in speakers:
             try:
@@ -1259,7 +1265,7 @@ class MusicHost:
             elif op == SERVICE_STOP:
                 res = await self.engine.stop(a.get("rooms"))
             elif op == SERVICE_TRANSPORT:
-                res = await self.engine.transport(a["player"], a["command"], a.get("level"))
+                res = await self.engine.transport(a["player"], a["command"], a.get("level"), a.get("together"))
             elif op == SERVICE_PLAY_MEDIA:
                 res = await self.engine.play_media(a["player"], a["media_content_id"], a["media_content_type"])
             elif op == OP_SERVICE:
@@ -1279,6 +1285,14 @@ class MusicHost:
             raise MusicRefusal("home_assistant_error", str(res.get("message") or "The request failed."))
         return {"context": {"id": f"mantel-audit-{audit_id}"},
                 "response": res if music.get("return_response") else None}
+
+    def _session_rooms(self, principal: Any, op: str, cfg: MusicConfig, player: str) -> list[str]:
+        """THE OTHER ROOMS OF AN AIRPLAY SESSION (hk_core.music.airplay): Play / Pause reaches every one the person may
+        control; one that is not theirs plays on (the device sending may still pause it: that is AirPlay's, not ours)."""
+        gw = self.app.get("gateway")
+        action = f"{DOMAIN}.{op}"
+        return [r for r in AP.session_players(self.house, [x.entity for x in cfg.rooms], player)[1:]
+                if gw is not None and gw.authz.decide(principal.subject, action, r, ctx=gw.authz.context()).allowed]
 
     def _others(self, principal: Any, op: str, cfg: MusicConfig, a: dict) -> list[str]:
         """THE ROOMS A PLAY OR A MOVE REGROUPS BUT NEVER NAMED (the rest of a group it takes a room from): the person

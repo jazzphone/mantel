@@ -1460,7 +1460,7 @@
                (p ? p.entity_id + p.last_updated : 'none') + '|' +
                // group_members changes without last_updated moving in some
                // integrations, and the player line names every joined room.
-               ((a.group_members || []).join(',')) + '|' + (a.media_title || '') +
+               ((a.group_members || []).join(',')) + '|' + (r.context ? r.context.members.join(',') : '') + '|' + (a.media_title || '') +
                (musicMissing() ? '|no-music' : '');
       }
 
@@ -1500,7 +1500,7 @@
         var M = window.hkMusic, self = this;
         if (!p) { var r0 = this._res(); return r0.player ? [r0.name || r0.player] : []; }
         var name = function (e) { var o = self._st(e); return (M && M.known(e) && M.nameOf(e)) || (o && o.attributes && o.attributes.friendly_name) || e; };
-        var a = p.attributes || {}, g = M && M.fold ? M.fold(a.group_members || []) : (a.group_members || []);
+        var a = p.attributes || {}, g = M && M.together ? M.together(this.client, p) : (a.group_members || []);
         return [name(p.entity_id)].concat(g.filter(function (e) { return e !== p.entity_id; }).map(name));
       }
       _playerLine(p) {
@@ -1523,7 +1523,7 @@
         // friendly name already says "Downstairs") and a single room reports an
         // empty list -- both fall through to the bare name.
         // (a virtual pair's two players are one room: hkMusic.fold)
-        var g = M && M.fold ? M.fold(a.group_members || []) : (a.group_members || []);
+        var g = M && M.together ? M.together(this.client, p) : (a.group_members || []);
         if (g.length > 1) {
           // NAME THE ROOMS, don't just count them: hkMusic's short name, the
           // one the picker's pills use ("Kitchen"), rather than the entity's

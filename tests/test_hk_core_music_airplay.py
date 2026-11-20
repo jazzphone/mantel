@@ -1,0 +1,91 @@
+"""hk_core.music.airplay: music AirPlayed from another device (a HomeView, an iPhone) to several HomePods -- one session
+is one thing playing, Play / Pause reaches every room of it, and its cover is looked up when Music Assistant has none.
+Fictional rooms and songs only."""
+from __future__ import annotations
+
+import asyncio
+
+from hk_core.house import State
+from hk_core.music import airplay as A
+
+SID = "apple-device://ap0001/sn9Fake::STREAM"
+
+
+def track(name, artist, album, cover="https://img.example.test/{}.jpg"):
+    return {"name": name, "artists": [{"name": artist}], "album": {"name": album},
+            "metadata": {"images": [{"type": "thumb", "path": cover.format(album.replace(" ", "_"))}]}}
+
+
+class House:
+    def __init__(self, states):
+        self.states_ = {e: State(e, s, a) for e, (s, a) in states.items()}
+
+    def state(self, entity_id):
+        return self.states_.get(entity_id)
+
+
+def test_a_session_is_the_streams_last_part():
+    assert A.session_of(SID) == "sn9Fake"
+    assert A.session_of("apple-device://ap0002/sn9Fake") == "sn9Fake"
+    assert A.session_of("apple_music://track/1") is None and A.session_of(None) is None
+
+
+def test_play_pause_reaches_every_room_of_a_session_and_never_toggles_each():
+    other = "apple-device://ap0009/snOther::STREAM"
+    h = House({"media_player.kitchen": ("playing", {"media_content_id": SID}),
+               "media_player.den": ("playing", {"media_content_id": SID.replace("ap0001", "ap0002")}),
+               "media_player.loft": ("idle", {"media_content_id": SID.replace("ap0001", "ap0003")}),
+               "media_player.office": ("playing", {"media_content_id": other}),
+               "media_player.porch": ("playing", {"media_content_id": "apple_music://track/1"})})
+    rooms = ["media_player.kitchen", "media_player.den", "media_player.loft", "media_player.office", "media_player.porch"]
+    assert A.session_players(h, rooms, "media_player.den") == ["media_player.den", "media_player.kitchen"]
+    assert A.play_pause(h, rooms, "media_player.kitchen") == ("media_pause", ["media_player.kitchen", "media_player.den"])
+    h.states_["media_player.kitchen"] = State("media_player.kitchen", "paused", {"media_content_id": SID})
+    assert A.play_pause(h, rooms, "media_player.kitchen")[0] == "media_play"
+    # one room of a session, or anything else: the plain toggle on that player
+    assert A.play_pause(h, rooms, "media_player.office") == ("media_play_pause", "media_player.office")
+    assert A.play_pause(h, rooms, "media_player.porch") == ("media_play_pause", "media_player.porch")
+
+
+def test_the_cover_is_that_song_on_its_album_first():
+    rows = [track("Snow Day", "A Singer", "Best Of"), track("Snow Day", "Someone Else", "Winter"),
+            track("Snow Day", "A Singer", "Winter"), track("Other", "A Singer", "Winter")]
+    assert A.pick(rows, "Snow Day", "A Singer", "Winter").endswith("/Winter.jpg")
+    # the album not found: the song on another of its albums; by another artist only: none
+    assert A.pick(rows, "Snow Day", "A Singer", "Live in Town").endswith("/Best_Of.jpg")
+    assert A.pick(rows, "Snow Day", "Nobody", "Winter") is None
+    # case, curly quotes and a trailing "(Remastered)" don't matter; the album's picture when the song has none
+    bare = [{"name": "Don't Stop (Remastered 2020)", "artists": [{"name": "A Band"}],
+             "album": {"name": "Hits", "image": {"type": "thumb", "path": "https://img.example.test/hits.jpg"}}}]
+    assert A.pick(bare, "DON’T STOP", "a band", None) == "https://img.example.test/hits.jpg"
+    # several artists: the first is enough ("A Singer & Friend")
+    assert A.pick(rows, "Snow Day", "A Singer & Friend", "Winter").endswith("/Winter.jpg")
+    assert A.pick(None, "x", "y", None) is None
+
+
+def test_covers_are_looked_up_once_and_a_failure_is_asked_again_later():
+    now = [1000.0]
+    asked = []
+
+    async def search(q):
+        asked.append(q)
+        if q.startswith("Broken"):
+            raise ConnectionError("away")
+        return {"tracks": [track("Snow Day", "A Singer", "Winter")]}
+    c = A.StreamCovers(search, clock=lambda: now[0])
+
+    async def run():
+        assert c.due("Snow Day", "A Singer", "Winter") and c.cover("Snow Day", "A Singer", "Winter") is None
+        assert await c.look("Snow Day", "A Singer", "Winter") is True
+        assert c.cover("snow day", "A SINGER", "Winter").endswith("/Winter.jpg")
+        assert not c.due("Snow Day", "A Singer", "Winter") and asked == ["Snow Day A Singer"]
+        # a song not found is kept as none; asked again only after MISSING_TTL
+        assert await c.look("Nothing", "A Singer", None) is False and not c.due("Nothing", "A Singer", None)
+        assert await c.look("Broken", "A Singer", None) is False and not c.due("Broken", "A Singer", None)
+        now[0] += A.RETRY
+        assert c.due("Broken", "A Singer", None) and not c.due("Nothing", "A Singer", None)
+        now[0] += A.MISSING_TTL
+        assert c.due("Nothing", "A Singer", None)
+        # no title or artist: nothing to look up
+        assert not c.due("", "A Singer", None) and c.cover(None, None, None) is None
+    asyncio.run(run())

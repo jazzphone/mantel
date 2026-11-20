@@ -54,7 +54,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
 
-from ...hk_core.music import config as C, engine as E
+from ...hk_core.music import airplay as AP, config as C, engine as E
 from ...hk_core.music.groups import Groups, signature
 from ...hk_core.music.config import Item, Playlist, Preset, Room  # noqa: F401 -- names callers import here
 from ...hk_core.music.engine import ACTIVE, GONE, STOPPED, SUPERSEDED  # noqa: F401
@@ -614,8 +614,9 @@ class MusicManager:
         if fail:
             return fail
         async with self._tlocks[player]:
-            if command == "play_pause":
-                ok = await self._call("media_player", "media_play_pause", {"entity_id": player})
+            if command == "play_pause":     # (an AirPlay session: every room of it, hk_core.music.airplay)
+                service, target = AP.play_pause(self.house, [r.entity for r in cfg.rooms], player)
+                ok = await self._call("media_player", service, {"entity_id": target})
             elif command == "next":
                 ok = await self._call("media_player", "media_next_track", {"entity_id": player})
             elif command == "previous":

@@ -17,6 +17,9 @@ every Music card, the Side Pane and the screensaver read "?". So, while Music As
 * **The cover is Music Assistant's** (``entity_picture``: MA's image address, as HA's integration gives it) and the
   address the pages draw (``entity_picture_local``) is Mantel's own ``/api/media/<entity>/art``, which fetches that
   image from Music Assistant (media_art.py), never from HA's media proxy.
+* **A song AirPlayed from another device** (an iPhone, a HomeView) gets its cover from Music Assistant's search: a
+  HomeView sends the HomePods no artwork, so Music Assistant's picture of it answers 404. Looked up once per song in the
+  background (hk_core.music.airplay ``StreamCovers``); until then, and for a song not found, Music Assistant's.
 * **Which entity is which player**: the entity registry's ``music_assistant`` entries (music.ma_players), Mantel's
   copy, which outlives an HA restart. A speaker's name is HA's last ``friendly_name`` for it, else MA's.
 * **Music Assistant away**: the last states stay for ``GRACE`` seconds (MA restarting), then read ``unavailable``.
@@ -33,6 +36,8 @@ import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from typing import Any
+
+from hk_core.music import airplay as AP
 
 from ..connectors import camera_still
 
@@ -188,6 +193,8 @@ class MusicStates:
         self.events = 0
         self._stop: Callable[[], None] | None = None
         self._task: asyncio.Task | None = None
+        self.covers = AP.StreamCovers(self._search)
+        self._looks: set[asyncio.Task] = set()
 
     @property
     def ma(self) -> Any:
@@ -318,7 +325,36 @@ class MusicStates:
             if p is None or away:
                 p = {"player_id": pid, "available": False}
             out[eid] = ha_state(eid, p, self.players, self.queues, entity_of, self.names.get(eid))
+            self._stream_cover(eid, p, out[eid][1])
         return out
+
+    # -- an AirPlayed song's cover (the module docstring) --------------------------------------------------------
+    async def _search(self, query: str) -> Any:
+        client = self.ma
+        if client is None:
+            raise ConnectionError("no Music Assistant")
+        return await client.search(query, ["track"], limit=AP.SEARCH_LIMIT)
+
+    def _stream_cover(self, eid: str, p: Mapping[str, Any], attrs: dict[str, Any]) -> None:
+        media = p.get("current_media") if isinstance(p.get("current_media"), Mapping) else {}
+        if AP.session_of(media.get("uri")) is None:
+            return
+        song = (attrs.get("media_title"), attrs.get("media_artist"), attrs.get("media_album_name"))
+        url = self.covers.cover(*song)
+        if url:
+            attrs["entity_picture"] = url
+            attrs["entity_picture_local"] = art_path(eid, url)
+        elif self.covers.due(*song):
+            try:
+                task = asyncio.get_running_loop().create_task(self._look(*song))
+            except RuntimeError:        # (no loop: a test building states by hand)
+                return
+            self._looks.add(task)
+            task.add_done_callback(self._looks.discard)
+
+    async def _look(self, title: str, artist: str, album: str | None) -> None:
+        if await self.covers.look(title, artist, album) and self.loaded:
+            self.sync()
 
     def _learn(self, eid: str, ha: Mapping[str, Any]) -> None:
         self.ha_seen[eid] = dict(ha)

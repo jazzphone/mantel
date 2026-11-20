@@ -555,7 +555,13 @@
         return;
       }
       var pl = ticksPlan(S.members, ticks);
+      // AIRPLAYED FROM ANOTHER DEVICE (hkMusic.contexts' `airplay`): its rooms are the sending device's to change --
+      // Update would make a Music Assistant group of them and end the AirPlay (2026-11-20)
+      var ap = c && c.airplay;
+      if (ap) pl.update = null;
       var cap = S.err ? '<span>' + esc(S.err) + '</span>' : S.busy ? esc(S.busy)
+              : ap ? '<b>' + esc(c.title || label(c)) + '</b> is AirPlayed from another device: change its rooms there.' +
+                     (nextHere ? ' Tap rooms for your next pick.' : '') + also
               : ticksCaption(S.members, ticks, (c && (c.title || label(c))) || 'the music', nextHere, roomsName) + also;
       var upL = S.busy ? '<span class="mpspin"></span>' + (pl.moves ? 'Moving' : 'Updating') : svg(ICON.check) + 'Update';
       var foot = '<div class="mpcap' + (S.err ? ' err' : '') + '">' + cap + '</div><div class="mpacts">' +
@@ -616,7 +622,7 @@
     // player when that is still in them)
     function updateRooms() {
       var c = ctx(), t = ticksNow(), pl = ticksPlan(S.members, t);
-      if (!c || !pl.update || S.busy) return;
+      if (!c || c.airplay || !pl.update || S.busy) return;
       var to = pl.update, n = roomsName;
       request('transfer', { rooms: to, source: c.key }, to.indexOf(c.key) >= 0 ? c.key : to[0],
               pl.moves ? 'Moving the music to ' + n(to) + '…' : pl.added.length && !pl.dropped.length ? 'Adding ' + n(pl.added) + '…' : 'Updating…',

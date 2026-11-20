@@ -86,6 +86,11 @@
         var a = st.attributes || {};
         return st.state !== 'playing' && a.media_title === 'com.apple.tvairplayd' && !a.media_artist;
       }
+      // the AirPlay session a speaker's stream is part of (`apple-device://<player>/<session>::STREAM`), else null
+      function session(st) {
+        var m = /^apple-device:\/\/[^/]+\/(.+?)(?:::STREAM)?$/.exec(String(((st && st.attributes) || {}).media_content_id || ''));
+        return m ? m[1] : null;
+      }
       function active(st) { return !!st && !ignored(st) && !leftover(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
       // MUSIC STOPPED AFTER A PAUSE (2026-11-01, hk_core/music/resume.py): Music
       // Assistant stops a queue paused for 30 s, keeping its song and where it
@@ -141,13 +146,33 @@
             return known(e) && !isGroup(e) && !ignored(states[e]);
           });
           var members = gm.length > 1 ? gm : [r.entity];
+          // ONE AIRPLAY SESSION, ONE THING PLAYING (2026-11-20, hk_core/music/airplay.py): a HomeView or an iPhone
+          // AirPlaying to the HomePods is a player each to Music Assistant, no group -- but every one of them names
+          // the same session. Its rooms are one context, `airplay`: drawn as a group, Play / Pause sent to each of
+          // them (the engine), and its rooms changed only on the device sending
+          var sid = members.length === 1 ? session(st) : null;
+          if (sid) {
+            rooms().forEach(function (o) {
+              var os = states[o.entity];
+              if (o.entity !== r.entity && !seen[o.entity] && active(os) && session(os) === sid) members.push(o.entity);
+            });
+          }
           members.forEach(function (m) { seen[m] = 1; });
           var lead = members[0];
           var c = ctx(lead, members.length > 1 ? 'group' : 'room', members, states[lead] || st);
-          if (members.length > 1) { var pre = presetOf(members); if (pre) c.preset = pre.name; }
+          if (sid && members.length > 1) c.airplay = true;
+          else if (members.length > 1) { var pre = presetOf(members); if (pre) c.preset = pre.name; }
           out.push(c);
         });
         return out;
+      }
+      // THE ROOMS PLAYING WITH A SPEAKER (its state): its group (group_members, a pair folded), else the rooms of its
+      // AirPlay session (contexts' `airplay`, 2026-11-20: a HomeView AirPlaying to every HomePod read "Guest Bedroom")
+      function together(client, st) {
+        var g = fold(((st && st.attributes) || {}).group_members || []);
+        if (g.length > 1 || !session(st)) return g;
+        var c = contexts(client).filter(function (x) { return x.airplay && x.members.indexOf(st.entity_id) >= 0; })[0];
+        return c ? c.members.slice() : g;
       }
       // the preset whose rooms are exactly these, or null
       function presetOf(members) {
@@ -377,7 +402,7 @@
 
       return {
         speakers: function () { return ST.MUSIC.speakers.slice(); },
-        rooms: rooms, presets: presets, known: known, isGroup: isGroup, fold: fold,
+        rooms: rooms, presets: presets, known: known, isGroup: isGroup, fold: fold, together: together,
         nameOf: nameOf, leader: leader, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
         player: function (client) { return resolve(client).player; },
         label: label, setFocus: setFocus, release: release, attach: attach,
