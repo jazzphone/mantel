@@ -190,8 +190,9 @@ def test_hk_frontend_forwards_exactly_mantel_s_settings_saves():
 
 # ------------------------------------------------------------------ setup (GET/PUT /api/linked/ha-saves)
 class FakeDirectory:
-    def __init__(self, users):
+    def __init__(self, users, own_id=None):
         self._users = users
+        self.own_id = own_id
 
     async def users(self):
         return self._users
@@ -241,6 +242,56 @@ async def test_setup_turns_saves_on_and_links_home_assistant_people(make_env):
     audit = [r["action"] for r in env.audit()] if hasattr(env, "audit") else []
     assert "linked.saves" in json.dumps(audit) or not audit
     await ws.close()
+
+
+async def test_mantels_own_home_assistant_account_is_not_an_admin_who_cant_save(make_env):
+    """The owner, 2026-11-21: Repairs said two admins couldn't save, one of them the account Mantel itself connects
+    as. That account is Mantel's, not a person's: it is listed (marked) and never counted."""
+    env = await make_env()
+    ls = env.app["linked_settings"]
+    ls.directory = FakeDirectory([ha_user(HA_OWNER, "Avery", True), ha_user(HA_NOBODY, "Mantel", True)], own_id=HA_NOBODY)
+    people = {p["name"]: p for p in await ls.people()}
+    assert people["Mantel"]["mantel"] is True and people["Avery"]["mantel"] is False
+    await ls.refresh()
+    assert ls.unlinked_admins == 1, "Avery only"
+    ls.directory.own_id = None                             # not known (HA didn't say): counted, as before
+    await ls.refresh()
+    assert ls.unlinked_admins == 2
+
+
+async def test_the_directory_learns_its_own_account_on_the_same_connection():
+    """ingress.HaDirectory asks auth/current_user beside config/auth/list, answers in either order."""
+    from aiohttp import web
+    from aiohttp.test_utils import TestServer
+    from mantel_server.network.ingress import HaDirectory
+    asked = []
+
+    async def ws_handler(request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_json({"type": "auth_required"})
+        await ws.receive_json()
+        await ws.send_json({"type": "auth_ok"})
+        got = [await ws.receive_json(), await ws.receive_json()]
+        asked.extend(m["type"] for m in got)
+        for m in reversed(got):                            # current_user answered first
+            result = ({"id": HA_NOBODY, "name": "Mantel", "is_admin": True} if m["type"] == "auth/current_user"
+                      else [ha_user(HA_OWNER, "Avery", True), ha_user(HA_NOBODY, "Mantel", True)])
+            await ws.send_json({"id": m["id"], "type": "result", "success": True, "result": result})
+        await ws.receive()
+        return ws
+    app = web.Application()
+    app.router.add_get("/api/websocket", ws_handler)
+    server = TestServer(app)
+    await server.start_server()
+    try:
+        d = HaDirectory(str(server.make_url("/api/websocket")), "fictional-token")
+        assert [u["name"] for u in await d.users()] == ["Avery", "Mantel"]
+        assert d.own_id == HA_NOBODY and sorted(asked) == ["auth/current_user", "config/auth/list"]
+        d.retarget(d.ws_url, "another-fictional-token")
+        assert d.own_id is None                            # a new credential may be another account
+    finally:
+        await server.close()
 
 
 async def test_saves_are_turned_on_only_once_their_audit_row_is_written(make_env):

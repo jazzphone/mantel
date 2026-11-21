@@ -320,12 +320,17 @@ class HaDirectory:
         self.ttl = ttl
         self._cache: tuple[float, list[dict]] | None = None
         self._lock = asyncio.Lock()
+        # MANTEL'S OWN ACCOUNT (the owner, 2026-11-21): the HA user this credential is, asked on the same short
+        # connection (auth/current_user). It is Mantel's, not a person's: no one saves HK's settings as it, so the
+        # linked settings' "admins who can't save" leaves it out (linked/linked_settings.py). None until read.
+        self.own_id: str | None = None
 
     def retarget(self, ws_url: str, token: str | None) -> None:
         """New address/credential (connections.py): the next read uses them; the cached list is dropped."""
         self.ws_url = ws_url
         self._token = token
         self._cache = None
+        self.own_id = None
 
     async def users(self) -> list[dict]:
         async with self._lock:
@@ -341,10 +346,18 @@ class HaDirectory:
                     if (await ws.receive_json()).get("type") != "auth_ok":
                         raise RuntimeError("Home Assistant refused Mantel's credential")
                     await ws.send_json({"id": 1, "type": "config/auth/list"})
-                    while True:
-                        msg = await ws.receive_json()
-                        if msg.get("id") == 1 and msg.get("type") == "result":
-                            break
+                    await ws.send_json({"id": 2, "type": "auth/current_user"})
+                    msg, me = None, None
+                    while msg is None or me is None:
+                        reply = await ws.receive_json()
+                        if reply.get("type") != "result":
+                            continue
+                        if reply.get("id") == 1:
+                            msg = reply
+                        elif reply.get("id") == 2:
+                            me = reply
+            who = me.get("result") if me.get("success") else None
+            self.own_id = who.get("id") if isinstance(who, dict) and isinstance(who.get("id"), str) else None
             if not msg.get("success") or not isinstance(msg.get("result"), list):
                 raise RuntimeError("Home Assistant did not list its users: "
                                    + str((msg.get("error") or {}).get("code", "error")))

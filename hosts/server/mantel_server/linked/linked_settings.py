@@ -137,11 +137,13 @@ class LinkedSettings:
         if directory is None:
             return []
         out = []
-        for u in household(await directory.users()):
+        users = household(await directory.users())
+        own = getattr(directory, "own_id", None)          # Mantel's own HA account (ingress.HaDirectory)
+        for u in users:
             row = linked_user(self.db, u["id"]) if self.db is not None else None
             tab = tablet_link(self.db, u["id"]) if self.db is not None else None
             out.append({"id": u["id"], "name": u.get("name") or u.get("username") or "?", "admin": is_ha_admin(u),
-                        "tablet": tab is not None,
+                        "tablet": tab is not None, "mantel": u["id"] == own,
                         "person": None if row is None else {"name": row["name"], "role": row["role"],
                                                             "disabled": bool(row["disabled"])}})
         return sorted(out, key=lambda p: (not p["admin"], str(p["name"]).lower()))
@@ -150,13 +152,14 @@ class LinkedSettings:
         return self.directory() if callable(self.directory) else self.directory
 
     async def refresh(self) -> None:
-        """Count the Home Assistant admins who can't save (not linked, or linked to a disabled person)."""
+        """Count the Home Assistant admins who can't save (not linked, or linked to a disabled person). A wall
+        tablet's user and Mantel's own account are not people, so neither counts."""
         try:
             people = await self.people()
         except Exception as exc:  # noqa: BLE001 -- HA unreachable: keep the last count
             log.info("linked settings: Home Assistant's users were not read (%s)", type(exc).__name__)
             return
-        self.unlinked_admins = sum(1 for p in people if p["admin"] and not p["tablet"]
+        self.unlinked_admins = sum(1 for p in people if p["admin"] and not p["tablet"] and not p["mantel"]
                                    and (p["person"] is None or p["person"]["disabled"]))
 
     async def on_connect(self, client: Any) -> None:
