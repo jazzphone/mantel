@@ -101,8 +101,9 @@
       }
       flatTheme(b) {
         var look = this.data.settings.look || {};
-        var t = b && (b.flat_theme === 'light' || b.flat_theme === 'dark') ? b.flat_theme : look.flat_theme;
-        return t === 'light' ? 'light' : 'dark';
+        var mode = b && b.flat_theme || look.flat_theme;
+        // Edit the daytime palette in Auto. The dashboard derives its night colors from these values.
+        return mode === 'light' || mode === 'auto' ? 'light' : 'dark';
       }
       flatColors() { return (this.data.choices || {}).flat_colors || []; }
       // a color's name in this theme (Black is Pebble in Light)
@@ -221,6 +222,7 @@
         else if (mode === 'photo') this.bgPhotoGroup(c, o);
         else if (mode === 'landscapes') this.bgLandscapeGroup(c, o);
         else if (mode === 'wallpaper') this.bgWallpaperGroup(c, o);
+        this.seasonalEffectsGroup(c, o);
         this.bgPagesGroup(c, o, pk, 'Pages');
         this.bgEnd(c, o);
       }
@@ -232,7 +234,17 @@
           ? 'The Live Sky settings below reach ' + live.map(function (e) { return e.r.label; }).join(' and ') + '.' + (live.length < now.length ? ' The rest keep their own background.' : '')
           : 'This screen has no Home page. Each page’s background is chosen here.');
         if (live.length) this.liveSkyGroups(c, o);
+        this.seasonalEffectsGroup(c, o);
         this.bgEnd(c, o);
+      }
+      seasonalEffectsGroup(c, o) {
+        var key = 'sky_seasonal_effects', inherited = (this.data.settings.sky || {}).seasonal_effects === true;
+        var own = o.b && typeof o.b[key] === 'boolean';
+        c.appendChild(K.group({ footer: 'Autumn leaves, winter snowflakes and spring petals behind the cards. Works with Seasonal Decorations off.' }, [
+          K.toggle({ label: 'Seasonal Effects', sk: o.sk(key), on: own ? o.b[key] : inherited, sub: o.whose(own), onChange: function (on) {
+            o.put({ sky_seasonal_effects: o.b && on === inherited ? null : on });
+          } })
+        ]));
       }
       // THE BACKGROUND'S COLOR, a tap away (the Colors page): the glass looks' still colors, Flat's tones
       bgColorNav(o) {

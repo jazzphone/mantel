@@ -489,9 +489,20 @@ imgRect = { x: 0, y: 0, w: 1280, h: 800 }; document.createElement = function (t)
 var srcOf = function (v) { var ls = layersIn(v); return ls.length ? ls.map(function (l) { var i = imgsOf(l); return i.length ? i[i.length - 1].src : ''; }).join(' ') : 'no layers'; };
 var V14 = view(); add(V14.grid, card({ x: 20, y: 300, w: 192, h: 70 }));
 var side = new E('DIV', {}, { x: 0, y: 0, w: 300, h: 800 }); BODY.appendChild(side);
+var swipeBar = new E('NAV', {}, { x: 410, y: 720, w: 460, h: 64 }); BODY.appendChild(swipeBar);
 setLook('blur_pre'); advance(300);
 G.pin(side, 'linear-gradient(red,red)');
+G.pin(swipeBar, 'linear-gradient(red,red)', true);
+G._pre.show('blob:home-first');
 G._pre.show('blob:home-1');
+advance(100);
+var releaseBar = G.followSkySwipe();
+G.repin(); advance(100);
+ok('during the swipe the bar keeps live blur even through a queued pre-render fade', !swipeBar.style.background && !swipeBar.style['backdrop-filter']);
+ok('the docked sidebar and page remain pre-rendered while the bar follows the swipe', /blob:home/.test(side.style.background || '') &&
+   /blob:home/.test(srcOf(V14.v)));
+releaseBar('/dashboard-home/weather');
+ok('a finished cover cannot put the old sky back on the bar before the new page arrives', !swipeBar.style.background);
 location.pathname = '/dashboard-home/weather'; G._pre.nav(); G._pre.show('blob:weather-1');
 ok('the address leaves Home, Home still on screen: the sidebar keeps Home\'s picture (no live gap)', /blob:home-1/.test(side.style.background || '') && !/weather/.test(side.style.background || ''),
   side.style.background);
@@ -499,6 +510,13 @@ ok('...and Home\'s layers keep Home\'s', /^(blob:home-1 ?)+$/.test(srcOf(V14.v))
 var V14w = view(), cw = add(V14w.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
 ok('...and Weather\'s layers wear Weather\'s', /^(blob:weather-1 ?)+$/.test(srcOf(V14w.v)), srcOf(V14w.v));
 var sideMid = side.style.background || '';
+ok('the bar resumes Pre-rendered from the destination as soon as it is showing', /blob:weather-1/.test(swipeBar.style.background || '') &&
+   !/blob:home/.test(swipeBar.style.background || '') && swipeBar.style['backdrop-filter'] === 'none');
+var firstSwipe = G.followSkySwipe(), secondSwipe = G.followSkySwipe();
+firstSwipe('/dashboard-home/home');
+ok('an older swipe finishing cannot end a newer swipe’s live blur', !swipeBar.style.background);
+secondSwipe(null);
+ok('a cancelled swipe restores the current page immediately', /blob:weather-1/.test(swipeBar.style.background || ''));
 ok('...and as Weather\'s view shows the sidebar wears Weather\'s at once: no fade across from Home\'s',
    /^linear-gradient\(red,red\), url\("blob:weather-1"\) -?0\.0px -?0\.0px \/ 1280px 800px no-repeat$/.test(sideMid), sideMid);
 advance(400);
@@ -510,6 +528,7 @@ ok('back on Home: Home\'s remembered picture is on at once, no paint awaited', /
 advance(1600);
 ok('...and the sidebar follows, at the latest when no view ever says it is up', /blob:home-1/.test(side.style.background || ''), side.style.background);
 G.unpin(side); side.remove();
+G.unpin(swipeBar); swipeBar.remove();
 setLook('blur'); V14.v.remove(); V14b.v.remove(); Array.from(GL).forEach(leave); advance(300);
 document.createElement = mkEl; delete globalThis.location;
 

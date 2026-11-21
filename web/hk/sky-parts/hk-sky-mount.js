@@ -23,7 +23,7 @@
       if (!layer._hkImageCanvas) {
         var canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden', 'true');
         canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none';
-        layer.insertBefore(canvas, layer.lastChild); layer._hkImageCanvas = canvas;
+        layer.insertBefore(canvas, layer._hkFlatScrim); layer._hkImageCanvas = canvas;
       }
       if (layer._hkImageRequest && layer._hkImageRequest.key === key) return;
       layer._hkImageRequest = { key: key, look: look, color: color };
@@ -62,10 +62,11 @@
         img.onerror = function () {
           img.style.display = 'none'; img.removeAttribute('src');
           var layer = img.parentNode;
-          if (layer) { layer.lastChild.style.background = 'transparent'; if (layer._hkImageCanvas) layer._hkImageCanvas.style.display = 'none'; }
+          if (layer) { layer._hkFlatScrim.style.background = 'transparent'; if (layer._hkImageCanvas) layer._hkImageCanvas.style.display = 'none'; }
         };
         var scrim = document.createElement('div');
         scrim.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+        ST.mounted._hkFlatScrim = scrim;
         // THE TINT (2026-10-17, the user: "convert the picture to grayscale and
         // then apply the tint"): a layer in the tint's color blended as
         // `color` -- the photo keeps its light and dark and takes the tint's
@@ -82,7 +83,7 @@
       }
       ST.mountedPath = location.pathname;
       var C = window.hkCards, page = opts.page || 'home';
-      var ground = C && C.flatColorHex ? C.flatColorHex(bg.color || 'auto', policy.theme, page)
+      var ground = C && C.flatColorHex ? C.flatColorHex(bg.color || 'auto', policy.theme, page, policy.automatic)
                  : policy.theme === 'light' ? '#EEECE6' : '#17181A';
       // (a seed's ground in place of Automatic's -- a photo still waiting, or
       // gone, falls back to it too, its choice kept)
@@ -98,12 +99,13 @@
       // THE FADE: the theme's own ground washed over the photo (Sky /
       // Background -> Fade, 0-100): Light's limestone, Dark's near-black. A
       // fixed flat layer -- no sampled color, no brightness filter.
-      ST.mounted.lastChild.style.background = src && pic.getAttribute('src') ? (C && C.flatFade ? C.flatFade(bg.fade, policy.theme) : 'transparent') : 'transparent';
+      var scrim = ST.mounted._hkFlatScrim;
+      scrim.style.background = src && pic.getAttribute('src') ? (C && C.flatFade ? C.flatFade(bg.fade, policy.theme) : 'transparent') : 'transparent';
       // THE TINT over the photo (the page's accent, or the user's own: Sky /
       // Background -> Tint), its strength and brightness
       var tint = bg.tint === 'accent' ? (C && C.flatAccentHex ? C.flatAccentHex() : null) : /^#[0-9a-f]{6}$/i.test(bg.tint || '') ? bg.tint : null;
       var tl = ST.mounted.children[1], ll = ST.mounted.children[2];
-      if (tl && ll && tl !== ST.mounted.lastChild) {
+      if (tl && ll) {
         var on = !!(tint && src && pic.getAttribute('src'));
         var k = Math.max(0, Math.min(100, bg.tintAmount == null ? 60 : +bg.tintAmount || 0)) / 100;
         var lb = Math.max(-1, Math.min(1, ((bg.tintLight == null ? 50 : +bg.tintLight) - 50) / 50));
@@ -115,7 +117,7 @@
       var imageLook = bg.imageLook;
       if (imageLook && imageLook.mode !== 'legacy' && src && pic.getAttribute('src')) {
         tl.style.display = 'none'; ll.style.display = 'none';
-        ST.mounted.lastChild.style.background = window.hkFlatImage ? window.hkFlatImage.fade(imageLook.fade, policy.theme) : 'transparent';
+        scrim.style.background = window.hkFlatImage ? window.hkFlatImage.fade(imageLook.fade, policy.theme) : 'transparent';
         if (window.hkFlatImage) renderFlatImage(ST.mounted, pic, imageLook, imageLook.color === 'accent' ? (C && C.flatAccentHex ? C.flatAccentHex() : '#64798e') : imageLook.color);
       } else {
         ST.mounted._hkImageRequest = null; pic.onload = null;

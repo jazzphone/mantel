@@ -180,8 +180,15 @@
     ];
     // a Flat color as drawn: 'auto' the page's ground, an id its theme's tone,
     // '#rrggbb' itself
-    function flatColorHex(id, theme, page) {
-      if (/^#[0-9a-f]{6}$/i.test(id || '')) return id;
+    function flatColorHex(id, theme, page, automatic) {
+      if (/^#[0-9a-f]{6}$/i.test(id || '')) {
+        if (theme !== 'dark' || !automatic) return id;
+        var rgb = rgbOf(id), high = Math.max.apply(null, rgb), low = Math.min.apply(null, rgb);
+        if (high <= 48) return id;
+        // Keep the hue while bringing a custom day color into the dark palette.
+        var scale = Math.min(.75, 30 / (high - low || 1));
+        return hexOfRgb(rgb.map(function (channel) { return 48 + (channel - high) * scale; }));
+      }
       for (var i = 0; i < FLAT_COLORS.length; i++) if (FLAT_COLORS[i].id === id) return FLAT_COLORS[i][theme === 'light' ? 'light' : 'dark'];
       return pageTone(page, theme) || flatGround(page, theme);
     }

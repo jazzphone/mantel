@@ -996,6 +996,7 @@
     var h = { path: path, alive: function () { return live; }, set: function () {}, done: function () { live = false; } };
     if (cover === false) return h;
     if (!cover) return null;
+    var glass = window.hkGlass, releaseGlass = glass && glass.followSkySwipe && glass.followSkySwipe();
     cover.style.setProperty('will-change', 'opacity');
     var drawn = function () { var o = parseFloat(getComputedStyle(cover).opacity); return isFinite(o) ? o : 1; };
     var stop = function () {
@@ -1011,6 +1012,7 @@
       live = false;
       if (!land && K.swipeBack) { try { K.swipeBack(); } catch (e) { /* no sky */ } }
       if (cover.parentNode) cover.parentNode.removeChild(cover);
+      if (releaseGlass) releaseGlass(land ? path : null);
     };
     h.set = function (k) {
       if (!live) return;

@@ -44,7 +44,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # decorations: the integration's own on/off (switch.<...>_seasonal_decorations,
     # switch.py); seasonal: optionally, an entity of the house's that must also be on.
     "sky": {"moon": None, "holidays": None, "seasonal": None, "birthdays": [],
-            "decorations": True, "decoration_style": "old",
+            "decorations": True, "decoration_style": "old", "seasonal_effects": False,
             # Moving Things (2026-10-11): the rain and snow, falling leaves,
             # bats and birds, flybys and confetti drawn "behind" the cards
             # (the sky) or "front" over them -- touch passes through either
@@ -264,6 +264,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # (hk-frosttint.js), held at one darkness so white text reads the same.
     # docs/ (each setting on its topic's page).
     "look": {"flat": False, "flat_theme": "dark", "glass": "clear", "frost": 50, "blur": 50, "tint": 50, "well": "dark", "frost_tint": False, "motion": True,
+             "flat_night_entity": None,
              # BRIGHT GLASS (2026-10-30): bright -- its Strength, how much of
              # the white wash and the lift (50 as designed), capped where
              # white text would fall under 4.5:1 (hk-settings.js brightCap)

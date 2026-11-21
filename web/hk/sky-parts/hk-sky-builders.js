@@ -317,6 +317,54 @@
       host.appendChild(w);
     }
 
+    function petalField(host, rnd, many, seed) {
+      lvThin(lvRange(10, lvCount(10, many), rnd, seed, function (p, r, keep) {
+        var side = p % 2, ps = 7 + r() * 7, left = side ? 55 + r() * 45 : r() * 45, top = -3 + r() * 26,
+            pd = 11 + r() * 7, pdel = -r() * 18;
+        if (!keep) return null;
+        var pt = host.appendChild(document.createElement('i'));
+        pt.className = 'petal';
+        pt.style.setProperty('--ps', ps.toFixed(1) + 'px');
+        // from the blossoms: both canopies, out across the top
+        pt.style.left = left.toFixed(2) + '%';
+        pt.style.top = top.toFixed(2) + '%';
+        pt.style.setProperty('--pd', pd.toFixed(2) + 's');
+        pt.style.setProperty('--pdel', pdel.toFixed(2) + 's');
+        pt.style.setProperty('--pside', side ? '-1' : '1');
+        return pt;
+      }));
+    }
+
+    function snowField(host, W, H, rnd, many) {
+      var n = Math.max(8, Math.round(28 * (W / 1280)));
+      lvThin(lvRange(n, lvCount(n, many), rnd, 7951, function (i, rnd, keep) {
+        var f = document.createElement('div');
+        f.className = 'xflake';
+        // Biased small: mostly 3-6px specks with the occasional real crystal,
+        // which is what keeps it from looking like a field of snowflake icons.
+        var size = 3 + Math.pow(rnd(), 1.7) * 7;
+        f.style.left = (rnd() * 100).toFixed(2) + '%';
+        f.style.width = size.toFixed(1) + 'px';
+        f.style.height = size.toFixed(1) + 'px';
+        f.style.opacity = (0.2 + rnd() * 0.4).toFixed(2);
+        f.style.setProperty('--dist', (H + 110).toFixed(0) + 'px');
+        var fall = 21 + rnd() * 22;
+        f.style.setProperty('--fd', fall.toFixed(1) + 's');
+        f.style.setProperty('--fdel', (-rnd() * fall).toFixed(1) + 's');
+        f.style.setProperty('--sw', (8 + rnd() * 24).toFixed(0) + 'px');
+        f.style.setProperty('--dr', (-45 + rnd() * 90).toFixed(0) + 'px');
+        var g = document.createElement('i');
+        g.style.setProperty('--sp', 'url(' + SNOW_SPRITES[i % 3] + ')');
+        g.style.setProperty('--sd', (9 + rnd() * 15).toFixed(1) + 's');
+        g.style.setProperty('--sdel', (-rnd() * 12).toFixed(1) + 's');
+        g.style.setProperty('--turn', (rnd() < 0.5 ? -360 : 360) + 'deg');
+        f.appendChild(g);
+        if (!keep) return null;
+        host.appendChild(f);
+        return f;
+      }));
+    }
+
     function cozyWindow(host, W, H, rnd, snowOK, landed, moon, occ, L) {
       L = L || lvOf(null);
       occ = occ || 'christmas';
@@ -355,35 +403,7 @@
       // Decorative snow is NOT a forecast. When it is genuinely snowing the
       // weather deck is already running, and adding this on top reads as a
       // doubled blizzard -- so it stands down rather than competing.
-      if (snowOK) {
-        var n = Math.max(8, Math.round(28 * (W / 1280)));
-        lvThin(lvRange(n, lvCount(n, L.many(occ, 'snow')), rnd, 7951, function (i, rnd, keep) {
-          var f = document.createElement('div');
-          f.className = 'xflake';
-          // Biased small: mostly 3-6px specks with the occasional real crystal,
-          // which is what keeps it from looking like a field of snowflake icons.
-          var size = 3 + Math.pow(rnd(), 1.7) * 7;
-          f.style.left = (rnd() * 100).toFixed(2) + '%';
-          f.style.width = size.toFixed(1) + 'px';
-          f.style.height = size.toFixed(1) + 'px';
-          f.style.opacity = (0.2 + rnd() * 0.4).toFixed(2);
-          f.style.setProperty('--dist', (H + 110).toFixed(0) + 'px');
-          var fall = 21 + rnd() * 22;
-          f.style.setProperty('--fd', fall.toFixed(1) + 's');
-          f.style.setProperty('--fdel', (-rnd() * fall).toFixed(1) + 's');
-          f.style.setProperty('--sw', (8 + rnd() * 24).toFixed(0) + 'px');
-          f.style.setProperty('--dr', (-45 + rnd() * 90).toFixed(0) + 'px');
-          var g = document.createElement('i');
-          g.style.setProperty('--sp', 'url(' + SNOW_SPRITES[i % 3] + ')');
-          g.style.setProperty('--sd', (9 + rnd() * 15).toFixed(1) + 's');
-          g.style.setProperty('--sdel', (-rnd() * 12).toFixed(1) + 's');
-          g.style.setProperty('--turn', (rnd() < 0.5 ? -360 : 360) + 'deg');
-          f.appendChild(g);
-          if (!keep) return null;
-          host.appendChild(f);
-          return f;
-        }));
-      }
+      if (snowOK) snowField(host, W, H, rnd, L.many(occ, 'snow'));
 
       var sl = document.createElement('div');
       sl.className = 'sleigh';
@@ -511,7 +531,7 @@
     // what the shell and the later parts use of this one
     K.batField = batField; K.birthdays = birthdays; K.branchLayer = branchLayer; K.canopyLayer = canopyLayer;
     K.cobweb = cobweb; K.cozyWindow = cozyWindow; K.dayKey = dayKey; K.daysUntil = daysUntil; K.fogWisps = fogWisps;
-    K.leafField = leafField; K.roll = roll; K.SCHEDULE = SCHEDULE; K.SPOOKY = SPOOKY; K.SURPRISE = SURPRISE;
+    K.leafField = leafField; K.petalField = petalField; K.snowField = snowField; K.roll = roll; K.SCHEDULE = SCHEDULE; K.SPOOKY = SPOOKY; K.SURPRISE = SURPRISE;
     K.surpriseScene = surpriseScene; K.windowOf = windowOf; K.witchFly = witchFly; K.witchPath = witchPath;
   };
 })();

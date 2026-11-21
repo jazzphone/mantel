@@ -42,8 +42,10 @@
       ['Pages Screen', 'screen/pages-screen', 'pages_screen', 'pages screen home screen app icons grid launcher homeview ipad widgets folder pill no tab bar swipe', true],
       ['Pages Screen (All Screens)', 'house/pagesscreen', 'pages_screen.show', 'pages screen home screen app icons grid launcher homeview ipad widgets folder pill'],
       ['Glass', 'screen/glass', 'glass', 'look blur frosted clear', true],
+      ['Flat Theme', 'screen/appearance', 'b:flat_theme', 'auto automatic light dark sunrise sunset day night', true],
       ['Live Sky', 'screen/sky', 'sky', 'background animated on off', true],
       ['Background', 'screen/sky', 'sky_look', 'backdrop animations weather decorations palette own look', true],
+      ['Seasonal Effects', 'screen/sky', 'b:sky_seasonal_effects', 'fall leaves autumn winter snowflakes spring petals animation without decorations', true],
       ['Liveliness', 'screen/sky/decorations', 'sky_liveliness', 'liveliness subtle classic festive party custom busy calm moving bats leaves each occasion', true],
       ['Calm When Nobody\u2019s Around', 'screen/sky', 'sky_calm_empty', 'empty room nobody occupancy motion presence calm quiet', true],
       ['Home Assistant Header & Sidebar', 'screen/advanced', 'kiosk', 'kiosk mode hide', true],
@@ -115,6 +117,8 @@
       ['Calendar Colors', 'page/calendar', 'calendar.colors', 'calendar colour color events dot'],
       ['Colors by Keyword', 'page/calendar', 'calendar.keywords', 'calendar event color colour keyword word name auto'],
       ['Style', 'house/appearance/glass', 'look.glass', 'appearance style flat light dark theme performance blur blurred bright frosted tinted clear glass look apple home app solid opaque'],
+      ['Flat Theme', 'house/appearance', 'look.flat_theme', 'auto automatic light dark sunrise sunset day night'],
+      ['Night Mode (Flat)', 'house/appearance', 'look.flat_night_entity', 'auto theme sunrise sunset helper binary sensor switch'],
       ['Looks', 'house/appearance/looks', 'look.looks', 'look looks preset theme homeview flat performance holiday whimsy weather calming night bedside photo frame one step undo'],
       ['Blur Drawing', 'house/appearance/advanced/blur', 'look.glass:mode', 'blur mode drawing shared layer pre-rendered prerendered each card performance cpu gpu'],
       ['Color from Background', 'house/appearance', 'look.frost_tint', 'frosted tint from background color colour card page behind'],
@@ -141,6 +145,7 @@
       ['Adjust Photo', 'house/appearance/sky/photo', 'sky.image_look',
         'photo landscape image look starting point original soft balanced rich washed custom strength depth brightness fade blur dim saturation tint'],
       ['Seasonal Decorations', 'house/appearance/sky/decorations', 'sky.decorations', 'holiday halloween christmas old new woodland style'],
+      ['Seasonal Effects', 'house/appearance/sky', 'sky.seasonal_effects', 'fall leaves autumn winter snowflakes spring petals animation without decorations'],
       ['Decoration Style', 'house/appearance/sky/decorations', 'sky.decoration_style', 'old new seasons holidays birthdays woodland'],
       ['Moving Things', 'house/appearance/sky', 'sky.moving', 'front behind over cards rain snow leaves bats birds flyby confetti sky layer'],
       ['Clouds', 'house/appearance/sky', 'sky.cloud_style', 'clouds classic realistic photographic weather sky'],
@@ -362,7 +367,7 @@
       ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'motion', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'sky', 'sky_animations',
         'sky_weather',
         'sky_precipitation', 'sky_focus_pause',
-                              'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
+                              'sky_decorations', 'sky_decoration_style', 'sky_seasonal_effects', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
                               'sky_liveliness', 'sky_liveliness_occ', 'sky_liveliness_custom', 'sky_calm_empty',
                               'sky_background', 'sky_color', 'sky_photo', 'sky_page_photos', 'sky_photo_look', 'sky_page_looks',
                               'sky_landscape', 'sky_landscape_look', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light',
@@ -560,8 +565,8 @@
     // Null is a continuing relationship to All Screens, including custom
     // stops. A true flag is still an override, even when it matches the house.
     function skySummary(b) {
-      var keys = ['sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause', 'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient',
-        'sky_custom',
+      var keys = ['sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause', 'sky_decorations', 'sky_decoration_style', 'sky_seasonal_effects', 'sky_moving',
+        'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom',
                   'sky_background', 'sky_color', 'sky_photo', 'sky_photo_look', 'sky_landscape', 'sky_landscape_look',
                   'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'];
       var pages = Object.keys(b.sky_pages || {}).length;
@@ -569,6 +574,7 @@
       var parts = [];
       // the Background first: a still Color or Photo is the whole look
       if (b.sky_background) parts.push(BG_LABELS[b.sky_background] || b.sky_background);
+      if (b.sky_seasonal_effects != null) parts.push(b.sky_seasonal_effects ? 'Seasonal Effects On' : 'Seasonal Effects Off');
       if (b.sky_background === 'color' || b.sky_background === 'photo' || b.sky_background === 'landscapes' || b.sky_background === 'wallpaper') return parts.concat(pages ?
         [pages === 1 ? '1 Page Background' : pages + ' Page Backgrounds'] : []).join(', ');
       if (b.sky_animations === false) parts.push('No Animation');

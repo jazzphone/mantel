@@ -50,6 +50,7 @@ Blur Mode is Blur Drawing. Their old addresses open the new pages.
 | Setting | Default | What it does |
 |---|---|---|
 | Style | Glass | How pills, tiles, chips, scenes and keypads look: **Glass**, see-through, **Clear** (the original, with the status chips and the round menu button blurring what’s behind them), **Blurred** (what’s behind the glass blurred, drawn as **Blur Drawing** says) or **Bright** (a light glass that brings out the colors behind it). **Frosted**, a milky material with no blur: it costs nothing per frame on any device. **Tinted**, the Home app’s look: a flat dark plate with no blur anywhere on the page, the lightest on any device — see [Tinted](#tinted) below. **Flat**: opaque, no blur and no live sky effects. |
+| Flat Theme | Dark | **Light**, **Dark**, or **Auto**. Set it for All Screens or override it on a screen. Auto uses Light from sunrise to sunset and Dark overnight, with darker shades of custom backgrounds. |
 | Blur Drawing | Shared Layer | Under **Advanced**, with Blurred or Bright glass: **Shared Layer**, **Pre-rendered (Experimental)** or **Each Card**. What each costs and can’t do: [Blur Drawing](#blur-drawing) below. |
 | Frost | 50% | Shown with Frosted. How milky it is, 0 to 100%. |
 | Color from Background | Off | Shown with Frosted. On: each card's frost takes the color of the page behind it (the sky at the card's height, the scenery's ground lower down) instead of one gray, at one darkness so white text reads the same on every page. It changes with the live sky through the day. Cards in pop-ups, the screensaver and Music (album art) keep the gray. Costs nothing per frame. |
@@ -60,6 +61,12 @@ Blur Mode is Blur Drawing. Their old addresses open the new pages.
 
 ![The Style page](images/settings-glass-style.webp)
 *All Screens → Appearance → Style: the four styles.*
+
+**Auto Theme → Night Mode** in All Screens’ Appearance can follow a binary
+sensor, toggle helper, or switch. On selects Dark and off selects Light.
+If the entity is unavailable, Auto follows the sun. A screen keeps its last
+known theme if neither source is available and starts in Dark before it has
+read either source.
 
 ### Looks
 

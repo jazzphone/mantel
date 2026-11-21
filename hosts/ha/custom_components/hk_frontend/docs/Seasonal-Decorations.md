@@ -22,6 +22,15 @@ back to **Same as All Screens** for the switch to reach it.
 
 **Turning one off:** HK Settings → Sky / Background → the decoration → **Show**.
 
+**Seasonal Effects** in **Background** adds autumn leaves, winter snowflakes,
+or spring petals behind the cards. Set it for All Screens or for a single
+screen. It works over live skies, colors, wallpapers, photos and landscapes.
+Turn off **Seasonal Decorations** for a plain background with just the moving
+effects. The effect follows the season and the configured hemisphere, and
+respects Animations and Reduce Motion. A decorated Live Sky uses its own
+effects while its scene is showing. On the Live Sky, decorative snow also
+steps aside while weather snow is falling.
+
 **Old and New Decorations:** **Sky / Background → Decoration Style** chooses
 how they are drawn. **Old Decorations**, the default, is everything on this
 page. **New Decorations** draws close woodland scenery instead -- rooted trees

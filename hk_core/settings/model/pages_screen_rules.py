@@ -10,7 +10,7 @@ from ..looks import IDS as LOOK_IDS
 from ..saver_designs import HOLIDAYS as SAVER_HOLIDAYS
 from .schema import (_one_of, _PLACE, _typed, BRIGHT_PAGES, CONF_DASHBOARD, FLAT_BACKGROUNDS, flat_color, flat_colors,
     FLAT_COLORS_DEFAULT, FLAT_FADE, flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, flat_tint,
-    FLAT_TINT_AMOUNT, GLASS, NP_BARS, NP_GRACES, NP_SIDES, NP_STYLES, photo_look, PHOTO_LOOK_DEFAULTS,
+    FLAT_THEMES, FLAT_TINT_AMOUNT, GLASS, NP_BARS, NP_GRACES, NP_SIDES, NP_STYLES, photo_look, PHOTO_LOOK_DEFAULTS,
     place_sky_defaults, radar_native, RETIRED_GLASS, sky_landscape, THERMOSTAT_STYLES, TILE_ICONS, TILE_STYLES,
     wallpaper_choice, WALLPAPER_MOTION, WALLPAPER_NIGHT, weather_page, WELLS,)
 from .defaults import (DEFAULTS, PAGES_SCREEN_CLOCK, PAGES_SCREEN_DEFAULTS, PAGES_SCREEN_ICONS_MAX, PAGES_SCREEN_PATH,
@@ -130,7 +130,7 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     out["look"]["flat"] = out["look"].get("flat") is True
     # (Motion, 2026-11-14: on unless switched off -- only an explicit False is off)
     out["look"]["motion"] = out["look"].get("motion") is not False
-    if out["look"].get("flat_theme") not in ("light", "dark"):
+    if out["look"].get("flat_theme") not in FLAT_THEMES:
         out["look"]["flat_theme"] = "dark"
     for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),
                        ("thermostat_style", THERMOSTAT_STYLES)):
@@ -145,6 +145,7 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     lu = out["look"].get("look_undo")
     out["look"]["look_undo"] = lu if isinstance(lu, dict) and lu.get("look") in LOOK_IDS and isinstance(lu.get("was"), dict) else None
     sk = out["sky"]
+    sk["seasonal_effects"] = sk.get("seasonal_effects") is True
     if sk.get("flat_background") not in FLAT_BACKGROUNDS:
         sk["flat_background"] = "color"
     sk["flat_color"] = flat_color(sk.get("flat_color")) or "auto"

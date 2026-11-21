@@ -4,7 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Flat can switch between Light and Dark automatically** at sunrise and sunset. An optional Night Mode entity can control it instead. Auto also gives custom background colors darker nighttime shades.
+- **Seasonal Effects** adds autumn leaves, winter snowflakes and spring petals to dashboard backgrounds, including photos and landscapes. It can run with Seasonal Decorations off.
+
 **Fixed**
+- **The tab bar follows the background during a page swipe in Pre-rendered Blur.** It blurs the fading sky during the swipe, then returns to its pre-rendered background as the next page settles.
 - **The Cameras page lost its cameras after a while** (and any page that lists the house's things could lose some): a settings change built the screen again from only the states its cards were reading by then, so the Cameras page listed just the cameras something else on the screen showed -- often only the first. The screen is now built again from the whole house.
 
 ## 0.1.168 - 2026-11-15

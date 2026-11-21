@@ -304,16 +304,18 @@
     // Re-applied as the page moves between dashboards (location-changed).
     // One policy for cards, overlays, sky, media and screensaver. Explicit
     // false is an opt-out, not an absent value. Keep the saved glass intact.
-    function appearance(b, look) {
+    function appearance(b, look, automaticTheme) {
       b = b || {}; look = look || {};
       var ownGlass = b.glass && b.glass !== 'house';
       var enabled = typeof b.flat === 'boolean' ? b.flat : (!ownGlass && look.flat === true);
-      var theme = b.flat_theme === 'light' || b.flat_theme === 'dark' ? b.flat_theme : look.flat_theme;
+      var mode = ['light', 'dark', 'auto'].indexOf(b.flat_theme) >= 0 ? b.flat_theme : look.flat_theme;
+      var automatic = mode === 'auto';
+      var theme = automatic ? automaticTheme : mode;
       // MOTION IS ITS OWN SWITCH (2026-11-14, the owner: "I like the way flat looks, but still want animations, but good
       // to have them off for performance reasons ... a setting that lives outside of appearance"): on in every look
       // unless switched off -- All Screens' look.motion, a screen's own `motion` over it. Flat no longer decides it.
       var motion = typeof b.motion === 'boolean' ? b.motion : look.motion !== false;
-      return { flat: enabled, theme: theme === 'light' ? 'light' : 'dark', motion: motion };
+      return { flat: enabled, theme: theme === 'light' ? 'light' : 'dark', automatic: automatic, motion: motion };
     }
     function isBrightLook(g) { return g === 'bright' || g === 'bright_pre' || g === 'bright_each'; }
     function brightPages(b) {

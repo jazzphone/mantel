@@ -55,6 +55,7 @@
                                zoom: 5, marker: true, history_minutes: 60, playback_speed: 'normal', autoplay: true,
                                interactive: true, playback_controls: true, opacity: 75 } },
     sky: { moon: null, holidays: null, seasonal: null, birthdays: [], decorations: true, decoration_style: 'old', moving: 'behind', cloud_style: 'classic',
+           seasonal_effects: false,
            daytime: 'natural',
            woodland: ['spring', 'summer', 'fall', 'winter'],
            // The sky's own look (Sky / Background): the moving parts, the
@@ -150,6 +151,7 @@
     // CAM_FOCUS) -- behind the screensaver they always rest
     cameras: { order: [], live: true, focus_pause: true },
     look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, motion: true, tile_style: 'auto',
+      flat_night_entity: null,
       tile_icons: 'auto',
       thermostat_style: 'dial', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {}, look_undo: null,

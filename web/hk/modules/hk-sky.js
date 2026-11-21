@@ -143,7 +143,7 @@
       ceilDraw, ceilRelight, cloudsPending, container, daysUntil, drifting, FOCUS_DEVICE, focusCheck, FOG_IMG,
       FRONT_Z, holidayLand, holidayLights, kfScale, landFile, landLight, landSeason, LV_KNOBS, lvCount, lvOf, lvRange,
       moves, NARROW_HALF, NARROW_SOLID, NEAR_ART, nearFlat, paint, paintAlbum, paintPhoto, paintRealClouds,
-      paintStatic, paintWall, pct, PHOTO_UNDER, plannedFor, preview, rcLight, rcPlan, rcTidy, read, register,
+      paintSeasonalEffects, paintStatic, paintWall, pct, PHOTO_UNDER, plannedFor, preview, rcLight, rcPlan, rcTidy, read, register,
       renderFlat, rng, scene, schedule, selfDrive, selfRender, SH, showNow, skySig, sleeping, SLEIGH, stateTick,
       STATIC, sunKelvin, SURPRISE, surpriseFor, swipeCover, swiping, teardown, tintStops, treatedPhoto, VER, watch,
       WEB_IMG, WITCH_CYCLE, WITCH_FADE, WITCH_FLIGHT, WITCH_IMG, witchPath, XDECOR, XGLOW;
@@ -369,6 +369,7 @@
     lvRange = K.lvRange; moves = K.moves; NARROW_HALF = K.NARROW_HALF; NARROW_SOLID = K.NARROW_SOLID;
     NEAR_ART = K.NEAR_ART; nearFlat = K.nearFlat; paint = K.paint; paintAlbum = K.paintAlbum;
     paintPhoto = K.paintPhoto; paintRealClouds = K.paintRealClouds; paintStatic = K.paintStatic;
+    paintSeasonalEffects = K.paintSeasonalEffects;
     paintWall = K.paintWall; pct = K.pct; PHOTO_UNDER = K.PHOTO_UNDER; plannedFor = K.plannedFor; preview = K.preview;
     rcLight = K.rcLight; rcPlan = K.rcPlan; rcTidy = K.rcTidy; read = K.read; register = K.register;
     renderFlat = K.renderFlat; rng = K.rng; scene = K.scene; schedule = K.schedule; selfDrive = K.selfDrive;
@@ -1278,7 +1279,7 @@
       '  50%{transform:translate3d(calc(var(--fx) * .6),calc(var(--fy) * -1),0)}',
       '  100%{transform:translate3d(var(--fx),var(--fy),0)}}',
       // Petals from the blossoms, the full height of the scene.
-      '#hk-sky .near-scenery .petal{position:absolute;border-radius:80% 0 80% 0;opacity:0;',
+      '#hk-sky :is(.near-scenery,.seasonal-effects) .petal{position:absolute;border-radius:80% 0 80% 0;opacity:0;',
       '  width:calc(var(--ps,10px) * var(--near-u,1));height:calc(var(--ps,10px) * .72 * var(--near-u,1));',
       '  background:linear-gradient(135deg,#fde3ea,#f1a9bd);',
       '  animation:near-petal var(--pd) linear var(--pdel) infinite}',
@@ -1328,6 +1329,10 @@
       // stop the animations and hand the GPU layers back.
       '#hk-sky.static .season{opacity:0}',
       '#hk-sky.static .season *{animation:none!important;will-change:auto!important}',
+
+      // The opt-in particle field stays above the background and under the cards, including on a still photo.
+      '#hk-sky .seasonal-effects{overflow:hidden;pointer-events:none}',
+      '#hk-sky .seasonal-effects .xflake>i{filter:drop-shadow(0 0 1px #4a6276)}',
 
       // SKY / BACKGROUND -> ANIMATIONS OFF (hk-settings.js skyLook, toggled in
       // paint): the same treatment as the .static and .idle rules -- stop the
@@ -1452,10 +1457,16 @@
           if (!client || !card) return '';
           opts = opts || {};
           var P = window.hkSettings, policy = P && P.rendering ? P.rendering() : { flat: false };
+          var effects = P && P.seasonalEffects && P.seasonalEffects();
           // (Flat over the Live Sky or a Wallpaper, phase 33: the sky itself, behind Flat's cards -- resolve's underFlat)
           var flatGround = policy.flat && !opts.underFlat;
           if (ST.mounted && !!ST.mounted._hkFlat !== flatGround) teardown();
-          if (flatGround) { renderFlat(client, card, opts, policy); return ''; }
+          if (flatGround) {
+            renderFlat(client, card, opts, policy);
+            var enabled = opts.enable && client.states[opts.enable];
+            paintSeasonalEffects(ST.mounted, client, effects && !(enabled && enabled.state === 'off'), null);
+            return '';
+          }
 
           // Kill switch first: an explicit `off` tears down a mounted sky rather
           // than just declining to mount one, so flipping it is immediate.
@@ -1517,6 +1528,7 @@
               if (kv) stops = tintStops(stops, kv.k);
             }
           }
+          var rs = null;
           if (stops) {
             ST.mounted.classList.add('static');
             ST.mounted.classList.toggle('photo', !!opts.photo);
@@ -1554,12 +1566,13 @@
             paintWall(ST.mounted, null, false);
             ST.mountedVariant = null;
             ST.mounted.style.setProperty('--artO', '0');
-            var rs = read(client);
+            rs = read(client);
             // a page's own fixed backdrop, over this screen's (resolve)
             if (opts.backdrop) rs.backdrop = opts.backdrop;
             else if (opts.backdrop === false) rs.backdrop = null;
             paint(ST.mounted, rs);
           }
+          paintSeasonalEffects(held, client, effects, rs);
           applyHidden();
           // THE SKY CHANGED (skySig, or the page): said once per change, not on
           // every render -- Tint from Background follows its colors

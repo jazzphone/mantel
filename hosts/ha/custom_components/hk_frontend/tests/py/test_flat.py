@@ -30,10 +30,23 @@ def test_explicit_false_survives_trim_and_follow_resets_to_null():
 
 def test_flat_validation_is_atomic_and_normalizes_corrupt_cache():
     opts = {'dashboard': {'look': {'flat': True, 'glass': 'frosted'}}}
-    same, err = A.apply_house(opts, {'look.flat': False, 'look.flat_theme': 'auto', 'look.glass': 'tinted'})
+    same, err = A.apply_house(opts, {'look.flat': False, 'look.flat_theme': 'twilight', 'look.glass': 'tinted'})
     assert err == {'look.flat_theme': 'choice'} and same == opts
-    assert S.board({'flat': 'false', 'flat_theme': 'auto'})['flat'] is None
-    assert S.merged({'dashboard': {'look': {'flat': 'false', 'flat_theme': 'auto'}}})['look']['flat'] is False
+    assert S.board({'flat': 'false', 'flat_theme': 'twilight'})['flat'] is None
+    assert S.merged({'dashboard': {'look': {'flat': 'false', 'flat_theme': 'twilight'}}})['look']['flat'] is False
+
+
+def test_flat_auto_and_night_mode_entity_are_saved():
+    house, err = A.apply_house({}, {'look.flat_theme': 'auto', 'look.flat_night_entity': 'input_boolean.night_mode'})
+    assert err == {}
+    look = S.merged(house)['look']
+    assert look['flat_theme'] == 'auto' and look['flat_night_entity'] == 'input_boolean.night_mode'
+    cleared, err = A.apply_house(house, {'look.flat_night_entity': None})
+    assert err == {} and S.merged(cleared)['look']['flat_night_entity'] is None
+    unchanged, err = A.apply_house(house, {'look.flat_theme': 'light', 'look.flat_night_entity': 'sensor.light_level'})
+    assert unchanged == house and err == {'look.flat_night_entity': 'entity'}
+    screen, err = A.apply_board({}, {'flat_theme': 'auto'})
+    assert err == {} and S.board_stored(screen)['flat_theme'] == 'auto'
 
 
 def test_flat_backgrounds_default_to_color_and_validate():

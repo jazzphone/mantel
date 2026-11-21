@@ -242,6 +242,11 @@
         if (style === 'flat') rows = rows.concat(this.flatThemeRows(b, look, path));
         var foot = M.glassFooter(style), own = x ? null : this.ownLooks(look);
         c.appendChild(K.group({ header: 'Style', footer: !own || typeof own === 'string' ? foot : [document.createTextNode(foot + ' ')].concat(own) }, rows));
+        if (!x && (style === 'flat' || Object.values(this.data.boards || {}).some(function (screen) { return screen && screen.flat_theme === 'auto'; }))) {
+          c.appendChild(K.group({ header: 'Auto Theme', footer: 'Sunrise selects Light and sunset selects Dark. An optional entity selects Dark when on and Light when off.' }, [
+            this.entityRow({ label: 'Night Mode', sk: 'look.flat_night_entity', value: look.flat_night_entity, none: 'Sunrise & Sunset',
+              filter: { domains: ['binary_sensor', 'input_boolean', 'switch'] }, onPick: function (id) { self.setH({ 'look.flat_night_entity': id }); } })]));
+        }
         this.recommendGroups(c, x, b);
         // 3. THE COLOR: the Accent Color, the pages' own, Flat's tiles that are off
         this.appearanceColors(c, x, b);
@@ -629,12 +634,15 @@
         return rows;
       }
       flatThemeRows(b, look, path) {
-        var self = this, own = b && (b.flat_theme === 'light' || b.flat_theme === 'dark');
-        var house = look.flat_theme === 'light' ? 'light' : 'dark';
+        var self = this, own = b && ['light', 'dark', 'auto'].indexOf(b.flat_theme) >= 0;
+        var house = look.flat_theme || 'dark';
         var rows = [K.seg({ label: 'Theme', sk: b ? 'b:flat_theme' : 'look.flat_theme',
-          value: own ? b.flat_theme : house, options: [['light', 'Light'], ['dark', 'Dark']],
+          value: own ? b.flat_theme : house, options: [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']],
           sub: whose(b, own),
           onChange: function (v) { if (b) self.setB(path, { flat_theme: v === house ? null : v }); else self.setH({ 'look.flat_theme': v }); } })];
+        if (b && (own ? b.flat_theme : house) === 'auto') {
+          rows.push(K.nav({ label: 'Auto Theme', value: look.flat_night_entity ? this.name(look.flat_night_entity) : 'Sunrise & Sunset', href: '#/house/appearance' }));
+        }
         return rows;
       }
       h_glass(c) {
@@ -717,7 +725,8 @@
               var ch = { sky: true, sky_liveliness_occ: {}, sky_liveliness_custom: {}, sky_calm_empty: false };
               ['sky_background', 'sky_color', 'sky_landscape', 'sky_photo_look', 'sky_landscape_look', 'sky_animations', 'sky_focus_pause',
                'sky_moving', 'sky_weather', 'sky_precipitation', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_decorations',
-               'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light',
+               'sky_decoration_style', 'sky_seasonal_effects', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint',
+               'sky_flat_tint_amount', 'sky_flat_tint_light',
                  'sky_flat_image_look', 'sky_image_look',
                'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'].forEach(function (k) { ch[k] = null; });
               self.setB(x.path, ch);

@@ -40,6 +40,7 @@ from . import looks as LOOKS
 from . import kinds as K
 from . import model as S
 from .model.pages_screen_rules import PAGE_COLOR_KEY
+from .model.schema import FLAT_NIGHT_DOMAINS, FLAT_THEMES
 
 ENTITY = re.compile(r"^([a-z0-9_]+)\.[a-z0-9_]+$")
 
@@ -819,7 +820,8 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "calendar.event_colors": calendar_event_colors,
     "look.glass": _choice(S.GLASS),
     "look.flat": _bool,
-    "look.flat_theme": _choice(("light", "dark")),
+    "look.flat_theme": _choice(FLAT_THEMES),
+    "look.flat_night_entity": _entity(*FLAT_NIGHT_DOMAINS),
     "look.frost": _amount,
     "look.frost_tint": _bool,
     "look.motion": _bool,
@@ -901,6 +903,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "generated.exclude_entities": _entities(),
     "generated.include_entities": _entities(),
     "sky.decorations": _bool,
+    "sky.seasonal_effects": _bool,
     "sky.decoration_style": _choice(("old", "new")),
     "sky.moving": _choice(S.SKY_MOVING),
     "sky.cloud_style": _choice(S.CLOUD_STYLES),
@@ -1361,7 +1364,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "home_view": _home_view,
     "glass": _choice(S.BOARD_GLASS),
     "flat": _bool_or_none,
-    "flat_theme": _choice(("light", "dark"), none=True),
+    "flat_theme": _choice(FLAT_THEMES, none=True),
     "frost": _amount_or_none,
     "frost_tint": _bool_or_none,
     "motion": _bool_or_none,
@@ -1381,6 +1384,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "sky_focus_pause": _bool_or_none,
     "camera_live_video": _bool_or_none,
     "sky_decorations": _bool_or_none,
+    "sky_seasonal_effects": _bool_or_none,
     "sky_decoration_style": _choice(("old", "new"), none=True),
     "sky_moving": _choice(S.SKY_MOVING, none=True),
     "sky_cloud_style": _choice(S.CLOUD_STYLES, none=True),

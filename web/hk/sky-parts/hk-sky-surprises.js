@@ -9,7 +9,7 @@
   'use strict';
   (window.hkSkyParts = window.hkSkyParts || {})['hk-sky-surprises'] = function (K) {
     var auroraCanvas = K.auroraCanvas, auroraDraw = K.auroraDraw, BAT_FRAMES = K.BAT_FRAMES, birthdays = K.birthdays,
-        clamp = K.clamp, detachStyles = K.detachStyles, frontSync = K.frontSync, LEAF_SPECIES = K.LEAF_SPECIES,
+        clamp = K.clamp, detachStyles = K.detachStyles, frontSync = K.frontSync, LEAF_SPECIES = K.LEAF_SPECIES, petalField = K.petalField,
         lvCount = K.lvCount, lvCycleOn = K.lvCycleOn, lvRange = K.lvRange, lvThin = K.lvThin, MOON_DISC = K.MOON_DISC,
         rng = K.rng, roll = K.roll, SCHEDULE = K.SCHEDULE, SH = K.SH, SPOOKY = K.SPOOKY, ST = K.ST,
         windowOf = K.windowOf, witchFly = K.witchFly;
@@ -495,23 +495,7 @@
           }
         }
       }
-      if (theme === 'spring') {
-        var petals = field('petals');
-        lvThin(lvRange(10, lvCount(10, L.many(occ, 'petals')), rnd, xs + 6, function (p, r, keep) {
-          var side = p % 2, ps = 7 + r() * 7, left = side ? 55 + r() * 45 : r() * 45, top = -3 + r() * 26,
-              pd = 11 + r() * 7, pdel = -r() * 18;
-          if (!keep) return null;
-          var pt = el(petals, 'petal', 'i');
-          pt.style.setProperty('--ps', ps.toFixed(1) + 'px');
-          // from the blossoms: both canopies, out across the top
-          pt.style.left = left.toFixed(2) + '%';
-          pt.style.top = top.toFixed(2) + '%';
-          pt.style.setProperty('--pd', pd.toFixed(2) + 's');
-          pt.style.setProperty('--pdel', pdel.toFixed(2) + 's');
-          pt.style.setProperty('--pside', side ? '-1' : '1');
-          return pt;
-        }));
-      }
+      if (theme === 'spring') petalField(field('petals'), rnd, L.many(occ, 'petals'), xs + 6);
       if ((theme === 'spring' || theme === 'summer') && L.on(occ, 'rainbow')) {
         built.rainbow = root.insertBefore(document.createElement('div'), root.children[0] || null);
         built.rainbow.className = 'rainbow';

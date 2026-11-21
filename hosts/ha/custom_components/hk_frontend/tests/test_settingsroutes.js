@@ -369,6 +369,15 @@ print('\n=== Colors: Accent Color, Page Color, Tiles When Off -- Flat Colors tak
   ok('opening every one of them wrote nothing', writes.length, 0);
   // what the pages say
   var hp = text(draw(go('#/house/appearance')).box);
+  ok('All Screens shows the default Auto theme source', /Night Mode.*Sunrise & Sunset/.test(hp), true);
+  tap(byFk(draw(go('#/house/appearance')).box, 'look.flat_theme:auto'));
+  ok('Auto can be saved for All Screens', JSON.stringify(writes.pop()), JSON.stringify(['h', { 'look.flat_theme': 'auto' }]));
+  look.flat_theme = 'auto';
+  var autoRows = draw(scr(['appearance'])).box;
+  ok('a screen inherits Auto and can override it', byFk(autoRows, 'b:flat_theme:auto').attrs['aria-checked'], 'true');
+  tap(byFk(autoRows, 'b:flat_theme:light'));
+  ok('a screen can stay Light while All Screens is set to Auto', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { flat_theme: 'light' }]));
+  look.flat_theme = 'light';
   ok('All Screens’ Appearance: the Accent Color (Sage, in Flat), Page Colors, Tiles When Off -- no Flat Colors, no Highlight', /Accent Color/.test(hp) && /Sage/.test(hp) &&
      /Page Colors/.test(hp) && /Tiles When Off/.test(hp) && /The Accent Color/.test(hp) && !/Flat Colors|Highlight/.test(hp), true);
   ok('...under the chosen accent, Pages Keep Their Own Colors', /Pages Keep Their Own Colors/.test(hp), true);
@@ -855,6 +864,11 @@ print('\n=== the Background, one shape in every style; Adjust Photo keeps every 
   ok('a Flat screen with Landscapes for Flat and Wallpaper for Glass shows Landscapes', [bySk(kb, 'b:sky_flat_background') && text(bySk(kb, 'b:sky_flat_background')).indexOf('Landscapes') >= 0,
     !!byFk(kb, 'bland:wake'), !byFk(kb, 'bwall:ribbons')].join(), 'true,true,true');
   ok('...with Adjust Photo under it', !!byFk(kb, 'sky:adjust'), true);
+  tap(byFk(kb, 'b:sky_seasonal_effects'));
+  ok('a Flat landscape can turn on Seasonal Effects independently', JSON.stringify(writes.pop()),
+    JSON.stringify(['b', 'dashboard-k', { sky_seasonal_effects: true }]));
+  tap(byFk(draw(go('#/house/appearance/sky')).box, 'sky.seasonal_effects'));
+  ok('Seasonal Effects can also be set for All Screens', JSON.stringify(writes.pop()), JSON.stringify(['h', { 'sky.seasonal_effects': true }]));
   // FLAT TAKES THE LIVE SKY AND A WALLPAPER (new): its own store
   boards['dashboard-k'].sky_flat_background = 'live';
   kb = draw(go('#/screens/dashboard-k/sky')).box;

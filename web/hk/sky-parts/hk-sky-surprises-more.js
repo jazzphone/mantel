@@ -14,9 +14,9 @@
         NEAR_BALLOONS = K.NEAR_BALLOONS, NEAR_GROUND = K.NEAR_GROUND, NEAR_LAMPS = K.NEAR_LAMPS,
         NEAR_LIGHT = K.NEAR_LIGHT, NEAR_PATCHES = K.NEAR_PATCHES, NEAR_POOLS = K.NEAR_POOLS,
         NEAR_TREE_MASKS = K.NEAR_TREE_MASKS, nearFlat = K.nearFlat, nearThemeOf = K.nearThemeOf,
-        nearTouches = K.nearTouches, plannedFor = K.plannedFor, PREVIEW_SEASONS = K.PREVIEW_SEASONS, rng = K.rng,
+        nearTouches = K.nearTouches, petalField = K.petalField, plannedFor = K.plannedFor, PREVIEW_SEASONS = K.PREVIEW_SEASONS, read = K.read, rng = K.rng,
         SEASON = K.SEASON, SH = K.SH, skyQA = K.skyQA, SP_PART = K.SP_PART, ST = K.ST, SURPRISE = K.SURPRISE,
-        surpriseFor = K.surpriseFor, surpriseScene = K.surpriseScene, VER = K.VER, windBucket = K.windBucket,
+        snowField = K.snowField, surpriseFor = K.surpriseFor, surpriseScene = K.surpriseScene, VER = K.VER, windBucket = K.windBucket,
         witchFly = K.witchFly;
 
     // Build one theme's scenery into the sky, under the fog. Returns its root,
@@ -628,8 +628,46 @@
     function landLight(elev) { return elev > 6 ? 'day' : (elev > -7 ? 'dusk' : 'night'); }
     function landFile(client, s, when) { return 'land-' + landSeason(client, s, when) + '-' + landLight(s.elev) + '.webp'; }
 
+    var SEASONAL_EFFECTS = { fall: 'leaves', winter: 'snow', spring: 'petals' };
+    function paintSeasonalEffects(el, client, enabled, live) {
+      if (!el || (!enabled && !el._hkSeasonalEffects)) return;
+      // A decorated Live Sky already has its own moving layers. Keep one field, and do not double weather snow.
+      var holiday = el._hkHoliday, decorated = live && (el._hkNear || (holiday && (holiday.name || holiday.surprise)));
+      var s = enabled && !decorated ? live || read(client) : null;
+      var when = new Date(), settings = window.hkSettings;
+      var month = LAND_MONTH[when.getMonth()];
+      var south = settings && settings.get && settings.get('sky.hemisphere') === 'south';
+      var season = s && (s.land || (south ? LAND_SOUTH[month] : month));
+      var kind = s && s.animations !== false && SEASONAL_EFFECTS[season];
+      if (kind === 'snow' && live && live.weather !== false && live.precipitation !== false && live.wet.kind === 'snow' && live.wet.rate > 0) kind = null;
+      var layer = el._hkSeasonalEffects;
+      if (!kind) {
+        if (layer) { layer.remove(); el._hkSeasonalEffects = null; }
+        return;
+      }
+      var cards = window.hkCards, box = el._hkBox || (cards && cards.winSize && cards.winSize());
+      var w = Math.min(1280, (box && box.w) || window.innerWidth || 1280), h = (box && box.h) || window.innerHeight || 800;
+      var wind = kind === 'leaves' ? windBucket(s.wind || 0) : 0;
+      var L = lvOf(s), key = [kind, dayKey(when), w, h, wind, L.sigFor(season)].join('|');
+      if (!layer) {
+        layer = el._hkSeasonalEffects = el.appendChild(document.createElement('div'));
+        layer.className = 'seasonal-effects';
+        layer.setAttribute('aria-hidden', 'true');
+        if (el._hkFlat && !el._hkEffectsStyled) { attachStyles(el); el._hkEffectsStyled = true; }
+      }
+      if (!live) el.classList.remove('noanim');
+      layer.classList.toggle('lv-quiet', L.quiet);
+      if (layer._hkEffectsKey === key) return;
+      layer._hkEffectsKey = key;
+      layer.textContent = '';
+      var rnd = rng(dayKey(when) + 2027), count = L.many(season, kind);
+      if (kind === 'leaves') leafField(layer, w, h, { count: 9, fallMin: 26, fallMax: 45, wind: wind, many: count }, rnd);
+      if (kind === 'snow') snowField(layer, w, h, rnd, count);
+      if (kind === 'petals') petalField(layer, rnd, count, 7925);
+    }
+
     // what the shell and the later parts use of this one
     K.build = build; K.landFile = landFile; K.landLight = landLight; K.landSeason = landSeason;
-    K.layersHtml = layersHtml; K.paintSeason = paintSeason; K.routeOf = routeOf;
+    K.layersHtml = layersHtml; K.paintSeason = paintSeason; K.paintSeasonalEffects = paintSeasonalEffects; K.routeOf = routeOf;
   };
 })();

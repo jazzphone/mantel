@@ -806,6 +806,22 @@ def test_page_backgrounds_are_saved_for_a_screen_and_for_all_screens():
     assert err == {} and out["dashboard"]["sky"]["pages"] == {"weather": "own", "energy": "dusk"}
 
 
+def test_seasonal_effects_are_independent_of_decorations():
+    from custom_components.hk_frontend import settings as S
+    from custom_components.hk_frontend.settings_api import apply_board, apply_house
+
+    assert S.merged(None)["sky"]["seasonal_effects"] is False
+    house, err = apply_house({}, {"sky.decorations": False, "sky.seasonal_effects": True})
+    assert not err and S.merged(house)["sky"]["decorations"] is False
+    assert S.merged(house)["sky"]["seasonal_effects"] is True
+    screen, err = apply_board({}, {"sky_seasonal_effects": False})
+    assert not err and S.board_stored(screen)["sky_seasonal_effects"] is False
+    inherited, err = apply_board(screen, {"sky_seasonal_effects": None})
+    assert not err and "sky_seasonal_effects" not in S.board_stored(inherited)
+    reset, err = apply_house(house, {"sky.reset": True})
+    assert not err and S.merged(reset)["sky"]["seasonal_effects"] is False
+
+
 def test_the_tab_bar_is_saved_for_a_screen_and_for_all_screens():
     from custom_components.hk_frontend import settings as S
     from custom_components.hk_frontend.settings_api import apply_board, apply_house

@@ -358,6 +358,8 @@ def sky_pages(v: Any) -> dict[str, str] | None:
 # hk-base.js FLAT_COLORS mirrors this table (tests/py/test_flat.py).
 # (phase 33, the owner 2026-11-16: "keep all background styles available for all modes, including flat"): the Live Sky
 # and a Wallpaper too, drawn behind Flat's solid cards; Color stays Flat's default
+FLAT_THEMES = ("light", "dark", "auto")
+FLAT_NIGHT_DOMAINS = ("binary_sensor", "input_boolean", "switch")
 FLAT_BACKGROUNDS = ("color", "photo", "landscapes", "live", "wallpaper")
 
 FLAT_COLORS = (
@@ -585,14 +587,14 @@ def sky_photo(v: Any) -> str | None:
 SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "wallpaper_motion", "wallpaper_color","photo_look", "landscape_look", "image_look", "flat_background", "flat_color",
     "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
              "animations", "focus_pause", "moving", "weather", "precipitation",
-             "cloud_style", "daytime", "gradient", "decorations", "decoration_style",
+             "cloud_style", "daytime", "gradient", "decorations", "decoration_style", "seasonal_effects",
              "woodland", "themes", "liveliness_all", "liveliness", "liveliness_custom")
 
 SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_wallpaper_color", "sky_photo_look", "sky_landscape_look",
     "sky_image_look",
                    "sky_flat_background", "sky_flat_color", "sky_flat_image_look", "sky_flat_fade", "sky_flat_tint", "sky_flat_tint_amount", "sky_flat_tint_light",
                    "sky_animations", "sky_focus_pause", "sky_moving", "sky_weather", "sky_precipitation",
-                   "sky_cloud_style", "sky_daytime", "sky_gradient", "sky_decorations", "sky_decoration_style",
+                   "sky_cloud_style", "sky_daytime", "sky_gradient", "sky_decorations", "sky_decoration_style", "sky_seasonal_effects",
                    "sky_liveliness", "sky_liveliness_occ", "sky_liveliness_custom", "sky_calm_empty")
 
 

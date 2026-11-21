@@ -18,6 +18,29 @@ cases.forEach(function(x,i){ok('inheritance '+i,S.appearance(x[0],x[1]).flat===x
  ok('settings editor agrees '+i,(M.glassOf(x[0],x[1]).effective==='flat')===x[2]);});
 ok('screen theme overrides shared', S.appearance({flat_theme:'light'},{flat_theme:'dark'}).theme==='light');
 ok('theme inherits independently', S.appearance({flat:false,flat_theme:null},{flat_theme:'light'}).theme==='light');
+ok('a fixed theme overrides house Auto, and a screen can opt in',
+   S.appearance({flat_theme:'dark'},{flat_theme:'auto'},'light').theme==='dark'&&
+   S.appearance({flat_theme:'auto'},{flat_theme:'dark'},'light').theme==='light');
+var oldHost=window.hkHostClient, autoClient={states:{}}, autoPaints=0;
+window.hkHostClient={current:function(){return autoClient;}};
+function updateAuto(states){autoClient={states:states};window.dispatchEvent(new CustomEvent('hk-client-update'));}
+function countAutoPaint(){autoPaints++;}
+S._apply({look:{flat:true,flat_theme:'auto',flat_night_entity:'input_boolean.night_mode'}});
+window.addEventListener('hk-look',countAutoPaint);
+updateAuto({'sun.sun':{state:'above_horizon'}});
+ok('sunrise applies Light on the open screen',document.documentElement.getAttribute('data-hk-flat')==='light'&&autoPaints===1);
+updateAuto({'sun.sun':{state:'above_horizon',attributes:{elevation:4}}});
+ok('an unchanged day/night choice repaints nothing',autoPaints===1);
+updateAuto({'sun.sun':{state:'above_horizon'},'input_boolean.night_mode':{state:'on'}});
+ok('the optional helper can make it Dark during the day',document.documentElement.getAttribute('data-hk-flat')==='dark'&&autoPaints===2);
+updateAuto({'sun.sun':{state:'below_horizon'},'input_boolean.night_mode':{state:'off'}});
+ok('a helper that is explicitly off selects Light after sunset',document.documentElement.getAttribute('data-hk-flat')==='light');
+updateAuto({'sun.sun':{state:'below_horizon'},'input_boolean.night_mode':{state:'unavailable'}});
+ok('an unavailable helper follows the sun',document.documentElement.getAttribute('data-hk-flat')==='dark');
+updateAuto({});
+ok('a missing state snapshot keeps the last resolved theme',document.documentElement.getAttribute('data-hk-flat')==='dark'&&autoPaints===4);
+window.removeEventListener('hk-look',countAutoPaint);
+window.hkHostClient=oldHost;
 // MOTION IS ITS OWN SWITCH (2026-11-14, the owner: "I like the way flat looks, but still want animations, but good to have
 // them off for performance reasons ... a setting that lives outside of appearance"): on in every look unless switched
 // off, a screen's own over All Screens'; Flat no longer decides it
@@ -71,6 +94,9 @@ ok('screen color for Home',S.flatBackground(null,false).color==='#123456');
 ok('tones follow the theme',C.flatColorHex('sage','light','home')==='#EAF0ED'&&C.flatColorHex('sage','dark','home')==='#151C1B');
 ok('auto is the page ground: its accent’s shade, else the stone',C.flatColorHex('auto','light','climate')===C.pageTone('climate','light')&&C.flatColorHex('auto','dark','x')==='#17181A');
 ok('own hex stays',C.flatColorHex('#ABCDEF','light','home')==='#ABCDEF');
+ok('Auto darkens custom grounds while fixed Dark and Auto Light keep the literal colors',
+   C.flatColorHex('#DCEAF8','dark','weather',true)==='#1b2630'&&C.flatColorHex('#EAE1F5','dark','calendar',true)==='#282130'&&
+   C.flatColorHex('#DCEAF8','dark','weather')==='#DCEAF8'&&C.flatColorHex('#DCEAF8','light','weather',true)==='#DCEAF8');
 ok('fade 0 is clear, 100 near-opaque',/,0\.000\)$/.test(C.flatFade(0,'dark'))&&/,0\.920\)$/.test(C.flatFade(100,'light')));
 ok('chart cards keep their motion',!/::after\{animation:none/.test(C.flatCss(null,true))&&/::after\{animation:none/.test(C.flatCss())&&/backdrop-filter:none/.test(C.flatCss(null,true)));
 ok('a clear active well keeps its glyph color (Chrome transparent, Safari none)',/\.well:not\(\[style\*="transparent"\]\):not\(\[style\*="background: none"\]\) \.icon\{color:white/.test(C.flatCss()));

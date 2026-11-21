@@ -158,6 +158,7 @@
     // RESET APPEARANCE (phase 33), All Screens': every setting on Appearance at its default (hk_core DEFAULTS --
     // tests/test_look_colors.py holds the two equal); never the Background, the pages' colors or a Look's Undo
     var APPEARANCE_DEFAULTS = { 'look.flat': false, 'look.flat_theme': 'dark', 'look.glass': 'clear', 'look.frost': 50, 'look.blur': 50,
+      'look.flat_night_entity': null,
       'look.tint': 50, 'look.well': 'dark', 'look.frost_tint': false, 'look.motion': true, 'look.bright': 50, 'look.bright_dim': 0,
       'look.bright_pages': 'home', 'look.tile_style': 'auto', 'look.tile_icons': 'auto', 'menu.accent': 'orange', 'menu.bar_glass': 'house',
       'look.flat_colors': { accent: 'auto', off_tint: 'auto', pages: 'accent' } };

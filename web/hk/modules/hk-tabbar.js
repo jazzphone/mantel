@@ -479,6 +479,8 @@
       '  box-shadow:0 8px 28px rgba(0,0,0,0.30),inset 0 1px 0 rgba(255,255,255,0.10)}',
       '.blur .g{background:linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)),rgba(28,28,32,0.52);',
       '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}',
+      ':host([data-pre-blur]) .blur :is(.pill,.roomsbtn){-webkit-backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6));' +
+        'backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6))}',
       '.frosted .g{background:rgba(62,64,74,0.95)}',
       '.tinted .g{background:rgba(24,24,28,0.93)}',
       // BRIGHT GLASS (2026-10-30, DESIGN.md "Bright Glass"): a white wash over
@@ -850,9 +852,10 @@
     function pinGlass(mode) {
       var G = window.hkGlass;
       if (!G || !G.pin) return;
+      S.host.toggleAttribute('data-pre-blur', mode === 'blur');
       var bar = mode === 'bright' ? BRIGHT_TINT : mode === 'blur' ? BAR_TINT : null, sheet = mode === 'blur' ? SHEET_TINT : null;
-      [[S.pill, bar], [S.roomsBtn, bar], [S.sheets && S.sheets.more, sheet], [S.sheets && S.sheets.rooms, sheet]].forEach(function (p) {
-        if (p[0]) { if (p[1]) G.pin(p[0], p[1]); else G.unpin(p[0]); }
+      [[S.pill, bar], [S.roomsBtn, bar], [S.sheets && S.sheets.more, sheet], [S.sheets && S.sheets.rooms, sheet]].forEach(function (p, i) {
+        if (p[0]) { if (p[1]) G.pin(p[0], p[1], mode === 'blur' && i < 2); else G.unpin(p[0]); }
       });
     }
 

@@ -12,7 +12,7 @@ from .. import saver_layers as SL
 from ..looks import IDS as LOOK_IDS
 from .schema import (AMOUNT, board_headers, board_wallpaper, BRIGHT_DIM_MAX, BRIGHT_GLASS, BRIGHT_PAGES,
     chips_custom_show, CLOUD_STYLES, DAYTIME_SKIES, DOCK_MIN, FLAT_BACKGROUNDS, flat_color, flat_colors,
-    flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, flat_tint, lively, lively_custom,
+    flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, FLAT_THEMES, flat_tint, lively, lively_custom,
     LIVELY_PRESETS, MENU_GLYPHS, NOTIFY_SAVERS, NP_BARS, NP_SIDES, NP_STYLES, page_looks, photo_look, RETIRED_GLASS,
     SKY_BACKDROP_IDS, SKY_BACKGROUNDS, SKY_COLOR_IDS, sky_landscape, SKY_MOVING, sky_page_photos, sky_pages,
     sky_photo, sky_stops, tab_position, TILE_ICONS, TILE_STYLES, WALLPAPER_MOTION, WALLPAPER_NIGHT, WELLS,)
@@ -300,7 +300,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # house's backdrop -- sky_gradient: a SKY_BACKDROPS id, sky_custom: its
     # stops, for "custom").
     "sky_animations": None, "sky_weather": None, "sky_precipitation": None, "sky_focus_pause": None,
-    "sky_decorations": None, "sky_decoration_style": None, "sky_moving": None,
+    "sky_decorations": None, "sky_decoration_style": None, "sky_seasonal_effects": None, "sky_moving": None,
     "sky_cloud_style": None, "sky_daytime": None, "sky_gradient": None, "sky_custom": None,
     # the screen's own Background (SKY_BACKGROUNDS; None: Same as All
     # Screens), its own Color and Photo (None: All Screens')
@@ -553,7 +553,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["tab_size_phone"] = pick("tab_size_phone", BOARD_TAB_SIZES)
     out["glass"] = RETIRED_GLASS.get(d.get("glass")) or pick("glass", BOARD_GLASS)
     out["flat"] = d.get("flat") if isinstance(d.get("flat"), bool) else None
-    out["flat_theme"] = d.get("flat_theme") if d.get("flat_theme") in ("light", "dark") else None
+    out["flat_theme"] = d.get("flat_theme") if d.get("flat_theme") in FLAT_THEMES else None
     for k in ("frost", "blur", "tint"):
         out[k] = amount_or_none(d.get(k))
     out["well"] = d.get("well") if d.get("well") in WELLS else None
@@ -569,7 +569,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     # boolean is not set (follow All Screens), as a backdrop id not in
     # SKY_BACKDROPS and stops that do not parse are (sky_stops()).
     for k in ("sky_animations", "sky_weather", "sky_precipitation", "sky_focus_pause", "sky_decorations",
-              "camera_live_video"):
+              "sky_seasonal_effects", "camera_live_video"):
         out[k] = d.get(k) if isinstance(d.get(k), bool) else None
     out["sky_decoration_style"] = d.get("sky_decoration_style") if d.get("sky_decoration_style") in ("old", "new") else None
     out["sky_moving"] = d.get("sky_moving") if d.get("sky_moving") in SKY_MOVING else None

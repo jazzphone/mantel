@@ -238,12 +238,22 @@
   var glassPreview = null;
   // (Motion held for this page alone -- a check, HK Settings' preview: true, false, or null for the saved choice)
   var motionPreview = null;
+  // Keep the last usable theme while the client reconnects or both sources are unavailable.
+  var automaticTheme = 'dark';
+  function readAutomaticTheme(client) {
+    var states = client && client.states || {}, source = get('look.flat_night_entity'), helper = source && states[source];
+    if (helper && (helper.state === 'on' || helper.state === 'off')) return helper.state === 'on' ? 'dark' : 'light';
+    var sun = states['sun.sun'];
+    if (sun && sun.state === 'above_horizon') return 'light';
+    if (sun && sun.state === 'below_horizon') return 'dark';
+    return automaticTheme;
+  }
   function rendering() {
-    var a = appearance(boardHere(), get('look', {}));
+    var a = appearance(boardHere(), get('look', {}), automaticTheme);
     if (glassPreview) a.flat = glassPreview === 'flat';
     try {
       var t = /[?&]hkflat_theme=(light|dark)\b/.exec(location.search);
-      if (t && glassPreview === 'flat') a.theme = t[1];
+      if (t && glassPreview === 'flat') { a.theme = t[1]; a.automatic = false; }
     } catch (e) { /* no location */ }
     // (the look decides the blur, the live sky and what plays by itself; Motion is its own switch -- appearance --
     // and a test or the Settings preview may hold it: previewMotion)
@@ -498,7 +508,8 @@
     state.configured = !!(payload && payload.configured);
     store(payload);
     waiting.splice(0).forEach(function (fn) { try { fn(); } catch (e) { /* caller's */ } });
-    if (!changed) return;
+    if (!changed) { syncAutomaticTheme(); return; }
+    automaticTheme = readAutomaticTheme(currentClient());
     state.version++;
     applyLook();
     lookNow = lookKey();
@@ -534,6 +545,17 @@
     }, 'hk-events'));
     return true;
   }
+  function syncAutomaticTheme() {
+    var next = readAutomaticTheme(currentClient());
+    if (next === automaticTheme) return;
+    automaticTheme = next;
+    var policy = rendering();
+    if (policy.flat && policy.automatic) onNav();
+  }
+  function onClientUpdate() {
+    attach();
+    syncAutomaticTheme();
+  }
   var tries = 0, slow = null;
   function watchSlowly() {
     if (slow === null) slow = setInterval(attach, 2000);
@@ -552,7 +574,11 @@
     var f = flatColors();
     return f.accent.value + '/' + f.off_tint.value + (f.accent.value === 'auto' && f.off_tint.value === 'accent' ? '/' + f.keys.join(',') : '');
   }
-  function lookKey() { return glass() + '|' + rendering().theme + '|' + amount('blur') + '|' + amount('frost') + '|' + amount('tint') + '|' + tintWell() + '|' + frostTint() + '|' + flatSig(); }
+  function lookKey() {
+    var policy = rendering();
+    return glass() + '|' + policy.theme + '|' + (policy.flat && policy.automatic) + '|' + amount('blur') + '|' +
+      amount('frost') + '|' + amount('tint') + '|' + tintWell() + '|' + frostTint() + '|' + flatSig();
+  }
   // (the look this page wears, for onNav: '' until the parts have run; split_js.py lets this wait for them)
   var lookNow = '';
   // BRIGHT GLASS AND ITS OWN BLUR, the one look that changes from page to page (Home Only): the same look but for the
@@ -689,8 +715,8 @@
     // Settings can bootstrap before either the adapter or any card. Events
     // catch late modules and host updates; a slow check also covers a shell
     // connection replacement on a page containing no HK cards.
-    window.addEventListener('hk-host-client-ready', attach);
-    window.addEventListener('hk-client-update', attach);
+    window.addEventListener('hk-host-client-ready', onClientUpdate);
+    window.addEventListener('hk-client-update', onClientUpdate);
     if (attach()) watchSlowly();
     else {
       var fast = setInterval(function () {
@@ -701,6 +727,7 @@
     }
 
     // The look from the cached copy, before any card draws.
+    automaticTheme = readAutomaticTheme(currentClient());
     applyLook();
     lookNow = lookKey();
     try {
@@ -755,6 +782,10 @@
         return brightContrast(rgbOf(stop), rgbOf(light), n);
       },
       skyLook: skyLook,
+      seasonalEffects: function () {
+        var b = boardHere();
+        return b && typeof b.sky_seasonal_effects === 'boolean' ? b.sky_seasonal_effects : get('sky.seasonal_effects', false) === true;
+      },
       ladderSignature: ladderSignature,
       pagesScreen: pagesScreen,
       swipePages: swipePages, swipeLeft: swipeLeft,
