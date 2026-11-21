@@ -178,7 +178,7 @@
               '</button><button type="button" class="rb" data-key="home" aria-label="Home">' + svg('home', 24) + '</button>' +
             '<button type="button" class="rb" data-key="play_pause" aria-label="Play or pause">' + svg('pp', 24) +
               '</button></div><div class="kl"><span>Back</span><span>Home</span><span>Play</span></div></div>' +
-            '<div class="steps vs" hidden><button type="button" class="rb" data-vol="down" aria-label="Volume down">' + svg('minus') +
+            '<div class="steps" hidden><button type="button" class="rb" data-vol="down" aria-label="Volume down">' + svg('minus') +
               '</button><span>Volume</span><button type="button" class="rb" data-vol="up" aria-label="Volume up">' + svg('plus') + '</button></div>' +
             '</div>' : '';
           var left = '<div class="crd"><div class="lab">Watching</div><div class="now"><div class="art"></div><div class="words"><div class="ttl"></div><div class="sub"></div>' +
@@ -236,12 +236,12 @@
         pp.innerHTML = svg(lk.playing ? 'pause' : 'play');
         q('.pw').classList.toggle('on', lk.on);
         // VOLUME: a slider where the device takes a level; - and + on the remote where it only steps
-        var vol = lk.volume, vr = q('.vol'), vs = q('.vs');
+        var vol = lk.volume, vr = q('.vol'), steps = q('.steps');
         vr.hidden = vol.mode !== 'set';
         if (vol.mode === 'set' && vol.level != null && !(this._drag && Date.now() - this._drag < 1500)) {
           /** @type {HTMLInputElement} */ (vr.querySelector('input')).value = String(Math.round(vol.level * 100));
         }
-        if (vs) vs.hidden = vol.mode !== 'step';
+        if (steps) steps.hidden = vol.mode !== 'step';
         // THE REMOTE: which way it points
         this._root.querySelectorAll('[data-to]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-to') === to); });
         this._root.querySelectorAll('.dpad button,.keys button').forEach(function (b) { /** @type {HTMLButtonElement} */ (b).disabled = !to; });

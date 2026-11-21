@@ -1744,14 +1744,14 @@
     var PAGE_OF_PATH = { 'doors-windows': 'doors_windows', playmusic: 'music', 'music-browse': 'music', 'live-tv': 'live_tv' };
     // THE ACCENT COLOR AS SAVED, here: the screen's (else All Screens',
     // resolved into the board), Automatic the page's own -- a hex
-    function legacyAccentHex() {
+    function legacyAccentHex(path) {
       var a = String(boardOf(dashSeg()).accent || 'orange').toLowerCase();
-      if (a === 'auto') a = pageAccent();
+      if (a === 'auto') a = pageAccent(path);
       return ACCENTS[a] || (/^#[0-9a-f]{6}$/.test(a) ? a : ACCENTS.orange);
     }
     // (a page's Page Color: this screen's, else All Screens', hkSettings.pageColor; phase 33)
-    function pageAccent() {
-      var seg = String(location.pathname).split('/')[2] || '', kind = PAGE_OF_PATH[seg] || seg;
+    function pageAccent(path) {
+      var seg = String(path == null ? location.pathname : path).split(/[?#]/)[0].split('/')[2] || '', kind = PAGE_OF_PATH[seg] || seg;
       var S = window.hkSettings, own = S && S.pageColor ? S.pageColor(kind) : S && S.get ? (S.get('look.page_accents', {}) || {})[kind] : null;
       return own || PAGE_ACCENTS[kind] || 'orange';
     }

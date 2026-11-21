@@ -994,9 +994,12 @@
     try { cover = K && K.swipeCover ? K.swipeCover(path) : null; } catch (e) { cover = null; }
     var live = true, an = null, timer = 0, gen = 0;
     var h = { path: path, alive: function () { return live; }, set: function () {}, done: function () { live = false; } };
-    if (cover === false) return h;
-    if (!cover) return null;
-    var glass = window.hkGlass, releaseGlass = glass && glass.followSkySwipe && glass.followSkySwipe();
+    if (cover == null) return null;
+    var glass = window.hkGlass, pin = glass && glass.followSkySwipe && glass.followSkySwipe(path, cover !== false);
+    if (cover === false) {
+      h.done = function (land) { if (!live) return; live = false; if (pin) pin.end(land); };
+      return h;
+    }
     cover.style.setProperty('will-change', 'opacity');
     var drawn = function () { var o = parseFloat(getComputedStyle(cover).opacity); return isFinite(o) ? o : 1; };
     var stop = function () {
@@ -1012,12 +1015,14 @@
       live = false;
       if (!land && K.swipeBack) { try { K.swipeBack(); } catch (e) { /* no sky */ } }
       if (cover.parentNode) cover.parentNode.removeChild(cover);
-      if (releaseGlass) releaseGlass(land ? path : null);
+      if (pin) { pin.paint(0, land ? 1 : 0); pin.end(land); }
     };
     h.set = function (k) {
       if (!live) return;
       stop();
-      cover.style.opacity = String(+(1 - Math.max(0, Math.min(1, +k || 0))).toFixed(3));
+      var amount = Math.max(0, Math.min(1, +k || 0));
+      cover.style.opacity = String(+(1 - amount).toFixed(3));
+      if (pin) pin.paint(0, amount);
     };
     h.done = function (land, ms, ease) {
       if (!live) return;
@@ -1027,7 +1032,8 @@
       if (!ms || Math.abs(from - to) < 0.01) { cover.style.opacity = String(to); end(land); return; }
       var frames = [{ opacity: from }, { opacity: to }];
       try { an = cover.animate(frames, { duration: ms, easing: ease || STANDARD, fill: 'forwards' }); }
-      catch (e) { try { an = cover.animate(frames, { duration: ms, easing: STANDARD, fill: 'forwards' }); } catch (x) { end(land); return; } }
+      catch (e) { try { ease = STANDARD; an = cover.animate(frames, { duration: ms, easing: ease, fill: 'forwards' }); } catch (x) { end(land); return; } }
+      if (pin) pin.paint(1 - from, 1 - to, ms, ease || STANDARD);
       an.onfinish = once;
       timer = setTimeout(once, ms + 500);
     };

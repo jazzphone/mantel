@@ -22,7 +22,7 @@
     // Build one theme's scenery into the sky, under the fog. Returns its root,
     // update(state) -- every paint: light, size, weather -- and dispose().
     // Built once per theme; nothing here is rebuilt by a paint.
-    function mountNearScenery(sky, theme, occ, L) {
+    function mountNearScenery(sky, theme, occ, L, fallingLeaves) {
       if (!sky) return null;
       L = L || lvOf(null);
       occ = occ || theme;
@@ -137,7 +137,7 @@
       var fieldW = Math.min(width, 1280);
       // THE LEAVES FALL WITH THE REAL WIND: rebuilt when it moves between
       // still, a breeze and a blow (windBucket), from the same seed each time
-      var leaves = theme === 'fall' || theme === 'halloween' ? field('leaves') : null, leafWind = 0;
+      var leaves = fallingLeaves ? field('leaves') : null, leafWind = 0;
       function fallLeaves(wind) {
         if (!leaves || wind === leafWind) return;
         leafWind = wind;
@@ -166,7 +166,7 @@
       }
       // Lights Off: every candle and bulb at a steady glow (.lv-still)
       root.classList.toggle('lv-still', !L.on(occ, 'lights'));
-      var touches = nearTouches(sky, root, theme, rnd, field, occ, L);
+      var touches = nearTouches(sky, root, theme, rnd, field, occ, L, fallingLeaves);
       sky.insertBefore(root, sky.querySelector('.fog'));
 
       var state = { elev: 25, cover: 0 };
@@ -356,13 +356,15 @@
       var L = lvOf(s);
       if (nearTheme) {
         var occ = surprise || name || nearTheme;
-        if (!el._hkNear || el._hkNearTheme !== nearTheme || el._hkNearLv !== L.sigFor(occ) + '|' + occ) {
+        var nearLeaves = (nearTheme === 'fall' || nearTheme === 'halloween') && s.fallingLeaves !== false;
+        var nearKey = L.sigFor(occ) + '|' + occ + '|' + nearLeaves;
+        if (!el._hkNear || el._hkNearTheme !== nearTheme || el._hkNearLv !== nearKey) {
           if (el._hkNear) el._hkNear.dispose();
           host.textContent = '';
           el._hkSeasonKey = null;
-          el._hkNear = mountNearScenery(el, nearTheme, occ, L);
+          el._hkNear = mountNearScenery(el, nearTheme, occ, L, nearLeaves);
           el._hkNearTheme = nearTheme;
-          el._hkNearLv = L.sigFor(occ) + '|' + occ;
+          el._hkNearLv = nearKey;
         }
         el._hkNear.update(Object.assign({}, s, { spooky: nearTheme === 'halloween' ? spooky : true, now: now }));
         var measured = NEAR_LIGHT[nearTheme];
@@ -414,13 +416,15 @@
       // the sleigh crosses the screensaver's Christmas moon (paint())
       var xmasNight = landed && name === 'christmas' && night;
       var moonKeyed = spooky || xmasNight;
+      var autumn = name === 'halloween' || name === 'thanksgiving';
+      var fallingLeaves = autumn && !spooky && s.fallingLeaves !== false;
       var key = name + '|' + surprise + '|' + (spooky ? 's' : '-') +
                 '|' + (night ? 'n' : 'd') + '|' + (s.weather === false ? 'dry' : 'weather') +
                 '|' + dayKey(now) + '|' + Math.round(W) + 'x' + Math.round(H) +
                 '|' + (moonKeyed ? Math.round(moonXf * 1000) + ',' +
                                    Math.round(moonYf * 1000) + ',' + moonS : 0) +
                 '|' + (name === 'christmas' && snowOK ? 'w' : '-') +
-                '|' + (spooky ? '-' : windB + (heavy ? 'h' : '-')) + '|' + L.sigFor(lvOcc);
+                '|' + (spooky ? '-' : windB + (heavy ? 'h' : '-')) + '|' + L.sigFor(lvOcc) + '|' + fallingLeaves;
 
       if (el._hkSeasonKey !== key) {
         el._hkSeasonKey = key;
@@ -432,7 +436,7 @@
         // every evening.
         var rnd = rng(dayKey(now) + name.length * 7919);
 
-        if (name === 'halloween' || name === 'thanksgiving') {
+        if (autumn) {
           // The leafy canopy is the ORDINARY fall treatment. Spooky nights strip
           // the tree bare, so the two are mutually exclusive -- never stacked.
           //
@@ -453,7 +457,7 @@
           // what tip it over once the device is already working.
           if (!spooky && !landed) canopyLayer(host);
           var more = name === 'thanksgiving';
-          if (!spooky) leafField(host, W, H, {
+          if (fallingLeaves) leafField(host, W, H, {
             // Heavy rain or snow thins the field right out: a full autumn fall
             // through a downpour reads as two weather systems at once.
             count: heavy ? 6 : (more ? 22 : 16),
@@ -492,7 +496,7 @@
       // Same arithmetic as the cloud decks: the texture's mean alpha times the
       // fraction of the frame the element covers is what it actually composites.
       var cover = [];
-      if (name === 'halloween' || name === 'thanksgiving') {
+      if (autumn) {
         // The canopy DOMINATES the fall estimate -- full frame, so its mean
         // alpha is its coverage outright, no box fraction. Its luma carries the
         // same brightness ramp the layer is actually drawn with, because a lit
@@ -505,9 +509,7 @@
         // dropped.
         var n = Math.max(6, Math.round(
           (heavy ? 6 : (name === 'thanksgiving' ? 22 : 16)) * (W / 1280)));
-        // Not when spooky: the field is not built then (see paintSeason).
-        if (!spooky) cover.push([n * 1852 / (W * H) * SEASON.leafA * (0.32 + 0.32 * t),
-                                 SEASON.leafL * lit]);
+        if (fallingLeaves) cover.push([n * 1852 / (W * H) * SEASON.leafA * (0.32 + 0.32 * t), SEASON.leafL * lit]);
       }
       if (spooky) {
         // The moon FIRST, because it is the brightest thing here and the order
@@ -629,7 +631,7 @@
     function landFile(client, s, when) { return 'land-' + landSeason(client, s, when) + '-' + landLight(s.elev) + '.webp'; }
 
     var SEASONAL_EFFECTS = { fall: 'leaves', winter: 'snow', spring: 'petals' };
-    function paintSeasonalEffects(el, client, enabled, live) {
+    function paintSeasonalEffects(el, client, enabled, live, fallingLeaves) {
       if (!el || (!enabled && !el._hkSeasonalEffects)) return;
       // A decorated Live Sky already has its own moving layers. Keep one field, and do not double weather snow.
       var holiday = el._hkHoliday, decorated = live && (el._hkNear || (holiday && (holiday.name || holiday.surprise)));
@@ -639,6 +641,7 @@
       var south = settings && settings.get && settings.get('sky.hemisphere') === 'south';
       var season = s && (s.land || (south ? LAND_SOUTH[month] : month));
       var kind = s && s.animations !== false && SEASONAL_EFFECTS[season];
+      if (kind === 'leaves' && !fallingLeaves) kind = null;
       if (kind === 'snow' && live && live.weather !== false && live.precipitation !== false && live.wet.kind === 'snow' && live.wet.rate > 0) kind = null;
       var layer = el._hkSeasonalEffects;
       if (!kind) {

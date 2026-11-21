@@ -366,14 +366,14 @@
       // Flat -- the page you're on and every other icon (the user: the icons
       // stayed orange, two tones) -- while the Highlight Color stays saved for
       // the other looks and for an Automatic Accent
-      accent: function () {
+      accent: function (path) {
         var a = String(boardOf(dashSeg()).accent || 'orange').toLowerCase(), auto = a === 'auto';
-        var hex = legacyAccentHex();
+        var hex = legacyAccentHex(path);
         // (bright on Flat's Light too -- Apple's light color, not darkened:
         // the user, 2026-10-17)
         var color = flatColor(hex, 'on');
         var base = auto ? flatColor(ACCENTS.orange, 'on') : color;
-        var pal = flatPalette();
+        var pal = flatPalette(path && path !== location.pathname ? { path: path } : undefined);
         // IN FLAT the page you're on is always white over its fill, whatever
         // the color -- Lights' yellow and Weather's cyan too (the user,
         // 2026-10-17: the black text and glyph looked wrong); the Glass looks

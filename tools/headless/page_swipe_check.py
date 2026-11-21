@@ -76,6 +76,8 @@ def house(gallery) -> None:
     # two tabs, the rest of the pages under More, and Swipe Right on Home on Security (2026-11-06)
     b['ps-more'] = {**b['ps-bar'], 'tab_bar_tabs': 2, 'tab_bar_tabs_rail': 2, 'tab_bar_tabs_phone': 2, 'swipe_left': 'security'}
     b['ps-highlight'] = {**b['ps-more'], 'swipe_left': None}
+    b['ps-bar'].update(glass='blur_pre', accent='auto', sky=True, sky_background='wallpaper',
+                       sky_wallpaper='shards', sky_wallpaper_motion='off')
     b['ps-menu'] = {**home, **base, 'menu': 'auto', 'menu_phone': 'button', 'swipe': True, 'swipe_pages': 'on'}
     wall = gallery.wall_display()
     grid = dict(wall['home_grid'])

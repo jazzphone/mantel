@@ -39,9 +39,14 @@ ok('fall leaves appear over a photo with Seasonal Decorations off', leaves.lengt
 ok('the field is drawn over the photo and its wash', root.lastChild === effects && opts.flat.photo === root.firstChild.src);
 ok('the next render keeps the same field and leaves', render()._hkSeasonalEffects === effects && particles(effects, 'lf')[0] === leaves[0]);
 ok('the Flat root loads the animation styles once', document.adoptedStyleSheets.length === 1);
+opts.fallingLeaves = false;
+ok('leaving Home clears the standalone leaf field over a still background', render()._hkSeasonalEffects === null && effects.parentNode === null);
+opts.fallingLeaves = true;
+ok('returning Home restores the leaves', particles(render(), 'lf').length >= 6);
 settings(true, true, false);
 ok('a screen can opt out of the house effect', render()._hkSeasonalEffects === null && root.lastChild !== effects);
 settings(true, true, null);
+opts.fallingLeaves = false;
 sky._pin({ land: 'winter' });
 ok('winter builds flakes without a garland or sleigh', particles(render(), 'xflake').length > 0 && !particles(root, 'xdecor').length && !particles(root, 'sleigh').length);
 settings(true, false, null);
@@ -51,4 +56,18 @@ sky._pin({ land: 'spring' });
 ok('a screen can opt in to petals when the house effect is off', particles(render(), 'petal').length > 0);
 client.states['input_boolean.sky'] = { state: 'off' };
 ok('the existing Sky Switch also stops the field', render()._hkSeasonalEffects === null);
+
+var config = { sky: {}, views: [{ path: 'overview' }, { path: 'pages', pages_screen: true }, { path: 'weather', sky_page: 'weather' }] };
+window.hkShell.use({ tags: { viewContainer: 'hk-view-container' }, dashboardConfig: function () { return config; }, viewContainer: function () { return host; } });
+window.hkHostClient = { current: function () { return client; } };
+settings(true, true, null);
+sky._pin({ land: 'fall' });
+function navigate(path) {
+  window.location.pathname = '/dashboard-sky' + path;
+  sky.swipeBack();
+  return particles(sky.element(), 'lf').length;
+}
+ok('a custom Home shows leaves at the bare dashboard address', navigate('') > 0);
+ok('Apps and Weather each clear the field', navigate('/pages') === 0 && navigate('/weather') === 0);
+ok('a direct return to the custom Home restores the leaves', navigate('/overview') > 0);
 print('ALL ' + passed + ' SEASONAL EFFECTS TESTS PASS');

@@ -136,6 +136,17 @@ s.wind=4;hkSky._paint(sky,s);var calm=sky._hkNear.root.querySelectorAll('.lf')[0
 check('the leaves fall with the real wind: rebuilt when it blows',sky._hkNear.root.querySelectorAll('.lf')[0]!==calm&&sky._hkNear.root.classes.windy===true);
 var gusty=sky._hkNear.root.querySelectorAll('.lf')[0];s.wind=21;hkSky._paint(sky,s);
 check('...not at every change in it',sky._hkNear.root.querySelectorAll('.lf')[0]===gusty);s.wind=4;
+s.lively={all:'party'};s.fallingLeaves=false;hkSky._paint(sky,s);
+check('Party keeps the autumn woodland on another page without falling or swirling leaves',sky._hkNearTheme==='fall'&&
+  !sky._hkNear.root.querySelectorAll('.lf,.swirl-leaf').length);
+s.fallingLeaves=true;hkSky._paint(sky,s);
+check('returning Home restores falling and swirling woodland leaves',sky._hkNear.root.querySelectorAll('.lf').length>0&&
+  sky._hkNear.root.querySelectorAll('.swirl-leaf').length>0);
+s.decorationStyle='old';hkSky._paint(sky,s);
+check('the original autumn scene also draws leaves on Home',parts['.season'].querySelectorAll('.lf').length>0);
+s.fallingLeaves=false;hkSky._paint(sky,s);
+check('the original autumn scene clears its leaves when leaving Home',!parts['.season'].querySelectorAll('.lf').length);
+s.decorationStyle='new';delete s.fallingLeaves;delete s.lively;
 s.season='';hkSky._force(null);hkSky._surpriseForce('spring-garden');s.elev=20;s.cover=.3;s.wet={kind:'rain',rate:.4};hkSky._paint(sky,s);
 var sp=sky._hkNear.root;
 check('spring: petals from the blossoms, no rainbow while it rains',sp.querySelectorAll('.petal').length===10&&!sp.classes['rainbow-on']);

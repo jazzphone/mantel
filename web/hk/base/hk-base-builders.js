@@ -341,7 +341,7 @@
                : r.accent.value === 'auto' ? null : seedHex(r.accent.value);
       var tv = r.off_tint.value, tint = null;
       // Match Accent with no accent of its own: the page's highlight as it is
-      if (tv === 'accent') tint = seed || legacyAccentHex();
+      if (tv === 'accent') tint = seed || legacyAccentHex(ctx && ctx.path);
       else if (tv !== 'auto') tint = seedHex(tv);
       var key = theme + '|' + seed + '|' + tint;
       if (!ctx && palMemo.key === key) return palMemo.val;

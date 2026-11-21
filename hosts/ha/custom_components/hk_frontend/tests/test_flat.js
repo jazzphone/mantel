@@ -114,6 +114,15 @@ S._apply({look:{flat:true,flat_theme:'light',page_accents:{climate:'red'}},sky:{
 ok('a page’s Automatic ground is a shade of its accent',C.flatColorHex('auto','light','climate')!==C.flatColorHex('auto','light','home')&&C.pageTone('climate','light')===
     C.flatColorHex('auto','light','climate')&&C.pageTone('home','light')===null);
 ok('red: blush on Light, deep on Dark',/^#f[0-9a-f]e[0-9a-f]/i.test(C.pageTone('climate','light'))&&parseInt(C.pageTone('climate','dark').slice(1,3),16)<60);
+var previousPath = location.pathname;
+location.pathname = '/dashboard-accent/home';
+S._apply({look:{flat:false,page_accents:{climate:'red'}},boards:{'dashboard-accent':{accent:'auto'}}});
+ok('the incoming tab gets its page accent before the address changes', C.menu.accent().color === C.ACCENTS.orange &&
+   C.menu.accent('/dashboard-accent/climate').color === C.ACCENTS.red && location.pathname === '/dashboard-accent/home');
+S._apply({look:{flat:true,flat_theme:'light',flat_page_colors:{climate:{accent:'#123456'}}},boards:{'dashboard-accent':{accent:'auto'}}});
+ok('the incoming Flat tab also resolves its own page accent', C.menu.accent('/dashboard-accent/climate').color === '#123456' &&
+   C.menu.accent().color !== '#123456');
+location.pathname = previousPath;
 // EVERY BACKGROUND IN EVERY STYLE (phase 33, the owner: "keep all background styles available for all modes, including
 // flat"): Flat over the Live Sky or a Wallpaper hands the sky its own (resolve draws it behind Flat's cards); a page with
 // a tone of its own keeps it; the sky's weather, decorations and animations go by the glass looks' switches

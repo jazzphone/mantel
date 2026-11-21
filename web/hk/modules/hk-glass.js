@@ -214,7 +214,7 @@
   // wears its own slice under its own tint (pin(el, tint)), its live blur
   // off, faded in; in any other look, untouched.
   var pinned = new Map();
-  var skySwipeCount = 0, skySwipeLatest = 0, skySwipePath = null;
+  var skySwipe = null;
   var cards = window.__hkGlassCards = window.__hkGlassCards || new Set();
 
   // iOS WEBKIT DRAWS A LAYER INSIDE A SCROLLING ROW OVER EVERYTHING IN THE ROW
@@ -885,26 +885,51 @@
     el.style.removeProperty('backdrop-filter');
     el._hkPin = null; el._hkPinPos = null; el._hkPinUrl = null; el._hkPinPath = null;
   }
-  // The tab bar follows the blended sky with live blur while a swipe has two backgrounds on screen.
-  // Keep the cards pre-rendered and leave native sky alone, since it cannot be sampled by the browser.
-  function followSkySwipe() {
+  function clearSkySwipe() {
+    if (!skySwipe) return;
+    clearTimeout(skySwipe.timer);
+    skySwipe.slides.forEach(function (layer) { layer.remove(); });
+    skySwipe = null;
+  }
+  // Keep the bar's outgoing slice pinned. When the destination is cached, the incoming slice fades in with
+  // the sky cover. On a first visit, hold the outgoing slice until the destination is decoded and cross-fade once.
+  function followSkySwipe(path, blend) {
     if (!PRE || !active || FROST) return null;
-    var id = ++skySwipeLatest, held = true;
-    skySwipeCount++;
-    skySwipePath = null;
+    clearSkySwipe();
+    var swipe = skySwipe = { path: path, from: skyAt(), moving: true, slides: new Map(), timer: null };
     if (fading) fading.forEach(function (move) {
       var entry = pinned.get(move.el);
       if (entry && entry.followSwipe) move.cut = true;
     });
-    pinned.forEach(function (entry, el) { if (entry.followSwipe) unpinEl(el); });
-    return function (path) {
-      if (!held) return;
-      held = false;
-      skySwipeCount--;
-      if (!PRE || !active || FROST) return;
-      // The cover may finish a frame before the view lands. Wait for the destination's picture.
-      if (id === skySwipeLatest) skySwipePath = path || null;
-      if (!skySwipeCount) pinAll(false);
+    var next = blend !== false && cache.get(path), W = window.innerWidth, H = window.innerHeight;
+    if (next) pinned.forEach(function (entry, el) {
+      if (!entry.followSwipe || !el.isConnected || !el._hkPinPos) return;
+      var layer = document.createElement('span'), at = el._hkPinPos;
+      layer.className = 'hk-swipe-glass';
+      layer.setAttribute('aria-hidden', 'true');
+      layer.style.setProperty('background', entry.tint + ', ' + sliceOf(next.url, at[0], at[1], W, H, zoomOf(el)));
+      layer.style.setProperty('opacity', '0');
+      el.insertBefore(layer, el.firstChild);
+      swipe.slides.set(el, layer);
+    });
+    function paint(from, to, ms, ease) {
+      if (skySwipe !== swipe) return;
+      swipe.slides.forEach(function (layer) {
+        if (layer._hkFade) { layer._hkFade.cancel(); layer._hkFade = null; }
+        layer.style.setProperty('opacity', String(to));
+        if (ms && layer.animate) layer._hkFade = layer.animate([{ opacity: from }, { opacity: to }], { duration: ms, easing: ease });
+      });
+    }
+    return {
+      paint: paint,
+      end: function (land) {
+        if (skySwipe !== swipe) return;
+        if (land) {
+          swipe.moving = false;
+          swipe.timer = setTimeout(function () { clearSkySwipe(); pinAll(false); }, VIEW_UP_MS);
+        } else clearSkySwipe();
+        pinAll(false);
+      }
     };
   }
   // CUT EVERY PINNED SURFACE'S SLICE. `fade`: fade each changed one from
@@ -914,8 +939,7 @@
     // (only this page's picture: the menu's panel and the tab bar belong to no page, and wore the last one's until the
     // new one came, then faded across for FADE_MS -- 0.7 s of Home's glass on Security's tab bar on the Loft)
     var W = window.innerWidth, H = window.innerHeight, ok = ownPicture(), moves = [];
-    if (skySwipePath === pre.path && ok) skySwipePath = null;
-    var follow = !FROST && (skySwipeCount || skySwipePath);
+    var swipe = !FROST && skySwipe, arrived = swipe && !swipe.moving && ok && swipe.path === pre.path;
     // a new fade starts from where the last one was going; a plain pass
     // leaves a fading surface to its fade -- snapping it to its end mid-fade
     // and the fade pulling it back read as a flicker
@@ -926,7 +950,9 @@
     var inFade = function (el) { return busy && busy.some(function (m) { return m.el === el && !m.cut; }); };
     pinned.forEach(function (entry, el) {
       if (!el.isConnected) { pinned.delete(el); return; }
-      if (!ok || (follow && entry.followSwipe)) { unpinEl(el); return; }
+      var following = swipe && entry.followSwipe && el._hkPin;
+      if (following && !arrived) return;
+      if (!ok) { unpinEl(el); return; }
       if (inFade(el)) return;
       var tint = entry.tint;
       var r = el.getBoundingClientRect();
@@ -945,11 +971,13 @@
       // ...NOW AT ONCE (2026-11-13): it is put on in the frame the sky cuts to that page, as the live blur would change;
       // a fade across showed the last page's glass for its length (0.7 s on the Loft's tab bar, 2026-11-12). Only a
       // repaint of the same page fades.
-      if (fade && !turn && from) moves.push({ el: el, fromUrl: el._hkPinUrl, fromAt: el._hkPinPos, at: at, bg: bg, pin: tint,
-                                              ms: ms || PRE_FADE, coarse: !!coarse });
+      var firstVisit = following && arrived && turn && !swipe.slides.has(el);
+      if ((fade && !turn && from) || firstVisit) moves.push({ el: el, fromUrl: el._hkPinUrl, fromAt: el._hkPinPos, at: at, bg: bg, pin: tint,
+                                                           ms: firstVisit ? 200 : ms || PRE_FADE, coarse: !firstVisit && !!coarse });
       else wearPin(el, bg);
       el._hkPinPos = at; el._hkPinUrl = pre.url; el._hkPinPath = pre.path;
     });
+    if (arrived) clearSkySwipe();
     if (moves.length) crossfade(moves, W, H);
   }
   // THE NEW SLICE FADES IN OVER WHAT WAS THERE, in place, every frame for
@@ -1017,7 +1045,7 @@
   function onNavPre() {
     if (!PRE || !active) return;
     var path = here(), c = cache.get(path);
-    if (skySwipePath && path !== skySwipePath) skySwipePath = null;
+    if (skySwipe && path !== skySwipe.path && path !== skySwipe.from) clearSkySwipe();
     pre.navAt = Date.now();
     pre.pending = null;
     pre.next = c ? { url: c.url, path: path } : null;
@@ -1754,7 +1782,7 @@
     clearTimeout(pre.timer); pre.timer = null;
     if (fadeRaf && window.cancelAnimationFrame) cancelAnimationFrame(fadeRaf);
     fadeRaf = null; clearTimeout(fadeTimer); fadeTimer = null; fading = null; pre.pending = null;
-    skySwipePath = null;
+    clearSkySwipe();
     cache.forEach(function (c) { if (c.url !== pre.url) { try { URL.revokeObjectURL(c.url); } catch (e) { /* gone */ } } }); cache.clear();
     pics.clear();
     pinned.forEach(function (t, el) { unpinEl(el); });
@@ -1864,7 +1892,12 @@
       pinned.set(el, { tint: tint, followSwipe: followSwipe });
       if (PRE && active) pinAll(false);
     },
-    unpin: function (el) { if (!el) return; pinned.delete(el); unpinEl(el); },
+    unpin: function (el) {
+      if (!el) return;
+      var slide = skySwipe && skySwipe.slides.get(el);
+      if (slide) { slide.remove(); skySwipe.slides.delete(el); }
+      pinned.delete(el); unpinEl(el);
+    },
     followSkySwipe: followSkySwipe,
     // THE PAGE SWIPE (hk-pageswipe.js): where page `el` is, as it moves
     // (`m`: { x, left, top, tr, path }), or null once it is back in its place

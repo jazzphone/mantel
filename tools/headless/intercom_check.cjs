@@ -194,6 +194,9 @@ const MEASURE = () => {
         if (m.chipHeights.length !== 1) fail(name, 'every group is the same height', m.chipHeights);
         if (m.count !== '2 of 8' || m.clear !== 'false') fail(name, 'the count and Clear All', [m.count, m.clear]);
         if (m.word !== 'Tap to Talk') fail(name, 'the talk button says Tap to Talk', m.word);
+        if ((name === 'desktop' || name === 'wall' || name === 'ipad-landscape') && m.side !== 'beside')
+          fail(name, 'the room picker is to the right of the talk button', m.sheet);
+        if (name === 'phone' && m.side !== 'below') fail(name, 'the room picker stacks below the talk button on a narrow phone', m.sheet);
         out(`ok ${name} the rooms are ${m.side} the talk button` + (m.ellipsed.length ? ` (with "…": ${m.ellipsed.join(', ')})` : ''));
         if (m.slack > 80) fail(name, 'the sheet is as tall as its content: no big empty area', m.slack);
         if (m.dashed.some((d) => d !== 'dashed')) fail(name, 'presets have a dashed border', m.dashed);

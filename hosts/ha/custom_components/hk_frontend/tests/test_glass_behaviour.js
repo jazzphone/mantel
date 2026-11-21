@@ -496,37 +496,50 @@ G.pin(swipeBar, 'linear-gradient(red,red)', true);
 G._pre.show('blob:home-first');
 G._pre.show('blob:home-1');
 advance(100);
-var releaseBar = G.followSkySwipe();
+var weatherSwipe = G.followSkySwipe('/dashboard-home/weather');
 G.repin(); advance(100);
-ok('during the swipe the bar keeps live blur even through a queued pre-render fade', !swipeBar.style.background && !swipeBar.style['backdrop-filter']);
+ok('the first swipe keeps its outgoing blur pinned, even through a queued repaint', /blob:home/.test(swipeBar.style.background || '') &&
+   swipeBar.style['backdrop-filter'] === 'none' && !swipeBar.firstChild);
 ok('the docked sidebar and page remain pre-rendered while the bar follows the swipe', /blob:home/.test(side.style.background || '') &&
    /blob:home/.test(srcOf(V14.v)));
-releaseBar('/dashboard-home/weather');
-ok('a finished cover cannot put the old sky back on the bar before the new page arrives', !swipeBar.style.background);
+weatherSwipe.end(true);
+ok('the bar holds its slice until the first picture for the next page arrives', /blob:home/.test(swipeBar.style.background || '') &&
+   swipeBar.style['backdrop-filter'] === 'none');
 location.pathname = '/dashboard-home/weather'; G._pre.nav(); G._pre.show('blob:weather-1');
 ok('the address leaves Home, Home still on screen: the sidebar keeps Home\'s picture (no live gap)', /blob:home-1/.test(side.style.background || '') && !/weather/.test(side.style.background || ''),
   side.style.background);
 ok('...and Home\'s layers keep Home\'s', /^(blob:home-1 ?)+$/.test(srcOf(V14.v)), srcOf(V14.v));
-var V14w = view(), cw = add(V14w.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
+var V14w = view(), cw = add(V14w.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(100);
+ok('the first incoming blur cross-fades from the old slice with no live blur', /cross-fade.*blob:home.*blob:weather-1/.test(swipeBar.style.background || '') &&
+   swipeBar.style['backdrop-filter'] === 'none', swipeBar.style.background);
+advance(200);
 ok('...and Weather\'s layers wear Weather\'s', /^(blob:weather-1 ?)+$/.test(srcOf(V14w.v)), srcOf(V14w.v));
 var sideMid = side.style.background || '';
-ok('the bar resumes Pre-rendered from the destination as soon as it is showing', /blob:weather-1/.test(swipeBar.style.background || '') &&
+ok('the bar settles on just the destination picture', /blob:weather-1/.test(swipeBar.style.background || '') &&
    !/blob:home/.test(swipeBar.style.background || '') && swipeBar.style['backdrop-filter'] === 'none');
-var firstSwipe = G.followSkySwipe(), secondSwipe = G.followSkySwipe();
-firstSwipe('/dashboard-home/home');
-ok('an older swipe finishing cannot end a newer swipe’s live blur', !swipeBar.style.background);
-secondSwipe(null);
-ok('a cancelled swipe restores the current page immediately', /blob:weather-1/.test(swipeBar.style.background || ''));
+var firstSwipe = G.followSkySwipe('/dashboard-home/home'), secondSwipe = G.followSkySwipe('/dashboard-home/home');
+secondSwipe.paint(0, 0.4);
+firstSwipe.end(true);
+ok('a cached swipe blends the two slices at the swipe fraction and ignores an older swipe finishing', swipeBar.firstChild &&
+   /blob:home-1/.test(swipeBar.firstChild.style.background || '') && swipeBar.firstChild.style.opacity === '0.4' &&
+   /blob:weather-1/.test(swipeBar.style.background || '') && swipeBar.style['backdrop-filter'] === 'none');
+secondSwipe.end(false);
+ok('a cancelled swipe drops its layer and restores the current page', !swipeBar.firstChild && /blob:weather-1/.test(swipeBar.style.background || ''));
 ok('...and as Weather\'s view shows the sidebar wears Weather\'s at once: no fade across from Home\'s',
    /^linear-gradient\(red,red\), url\("blob:weather-1"\) -?0\.0px -?0\.0px \/ 1280px 800px no-repeat$/.test(sideMid), sideMid);
 advance(400);
 ok('...ending on Weather\'s alone', /blob:weather-1/.test(side.style.background || '') && !/blob:home-1|cross-fade/.test(side.style.background), side.style.background);
 V14w.v.remove(); leave(cw);
+var homeSwipe = G.followSkySwipe('/dashboard-home/home');
+homeSwipe.paint(0, 1);
+homeSwipe.end(true);
 location.pathname = '/dashboard-home/home'; G._pre.nav();
 var V14b = view(); add(V14b.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
 ok('back on Home: Home\'s remembered picture is on at once, no paint awaited', /^(blob:home-1 ?)+$/.test(srcOf(V14b.v)), srcOf(V14b.v));
 advance(1600);
 ok('...and the sidebar follows, at the latest when no view ever says it is up', /blob:home-1/.test(side.style.background || ''), side.style.background);
+ok('the cached landing exchanges its opaque layer for the same pinned picture', !swipeBar.firstChild &&
+   /blob:home-1/.test(swipeBar.style.background || '') && swipeBar.style['backdrop-filter'] === 'none');
 G.unpin(side); side.remove();
 G.unpin(swipeBar); swipeBar.remove();
 setLook('blur'); V14.v.remove(); V14b.v.remove(); Array.from(GL).forEach(leave); advance(300);

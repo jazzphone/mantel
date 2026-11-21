@@ -25,6 +25,7 @@ back to **Same as All Screens** for the switch to reach it.
 **Seasonal Effects** in **Background** adds autumn leaves, winter snowflakes,
 or spring petals behind the cards. Set it for All Screens or for a single
 screen. It works over live skies, colors, wallpapers, photos and landscapes.
+On dashboard pages, falling autumn leaves are reserved for Home.
 Turn off **Seasonal Decorations** for a plain background with just the moving
 effects. The effect follows the season and the configured hemisphere, and
 respects Animations and Reduce Motion. A decorated Live Sky uses its own

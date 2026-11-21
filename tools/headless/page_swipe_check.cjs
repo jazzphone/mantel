@@ -33,6 +33,13 @@ const HELP = () => {
       const m = new DOMMatrix(getComputedStyle(t, '::before').transform);
       return { label: t.getAttribute('aria-label'), x: m.m41, y: m.m42, sx: m.a, sy: m.d, pos: document.getElementById('hk-tabbar').getAttribute('data-pos') };
     },
+    glass: () => {
+      const bar = document.getElementById('hk-tabbar'), pill = bar?.shadowRoot.querySelector('.pill');
+      if (!pill) return null;
+      const layer = pill.querySelector('.hk-swipe-glass'), css = getComputedStyle(pill);
+      return { pinned: (pill.style.background || '').includes('blob:'), live: (css.backdropFilter || css.webkitBackdropFilter) !== 'none',
+               mix: layer ? Number(getComputedStyle(layer).opacity) : null };
+    },
     scrolled: () => Math.max(window.scrollY || 0, document.scrollingElement ? document.scrollingElement.scrollTop : 0, document.body.scrollTop || 0),
     tall: () => Math.max(document.scrollingElement.scrollHeight, document.body.scrollHeight) > innerHeight + 60,
     slotKids: () => { const v = view(); return v && v.parentNode ? [...v.parentNode.children].filter(k => k.localName !== 'div' || k.className === 'hk-swipe-ghost').length : 0; },
@@ -149,6 +156,17 @@ async function bar(browser) {
   const t = await open(browser, 'ps-bar'), order = await ps(t, 'order');
   assert(order.length >= 3, 'bar: the tabs\' pages ' + JSON.stringify(order));
   sameTab(await ps(t, 'here'), order[0].title, 'bar at Home');
+  await t.page.waitForFunction(() => __ps.glass()?.pinned);
+  await t.page.evaluate(() => {
+    const land = hkTabBar.land;
+    hkTabBar.land = (path, motion) => {
+      land(path, motion);
+      if (path) {
+        const bar = document.getElementById('hk-tabbar');
+        __ps.ink = { address: location.pathname, actual: bar.style.getPropertyValue('--hk-accent'), expected: hkCards.menu.accent(path).color };
+      }
+    };
+  });
   assert.equal(await ps(t, 'touchAction'), 'pan-y pinch-zoom', 'bar: the page says pan-y');
   // on a tile: Home's favorites, the rightmost
   const fav = await t.page.evaluate(() => {
@@ -159,21 +177,32 @@ async function bar(browser) {
   assert(fav, 'bar: a tile to swipe on');
   let mid = null;
   const s1 = left(fav);
-  await swipe(t, s1.a, s1.b, { mid: async () => { mid = { kids: await ps(t, 'slotKids'), here: await ps(t, 'here') }; await shot(t, 'bar-mid'); } });
+  await swipe(t, s1.a, s1.b, { mid: async () => {
+    mid = { kids: await ps(t, 'slotKids'), here: await ps(t, 'here'), glass: await ps(t, 'glass') }; await shot(t, 'bar-mid');
+  } });
   assert(mid.kids >= 2, 'bar: the next page beside it mid-swipe ' + JSON.stringify(mid));
   assert(mid.here && (mid.here.x > 2 || mid.here.y > 2), 'bar: the highlight on its way mid-swipe ' + JSON.stringify(mid.here));
+  assert(mid.glass?.pinned && !mid.glass.live, 'bar: the first swipe stays pre-rendered ' + JSON.stringify(mid.glass));
+  const ink = await t.page.evaluate(() => __ps.ink);
+  assert(ink?.address === order[0].path && ink.actual === ink.expected, 'bar: the accent lands with the highlight before navigation ' + JSON.stringify(ink));
   assert.equal(await landed(t, order[1].path), order[1].path, 'bar: a swipe on a tile turns the page');
   sameTab(await ps(t, 'here'), order[1].title, 'bar after the swipe');
+  await t.page.waitForFunction(path => hkGlass._pre.state().path === path && __ps.glass()?.pinned, order[1].path);
   await shot(t, 'bar-after');
   // back: Home is held by the view host, so it slides in as itself
   const s2 = await ps(t, 'spot', 0.3);
   assert(s2, 'bar: a spot on ' + order[1].title);
   let back = null;
   const r2 = right(s2);
-  await swipe(t, r2.a, r2.b, { mid: async () => { back = { ghost: await ps(t, 'ghost'), kids: await ps(t, 'slotKids') }; } });
+  await swipe(t, r2.a, r2.b, { mid: async () => {
+    back = { ghost: await ps(t, 'ghost'), kids: await ps(t, 'slotKids'), glass: await ps(t, 'glass') };
+  } });
   assert(back.kids >= 2 && !back.ghost, 'bar: Home slides in as itself ' + JSON.stringify([back, s2, await ps(t, 'diag')]));
+  assert(back.glass?.pinned && !back.glass.live && back.glass.mix > 0 && back.glass.mix < 1,
+    'bar: the return swipe blends its two pre-rendered backgrounds ' + JSON.stringify(back.glass));
   assert.equal(await landed(t, order[0].path), order[0].path, 'bar: and back');
   sameTab(await ps(t, 'here'), order[0].title, 'bar back at Home');
+  await t.page.waitForFunction(() => { const g = __ps.glass(); return g?.pinned && !g.live && g.mix === null; });
   // the scenes row scrolls sideways: its own
   const row = await t.page.evaluate(() => {
     for (const c of __ps.deep(document, 'hk-scenes-card')) {

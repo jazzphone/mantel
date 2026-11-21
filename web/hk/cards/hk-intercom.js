@@ -1301,30 +1301,29 @@
     var GAP = TILE.gridGap, SPC = C.SP;
     // THE SHEET (2026-11-05, the owner's mockup, docs/phase17/mockups/intercom-sheet.html): the talk button is the Lock
     // sheet's (a 264 ring around a 192 core; 228 / 166 narrow), its big word under it, then one status line; the rooms in
-    // their own panel ("To", how many, Clear All, the groups, the rooms) beside it where the sheet is wide (a container
-    // query: the sheet's own width, whatever the screen), under it where it isn't.
+    // their own panel ("To", how many, Clear All, the groups, the rooms) beside it when the sheet has room.
     var TALK = { idle: '#0a84ff', rec: '#ff453a', live: '#30d158', wait: '#ff9f0a' };   // the Lock sheet's literals, as there
-    var COLS_W = 680;                          // the sheet's own width from which the rooms sit beside the talk button
+    var COLS_W = 680, SHORT_COLS_W = 600, NARROW_W = 480;
+    var SHORT_SHEET = '(max-height:520px)';
     var SHEET_CSS = [
       ':host{display:block}',
-      '.sh{container-type:inline-size;display:block;padding:2px 0 0}',
+      '.sh{padding:2px 0 0}',
       // THE SHEET'S ONE HEIGHT (2026-11-12, the owner: the tablet's two columns, the same size in Message and Live, on every
       // screen; DESIGN.md: a detail sheet keeps its one height, a two-column sheet's columns share their top and foot). In two
-      // columns ([cols], set by the sheet's own width, as the container query) the card is the sheet's body: the rooms panel
+      // columns ([cols], set by the sheet's own width) the card is the sheet's body: the rooms panel
       // its full height, the rooms scrolling inside it under To, the groups and Live's note, the talk side on its center
       // line. Stacked (a phone), the card is as tall as it is and the sheet's body scrolls.
       ':host([cols]){min-height:0;display:flex;flex-direction:column}',
       ':host([cols]) > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
       ':host([cols]) .sh{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
-      ':host([cols]) .cols{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}',
+      ':host([cols]) .cols{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}',
       ':host([cols]) .pick{align-self:stretch;min-height:0}',
       ':host([cols]) .rsec{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
       ':host([cols]) .rsec::-webkit-scrollbar{display:none}',
       '.cols{display:flex;flex-direction:column;gap:' + SPC.piece + 'px}',
-      '@container (min-width:' + COLS_W + 'px){.cols{display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);align-items:start}',
       // THE TALK GROUP ON THE ROOMS PANEL'S CENTER LINE (2026-11-07, the review): the button, its word and the line were
       // top-weighted ~65 px above the panel's middle on a 1280 x 800 tablet; a taller list of rooms still scrolls past it
-      '  .talk{align-self:center}}',
+      ':host([cols]) .talk{align-self:center}',
       // (NOT STICKY, 2026-11-09: position:sticky made the talk side a layer of its own inside the sheet's backdrop-filter
       // glass, and the wall tablets drew it a shade lighter, a box with a hard edge under the status line -- the owner's
       // photo. Nine rooms fit beside it at 1280 x 800; a longer list scrolls the talk side with it.)
@@ -1451,13 +1450,13 @@
       '.none{color:' + v('ink-2') + ';font-size:15px;text-align:center;padding:36px 12px}',
 
       // NARROW (a phone): the Lock sheet's phone button, the rooms two across, a long name on two lines
-      '@container (max-width:479px){.mb{width:228px;height:228px}.mb .core{width:166px;height:166px}.mb .core svg{width:64px;height:64px}',
-      '  .wd{font-size:32px;line-height:38px}',
-      '  .pick{padding:14px}.chips{margin:0 -14px -6px;padding:0 14px 6px}}',
+      ':host([narrow]) .mb{width:228px;height:228px}:host([narrow]) .mb .core{width:166px;height:166px}:host([narrow]) .mb .core svg{width:64px;height:64px}',
+      ':host([narrow]) .wd{font-size:32px;line-height:38px}',
+      ':host([narrow]) .pick{padding:14px}:host([narrow]) .chips{margin:0 -14px -6px;padding:0 14px 6px}',
       // A SHORT SCREEN (a phone on its side, 2026-11-05, the owner: "that doesn't look good at all"): a narrow talk side
       // with a smaller button; the groups one row that scrolls sideways; the rooms scroll in their own panel, so the
       // button stays beside them; everything fits the sheet's height
-      '@media (max-height:520px){.mb{width:100px;height:100px}.mb .core{width:74px;height:74px}.mb .core svg{width:32px;height:32px}',
+      '@media ' + SHORT_SHEET + '{.mb{width:100px;height:100px}.mb .core{width:74px;height:74px}.mb .core svg{width:32px;height:32px}',
       '  .mb .trk,.mb .prg{stroke-width:10}',
       '  .wd{font-size:22px;line-height:26px;letter-spacing:-0.4px}.mt{font-size:13px;line-height:17px;min-height:17px}.line{font-size:13px;line-height:17px;min-height:0}',
       '  .line:empty{display:none}.talk{gap:8px}.mic{gap:4px}.rv{gap:6px}.rv button{padding:0 14px}',
@@ -1465,8 +1464,7 @@
       '  .talk:has(.rv:not([hidden])) .wd{display:none}',
       '  .pick{padding:12px 14px;gap:10px;max-height:calc(100dvh - 128px);overflow-y:auto;overscroll-behavior:contain}',
       '  .chips{margin:0 -14px -6px;padding:0 14px 6px}',
-      '  .rooms{gap:6px}}',
-      '@media (max-height:520px){@container (min-width:600px){.cols{display:grid;grid-template-columns:200px minmax(0,1fr);align-items:start;gap:16px}}}',
+      '  :host([cols]) .cols{grid-template-columns:200px minmax(0,1fr);gap:16px}.rooms{gap:6px}}',
       '@media (prefers-reduced-motion:reduce){.mb,.mb .core,.mb .prg,.rv button,.line{transition:none}.mb:active .core,.rv button:active{transform:none}',
       '  .mic[data-kind="busy"] .core{animation:none}}'
     ].join('');
@@ -1492,10 +1490,31 @@
       }
       connectedCallback() {
         if (super.connectedCallback) super.connectedCallback();
+        // Use one measurement for the column layout and its scroller, including on desktop and at browser zoom.
+        var self = this, body = this._root, short = this._shortSheet = window.matchMedia && window.matchMedia(SHORT_SHEET);
+        var layout = this._layout = function () {
+          if (self._layoutFrame) return;
+          // The layout can change the observed body's height. Apply it outside the observer's delivery.
+          self._layoutFrame = requestAnimationFrame(function () {
+            self._layoutFrame = 0;
+            var width = body.clientWidth, shortNow = short && short.matches;
+            self.toggleAttribute('cols', width >= (shortNow ? SHORT_COLS_W : COLS_W));
+            self.toggleAttribute('narrow', !shortNow && width < NARROW_W);
+          });
+        };
+        if (short && short.addEventListener) short.addEventListener('change', layout);
+        if (typeof window.ResizeObserver === 'function') {
+          this._ro = new window.ResizeObserver(layout);
+          this._ro.observe(body);
+        }
+        layout();
         if (this.client) this._receiveClient();
       }
       disconnectedCallback() {
         // the sheet closed: the microphone off, the socket gone (hk-mic.js), the copy with them
+        if (this._ro) { this._ro.disconnect(); this._ro = null; }
+        if (this._shortSheet && this._shortSheet.removeEventListener) this._shortSheet.removeEventListener('change', this._layout);
+        if (this._layoutFrame) { cancelAnimationFrame(this._layoutFrame); this._layoutFrame = 0; }
         if (this._off) { this._off(); this._off = null; }
         if (this._ctl) { this._ctl.dispose(); this._ctl = null; }
         if (super.disconnectedCallback) super.disconnectedCallback();
@@ -1525,12 +1544,6 @@
           mic: q('.mic'), mb: q('.mb'),
           mt: q('.mt'), rv: q('.rv'), foot: q('.foot'),
           core: q('.core'), wd: q('.wd'), cnt: q('.cnt'), clr: q('.clr') };
-        // [cols]: the two columns' layout (SHEET_CSS), by the sheet's own width, as the container query decides it
-        var sh = q('.sh');
-        if (typeof window.ResizeObserver === 'function') {
-          this._ro = new window.ResizeObserver(function () { self.toggleAttribute('cols', sh.clientWidth >= COLS_W); });
-          this._ro.observe(sh);
-        }
         this._e.clr.addEventListener('click', function (e) { e.stopPropagation(); if (self._ctl && self._e.clr.getAttribute('aria-disabled') !== 'true') self._ctl.clearRooms(); });
         var mb = this._e.mb, down = false;
         // POINTER EVENTS, with pointercancel. The press makes and resumes the AudioContext (hk-mic.js unlock) and Message

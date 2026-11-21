@@ -266,17 +266,18 @@ def test_the_block_wears_the_other_blocks_tile_language_standard_and_homeview():
 
 def test_the_sheet_keeps_the_one_height_the_rooms_one_grid_and_the_layout_follows_the_sheets_width():
     """2026-11-05, the owner's mockup: the Lock sheet's talk button, the rooms beside it where the sheet is wide (its own
-    width: a container query), under it where it isn't; every room one row on one grid. 2026-11-12, the owner: the sheet
+    measured width), under it where it isn't; every room one row on one grid. 2026-11-12, the owner: the sheet
     keeps the one height every sheet has (DESIGN.md), the same in Message and Live -- the rooms scroll in their panel."""
     card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
     assert "width: 'wide', fill: true" in card and "height: 'auto'" not in card
     assert "':host([cols]) .rsec{flex:1 1 auto;min-height:0;overflow-y:auto" in card, "the rooms scroll inside their panel"
     assert "':host([cols]) .pick{align-self:stretch;min-height:0}'" in card, "the two columns share their top and foot"
-    assert "self.toggleAttribute('cols', sh.clientWidth >= COLS_W)" in card
+    assert "var width = body.clientWidth" in card and "this._ro.observe(body)" in card
+    assert "self.toggleAttribute('cols', width >= (shortNow ? SHORT_COLS_W : COLS_W))" in card
     # (2026-11-10, the owner: the rooms are Music's speaker rows, one to a line, two where the panel is wide)
     assert ".rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))" in card
     assert ".rm{display:flex;align-items:center;gap:12px;min-height:52px" in card
-    assert "container-type:inline-size" in card and "var COLS_W = 680;" in card and "@container (min-width:' + COLS_W + 'px)" in card
+    assert "var COLS_W = 680" in card and "':host([cols]) .cols{flex:1 1 auto;min-height:0;display:grid;" in card
     assert "width:264px;height:264px" in card and "width:192px;height:192px" in card, "the Lock sheet's ring and core"
     assert ".mb{width:228px;height:228px}" in card and ".mb .core{width:166px;height:166px}" in card, "and its phone sizes"
     assert "Clear All" in card

@@ -9,7 +9,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Seasonal Effects** adds autumn leaves, winter snowflakes and spring petals to dashboard backgrounds, including photos and landscapes. It can run with Seasonal Decorations off.
 
 **Fixed**
-- **The tab bar follows the background during a page swipe in Pre-rendered Blur.** It blurs the fading sky during the swipe, then returns to its pre-rendered background as the next page settles.
+- **Falling autumn leaves stay on Home**, including when Apps and Weather use Live Sky.
+- **Apple TV remote volume buttons** fit in a compact row below the remote. The **Intercom** places room selection beside the talk button whenever the sheet is wide enough.
+- **The tab bar blends its pre-rendered backgrounds during a swipe** once both pages have been seen. On a first visit, it fades to the new blur when ready. The icons ease into the destination accent as the highlight moves.
 - **The Cameras page lost its cameras after a while** (and any page that lists the house's things could lose some): a settings change built the screen again from only the states its cards were reading by then, so the Cameras page listed just the cameras something else on the screen showed -- often only the first. The screen is now built again from the whole house.
 
 ## 0.1.168 - 2026-11-15

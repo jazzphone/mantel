@@ -1458,13 +1458,14 @@
           opts = opts || {};
           var P = window.hkSettings, policy = P && P.rendering ? P.rendering() : { flat: false };
           var effects = P && P.seasonalEffects && P.seasonalEffects();
+          var fallingLeaves = opts.fallingLeaves !== false;
           // (Flat over the Live Sky or a Wallpaper, phase 33: the sky itself, behind Flat's cards -- resolve's underFlat)
           var flatGround = policy.flat && !opts.underFlat;
           if (ST.mounted && !!ST.mounted._hkFlat !== flatGround) teardown();
           if (flatGround) {
             renderFlat(client, card, opts, policy);
             var enabled = opts.enable && client.states[opts.enable];
-            paintSeasonalEffects(ST.mounted, client, effects && !(enabled && enabled.state === 'off'), null);
+            paintSeasonalEffects(ST.mounted, client, effects && !(enabled && enabled.state === 'off'), null, fallingLeaves);
             return '';
           }
 
@@ -1567,12 +1568,13 @@
             ST.mountedVariant = null;
             ST.mounted.style.setProperty('--artO', '0');
             rs = read(client);
+            rs.fallingLeaves = fallingLeaves;
             // a page's own fixed backdrop, over this screen's (resolve)
             if (opts.backdrop) rs.backdrop = opts.backdrop;
             else if (opts.backdrop === false) rs.backdrop = null;
             paint(ST.mounted, rs);
           }
-          paintSeasonalEffects(held, client, effects, rs);
+          paintSeasonalEffects(held, client, effects, rs, fallingLeaves);
           applyHidden();
           // THE SKY CHANGED (skySig, or the page): said once per change, not on
           // every render -- Tint from Background follows its colors

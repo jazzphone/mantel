@@ -404,10 +404,10 @@
   // strategy names it. Home and a dashboard of your own: no page (the
   // screen's colors).
   var PAGE_OF_PATH = { 'doors-windows': 'doors_windows', playmusic: 'music', 'music-browse': 'music', 'live-tv': 'live_tv' };
-  function viewKeys() {
+  function viewKeys(path) {
     var cfg = null, seg = '';
     try {
-      seg = decodeURIComponent((String(location.pathname).split('/')[2] || '').split('?')[0]);
+      seg = decodeURIComponent(String(path == null ? location.pathname : path).split(/[?#]/)[0].split('/')[2] || '');
       cfg = window.hkShell.dashboardConfig();
     } catch (e) { /* no document (a test harness) */ }
     var views = cfg && cfg.views, v = null;
@@ -435,16 +435,16 @@
     return out;
   }
   // THIS PAGE'S FLAT COLORS (or `ctx`'s: {board: a screen's item | null for
-  // All Screens alone, keys}) -- memoized per address and settings version
+  // All Screens alone, keys, path}) -- memoized per address and settings version
   var flatMemo = { key: null, val: null };
   function flatColors(ctx) {
-    var vk = ctx && ctx.keys !== undefined ? { keys: keysOf(ctx.keys), sure: true } : viewKeys();
+    var vk = ctx && ctx.keys !== undefined ? { keys: keysOf(ctx.keys), sure: true } : viewKeys(ctx && ctx.path);
     var b = ctx && ctx.board !== undefined ? ctx.board : boardHere();
     var where = '';
     try { where = String(location.pathname) + String(location.search); } catch (e) { /* no location */ }
     var mkey = ctx ? null : where + '|' + (state ? state.version : 0) + '|' + vk.keys.join(',');
     if (mkey && flatMemo.key === mkey) return flatMemo.val;
-    var r = resolveFlatColors(get('look', {}), b, vk.keys), pv = ctx ? {} : flatPreview();
+    var r = resolveFlatColors(get('look', {}), b, vk.keys), pv = !ctx || ctx.path ? flatPreview() : {};
     FLAT_FIELDS.forEach(function (f) { if (pv[f]) r[f] = { value: pv[f], scope: 'preview', page: null }; });
     r.keys = vk.keys;
     if (mkey && vk.sure) { flatMemo.key = mkey; flatMemo.val = r; }
