@@ -195,11 +195,14 @@ async def claim_page(request: web.Request) -> web.Response:
            "input{font:600 32px ui-monospace,monospace;letter-spacing:4px;text-align:center;text-transform:uppercase;"
            "width:min(320px,90%);padding:14px;margin:28px auto 8px;border-radius:14px;border:0;background:#1c1c1e;"
            "color:#fff;display:block}button{font:inherit;font-weight:600;font-size:18px;padding:14px 40px;border:0;border-radius:14px;"
-           "background:#0a84ff;color:#fff;margin-top:12px}#problem{color:#ff6961;min-height:1.4em}</style>"
-           "<h1>Pair This Tablet</h1><p>Enter the code from Mantel Settings → All Screens → Wall Tablets → the tablet → "
+           "background:#0a84ff;color:#fff;margin-top:12px}#problem{color:#ff6961;min-height:1.4em}"
+           "a{display:inline-block;color:#0a84ff;text-decoration:none;margin-top:28px;padding:10px}</style>"
+           "<h1>Pair This Tablet</h1><p>Enter the code from Mantel Settings → Wall Tablets → the tablet → "
            "Pair a Tablet App.</p><form><input id=code autocomplete=off autocapitalize=characters spellcheck=false "
            "maxlength=9 placeholder=ABCD-2345 aria-label='Pairing code'><p id=problem role=alert></p>"
            "<button type=submit>Pair</button></form>"
+           # back to the sign-in page it was opened from: a kiosk browser has no Back of its own
+           "<a href='/login'>Sign In Instead</a>"
            f"<script nonce='{html.escape(nonce)}'>{PAGE_SCRIPT}</script></html>")
     csp = (f"default-src 'none'; script-src 'nonce-{nonce}'; style-src 'unsafe-inline'; connect-src 'self'; "
            "form-action 'self'; base-uri 'none'; frame-ancestors 'none'")

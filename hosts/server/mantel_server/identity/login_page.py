@@ -99,7 +99,11 @@ def render(request: web.Request, next_path: str) -> str:
     base = base if _BASE_RE.match(base or "") else ""
     ha_href = "login/ha" + (f"?next={quote(next_path, safe='/')}" if next_path != DEFAULT_NEXT else "")
     door = door_of(request)
+    # PAIRING BY CODE (the owner, 2026-11-21: a Kiosk Satellite tablet has no address bar to reach /device/claim): offered
+    # where a code can be used, the home network at Mantel's own address (device_claim.py; its page posts to /api/...)
+    pair = door == "lan" and not base
     return (_static("static/login/index.html")
+            .replace("__PAIR_HIDDEN__", "" if pair else " hidden")
             .replace("__BASE__", html.escape(base, quote=True))
             .replace("__NEXT__", html.escape(next_path, quote=True))
             .replace("__DOOR__", html.escape(door, quote=True))

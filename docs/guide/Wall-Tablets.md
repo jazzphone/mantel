@@ -94,7 +94,7 @@ You're signed out of that browser at once, and the browser is now the tablet. Se
 Nobody signs in on the tablet:
 
 1. Anywhere, signed in as an Owner or Admin: **Mantel Settings** → **Wall Tablets** → the tablet → **Access** → **Pair a Tablet App…**. Mantel shows a code such as `K7MQ-2XRD`. It works once, for 10 minutes.
-2. On the tablet: Mantel for Android's setup takes the code; any other browser opens `https://mantel.example.com/device/claim` and types it. The tablet must be on the home network.
+2. On the tablet: Mantel for Android's setup takes the code. In any other browser, Kiosk Satellite's included, tap **Pair This Tablet With a Code** on Mantel's sign-in page (or open `https://mantel.example.com/device/claim`) and type it. The tablet must be on the home network; away from home the sign-in page doesn't offer it.
 
 The browser is now the tablet, with the Wall Tablet role in that tablet's room. The Audit Log records it as enrolled by the person who made the code.
 

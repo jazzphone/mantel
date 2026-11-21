@@ -117,6 +117,17 @@ async def test_door_is_told_to_the_page(mantel):
     assert 'id="door-note"' in await r.text()
 
 
+async def test_pairing_by_code_is_offered_only_on_the_home_network(mantel):
+    """A kiosk browser has no address bar (the owner, 2026-11-21): the sign-in page links to the code page, where a
+    code can be used: the home network at Mantel's own address."""
+    lan = await (await mantel.client.get("/login")).text()
+    assert '<section id="pair-step" class="step">' in lan and 'href="device/claim"' in lan
+    assert lan.index('id="ha"') < lan.index('id="pair"')                         # after Home Assistant
+    away = await (await mantel.client.get("/login", headers={"X-Mantel-Door": "tunnel"})).text()
+    assert '<section id="pair-step" class="step" hidden>' in away
+    assert "__PAIR_HIDDEN__" not in lan + away
+
+
 # -- next ------------------------------------------------------------------------------------------
 NEXT_TABLE = [
     # (value, expected)

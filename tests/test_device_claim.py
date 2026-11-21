@@ -105,6 +105,7 @@ async def test_the_claim_page_is_a_form_with_a_strict_policy(mantel):
     assert "script-src 'nonce-" in csp and "default-src 'none'" in csp and "connect-src 'self'" in csp
     text = await r.text()
     assert "Pair This Tablet" in text and "/api/devices/claim" in text
+    assert "href='/login'" in text                                          # a kiosk browser's way back
 
 
 # -- the tablet app's updates ---------------------------------------------------------------------------------------

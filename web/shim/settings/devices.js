@@ -133,8 +133,8 @@ export function drawTabletMantel(ctx) {
   if (me.user.role === 'owner' || me.user.role === 'admin') access.push(button('Pair a Tablet App…', async () => {
     const out = await act(key, () => api('POST', '/api/devices/claim-codes', { tablet: tid }), null);
     if (out && out.code) await ask({ title: 'Pairing Code: ' + out.code, ok: 'Done',
-      message: 'On the tablet, enter it in Mantel for Android’s setup, or open ' + location.origin + mantelUrl('/device/claim') +
-        ' in its browser. It works once, on the home network, for the next 10 minutes.' });
+      message: 'On the tablet, enter it in Mantel for Android’s setup, tap Pair This Tablet With a Code on Mantel’s sign-in page, or open ' +
+        location.origin + mantelUrl('/device/claim') + ' in its browser. It works once, on the home network, for the next 10 minutes.' });
   }, { fk: 'mx:claim-code:' + tid }));
   // ONE ROOM: the device follows the tablet's Room, and so do the grants' rooms that were just its room
   if (mine.length) {
