@@ -21,7 +21,8 @@
 
     // Build one theme's scenery into the sky, under the fog. Returns its root,
     // update(state) -- every paint: light, size, weather -- and dispose().
-    // Built once per theme; nothing here is rebuilt by a paint.
+    // Built once per theme; nothing here is rebuilt by a paint. `fallingLeaves`: the theme has leaves (fall, Halloween),
+    // built whatever the page -- a page without them hides them (.no-leaves).
     function mountNearScenery(sky, theme, occ, L, fallingLeaves) {
       if (!sky) return null;
       L = L || lvOf(null);
@@ -356,16 +357,21 @@
       var L = lvOf(s);
       if (nearTheme) {
         var occ = surprise || name || nearTheme;
-        var nearLeaves = (nearTheme === 'fall' || nearTheme === 'halloween') && s.fallingLeaves !== false;
-        var nearKey = L.sigFor(occ) + '|' + occ + '|' + nearLeaves;
+        // THE LEAVES ARE THE SCENE'S ON EVERY PAGE, SHOWN ONLY WHERE THEY FALL (2026-11-22, the owner: "a bright flicker of an
+        // empty background when using decorations between the main dashboard and the apps page"): Home has falling
+        // leaves and the Pages screen none, and with that in the key every page change between them threw the whole
+        // scenery away and built it again -- a frame of bare sky while its pictures came back. Now it is built once and
+        // `no-leaves` hides the leaves' layers where a page has none (hk-sky.js's sheet).
+        var nearKey = L.sigFor(occ) + '|' + occ;
         if (!el._hkNear || el._hkNearTheme !== nearTheme || el._hkNearLv !== nearKey) {
           if (el._hkNear) el._hkNear.dispose();
           host.textContent = '';
           el._hkSeasonKey = null;
-          el._hkNear = mountNearScenery(el, nearTheme, occ, L, nearLeaves);
+          el._hkNear = mountNearScenery(el, nearTheme, occ, L, nearTheme === 'fall' || nearTheme === 'halloween');
           el._hkNearTheme = nearTheme;
           el._hkNearLv = nearKey;
         }
+        el._hkNear.root.classList.toggle('no-leaves', s.fallingLeaves === false);
         el._hkNear.update(Object.assign({}, s, { spooky: nearTheme === 'halloween' ? spooky : true, now: now }));
         var measured = NEAR_LIGHT[nearTheme];
         return [[measured[0], measured[1] * Number(el._hkNear.root.style.getPropertyValue('--scene-b'))]];
@@ -417,7 +423,8 @@
       var xmasNight = landed && name === 'christmas' && night;
       var moonKeyed = spooky || xmasNight;
       var autumn = name === 'halloween' || name === 'thanksgiving';
-      var fallingLeaves = autumn && !spooky && s.fallingLeaves !== false;
+      // (the leaves built whenever the scene has them, and hidden on a page without: no-leaves below, as the near scenery's)
+      var fallingLeaves = autumn && !spooky;
       var key = name + '|' + surprise + '|' + (spooky ? 's' : '-') +
                 '|' + (night ? 'n' : 'd') + '|' + (s.weather === false ? 'dry' : 'weather') +
                 '|' + dayKey(now) + '|' + Math.round(W) + 'x' + Math.round(H) +
@@ -426,6 +433,7 @@
                 '|' + (name === 'christmas' && snowOK ? 'w' : '-') +
                 '|' + (spooky ? '-' : windB + (heavy ? 'h' : '-')) + '|' + L.sigFor(lvOcc) + '|' + fallingLeaves;
 
+      host.classList.toggle('no-leaves', s.fallingLeaves === false);
       if (el._hkSeasonKey !== key) {
         el._hkSeasonKey = key;
         host.textContent = '';

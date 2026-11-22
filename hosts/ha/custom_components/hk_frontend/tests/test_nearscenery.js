@@ -136,16 +136,27 @@ s.wind=4;hkSky._paint(sky,s);var calm=sky._hkNear.root.querySelectorAll('.lf')[0
 check('the leaves fall with the real wind: rebuilt when it blows',sky._hkNear.root.querySelectorAll('.lf')[0]!==calm&&sky._hkNear.root.classes.windy===true);
 var gusty=sky._hkNear.root.querySelectorAll('.lf')[0];s.wind=21;hkSky._paint(sky,s);
 check('...not at every change in it',sky._hkNear.root.querySelectorAll('.lf')[0]===gusty);s.wind=4;
-s.lively={all:'party'};s.fallingLeaves=false;hkSky._paint(sky,s);
-check('Party keeps the autumn woodland on another page without falling or swirling leaves',sky._hkNearTheme==='fall'&&
-  !sky._hkNear.root.querySelectorAll('.lf,.swirl-leaf').length);
-s.fallingLeaves=true;hkSky._paint(sky,s);
-check('returning Home restores falling and swirling woodland leaves',sky._hkNear.root.querySelectorAll('.lf').length>0&&
-  sky._hkNear.root.querySelectorAll('.swirl-leaf').length>0);
-s.decorationStyle='old';hkSky._paint(sky,s);
-check('the original autumn scene also draws leaves on Home',parts['.season'].querySelectorAll('.lf').length>0);
+// (2026-11-22, the owner: "a bright flicker of an empty background when using decorations between the main dashboard and
+// the apps page": the leaves were in the scene's key, so each page change between them built the whole scenery again)
+s.lively={all:'party'};hkSky._paint(sky,s);var homeNear=sky._hkNear,homeLeaf=homeNear.root.querySelectorAll('.lf')[0];
 s.fallingLeaves=false;hkSky._paint(sky,s);
-check('the original autumn scene clears its leaves when leaving Home',!parts['.season'].querySelectorAll('.lf').length);
+check('Party keeps the autumn woodland on another page, its falling and swirling leaves hidden (no-leaves)',sky._hkNearTheme==='fall'&&
+  sky._hkNear.root.classes['no-leaves']===true);
+check('...the very same scenery, never built again for the leaves (no frame of bare sky between Home and the Pages screen)',
+  sky._hkNear===homeNear&&sky._hkNear.root.querySelectorAll('.lf')[0]===homeLeaf);
+s.fallingLeaves=true;hkSky._paint(sky,s);
+check('returning Home shows the falling and swirling woodland leaves again, the same ones',sky._hkNear===homeNear&&
+  sky._hkNear.root.classes['no-leaves']===false&&sky._hkNear.root.querySelectorAll('.lf')[0]===homeLeaf&&
+  sky._hkNear.root.querySelectorAll('.swirl-leaf').length>0);
+var skySrc=read(HK_ROOT+'/frontend/modules/hk-sky.js'),hideAt=skySrc.indexOf('.near-scenery.no-leaves .near-motion.swirl'),
+  windyAt=skySrc.indexOf('.near-scenery.windy .near-motion.windy-only');
+check('...hidden by the sky\'s sheet, after the windy rule it outranks at the same weight',hideAt>windyAt&&windyAt>0&&
+  skySrc.indexOf('.near-scenery.no-leaves .near-motion.leaves')>0&&skySrc.indexOf('.season.no-leaves .leaffield')>0);
+s.decorationStyle='old';hkSky._paint(sky,s);var oldLeaf=parts['.season'].querySelectorAll('.lf')[0];
+check('the original autumn scene also draws leaves on Home',!!oldLeaf&&parts['.season'].classes['no-leaves']===false);
+s.fallingLeaves=false;hkSky._paint(sky,s);
+check('the original autumn scene hides its leaves when leaving Home, the scene not built again',
+  parts['.season'].classes['no-leaves']===true&&parts['.season'].querySelectorAll('.lf')[0]===oldLeaf);
 s.decorationStyle='new';delete s.fallingLeaves;delete s.lively;
 s.season='';hkSky._force(null);hkSky._surpriseForce('spring-garden');s.elev=20;s.cover=.3;s.wet={kind:'rain',rate:.4};hkSky._paint(sky,s);
 var sp=sky._hkNear.root;

@@ -1209,6 +1209,10 @@
       '#hk-sky .near-scenery .near-motion.windy-only,#hk-sky .near-scenery .near-motion.eve{display:none}',
       '#hk-sky .near-scenery .sleigh{filter:brightness(0) drop-shadow(0 0 2px rgba(206,218,240,.7));opacity:.9}',
       '#hk-sky .near-scenery.windy .near-motion.windy-only,#hk-sky .near-scenery.eve .near-motion.eve{display:block}',
+      // a page without falling leaves (the Pages screen, Weather): the scene's leaves kept, not shown -- after the windy
+      // rule, which it outranks at the same weight (hk-sky-surprises-more.js paintSeason: never rebuilt for them)
+      '#hk-sky .near-scenery.no-leaves .near-motion.leaves,#hk-sky .near-scenery.no-leaves .near-motion.swirl,',
+      '#hk-sky .season.no-leaves .leaffield{display:none}',
       // Bats in twos and threes: a crossing of ~8 s in each cycle, then gone.
       // A rim of moonlight on each, or a black bat on a night sky is no bat.
       '#hk-sky .near-scenery .flock .bat{animation-name:near-flock;',
