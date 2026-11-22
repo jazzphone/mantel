@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **A Small, Wide or Tall thermostat in Auto lets you pick Heat or Cool**, as Large does: tap a temperature to pick it (a dot appears under it), and the arrows change only that one. They used to move both together.
+
 ## 1.61.2 - 2026-11-21
 
 **Changed**

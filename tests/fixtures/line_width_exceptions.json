@@ -351,11 +351,6 @@
  },
  {
   "file": "hosts/ha/custom_components/hk_frontend/tests/test_blocks_climate.js",
-  "hash": "43b675cc3f71fa17",
-  "why": "a regular expression of 401 characters: it cannot be broken"
- },
- {
-  "file": "hosts/ha/custom_components/hk_frontend/tests/test_blocks_climate.js",
   "hash": "f5cd8cc12a8eda35",
   "why": "a regular expression of 401 characters: it cannot be broken"
  },

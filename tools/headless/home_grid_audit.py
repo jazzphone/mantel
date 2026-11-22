@@ -1171,7 +1171,9 @@ CONTROLS_RULES = {"S": 1, "W": 3, "T": 3}
 # their volume slider?"; "Volume is more important than the progress bar for these cards"): the three keys and the slider
 # -- and a fifth, the speaker line over the title (2026-11-09, the owner's mockup 12h: it took the Speakers key's place)
 # (the Timers block needs no allowance of its own: Wide's one running timer is its Pause, its Stop and the + -- three, 2026-11-09, mockup 14b)
-CONTROLS_RULES_OF = {"now_playing": {"W": 5, "T": 5}}
+# -- and the thermostat's two targets in Auto, each a key that picks it (2026-11-22, the owner: Small's arrows "control both temps" and
+# the temps "aren't selectable ... like the Large card"): Small the two and the arrows, Wide and Tall those and the Mode key
+CONTROLS_RULES_OF = {"now_playing": {"W": 5, "T": 5}, "thermostat": {"S": 3, "W": 4, "T": 4}}
 CLEAR = 8
 
 
