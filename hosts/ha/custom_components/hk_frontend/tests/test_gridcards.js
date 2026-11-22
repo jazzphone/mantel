@@ -174,9 +174,10 @@ function () {
   var room = C.config({ card: 'room', size: 'L' }, ctx);
   eq('a room block with no room of its own: the tablet\'s, else the screen\'s first',
      [room.type, room.area, room.fallback, room.size], ['custom:hk-grid-room-card', 'tablet_room', 'den', 'L']);
-  var pgs = C.pages({ card: 'room', size: 'L', pages: { source: 'rooms', start: 'tablet_room' } }, ctx);
-  eq('...and a rooms pager: a room card per room (G4)', pgs.map(function (pg) { return [pg.card.type, pg.card.area]; }),
-     [['custom:hk-grid-room-card', 'den'], ['custom:hk-grid-room-card', 'kitchen']]);
+  var pgs = C.pages({ card: 'room', size: 'L', opts: { look: 'flat', flat_theme: 'dark' }, pages: { source: 'rooms', start: 'tablet_room' } }, ctx);
+  eq('...and a rooms pager: each room uses the block’s sheet appearance', pgs.map(function (pg) {
+    return [pg.card.type, pg.card.area, pg.card.look, pg.card.flat_theme];
+  }), [['custom:hk-grid-room-card', 'den', 'flat', 'dark'], ['custom:hk-grid-room-card', 'kitchen', 'flat', 'dark']]);
   eq('...or its own', C.config({ card: 'room', size: 'W', opts: { area: 'kitchen' } }, ctx).area, 'kitchen');
   var sg = C.config({ card: 'scene_suggested', size: 'W', opts: { windows: [{ start: '05:00', end: '10:00', scene: 'scene.good_morning' }] } }, ctx);
   eq('a suggested scene with its windows', [sg.type, sg.windows.length], ['custom:hk-suggested-scene-card', 1]);
@@ -186,7 +187,8 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' },
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target', look: 'sheet_look', flat_theme: 'sheet_flat_theme' },
+       { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' },
        { tap: 'tap_target', more: 'everything_more' }]);
   // (2026-11-08, round two) Everything's More Places and On Now's Categories, carried into the card only when not the default
   eq('...Everything\'s More Places, On Now\'s Categories', [t.on_now.opts, C.config({ card: 'everything', size: 'L', opts: { more: 'scroll' } }, ctx).more,

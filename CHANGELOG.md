@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Added**
+- **Room card pop-ups** have the same Sheet appearance options as Home cards. Both offer Light, Dark, or Same as Screen when Flat is selected.
 - **Flat can switch between Light and Dark automatically** at sunrise and sunset. An optional Night Mode entity can control it instead. Auto also gives custom background colors darker nighttime shades.
 - **Seasonal Effects** adds autumn leaves, winter snowflakes and spring petals to dashboard backgrounds, including photos and landscapes. It can run with Seasonal Decorations off.
 

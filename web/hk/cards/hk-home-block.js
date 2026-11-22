@@ -127,58 +127,13 @@
       var cfg = (client && client.config) || {};
       return cfg.location_name || 'Home';
     }
-    // OPEN THE SHEET at a place: 'home', or a page it has ("security", "room-kitchen", "cameras"); `look` the block's Sheet
-    // option (LOOKS, below), none the screen's
-    function openSheet(at, name, look) {
+    // Open at Home or on one of the pages inside it.
+    function openSheet(at, name, config) {
       var D = window.hkDetail;
       if (!D || typeof D.open !== 'function') return false;
       return !!D.open(null, { name: name || 'Home', icon: HOUSE },
-        { panel: { tag: 'hk-detail-home', config: Object.assign({ at: at || 'home', name: name || '' }, lookOf(look) ? { look: lookOf(look) } : {}) } });
-    }
-    // THE SHEET'S OWN LOOK (the block's Sheet option; the owner, 2026-11-12: "letting me set the appearance would help with looks and
-    // performance"; 2026-11-13: "the main goal is to make it easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto"). None
-    // -- Same as Screen -- is every sheet's: the screen's look's. The others are the screen looks of those names, worn by this sheet
-    // alone, each as that look draws a sheet:
-    //   flat     Flat, in the screen's Flat theme (Light or Dark): the frame and every card in it (hk-flat-force, hk-base
-    //            flatForced) -- no blur, no motion, opaque plates; the lightest for a wall tablet
-    //   glass    the detail sheets' own dark glass (DESIGN.md Overlays `overlay`) over the heavy blur, the cards' plain glass plate
-    //   frosted  Frosted's milky plates (hkSettings.lookOf, at the screen's Frost amount) on that same sheet
-    //   tinted   Tinted's dark plates and their light lift on a sheet (at the screen's Tint amount), on that same sheet
-    // The three glass ones blur the sheet and nothing else: every look variable set back to nothing first, the cards `glass: false`,
-    // out of the page's shared blur (DESIGN.md Sheets: the sheet is their glass), and the ones they make with them (`hk-no-glass`
-    // on the sheet's body, hk-base glassJoin); the status chips' own blur off too. 'solid', the first form's (2026-11-12, overlay-solid,
-    // no blur), reads as Flat. A Flat screen's sheet is Flat whatever this says.
-    var SHEET = { '--hk-sheet-plate': v('overlay'), '--hk-sheet-backdrop': C.BLUR.heavy, '--hk-chip-backdrop': 'none' };
-    var LOOKS = { flat: 1, glass: 1, frosted: 1, tinted: 1 };
-    function lookOf(look) { look = look === 'solid' ? 'flat' : look; return LOOKS[look] ? look : null; }
-    function flatHere() {
-      var S = window.hkSettings;
-      try { return !!(S && S.rendering && S.rendering().flat); } catch (e) { return false; }
-    }
-    // the screen's Flat theme, for a sheet that is Flat on its own
-    function flatTheme() {
-      var S = window.hkSettings;
-      try { return S && S.rendering && S.rendering().theme === 'light' ? 'light' : 'dark'; } catch (e) { return 'dark'; }
-    }
-    function wearLook(sheet, look) {
-      var S = window.hkSettings;
-      if (!look || look === 'flat' || !sheet || !sheet.style || flatHere()) return false;
-      var vars = S && S.lookVars ? S.lookVars() : [];
-      vars.concat(['--hk-plate-here']).forEach(function (k) { sheet.style.setProperty(k, 'initial'); });
-      var own = look === 'glass' ? {} : (S && S.lookOf ? S.lookOf(look) : null) || {};
-      [own, SHEET].forEach(function (L) { Object.keys(L).forEach(function (k) { sheet.style.setProperty(k, L[k]); }); });
-      // (Tinted's lift for a card on a sheet, where the frame reads it)
-      if (own['--hk-glass-plate-sheet']) sheet.style.setProperty('--hk-plate-here', 'var(--hk-glass-plate-sheet)');
-      sheet.setAttribute('data-hk-look', look);
-      return true;
-    }
-    // every card, and every card inside one, out of the shared blur
-    function unglassed(cfg) {
-      if (!cfg || typeof cfg !== 'object') return cfg;
-      var o = Object.assign({}, cfg, { glass: false });
-      if (Array.isArray(o.cards)) o.cards = o.cards.map(unglassed);
-      if (o.card && typeof o.card === 'object') o.card = unglassed(o.card);
-      return o;
+        { panel: { tag: 'hk-detail-home', config: { at: at || 'home', name: name || '',
+          look: config && config.look, flat_theme: config && config.flat_theme } } });
     }
 
     // ======================================================================== the sheet's body
@@ -215,16 +170,12 @@
       setConfig(config) {
         super.setConfig(config || {});
         this._at = (config && config.at) || 'home';
-        this._look = lookOf(config && config.look);
-        if (this._look && !flatHere()) this.setAttribute('hk-no-glass', ''); else this.removeAttribute('hk-no-glass');
         this._scroll = (config && config.scroll) || 0;
       }
-      // Flat on its own (hk-detail.js): the screen's Flat theme
-      hkFlat() { return this._look === 'flat' && !flatHere() ? flatTheme() : null; }
+      hkSheetAppearance() { return this._config; }
       // the header: the house's glyph and name at Home, the page's on an inner page, and the back key there
       hkHead(h, d) {
         this._d = d;
-        wearLook(d && d.sheet, this._look);
         this._paintHead(h);
         return true;
       }
@@ -369,7 +320,7 @@
             this._kids = [];
             var col = document.createElement('div');
             col.className = 'col';
-            var self = this, own = !!this._look && !flatHere();
+            var self = this;
             // THE FIRST OF IT AT ONCE, THE REST BEHIND IT (2026-11-14, the Kitchen's tablet: the tap that opens Home
             // drew nothing for a second and more -- sixty cards of the whole house made and put in, all in the tap).
             // The top of the sheet is made now -- what shows before anyone scrolls -- and the cards under it a few at a
@@ -378,7 +329,7 @@
             var turn = this._turn = (this._turn || 0) + 1, at0 = 0;
             var add = function (n) {
               for (var end = Math.min(cards.length, at0 + n); at0 < end; at0++) {
-                var el = C.createCard(own ? unglassed(cards[at0]) : cards[at0], self.client || c);
+                var el = C.createCard(window.hkDetail.sheetCardConfig(self, cards[at0]), self.client || c);
                 if (el) { col.appendChild(el); self._kids.push(el); }
               }
             };
@@ -519,7 +470,7 @@
         // (the plate's tap, hk-base.js openTarget): anywhere that is no part of its own opens the sheet at Home
         _tapTarget() { var self = this; return [{ run: function () { self._open('home'); } }]; }
         _name() { return (this._config || {}).title || houseName(this.client); }
-        _open(at) { return openSheet(placeOf(at, built(this.client).pages), this._name(), (this._config || {}).look); }
+        _open(at) { return openSheet(placeOf(at, built(this.client).pages), this._name(), this._config); }
         connectedCallback() {
           super.connectedCallback();
           // the rooms' readings come with hk-grid-cards.js: drawn again once it is here

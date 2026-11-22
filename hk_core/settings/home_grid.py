@@ -120,7 +120,9 @@ CATALOG: dict[str, dict[str, Any]] = {
     "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"channel": "tv_channel", "tap": "tap_target"}},
     "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # the new cards (G3)
-    "room": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
+    "room": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {
+        "area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target",
+        "look": "sheet_look", "flat_theme": "sheet_flat_theme"}},
     "scene_suggested": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S", "W"), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
@@ -139,7 +141,8 @@ CATALOG: dict[str, dict[str, Any]] = {
     "timeline": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target", "glyphs": "glyph_color"}},
     # HOME (phase 27, docs/phase27/PLAN.md): the house as a way in, each part opening the generated Home page in a sheet at
     # that place. Its name (title: the house's by default) and Glyphs; no When Tapped, the sheet is where it goes
-    "home": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"title": "title", "look": "sheet_look", "glyphs": "glyph_color"}},
+    "home": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {
+        "title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color"}},
     # HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md): this screen's status chips as sections, each a tap to its
     # chip's page, the rest in a sheet. No options: what it shows is the screen's Status Chips (chips, chips_quiet,
     # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section
@@ -489,6 +492,12 @@ def _sheet_look(v: Any) -> str:
     return v
 
 
+def _sheet_flat_theme(v: Any) -> str:
+    if v not in ("light", "dark"):
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _everything_more(v: Any) -> str:
     if v not in EVERYTHING_MORE:
         raise GridInvalid("grid_option")
@@ -557,6 +566,7 @@ OPTION_KINDS = {
     "everything_more": _everything_more,
     "rings_figures": _rings_figures,
     "sheet_look": _sheet_look,
+    "sheet_flat_theme": _sheet_flat_theme,
     "glyph_color": _glyph_color,
     "security_presentation": _security_presentation,
     "security_members": _security_members,

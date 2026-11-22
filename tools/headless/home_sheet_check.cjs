@@ -308,20 +308,22 @@ function sheetState() {
       check(`${engine} a car's screen: the sheet has the rooms`, () => assert(cs && cs.kinds.includes('hk-heading-card') && cs.types.length > 4, JSON.stringify(cs)));
       await car.ctx.close();
     }
-    // THE SHEET OPTION (hk-home-block.js LOOKS; 2026-11-13, the owner: "the main goal is to make it easier on the tablet to run...
-    // Flat, Glass, Frost, Tint, or Auto"): Same as Screen wears the screen's look; Flat is Flat, the frame and every card in it, no
-    // blur; Glass, Frosted and Tinted blur the sheet alone, each card in its look's plate; the first form's Solid is Flat; a Flat
-    // screen's sheet is Flat whatever it says; the page is never Flat for it
+    // Sheet appearance for Home and Room, including a Flat theme that differs from the screen's.
     if (want('look')) {
       const sheetLook = () => {
         const host = document.querySelector('.hkd'), sheet = host.querySelector('.sheet'), cs = getComputedStyle(sheet);
         const blur = (e) => { const c = getComputedStyle(e); const f = c.backdropFilter || c.webkitBackdropFilter || 'none'; return f !== 'none' && f !== ''; };
-        const panel = host.querySelector('hk-detail-home');
+        const panel = host.querySelector('hk-detail-home,hk-detail-room');
         const inner = deep(panel.shadowRoot, '*').filter((e) => e.getClientRects().length && blur(e));
-        const tile = deep(panel.shadowRoot, 'hk-plate.card').find((e) => e.getClientRects().length), tc = tile && getComputedStyle(tile);
+        const plates = deep(panel.shadowRoot, 'hk-plate.card').filter((e) => e.getClientRects().length);
+        const tiles = plates.map((e) => getComputedStyle(e)), tile = tiles[0];
         return { look: sheet.getAttribute('data-hk-look'), bg: cs.backgroundColor, sheetBlur: blur(sheet), flat: host.getAttribute('hk-flat'),
                  innerBlur: inner.length, layers: host.querySelectorAll('[data-hk-glass-layer]').length + deep(panel.shadowRoot, '[data-hk-glass-layer]').length,
-                 cardsFlat: deep(panel.shadowRoot, '[hk-flat]').length, tile: tc ? tc.backgroundColor + ' ' + tc.backgroundImage.slice(0, 40) : null,
+                 cardsFlat: deep(panel.shadowRoot, '[hk-flat]').length,
+                 themedCards: deep(panel.shadowRoot, '[hk-flat="' + host.getAttribute('hk-flat') + '"]').length,
+                 tile: tile ? tile.backgroundColor + ' ' + tile.backgroundImage.slice(0, 40) : null,
+                 frostedTile: tiles.some((c) => c.backgroundImage.includes('data:image/svg')),
+                 idleTiles: plates.filter((e) => e.hasAttribute('data-hk-idle')).length,
                  // (what blurs, when anything does)
                  blurs: [...new Set(inner.map((e) => e.tagName.toLowerCase() + '.' + (e.getAttribute('class') || '') + '<' +
                    ((e.getRootNode().host || {}).tagName || '').toLowerCase()))].slice(0, 8) };
@@ -330,16 +332,31 @@ function sheetState() {
       for (const screen of ['home-bright', 'home-flat']) {
         const { ctx, page, errors, commands } = await open(screen, 1280, 800);
         const got = {};
-        for (const [name, size, nth] of LOOKS) {
-          await page.evaluate(([size, nth]) => deep(document, 'hk-home-block-card').filter((c) => c.getAttribute('size') === size)[nth]._open('home'), [size, nth]);
+        const pageTone = () => page.evaluate(() => ({
+          theme: window.hkSettings.rendering().theme,
+          cards: deep(document, 'hk-home-block-card,hk-grid-room-card').map((e) => e.getAttribute('hk-flat'))
+        }));
+        const before = await pageTone();
+        const cases = LOOKS.map(([name, size, nth]) => [name, () => page.evaluate(([size, nth]) =>
+          deep(document, 'hk-home-block-card').filter((c) => c.getAttribute('size') === size && !c._config.flat_theme)[nth]._open('home'), [size, nth])]);
+        cases.push(['home-theme', () => page.evaluate(() => deep(document, 'hk-home-block-card').find((c) => c._config.flat_theme)._open('home'))]);
+        cases.push(['room-theme', () => page.locator('hk-grid-room-card .rs').nth(0).tap()]);
+        cases.push(['room-frosted', () => page.locator('hk-grid-room-card .rs').nth(1).tap()]);
+        for (const [name, openSheet] of cases) {
+          await openSheet();
+          await page.waitForSelector('.hkd .sheet');
           await page.waitForTimeout(1500);
           await page.evaluate(DEEP);
           got[name] = await page.evaluate(sheetLook);
+          if (name.endsWith('-theme')) {
+            const during = await pageTone();
+            check(`${engine} ${screen} ${name}: the dashboard retains its theme`, () => assert.deepEqual(during, before));
+          }
           await shot(page, `${engine}-${screen}-sheet-${name}`);
           await page.keyboard.press('Escape');
           await page.waitForFunction(() => !document.querySelector('.hkd'), null, { timeout: 5000 }).catch(() => {});
         }
-        const pageFlat = await page.evaluate(() => deep(document, '[hk-flat]').length);
+        const after = await pageTone();
         console.log(engine, screen, JSON.stringify(got));
         const g = got, alone = (k) => g[k].innerBlur === 0 && g[k].layers === 0;
         if (screen === 'home-bright') {
@@ -355,15 +372,56 @@ function sheetState() {
           check(`${engine} ...Tinted: that sheet, Tinted's lift on the cards`, () => assert(g.tinted.look === 'tinted' && g.tinted.bg === g.glass.bg &&
             g.tinted.sheetBlur && alone('tinted') && /^rgba\(255, 255, 255, 0\.08\)/.test(g.tinted.tile), JSON.stringify(g.tinted)));
           check(`${engine} ...each card's plate its own look's`, () => assert(new Set(['screen', 'flat', 'glass', 'frosted', 'tinted'].map((k) => g[k].tile)).size === 5, JSON.stringify(g)));
+          check(`${engine} ...Room Frosted shares Home's sheet treatment`, () => assert(g['room-frosted'].look === 'frosted' &&
+            g['room-frosted'].bg === g.frosted.bg && g['room-frosted'].sheetBlur && alone('room-frosted') &&
+            g['room-frosted'].frostedTile, JSON.stringify(g['room-frosted'])));
         } else {
-          check(`${engine} Flat: the sheet is Flat whatever the block says`, () => assert(LOOKS.every(([k]) => g[k].flat === 'light' && !g[k].look && !g[k].sheetBlur &&
-            g[k].bg === g.screen.bg), JSON.stringify(g)));
+          check(`${engine} Flat Light: the sheet inherits Flat Light without an explicit Flat theme`, () => {
+            assert([...LOOKS, ['room-frosted']].every(([k]) =>
+              g[k].flat === 'light' && !g[k].look && !g[k].sheetBlur && g[k].bg === g.screen.bg), JSON.stringify(g));
+          });
         }
-        if (screen === 'home-bright') check(`${engine} ${screen}: the page never Flat for a sheet (${pageFlat})`, () => assert.equal(pageFlat, 0));
+        const theme = screen === 'home-bright' ? 'light' : 'dark';
+        check(`${engine} ${screen}: Home and Room use Flat ${theme} on their frame and cards`, () => {
+          for (const k of ['home-theme', 'room-theme']) {
+            assert(g[k].flat === theme && g[k].themedCards > 0 && !g[k].look && !g[k].sheetBlur && alone(k) &&
+              g[k].bg !== g.flat.bg && (theme === 'light' ? g[k].idleTiles > 0 : g[k].idleTiles === 0), JSON.stringify(g[k]));
+          }
+          assert.equal(g['home-theme'].bg, g['room-theme'].bg);
+        });
+        check(`${engine} ${screen}: sheet choices leave the dashboard theme alone`, () => assert.deepEqual(after, before));
         check(`${engine} ${screen}: no errors`, () => assert.deepEqual(errors, []));
         check(`${engine} ${screen}: no command sent`, () => assert.deepEqual(commands, []));
         await ctx.close();
       }
+    }
+    if (want('editor')) {
+      const { ctx, page } = await open('home-sheet-editor', 1280, 800);
+      const editor = 'hk-settings-panel hk-grid-editor', path = input.origin + '/settings#/screens/home-sheet-editor/home-grid';
+      await page.goto(path);
+      await page.waitForFunction(() => document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.grid);
+      for (const id of ['s', 'room']) {
+        await page.locator(editor).evaluate((el, id) => el.select(id), id);
+        const sheet = page.locator(editor).locator('.cell').filter({ has: page.getByText('Sheet', { exact: true }) }).locator('select');
+        const theme = page.locator(editor).getByRole('radiogroup', { name: 'Flat Theme' });
+        const choices = await sheet.locator('option').allTextContents();
+        check(`${engine} ${id}: the editor offers all sheet looks`, () => assert.deepEqual(choices, ['Same as Screen', 'Flat', 'Glass', 'Frosted', 'Tinted']));
+        await sheet.selectOption('glass');
+        await theme.waitFor({ state: 'hidden' });
+        await sheet.selectOption('flat');
+        await theme.getByRole('radio', { name: 'Dark' }).click();
+        assert.equal(await theme.getByRole('radio', { name: 'Dark' }).getAttribute('aria-checked'), 'true');
+      }
+      await page.locator(editor).getByRole('button', { name: 'Save', exact: true }).click();
+      await page.locator(editor).waitFor({ state: 'hidden' });
+      await page.goto(path);
+      await page.waitForFunction(() => document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.grid);
+      const saved = await page.locator(editor).evaluate((el) => ['s', 'room'].map((id) => {
+        const { look, flat_theme } = el.grid.items.find((it) => it.id === id).opts;
+        return [look, flat_theme];
+      }));
+      check(`${engine} the editor saves both sheet themes`, () => assert.deepEqual(saved, [['flat', 'dark'], ['flat', 'dark']]));
+      await ctx.close();
     }
     await browser.close();
   }

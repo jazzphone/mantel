@@ -44,9 +44,10 @@ from this plan, and why.
   set the appearance would help with looks and performance"), then for the screen looks by name ("the main goal is to make it
   easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto"). Same as Screen, the default, is what every sheet wears:
   the screen's look. The others are the screen looks of those names, worn by that sheet alone, each as that look draws a
-  sheet. Flat is Flat in the screen's Flat theme: the panel says so (`hkFlat()`), `hk-detail.js` puts `hk-flat-force` on the
-  frame, and every card inside reads it (`flatForced` / `renderingAt` in `hk-base-card-core.js`, looked up once a card is in
-  the page) -- no blur, no motion, opaque plates. Glass is the detail sheets' own dark glass (`overlay` over the heavy blur);
+  sheet. Home and Room use the same appearance code in `hk-detail-frame.js`. Flat uses the screen's theme by default and
+  accepts a Light or Dark override. The frame sets `hk-flat-force` for the override or when the screen uses glass, and
+  every card inside reads it through `renderingAt()` in `hk-base-card-core.js`. Glass uses the detail sheets' dark glass
+  (`overlay` over the heavy blur).
   Frosted and Tinted are that sheet with their look's plates on the cards (`hkSettings.lookOf()`, at the screen's Frost and
   Tint amounts). Those three set every variable a look sets back to nothing first (`hkSettings.lookVars()`), turn the status
   chips' own blur off, and keep every card in the sheet out of the shared blur, including the cards they make (`hk-no-glass`,

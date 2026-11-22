@@ -205,7 +205,7 @@
       var S = window.hkSettings, a = S && S.rendering ? S.rendering() : { flat: false }, t = el ? flatForced(el) : null;
       // (a sheet made Flat on its own is made so to be easy on the tablet: still, as it has been)
       if (t === 'off') return a.flat ? Object.assign({}, a, { flat: false, blur: true, liveSky: true, autoplay: true }) : a;
-      return t && !a.flat ? Object.assign({}, a, { flat: true, theme: t, motion: false }) : a;
+      return t ? Object.assign({}, a, { flat: true, theme: t, motion: a.flat ? a.motion : false }) : a;
     }
     function flatTone(el) {
       var a = renderingAt(el);
@@ -1838,7 +1838,7 @@
     K.LIGHT_KEYS = LIGHT_KEYS; K.markAsleep = markAsleep; K.MENU_DOCK = MENU_DOCK; K.msetting = msetting;
     K.navigate = navigate; K.navPath = navPath; K.neverToggles = neverToggles; K.ON_PAGE = ON_PAGE;
     K.openTarget = openTarget; K.PAGE_ACCENTS = PAGE_ACCENTS; K.PAGE_OF_PATH = PAGE_OF_PATH;
-    K.pageAccent = pageAccent; K.PILL_LABEL = PILL_LABEL; K.place = place; K.PREVIEW_CLIENTS = PREVIEW_CLIENTS;
+    K.pageAccent = pageAccent; K.PILL_LABEL = PILL_LABEL; K.place = place; K.PREVIEW_CLIENTS = PREVIEW_CLIENTS; K.renderingAt = renderingAt;
     K.SELECTED_BG = SELECTED_BG; K.SELECTED_TEXT = SELECTED_TEXT; K.snapCacheDrop = snapCacheDrop;
     K.snapCacheGet = snapCacheGet; K.snapCacheKeys = snapCacheKeys; K.snapCachePut = snapCachePut;
     K.snapFlush = snapFlush; K.TAP_CONTROLS = TAP_CONTROLS; K.tone = tone;

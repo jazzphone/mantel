@@ -261,7 +261,7 @@
       }
       // Overridable because a tile may replace the pill's colour rule
       // entirely -- the media tile does.
-      _iconColour(cfg, st, on) { return iconColour(cfg, st, on); }
+      _iconColour(cfg, st, on) { return iconColour(cfg, st, on, this); }
       // ITS OWN COLOR, for its gradient (`block_color`): the glyph's when lit;
       // and whether it stands on it while off too (a scene, which is never on)
       _ownColour(cfg, st) { return colourFor(cfg, st); }
@@ -269,7 +269,7 @@
       // A CSS class rather than inline styles, so a variant's deltas live in the
       // shared stylesheet and cost nothing per instance.
       _variant() { return ''; }
-      _wellBackground(cfg, st, on) { return cfg.well_background || wellColour(cfg, st, on); }
+      _wellBackground(cfg, st, on) { return cfg.well_background || wellColour(cfg, st, on, this); }
       // AN OFF PILL'S OWN COLOR, for Flat Colors' Automatic tint: a calm off
       // color where it has one (a leak sensor's drop), else its color -- the
       // same for every kind, media too. Unavailable has none of its own.
@@ -402,7 +402,7 @@
         // chosen -- its circle a deeper one and its glyph that color at 3:1.
         // A glyph with no circle (a scene, Apple TV, HomePod, the alarm)
         // stays bare. Lit pills are white, their wells their own colors.
-        var C = window.hkCards, pal = !on && C.flatPalette ? C.flatPalette() : null;
+        var C = window.hkCards, pal = !on && C.flatPalette ? C.flatPalette(undefined, this) : null;
         var idle = pal && pal.tinted ? C.flatIdle(this._idleSource(cfg, st), this._bareWell(cfg, wb), pal) : null;
         if (idle) {
           if (idle.well) wb = idle.well;
@@ -549,12 +549,12 @@
         if (!on) {
           // (through flatColor: Flat's Light darkens the white glyph made for
           // the dark glass, or it vanished on the ivory tile -- Apple TV, HomePod)
-          return (cfg.bare_icon && cfg.icon_color) ? window.hkCards.flatColor(cfg.icon_color, 'glyph') : '' + window.hkCards.v('glyph') + '';
+          return (cfg.bare_icon && cfg.icon_color) ? window.hkCards.flatColor(cfg.icon_color, 'glyph', this) : '' + window.hkCards.v('glyph') + '';
         }
         // CENTRED, PLAYING (2026-10-31): the speaker's own color on the white
         // plate, as every lit Centred glyph is -- not the HomePod's grey, which
         // read as off beside the lamps in a Room block
-        if (this.getAttribute('tile') === 'centred') return window.hkCards.flatColor(this._ownColour(cfg, st), 'on');
+        if (this.getAttribute('tile') === 'centred') return window.hkCards.flatColor(this._ownColour(cfg, st), 'on', this);
         return super._iconColour(cfg, st, on);
       }
       // A SPEAKER'S OWN COLOR: its accessory's Color (icon_color, a palette

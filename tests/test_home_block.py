@@ -34,6 +34,10 @@ const on = (s) => !!s.on;
 const secs = [{ name: 'Security', reading: { text: '1 Unlocked' }, on: true }, { name: 'Climate', reading: { text: '71°' } },
               { name: 'Lights', reading: { num: 3, unit: 'On' }, on: true }, { name: 'Speakers', reading: { num: 1, unit: 'Playing' }, on: true }];
 const pages = { security: {}, 'room-kitchen': {}, cameras: {} };
+const sheet = (card, opts) => {
+  const {look, flat_theme} = G.config({ id: 'h', card, size: 'S', at: [0, 0], opts }, {});
+  return {look, flat_theme};
+};
 console.log(JSON.stringify({
   seg: ['/wall/security', '/wall/room-kitchen/', './cameras', '/wall/lights?x=1#y', 'weather', ''].map(L.segOf),
   wide: [L.wideLine(secs, on, say), L.wideLine(secs.slice(1, 2), on, say), L.wideLine([], on, say)],
@@ -41,7 +45,11 @@ console.log(JSON.stringify({
   place: [L.placeOf('security', pages), L.placeOf('weather', pages), L.placeOf('home', pages), L.placeOf(null, pages)],
   card: ['S', 'W', 'T', 'L', 'XL'].map((s) => G.config({ id: 'h', card: 'home', size: s, at: [0, 0] }, {})),
   named: G.config({ id: 'h', card: 'home', size: 'W', at: [0, 0], opts: { title: 'Linden House', glyphs: 'white' } }, {}),
-  looks: ['flat', 'glass', 'frosted', 'tinted', 'solid', 'auto', 'bright'].map((look) => G.config({ id: 'h', card: 'home', size: 'S', at: [0, 0], opts: { look } }, {}).look),
+  sheets: Object.fromEntries(['home', 'room'].map((card) => [card, [
+    ...['flat', 'glass', 'frosted', 'tinted', 'solid', 'auto', 'bright'].map((look) => sheet(card, {look})),
+    sheet(card, {look: 'flat', flat_theme: 'light'}), sheet(card, {look: 'solid', flat_theme: 'dark'}),
+    sheet(card, {look: 'glass', flat_theme: 'light'}), sheet(card, {look: 'flat', flat_theme: 'auto'})
+  ]])),
   table: G.table().home
 }));
 """
@@ -88,8 +96,8 @@ def test_the_sheet_opens_at_a_page_it_has_else_at_home(got):
 
 # -- the catalog and the saved layout ------------------------------------------------------------------------------
 @needs_node
-def test_both_catalogs_name_the_block_its_sizes_and_three_options(got):
-    opts = {"title": "title", "look": "sheet_look", "glyphs": "glyph_color"}
+def test_both_catalogs_name_the_block_its_sizes_and_options(got):
+    opts = {"title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color"}
     assert HG.CATALOG["home"] == {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": opts}
     assert got["table"]["sizes"] == ["S", "W", "T", "L", "XL"] and got["table"]["opts"] == opts
     assert got["card"] == [{"type": "custom:hk-home-block-card", "size": s} for s in ("S", "W", "T", "L", "XL")]
@@ -112,29 +120,25 @@ def test_a_home_block_is_kept_at_every_size(size):
 
 
 @needs_node
-def test_the_sheet_wears_the_screens_look_or_a_look_of_its_own(got):
-    # (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"; 2026-11-13: "the main goal is
-    # to make it easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto"): each carried to the card, Same as Screen is no
-    # key at all, the first form's Solid reads as Flat
-    assert got["looks"] == ["flat", "glass", "frosted", "tinted", "flat", None, None]
-    for look in ("flat", "glass", "frosted", "tinted"):
-        b, errors = write({"id": "h1", "card": "home", "size": "S", "at": [0, 0], "opts": {"look": look}})
-        assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"look": look}
-    b, errors = write({"id": "h1", "card": "home", "size": "S", "at": [0, 0], "opts": {"look": "solid"}})
+@pytest.mark.parametrize("card", ["home", "room"])
+def test_home_and_room_sheet_options_save_and_compile(card, got):
+    assert got["sheets"][card] == [
+        {"look": "flat"}, {"look": "glass"}, {"look": "frosted"}, {"look": "tinted"}, {"look": "flat"}, {}, {},
+        {"look": "flat", "flat_theme": "light"}, {"look": "flat", "flat_theme": "dark"}, {"look": "glass"}, {"look": "flat"},
+    ]
+    item = {"id": "h1", "card": card, "size": "S", "at": [0, 0]}
+    for opts in [*({"look": look} for look in ("flat", "glass", "frosted", "tinted")),
+                 *({"look": "flat", "flat_theme": theme} for theme in ("light", "dark"))]:
+        b, errors = write(dict(item, opts=opts))
+        assert errors == {} and b["home_grid"]["items"][0]["opts"] == opts
+    b, errors = write(dict(item, opts={"look": "solid"}))
     assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"look": "flat"}
     for bad in ("auto", "", "bright", "blur", True, None, ["flat"]):
-        _, errors = write({"id": "h1", "card": "home", "size": "S", "at": [0, 0], "opts": {"look": bad}})
+        _, errors = write(dict(item, opts={"look": bad}))
         assert errors == {"home_grid": "grid_option"}, bad
-    src = web_sources.read("web/hk/cards/hk-home-block.js")
-    # every variable a look sets, set back inside the sheet, then the chosen look's own; its cards out of the shared blur; Flat is
-    # the frame's own Flat (hkFlat, hk-detail.js) for every card in it; a Flat screen's sheet stays Flat
-    assert "S.lookVars ? S.lookVars() : []" in src and "S.lookOf(look)" in src and "unglassed(cfg)" in src
-    assert "hkFlat() { return this._look === 'flat' && !flatHere() ? flatTheme() : null; }" in src
-    assert "lookOf: function (name)" in web_sources.read("web/hk/modules/hk-settings.js")
-    assert "panel.hkFlat ? panel.hkFlat() : null" in web_sources.read("web/hk/cards/hk-detail.js")
-    core = web_sources.read("web/hk/base/hk-base-card-core.js")
-    assert "function flatForced(el)" in core and "var a = renderingAt(el);" in core
-    assert "kind === 'sheet_look'" in web_sources.read("web/hk/grid-editor/hk-grid-editor-options.js")
+    for bad in ("auto", "glass", "", True, None, ["dark"]):
+        _, errors = write(dict(item, opts={"look": "flat", "flat_theme": bad}))
+        assert errors == {"home_grid": "grid_option"}, bad
 
 
 @pytest.mark.parametrize("item,code", [
@@ -179,4 +183,5 @@ def test_the_sheet_is_the_generated_home_and_a_page_change_inside_it_stays_there
 async def test_the_assistants_card_list_offers_it():
     from mantel_server.mcp.tools import screens
     got = await screens.grid_cards(None, {})
-    assert got["cards"]["home"] == {"sizes": ["S", "W", "T", "L", "XL"], "pages_from": [], "options": {"title": "title", "look": "sheet_look", "glyphs": "glyph_color"}}
+    assert got["cards"]["home"] == {"sizes": ["S", "W", "T", "L", "XL"], "pages_from": [], "options": {
+        "title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color"}}

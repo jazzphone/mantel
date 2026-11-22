@@ -9,8 +9,8 @@ Three screens, each a Home Grid with the Home block at every size (Small, Wide, 
   home-sq      square cells, the Centered style (HomeView's): the block's glyphs bare
   home-tiles   tile cells (196 x 150), the Home style: the glyph in its well
   home-car     square cells on a screen whose own Home would be a car's: the sheet is still the generated Home
-  home-bright  Bright Glass, its blocks' Sheet Same as Screen, Solid and Glass: the sheet wears what it says
-  home-flat    the same blocks on a Flat Light screen: the sheet is Flat whatever they say
+  home-bright  Bright Glass with every Home sheet look, Room sheets, and explicit Flat Light sheets
+  home-flat    Flat Light with inherited and explicit Flat Dark sheets
 
 It checks, at each size of block: nothing past its plate, Tall up its lines a finger tall in a list that scrolls, Large's
 categories as standard pills; the plate opening the sheet at Home and a room at that room, a category going to its own
@@ -87,6 +87,19 @@ async def main(shots: Path | None, engines: list[str], only: list[str], sizes: l
     # the Sheet option over Bright Glass (the shared layer: its cards each blur in a sheet that keeps the screen's look) and Flat
     gallery.SETTINGS["boards"]["home-bright"] = dict(board("square", "centred", looks=True), glass="bright")
     gallery.SETTINGS["boards"]["home-flat"] = dict(board("square", "centred", looks=True), flat=True, flat_theme="light")
+    for screen, theme in (("home-bright", "light"), ("home-flat", "dark")):
+        flat = {"look": "flat", "flat_theme": theme}
+        gallery.SETTINGS["boards"][screen]["home_grid"]["items"].extend([
+            {"id": "home-theme", "card": "home", "size": "S", "at": [0, 3], "opts": flat},
+            {"id": "room-theme", "card": "room", "size": "S", "at": [4, 2],
+             "opts": dict(flat, area="kitchen", tap="sheet")},
+            {"id": "room-frosted", "card": "room", "size": "S", "at": [5, 2],
+             "opts": {"look": "frosted", "area": "kitchen", "tap": "sheet"}},
+        ])
+    editor = board("square", "centred")
+    editor["home_grid"]["items"].append({"id": "room", "card": "room", "size": "S", "at": [4, 2],
+                                        "opts": {"area": "kitchen", "tap": "sheet"}})
+    gallery.SETTINGS["boards"]["home-sheet-editor"] = editor
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
         # HOUSE COMMANDS OFF for the whole run: no gateway, every command refused (the page is watched too)
@@ -105,7 +118,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--shots", type=Path, help="keep the screenshots here")
     ap.add_argument("--engine", choices=["webkit", "chromium", "both"], default="both")
-    ap.add_argument("--only", nargs="*", default=[], help="parts to run: blocks, sheet, look")
+    ap.add_argument("--only", nargs="*", default=[], help="parts to run: blocks, sheet, look, editor")
     ap.add_argument("--sizes", nargs="*", default=[], help="the sheet's window sizes to run (1280x800 390x844 ...)")
     a = ap.parse_args()
     if not os.environ.get("PLAYWRIGHT_PATH") or not os.environ.get("NODE"):

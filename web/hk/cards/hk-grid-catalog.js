@@ -87,6 +87,11 @@
   // bar's Glass names them (Same as Screen is none); hk_core/settings/home_grid.py SHEET_LOOKS
   var SHEET_LOOKS = ['flat', 'glass', 'frosted', 'tinted'];
   var SHEET_LOOK_NAMES = [['auto', 'Same as Screen'], ['flat', 'Flat'], ['glass', 'Glass'], ['frosted', 'Frosted'], ['tinted', 'Tinted']];
+  function sheetOptions(opts) {
+    var look = opts.look === 'solid' ? 'flat' : opts.look, theme = opts.flat_theme;
+    if (SHEET_LOOKS.indexOf(look) < 0) return {};
+    return look === 'flat' && (theme === 'light' || theme === 'dark') ? { look: look, flat_theme: theme } : { look: look };
+  }
   // ...and the HomeView-style faces (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase I), each on its own colour
   // -- the block becomes that colour (home_grid.py CLOCK_FACES)
   CLOCK_FACES.push(['liquid', 'Liquid'], ['giant', 'Giant Numerals'], ['scattered', 'Scattered Numerals']);
@@ -230,10 +235,11 @@
     // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):
     // the tablet showing the screen may be known only once the page is up.
     // `fallback` is the room it shows on a page that is no wall tablet.
-    room: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, card: function (s, o, ctx) {
+    room: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: ['rooms'],
+      opts: { area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target', look: 'sheet_look', flat_theme: 'sheet_flat_theme' }, card: function (s, o, ctx) {
       // no room of its own: the tablet's, else the screen's first
-      return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface, accessory_display: o.accessory_display ||
-        'summary' }; } },
+      return Object.assign({ type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null,
+        size: s, surface: o.surface, accessory_display: o.accessory_display || 'summary' }, sheetOptions(o)); } },
     scene_suggested: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
     action: { sizes: ['S', 'W'], sources: [], opts: { action: 'action', area: 'area', color: 'boolean' }, card: function (s, o) {
@@ -269,12 +275,9 @@
     // and what is going on, Tall up House Status's headline over the categories and the rooms -- each part opening the
     // generated Home page in a sheet at that place. Its name (`title`, the house's by default) and Glyphs; no When Tapped:
     // the sheet is where it goes.
-    // Its Sheet (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"): Same as Screen (no
-    // key), Flat, Glass, Frosted or Tinted (2026-11-13; hk-home-block.js LOOKS; 'solid', the first form's, reads as Flat)
-    home: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', look: 'sheet_look', glyphs: 'glyph_color' }, card: function (s, o) {
-      var lk = o.look === 'solid' ? 'flat' : o.look;
-      return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {},
-                           SHEET_LOOKS.indexOf(lk) >= 0 ? { look: lk } : {}, gl(o)); } },
+    home: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [],
+      opts: { title: 'title', look: 'sheet_look', flat_theme: 'sheet_flat_theme', glyphs: 'glyph_color' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {}, sheetOptions(o), gl(o)); } },
     // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as
     // sections, each a tap to its chip's page; the rest, and Small, open the House Status sheet. No options: it shows
     // what the screen's Status Chips say, whether or not the screen draws its chip row. No When Tapped: each section

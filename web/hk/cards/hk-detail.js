@@ -113,14 +113,14 @@
 
   whenBase(function (HkBase) {
     if (window.hkDetail) return;
-    var ACC_CSS, accessoryPane, accIcon, accName, answers, arcPath, areaOf, arrangeMove, arrangeOf, at, AUTO_CLOSE_MS,
+    var ACC_CSS, accessoryPane, accIcon, accName, answers, applySheetAppearance, arcPath, areaOf, arrangeMove, arrangeOf, at, AUTO_CLOSE_MS,
         axesChart, BACK, bridge, C, canEdit, CHEV, clamp, CLIENT_FED, colourName, covering, dashNow, DAY, dayRows,
         deepActive, def, defaultFavourites, disabled, domainOf, downsample, dur, esc, fanGuard, fanLabel, fanSteps,
         favMatches, focusables, fromDashboard, GENERIC_SKIP, genericControl, genericRows, glyph, glyphSearch,
         glyphsFor, goFor, haRoot, headIcon, isOn, kelvinRgb, kindOf, lightCaps, lightFill, lookFor, lookOf, money,
         muteLabel, nearWhite, niceTicks, NOTE_CSS, noteWhen, num, onDashboard, openGroup, openSheet, ours, Panel,
         PANEL_CSS, PANELS, PHONE_H, placeNote, popupFor, reportsAction, restoreGroup, roomOf, route, runTimes, scrub,
-        scrubPick, scrubValue, SENSE_CSS, SHEET_CSS, SHEET_H, sheetEdges, SHORT_MQ, sinceText, sourceOf, SP, spansOf,
+        scrubPick, scrubValue, SENSE_CSS, sheetCardConfig, SHEET_CSS, SHEET_H, sheetEdges, SHORT_MQ, sinceText, sourceOf, SP, spansOf,
         spanTo, STD, stOf, throttle, tickText, timeRow, timeTicks, trendOf, unavailable, WIDE, WIDTH, yamlClaims;
     // THE SHEETS' CONTEXT (phase 25, Part B): all a sheet may read or call of the shell, which keeps the open sheet
     // (D), its history token and the held pop-up to itself. Open a sheet, a pop-up, a page or the host's own detail;
@@ -135,7 +135,7 @@
       var K = kit();
       PARTS.forEach(function (file) { window.hkSheets[partKey(file)](K); });
       ACC_CSS = K.ACC_CSS; accessoryPane = K.accessoryPane; accIcon = K.accIcon; accName = K.accName;
-      answers = K.answers; arcPath = K.arcPath; areaOf = K.areaOf; arrangeMove = K.arrangeMove;
+      answers = K.answers; applySheetAppearance = K.applySheetAppearance; arcPath = K.arcPath; areaOf = K.areaOf; arrangeMove = K.arrangeMove;
       arrangeOf = K.arrangeOf; at = K.at; AUTO_CLOSE_MS = K.AUTO_CLOSE_MS; axesChart = K.axesChart; BACK = K.BACK;
       bridge = K.bridge; C = K.C; canEdit = K.canEdit; CHEV = K.CHEV; clamp = K.clamp; CLIENT_FED = K.CLIENT_FED;
       colourName = K.colourName; covering = K.covering; dashNow = K.dashNow; DAY = K.DAY; dayRows = K.dayRows;
@@ -152,7 +152,7 @@
       PHONE_H = K.PHONE_H; placeNote = K.placeNote; popupFor = K.popupFor; reportsAction = K.reportsAction;
       restoreGroup = K.restoreGroup; roomOf = K.roomOf; route = K.route; runTimes = K.runTimes; scrub = K.scrub;
       scrubPick = K.scrubPick; scrubValue = K.scrubValue; SENSE_CSS = K.SENSE_CSS; SHEET_CSS = K.SHEET_CSS;
-      SHEET_H = K.SHEET_H; sheetEdges = K.sheetEdges; SHORT_MQ = K.SHORT_MQ; sinceText = K.sinceText;
+      SHEET_H = K.SHEET_H; sheetCardConfig = K.sheetCardConfig; sheetEdges = K.sheetEdges; SHORT_MQ = K.SHORT_MQ; sinceText = K.sinceText;
       sourceOf = K.sourceOf; SP = K.SP; spansOf = K.spansOf; spanTo = K.spanTo; STD = K.STD; stOf = K.stOf;
       throttle = K.throttle; tickText = K.tickText; timeRow = K.timeRow; timeTicks = K.timeTicks; trendOf = K.trendOf;
       unavailable = K.unavailable; WIDE = K.WIDE; WIDTH = K.WIDTH; yamlClaims = K.yamlClaims;
@@ -323,10 +323,7 @@
         opts.group ? { entities: opts.group.ids, room: opts.group.room, groupKind: opts.group.kind,
                        row: opts.group.row, resolve: opts.group.resolve, group: opts.group } :
         opts.cards ? { cards: opts.cards.cards, width: opts.cards.width, fill: opts.cards.fill } : Object.assign({}, (opts.panel || {}).config || {})));
-      // A PANEL FLAT ON ITS OWN (hkFlat: 'light' or 'dark'; the Home block's Sheet option): the whole sheet Flat whatever the screen
-      // wears, its frame and every card in it (hk-base flatForced)
-      var ownFlat = panel.hkFlat ? panel.hkFlat() : null;
-      if (ownFlat) { el.setAttribute('hk-flat-force', ownFlat); el._hkFlatForce = undefined; C.flatSurface(el, 'detail'); }
+      if (panel.hkSheetAppearance) applySheetAppearance(el, sheet, panel, panel.hkSheetAppearance());
 
       D = {
         el: el, id: id, kind: kind, src: src || {}, panel: panel, sheet: sheet, tok: tok,
@@ -687,7 +684,7 @@
       window.hkDetail = {
         version: '1.0.0',
         open: open,
-        openGroup: openGroup, openSheet: openSheet,
+        openGroup: openGroup, openSheet: openSheet, sheetCardConfig: sheetCardConfig,
         close: close,
         navigateFrom: navigateFrom,
         kindOf: kindOf,

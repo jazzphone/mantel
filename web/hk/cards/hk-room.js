@@ -808,6 +808,7 @@
       hkNoGear() { return true; }
       // an accessory, a count's list or a camera opened from here comes back here (hk-detail.js open)
       hkKeepBack() { return true; }
+      hkSheetAppearance() { return this._config; }
       _area() { return (this._config || {}).area || null; }
       _name(h) {
         var a = this._area(), r = h && h.areas && a ? h.areas[a] : null;
@@ -867,7 +868,7 @@
             col.className = 'col';
             var self = this;
             cards.forEach(function (cfg) {
-              var el = C.createCard(cfg, c);
+              var el = C.createCard(window.hkDetail.sheetCardConfig(self, cfg), c);
               if (el) { col.appendChild(el); self._kids.push(el); }
             });
             if (!this._kids.length) {
@@ -887,13 +888,14 @@
       }
     }
     if (!customElements.get('hk-detail-room')) customElements.define('hk-detail-room', HkRoomSheet);
-    // openSheet(area, { name, icon }): the room's sheet, over the page it is opened on; false when there is no sheet to open
+    // Open the room's sheet over the current page.
     window.hkRoom.openSheet = function (area, o) {
       var D = window.hkDetail;
       o = o || {};
       if (!area || !D || typeof D.open !== 'function') return false;
       return !!D.open(null, { name: o.name || 'Room', icon: o.icon || 'mdi:sofa' },
-        { panel: { tag: 'hk-detail-room', config: { area: area, name: o.name || '', icon: o.icon || '' } } });
+        { panel: { tag: 'hk-detail-room', config: { area: area, name: o.name || '', icon: o.icon || '',
+          look: o.look, flat_theme: o.flat_theme } } });
     };
     window.hkRoom.Sheet = HkRoomSheet;
   });

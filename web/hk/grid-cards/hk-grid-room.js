@@ -418,7 +418,8 @@
       _openSheet() {
         var a = this._area(), R = window.hkRoom, h = this.client;
         if (!a || !R || typeof R.openSheet !== 'function') return false;
-        return R.openSheet(a, { name: ((h && h.areas && h.areas[a]) || {}).name || a, icon: this._roomGlyph(a) });
+        return R.openSheet(a, { name: ((h && h.areas && h.areas[a]) || {}).name || a, icon: this._roomGlyph(a),
+          look: this._config.look, flat_theme: this._config.flat_theme });
       }
       // (the plate's tap, hk-base.js openTarget: the heading's, anywhere the block has no accessory) -- its page, else
       // (Detail Sheet first, or a screen with no page for the room) the room as a sheet (2026-11-09, the owner)

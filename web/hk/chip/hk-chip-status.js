@@ -123,7 +123,7 @@
           : colourFor(cfg, st, val);
         // Flat's Light: a chip's glyph keeps its own bright color (the
         // user, 2026-10-17 -- a chip says how things are, on or off)
-        if (window.hkCards.flatColor) e.icon.style.color = window.hkCards.flatColor(e.icon.style.color, 'on');
+        if (window.hkCards.flatColor) e.icon.style.color = window.hkCards.flatColor(e.icon.style.color, 'on', this);
         e.icon.classList.toggle('spin', cfg.animation === 'spin');
         var cl = this.client;
         if (cl) cl.bindStateIcon(e.icon, st);

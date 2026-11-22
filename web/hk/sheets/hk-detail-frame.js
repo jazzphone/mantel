@@ -9,6 +9,45 @@
   (window.hkSheets = window.hkSheets || {})['hk-detail-frame'] = function (K) {
     var accIcon = K.accIcon, C = K.C, domainOf = K.domainOf, noteEl = K.noteEl;
 
+    // Home and Room can choose their own appearance. Keep the blur on the sheet
+    // itself and keep its cards out of the page's shared blur.
+    function applySheetAppearance(el, sheet, panel, config) {
+      var look = config.look === 'solid' ? 'flat' : config.look;
+      if (['flat', 'glass', 'frosted', 'tinted'].indexOf(look) < 0) return;
+      var S = window.hkSettings, screen = S && S.rendering ? S.rendering() : {};
+      var theme = config.flat_theme;
+      var ownTheme = theme === 'light' || theme === 'dark';
+      if (screen.flat && (look !== 'flat' || !ownTheme)) return;
+      panel.setAttribute('hk-no-glass', '');
+      if (look === 'flat') {
+        el.setAttribute('hk-flat-force', ownTheme ? theme : (screen.theme === 'light' ? 'light' : 'dark'));
+        el._hkFlatForce = undefined;
+        C.flatSurface(el, 'detail');
+        return;
+      }
+      var vars = S && S.lookVars ? S.lookVars() : [];
+      vars.concat(['--hk-plate-here']).forEach(function (k) { sheet.style.setProperty(k, 'initial'); });
+      var own = (look !== 'glass' && S && S.lookOf && S.lookOf(look)) || {};
+      Object.keys(own).forEach(function (k) { sheet.style.setProperty(k, own[k]); });
+      sheet.style.setProperty('--hk-sheet-plate', C.v('overlay'));
+      sheet.style.setProperty('--hk-sheet-backdrop', C.BLUR.heavy);
+      sheet.style.setProperty('--hk-chip-backdrop', 'none');
+      if (own['--hk-glass-plate-sheet']) sheet.style.setProperty('--hk-plate-here', 'var(--hk-glass-plate-sheet)');
+      sheet.setAttribute('data-hk-look', look);
+    }
+
+    function unglassed(config) {
+      if (!config || typeof config !== 'object') return config;
+      var own = Object.assign({}, config, { glass: false });
+      if (Array.isArray(own.cards)) own.cards = own.cards.map(unglassed);
+      if (own.card && typeof own.card === 'object') own.card = unglassed(own.card);
+      return own;
+    }
+
+    function sheetCardConfig(panel, config) {
+      return panel.hasAttribute('hk-no-glass') ? unglassed(config) : config;
+    }
+
     // ------------------------------------------------------------ the sheet
     // Widths on a tablet. On a phone every sheet is the screen less 16 px a
     // side (CSS below), whatever its kind.
@@ -489,10 +528,10 @@
     }
 
     // what the shell and the later parts use of this one
-    K.areaOf = areaOf; K.AUTO_CLOSE_MS = AUTO_CLOSE_MS; K.goFor = goFor; K.haRoot = haRoot; K.hasView = hasView;
+    K.applySheetAppearance = applySheetAppearance; K.areaOf = areaOf; K.AUTO_CLOSE_MS = AUTO_CLOSE_MS; K.goFor = goFor; K.haRoot = haRoot; K.hasView = hasView;
     K.headIcon = headIcon; K.lookFor = lookFor; K.lookOf = lookOf; K.muteLabel = muteLabel; K.nearWhite = nearWhite;
     K.NOTE_CSS = NOTE_CSS; K.noteWhen = noteWhen; K.ours = ours; K.PHONE_H = PHONE_H; K.placeNote = placeNote;
-    K.roomOf = roomOf; K.SHEET_CSS = SHEET_CSS; K.SHEET_H = SHEET_H; K.sheetEdges = sheetEdges; K.SHORT_MQ = SHORT_MQ;
+    K.roomOf = roomOf; K.sheetCardConfig = sheetCardConfig; K.SHEET_CSS = SHEET_CSS; K.SHEET_H = SHEET_H; K.sheetEdges = sheetEdges; K.SHORT_MQ = SHORT_MQ;
     K.SLIDER_H = SLIDER_H; K.SP = SP; K.STD = STD; K.WIDE = WIDE; K.WIDTH = WIDTH;
   };
 })();

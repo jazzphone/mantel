@@ -144,24 +144,24 @@
     // (the look's well first -- Tinted's Dark or Light, hk-settings.js --
     // then the page's: a light page's gray, the theme's; the literal last)
     var OFF_WELL = 'var(--hk-look-well, ' + window.hkCards.v('well-bg') + ')';
-    function wellColour(cfg, stateObj, on) {
+    function wellColour(cfg, stateObj, on, el) {
       if (!on) return OFF_WELL;
       if (cfg.bare_icon) return 'transparent';
-      return window.hkCards.flatColor(colourFor(cfg, stateObj), 'well');
+      return window.hkCards.flatColor(colourFor(cfg, stateObj), 'well', el);
     }
 
     // OFF uses the same map as the well. ON is white unless the glyph is bare,
     // in which case bare_icon_color wins -- that is the only place it applies.
     // `off_icon_color`: the glyph's own color while off, where the lit color
     // would alarm (a quiet leak sensor's drop is calm blue; its leak is red)
-    function iconColour(cfg, stateObj, on) {
+    function iconColour(cfg, stateObj, on, el) {
       if (!on && cfg.off_icon_color) {
         var o = String(cfg.off_icon_color).toLowerCase().trim();
-        return window.hkCards.flatColor(NAME_MAP[o] || cfg.off_icon_color, 'glyph');
+        return window.hkCards.flatColor(NAME_MAP[o] || cfg.off_icon_color, 'glyph', el);
       }
       // (Bright Glass, 2026-10-30: white, the background supplies the color --
       // --hk-look-glyph-off, unset in every other look)
-      if (!on) return 'var(--hk-look-glyph-off, ' + window.hkCards.flatColor(colourFor(cfg, stateObj), 'glyph') + ')';
+      if (!on) return 'var(--hk-look-glyph-off, ' + window.hkCards.flatColor(colourFor(cfg, stateObj), 'glyph', el) + ')';
       // A WHITE OWN COLOR ON THE WHITE PLATE (2026-11-09, the owner: a tapped Routines button's glyph vanished): a lit tile's
       // plate is white, so a glyph that is white -- an input_button or a light given `icon_color: white` -- takes the lit
       // tiles' near-black for as long as it is lit (a tap's PRESS_MS too), bare or on its own white circle
@@ -169,7 +169,7 @@
       if (nearWhite(own)) return 'rgba(0, 0, 0, 0.95)';
       if (!cfg.bare_icon) return 'white';
       // (lit and bare: Flat's Light takes the bright color, hk-base flatColor)
-      return window.hkCards.flatColor(own, 'on');
+      return window.hkCards.flatColor(own, 'on', el);
     }
     // a color (a #rrggbb, an rgb()/rgba(), a palette name) the white plate would swallow: luminance over 0.85, as lightRgb's
     function nearWhite(c) {

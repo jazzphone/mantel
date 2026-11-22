@@ -116,11 +116,19 @@
               onChange: (v) => set(key, v === 'tap' ? null : v) }));
             return;
           }
-          // THE HOME SHEET'S LOOK (2026-11-12, the owner: "letting me set the appearance would help with looks and performance")
           if (kind === 'sheet_look') {
-            // (2026-11-13, the owner: "the main goal is to make it easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto")
-            rows.push(K.select({ label: 'Sheet', sub: 'Flat draws no blur or motion, the lightest for a wall tablet. Glass, Frosted and Tinted blur the sheet alone.',
-              value: opts[key] === 'solid' ? 'flat' : opts[key] || 'auto', options: G.SHEET_LOOK_NAMES, onChange: (v) => set(key, v === 'auto' ? null : v) }));
+            var looks = (o.base || {}).look ? [['auto', 'Use Card Setting']].concat(G.SHEET_LOOK_NAMES.slice(1)) : G.SHEET_LOOK_NAMES;
+            rows.push(K.select({ label: 'Sheet', sub: 'Flat uses opaque surfaces without blur. Glass, Frosted and Tinted blur the sheet alone.',
+              value: opts[key] === 'solid' ? 'flat' : opts[key] || 'auto', options: looks, onChange: (v) => set(key, v === 'auto' ? null : v) }));
+            return;
+          }
+          if (kind === 'sheet_flat_theme') {
+            var sheetLook = opts.look || (o.base || {}).look;
+            if (sheetLook !== 'flat' && sheetLook !== 'solid') return;
+            var inherited = (o.base || {}).flat_theme;
+            rows.push(K.seg({ label: 'Flat Theme', value: opts[key] || 'auto',
+              options: [['auto', inherited ? 'Use Card Setting' : 'Same as Screen'], ['light', 'Light'], ['dark', 'Dark']],
+              onChange: (v) => set(key, v === 'auto' ? null : v) }));
             return;
           }
           // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")
