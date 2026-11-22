@@ -534,6 +534,18 @@ def test_tab_bar_clear_and_dim():
     assert "tab_bar_dim" in M.MENU_KEYS
 
 
+def test_settings_page_menu_keys_match_the_server():
+    # (2026-11-22) the Settings page keeps its own MENU_KEYS (hk-settings-model-menu.js): a key the server has and it
+    # lacks is saved nowhere -- Tab Bar Dim's switch sprang back. The two lists, and the page's defaults, match.
+    import re
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "web/hk/settings-model/hk-settings-model-menu.js").read_text()
+    keys = dict(re.findall(r"(\w+): '(\w+)'", src[src.index("var MENU_KEYS = {"):src.index("};", src.index("var MENU_KEYS = {"))]))
+    assert keys == dict(M.MENU_KEYS)
+    defaults = src[src.index("var MENU_DEFAULTS = {"):src.index("};", src.index("var MENU_DEFAULTS = {"))]
+    assert set(re.findall(r"(\w+):", defaults)) >= set(M.MENU_KEYS)
+
+
 def test_text_glow():
     # (2026-11-22) Appearance -> Advanced -> Text Glow: on by default; All Screens' or a screen's own over it
     assert M.merged({})["look"]["text_glow"] is True
