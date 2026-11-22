@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.169 - 2026-11-21
+
 **Changed**
 - **Appearance, Background and the Screensaver are simpler to find your way around.** A screen's page now has the same Look & Feel rows as the sidebar (Appearance, Background, Menu & Navigation, Side Pane, Now Playing, Screensaver), and each row says **Same as All Screens** or **Just This Screen**. Appearance opens with a Look, then Style: Glass (Clear, Blurred or Bright), Frosted, Tinted or Flat, then Color, Tiles, Motion and Advanced. Background is one page in every style, and Flat can now use the Live Sky or a Wallpaper too. A photo's treatments are on one Adjust Photo page. A screen's screensaver follows All Screens row by row, with its switch at the top.
 - **The TV block and sheet are redesigned**: the remote comes first, and the open app's own icon is the picture (most TV apps send no artwork).
