@@ -676,7 +676,7 @@ class HkControlCard extends HTMLElement {
       ${window.hkCards.headCss('.big .mc>b')}
       .big .mc button{all:unset;position:relative;box-sizing:border-box;flex:none;height:52px;border-radius:var(--hk-inner-radius,12px);display:flex;align-items:center;justify-content:center;gap:8px;
         background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};${window.hkCards.typeCss('body')};font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
-      .big .mc button.on{background:#fff;color:#1c1c1e}
+      .big .mc button.on{background:#fff;color:#1c1c1e;text-shadow:none}
       .big .mc button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
       .big .mc hk-icon{width:20px;height:20px;--mdc-icon-size:20px;display:block;line-height:0}
       .big .mc span{${window.hkCards.typeCss('caption')};line-height:18px;text-align:center;color:${window.hkCards.v('ink-2')};margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
