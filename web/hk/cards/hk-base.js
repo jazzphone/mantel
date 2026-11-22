@@ -182,7 +182,8 @@
     'battery-fill': 'linear-gradient(180deg, #5ee283 0%, #30d158 48%, #26b449 100%)',
     'battery-fill-low': 'linear-gradient(180deg, #ff7a70 0%, #ff453a 48%, #d9362c 100%)',
     // what text carries over the sky or a photo
-    'glow': '0 1px 3px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.22)',
+    // (a look may soften it: Bright Glass's --hk-look-text-shadow; DESIGN.md "Text over glass")
+    'glow': 'var(--hk-look-text-shadow,0 1px 3px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.22))',
     // ON A LIT (WHITE) PILL: the room line and the state, the Home app's
     // grays (measured 2026-10-13: room #464649, state #79797b). The state is
     // #767678, 3/255 darker, so it keeps 4.5:1 on white (#79797b is 4.34).
@@ -840,7 +841,7 @@
         '  font-size:' + (o.font || '15px') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;margin:0;',
         '  display:inline-flex;align-items:center;justify-content:center;gap:6px;',
         '  position:relative;isolation:isolate;transition:color .22s ease;-webkit-tap-highlight-color:transparent}',
-        on + '{color:#1c1c1e;background:transparent;box-shadow:none}',
+        on + '{color:#1c1c1e;background:transparent;box-shadow:none;text-shadow:none}',
         on + '::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;' +
           (o.raised ? 'background:var(--hk-seg-raised-on,var(--hk-seg-on,#fff));box-shadow:var(--hk-seg-raised-on-shadow,var(--hk-seg-on-shadow,none));'
                     : 'background:var(--hk-seg-on,#fff);box-shadow:var(--hk-seg-on-shadow,none);'),

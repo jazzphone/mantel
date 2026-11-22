@@ -986,7 +986,7 @@
           ':host(:is([size=L],[size=XL])) .np.idle .npi-a{' + window.hkCards.typeCss('body') + ';line-height:19px;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           // Play: a white key drawn 40 px with a 56 px target (8 past it above and below, into room nothing else takes)
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play{position:relative;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:40px;margin-top:6px;padding:0 18px 0 14px;',
-          '  border:0;border-radius:20px;background:rgba(255,255,255,.94);color:#1c1c1e;font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+          '  border:0;border-radius:20px;background:rgba(255,255,255,.94);color:#1c1c1e;text-shadow:none;font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play::after{content:"";position:absolute;inset:-8px -6px}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play svg{width:18px;height:18px;fill:currentColor}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play:active{transform:scale(.96)}',

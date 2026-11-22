@@ -44,7 +44,7 @@
       'hk-plate.card:active{transform:scale(0.97);filter:brightness(0.93)}',
       // Lit, the plate is opaque white: a blur behind it ("Blur each card")
       // would be composited every frame and never seen.
-      'hk-plate.card[data-on="1"]{background:white;--hk-glass-backdrop:none}',
+      'hk-plate.card[data-on="1"]{background:white;--hk-glass-backdrop:none;--hk-glow:none}',
       // ...and on a light page (hk-base.js tone) lifts off it with a shadow
       ':host([data-hk-light]) hk-plate.card[data-on="1"]{box-shadow:var(--hk-on-shadow)}',
 
@@ -92,10 +92,8 @@
       ':host([data-hk-cell]) hk-plate.card{width:100%;min-width:0;max-width:none}',
       'hk-plate.card[data-on="1"] .label{color:' + window.hkCards.v('ink-on-state') + '}',
       // BRIGHT GLASS (2026-10-30): off, the second line the background's light
-      // color into white (--hk-look-sub) and a light text shadow -- unset (as
-      // before) in every other look
+      // color into white (--hk-look-sub); its light text shadow is the glow's (hk-plate)
       'hk-plate.card:not([data-on="1"]) .label,hk-plate.card:not([data-on="1"]) .room{color:var(--hk-look-sub, ' + window.hkCards.v('ink-2') + ')}',
-      'hk-plate.card:not([data-on="1"]) .grid{text-shadow:var(--hk-look-text-shadow, none)}',
 
       // ---- scene variant -------------------------------------------------
       // A scene is NOT a pill with a different grid. Diffing every resolved

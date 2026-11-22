@@ -556,7 +556,7 @@
       ':host([size]) .row{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));grid-auto-rows:' + GRID_ROW + 'px;',
       '  gap:' + GRID_GAP + 'px 16px;overflow:hidden;padding:0;margin:0;align-content:center}',
       ':host([size]) .it{min-width:0;min-height:' + GRID_ROW + 'px}',
-      ':host([size]) .t,:host([size]) .v{overflow:hidden;text-overflow:ellipsis;text-shadow:none}',
+      ':host([size]) .t,:host([size]) .v{overflow:hidden;text-overflow:ellipsis}',
       ':host([size]) .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + '}'
     ].join('');
 

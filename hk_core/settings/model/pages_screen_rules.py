@@ -130,6 +130,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     out["look"]["flat"] = out["look"].get("flat") is True
     # (Motion, 2026-11-14: on unless switched off -- only an explicit False is off)
     out["look"]["motion"] = out["look"].get("motion") is not False
+    # (Text Glow, 2026-11-22: on unless switched off)
+    out["look"]["text_glow"] = out["look"].get("text_glow") is not False
     if out["look"].get("flat_theme") not in FLAT_THEMES:
         out["look"]["flat_theme"] = "dark"
     for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("bars_blur", BARS_BLUR), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),

@@ -133,7 +133,10 @@
     'box-sizing:border-box;border-radius:var(--ha-card-border-radius,var(--ha-border-radius-lg,12px));' +
     'border-width:var(--ha-card-border-width,1px);border-style:solid;' +
     'border-color:var(--ha-card-border-color,var(--divider-color,#e0e0e0));color:var(--primary-text-color);' +
-    'transition:all .3s ease-out;display:block;position:relative}' +
+    'transition:all .3s ease-out;display:block;position:relative;' +
+    // THE GLOW (DESIGN.md "Text over glass", 2026-11-22): every word on a plate wears the look's text shadow -- hkCards.v('glow'),
+    // written out here because this file draws before hk-base.js; a light page, Flat and a lit (white) plate set it to none
+    'text-shadow:var(--hk-glow,var(--hk-look-text-shadow,0 1px 3px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.22)))}' +
     ':host([raised]){box-shadow:var(--ha-card-box-shadow,0px 2px 1px -1px #0003, 0px 1px 1px 0px #00000024, 0px 1px 3px 0px #0000001f);border:none}' +
     '.card-header,:host ::slotted(.card-header){color:var(--ha-card-header-color,var(--primary-text-color));' +
     'font-family:var(--ha-card-header-font-family,inherit);font-size:var(--ha-card-header-font-size,var(--ha-font-size-2xl,24px));' +

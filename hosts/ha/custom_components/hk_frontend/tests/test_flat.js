@@ -114,8 +114,22 @@ S._apply({look:{flat:true,flat_theme:'light',page_accents:{climate:'red'}},sky:{
 ok('a page’s Automatic ground is a shade of its accent',C.flatColorHex('auto','light','climate')!==C.flatColorHex('auto','light','home')&&C.pageTone('climate','light')===
     C.flatColorHex('auto','light','climate')&&C.pageTone('home','light')===null);
 ok('red: blush on Light, deep on Dark',/^#f[0-9a-f]e[0-9a-f]/i.test(C.pageTone('climate','light'))&&parseInt(C.pageTone('climate','dark').slice(1,3),16)<60);
+// TEXT GLOW (Appearance -> Advanced, 2026-11-22): on by default; off, --hk-glow is none on the page; Flat says none itself
+var glowAt = function () { return document.documentElement.style.getPropertyValue('--hk-glow'); };
+S._apply({look:{flat:false,glass:'blur'}});
+ok('Text Glow: on by default, the page leaves the glow to the cards',S.textGlow()===true&&glowAt()==='');
+S._apply({look:{flat:false,glass:'blur',text_glow:false}});
+ok('...off: --hk-glow none on the page, so no card wears it',S.textGlow()===false&&glowAt()==='none');
+S._apply({look:{flat:true,flat_theme:'dark',text_glow:true}});
+ok('...Flat has none whatever it says',glowAt()==='none');
+S._apply({look:{flat:false,glass:'blur',text_glow:true}});
+ok('...and leaving Flat leaves no none behind',glowAt()==='');
 var previousPath = location.pathname;
 location.pathname = '/dashboard-accent/home';
+S._apply({look:{flat:false,glass:'blur',text_glow:false},boards:{'dashboard-accent':{text_glow:true}}});
+ok('...a screen\'s own over All Screens\'',S.textGlow()===true&&glowAt()==='');
+S._apply({look:{flat:false,glass:'blur',text_glow:true},boards:{'dashboard-accent':{text_glow:false}}});
+ok('...either way',S.textGlow()===false&&glowAt()==='none');
 S._apply({look:{flat:false,page_accents:{climate:'red'}},boards:{'dashboard-accent':{accent:'auto'}}});
 ok('the incoming tab gets its page accent before the address changes', C.menu.accent().color === C.ACCENTS.orange &&
    C.menu.accent('/dashboard-accent/climate').color === C.ACCENTS.red && location.pathname === '/dashboard-accent/home');

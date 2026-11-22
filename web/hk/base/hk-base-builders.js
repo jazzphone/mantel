@@ -18,7 +18,8 @@
     // plate first, the shared-blur marker, the Blur-each backdrop), the edge,
     // and the shadow by size -- the look's (--hk-look-shadow, Tinted's contact
     // shadow) first, as every plate has read it. A tile casts the pill's
-    // shadow; a page card and a panel the tall one. Clipping is the card's call.
+    // shadow; a page card and a panel the tall one. Clipping is the card's call. Its words wear the glow
+    // (DESIGN.md "Text over glass"), as hk-plate's do; a white plate a card draws sets --hk-glow: none.
     var PLATE_SHADOW = { tile: 'glass-shadow-pill', card: 'glass-shadow-tall', panel: 'glass-shadow-tall' };
     // A BLOCK'S OWN BOX (2026-10-24, Home Grid's Hide Box): a card's or a
     // panel's plate reads --hk-block-* first, which a boxless grid cell sets
@@ -30,13 +31,13 @@
       if (!sh) throw new Error('hkCards.plate: no plate ' + kind);
       if (kind === 'tile') {
         return 'border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border +
-          ';box-shadow:var(--hk-look-shadow, ' + v(sh) + ')';
+          ';box-shadow:var(--hk-look-shadow, ' + v(sh) + ')' + ';text-shadow:' + v('glow');
       }
       // (--hk-block-radius: a square cell's corners, hk-home-grid-view -- one
       // radius, or four where a Square screen's corner rounds one of them)
       return 'border-radius:var(--hk-block-radius, ' + M.radius + ');background:var(--hk-block-plate, ' + M.bg + ');--hk-glass-surface:var(--hk-block-glass, 1);' +
         'backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none));-webkit-backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none))' +
-        ';border:var(--hk-block-edge, ' + M.border + ');box-shadow:var(--hk-block-shadow, var(--hk-look-shadow, ' + v(sh) + '))';
+        ';border:var(--hk-block-edge, ' + M.border + ');box-shadow:var(--hk-block-shadow, var(--hk-look-shadow, ' + v(sh) + '))' + ';text-shadow:' + v('glow');
     }
     // A CENTRED TILE'S CSS (TILE.centred) over a tile's parts, named by `s`: { host (the variant's :host), plate, lit,
     // well, icon, name, sub (a list) }: the tall cell's numbers, then the square cell's where the cell (hk-cell) is

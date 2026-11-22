@@ -122,6 +122,7 @@
       ['Looks', 'house/appearance/looks', 'look.looks', 'look looks preset theme homeview flat performance holiday whimsy weather calming night bedside photo frame one step undo'],
       ['Blur Drawing', 'house/appearance/advanced/blur', 'look.glass:mode', 'blur mode drawing shared layer pre-rendered prerendered each card performance cpu gpu'],
       ['Bars & Side Pane', 'house/appearance/advanced', 'look.bars_blur', 'tab bar menu side pane blur pre-rendered prerendered live clear glass performance'],
+      ['Text Glow', 'house/appearance/advanced', 'look.text_glow', 'text glow shadow words names letters readable contrast cards'],
       ['Color from Background', 'house/appearance', 'look.frost_tint', 'frosted tint from background color colour card page behind'],
       ['Reset Appearance', 'house/appearance', 'appearance:reset', 'reset appearance defaults style colors'],
       ['Frost Amount', 'house/appearance', 'look.frost', 'frosted'],

@@ -289,6 +289,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "bright_pages": None,
     # its own Bars & Side Pane (BARS_BLUR; None: All Screens')
     "bars_blur": None,
+    # its own Text Glow (None: All Screens' look.text_glow)
+    "text_glow": None,
     # ...and in a car's browser (car on): car_layout, which Home the screen
     # generates there -- "home" the whole Home every screen has, "car" the
     # car's own (CAR_LAYOUTS); car_width, the layout width the car's window
@@ -568,6 +570,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["tile_icons"] = d.get("tile_icons") if d.get("tile_icons") in TILE_ICONS else None
     out["bright_pages"] = d.get("bright_pages") if d.get("bright_pages") in BRIGHT_PAGES else None
     out["bars_blur"] = d.get("bars_blur") if d.get("bars_blur") in BARS_BLUR else None
+    # (Text Glow, 2026-11-22: this screen's own, None follows All Screens' look.text_glow)
+    out["text_glow"] = d.get("text_glow") if isinstance(d.get("text_glow"), bool) else None
     # The screen's own Sky / Background: each flag stored as anything but a
     # boolean is not set (follow All Screens), as a backdrop id not in
     # SKY_BACKDROPS and stops that do not parse are (sky_stops()).

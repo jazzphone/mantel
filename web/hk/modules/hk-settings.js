@@ -450,6 +450,13 @@
     if (mkey && vk.sure) { flatMemo.key = mkey; flatMemo.val = r; }
     return r;
   }
+  // TEXT GLOW (Appearance -> Advanced, 2026-11-22, the owner: "default on"): this screen's own text_glow, else All
+  // Screens' look.text_glow -- on unless switched off
+  function textGlow() {
+    var b = boardHere();
+    if (b && typeof b.text_glow === 'boolean') return b.text_glow;
+    return get('look.text_glow', true) !== false;
+  }
   function applyLook() {
     var root = document.documentElement;
     if (!root || !root.style) return;
@@ -459,6 +466,8 @@
     LOOK_VARS.forEach(function (k) {
       if (look[k]) root.style.setProperty(k, look[k]); else root.style.removeProperty(k);
     });
+    // TEXT GLOW (Appearance -> Advanced, 2026-11-22): off, every v('glow') and hk-plate's glow read none
+    if (textGlow()) root.style.removeProperty('--hk-glow'); else root.style.setProperty('--hk-glow', 'none');
     var policy = rendering(), C = window.hkCards;
     if (policy.flat && C && C.FLAT) {
       var tokens = C.FLAT[policy.theme];
@@ -768,6 +777,7 @@
       // BARS & SIDE PANE (Appearance -> Advanced, 2026-11-21): 'pre' -- the tab bar, the menu and the Side Pane wear
       // Pre-rendered's picture in Clear Glass and Each Card (hk-glass.js PINNABLE) -- or 'live'; this screen's own
       // bars_blur, else All Screens' look.bars_blur
+      textGlow: function () { return textGlow(); },
       barsBlur: function () {
         var b = boardHere(), own = b && b.bars_blur;
         if (own === 'live' || own === 'pre') return own;

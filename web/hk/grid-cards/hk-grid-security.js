@@ -273,7 +273,7 @@
       '.arm{display:flex;justify-content:center;gap:8px;flex:none}',
       '.arm button{all:unset;box-sizing:border-box;flex:none;width:112px;height:44px;border-radius:22px;text-align:center;background:' + v('key') + ';' + type('body') + ';font-weight:600;color:' +
         v('ink') + ';cursor:pointer}',
-      '.arm button.on{background:#fff;color:#1c1c1e}',
+      '.arm button.on{background:#fff;color:#1c1c1e;text-shadow:none}',
       '.arm button:active{background:' + v('key-strong') + '}',
       // TALL (2026-11-07, the review): the shield and state on top, the rows through the middle, and at the foot Home and Away
       // side by side with Disarm under them (three 44 px keys in a row do not fit a block this narrow); the state's line may
@@ -383,7 +383,7 @@
       'hk-plate.sec.hv.on:not(.kp) .hd,hk-plate.sec.hv.trg:not(.kp) .hd{padding:10px;border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
       'hk-plate.sec.hv.on:not(.kp) .hd{background:#fff;--hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);',
       '  --hk-glyph:rgba(0,0,0,0.78);--hk-key:rgba(0,0,0,0.06);--hk-key-strong:rgba(0,0,0,0.12);--hk-glow:none}',
-      'hk-plate.sec.on .arm button.on{background:' + C.ACCENTS.teal + ';color:#fff}',
+      'hk-plate.sec.on .arm button.on{background:' + C.ACCENTS.teal + ';color:#fff;text-shadow:' + v('glow') + '}',
       'hk-plate.sec.hv.trg:not(.kp) .hd{background:var(--trg,' + C.ACCENTS.red + ');',
       '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none;--hk-kp-st:#fff}'
     ].join('');

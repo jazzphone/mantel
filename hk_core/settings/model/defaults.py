@@ -299,7 +299,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              # pages' Tall pills in the Home app's layout, or Centred (the glyph above the name and room, HomeView's)
              "tile_style": "auto", "tile_icons": "auto", "thermostat_style": "dial", "bright_pages": "home",
              # Bars & Side Pane (BARS_BLUR): live, or Pre-rendered in Clear Glass and Each Card
-             "bars_blur": "live"},
+             "bars_blur": "live",
+             # TEXT GLOW (Appearance -> Advanced, 2026-11-22, the owner: "add Text Glow under Advanced, default on"):
+             # the glow every word on a plate wears (DESIGN.md "Text over glass"); off, none on any card
+             "text_glow": True},
     # THE CALENDAR (the Calendar page, hk-calendar.js, and the screensaver's
     # calendar pane): the calendar entities shown, in order (empty: every
     # calendar the house has), and each one's colour -- entity -> a page pill

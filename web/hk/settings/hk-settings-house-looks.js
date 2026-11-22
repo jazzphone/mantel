@@ -29,6 +29,8 @@
       return function (n) { if (o.house != null && n === o.house && typeof o.reset === 'function') o.reset(); else o.onChange(n); };
     };
     // MOTION's few words, under its switch (Appearance): what it stills, and that the background has its own
+    var TEXT_GLOW_FOOT = 'A soft shadow behind the words on every card, so they read over a bright sky or background. ' +
+      'Flat and lit tiles never have it.';
     var MOTION_FOOT = 'Pages slide with your finger, and sheets and cards animate. Off: pages cross-fade and nothing animates, ' +
       'which is lighter on a slow tablet. The background’s moving parts have their own switch: Background → Animations.';
     // (set when the page starts, not now: the shell calls bindLate() once it has assigned them)
@@ -326,13 +328,13 @@
           if (!x) { self.setH(JSON.parse(JSON.stringify(M.APPEARANCE_DEFAULTS))); return; }
           var ch = Object.assign(M.menuOwnReset(b, 'accent'), { flat: null, glass: 'house', flat_colors: {} });
           ['flat_theme', 'frost', 'blur', 'tint', 'well', 'frost_tint', 'bright', 'bright_dim', 'bright_pages', 'bars_blur', 'tile_style', 'tile_icons',
-            'motion']
+            'motion', 'text_glow']
             .forEach(function (k) { ch[k] = null; });
           if (M.ownsMenu(b, 'tab_bar_glass')) Object.assign(ch, M.menuOwnReset(Object.assign({}, b, { menu_own: ch.menu_own || b.menu_own }), 'tab_bar_glass'));
           self.setB(x.path, ch);
         });
       }
-      // APPEARANCE -> ADVANCED (phase 33): the tab bar's glass, and how Blurred and Bright glass are drawn
+      // APPEARANCE -> ADVANCED (phase 33): the tab bar's glass, how Blurred and Bright glass are drawn, and Text Glow
       appearanceAdvanced(c, x, b) {
         var look = this.data.settings.look || {}, gl = x ? M.glassOf(b, look) : { effective: look.flat === true ? 'flat' : look.glass || 'clear' };
         var base = x ? '#/screens/' + encodeURIComponent(x.path) + '/appearance' : '#/house/appearance';
@@ -352,6 +354,14 @@
         } else if (x && !M.hasTabBar(b)) {
           c.appendChild(K.group({ footer: 'Blur Drawing is for Blurred and Bright glass, and Tab Bar Glass for a screen with a tab bar.' }, []));
         }
+        // TEXT GLOW (2026-11-22, the owner: "add Text Glow under Advanced, default on"): the glow every word on a card
+        // wears (DESIGN.md "Text over glass"); All Screens' look.text_glow, a screen's own text_glow over it
+        c.appendChild(K.group({ header: 'Text', footer: TEXT_GLOW_FOOT + (x ? '' : ' Each screen can choose its own.') }, [this.textGlowRow(x, b)]));
+      }
+      textGlowRow(x, b) {
+        var self = this, look = this.data.settings.look || {}, own = !!x && typeof b.text_glow === 'boolean', house = look.text_glow !== false;
+        return K.toggle({ label: 'Text Glow', sk: x ? 'b:text_glow' : 'look.text_glow', on: own ? b.text_glow : house, sub: whose(x, own),
+          onChange: function (on) { if (x) self.setB(x.path, { text_glow: on === house ? null : on }); else self.setH({ 'look.text_glow': on }); } });
       }
       // BARS & SIDE PANE (BARS_BLUR): All Screens' look.bars_blur, or a screen's own over it
       barsBlurRow(x, b) {

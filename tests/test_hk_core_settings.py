@@ -516,3 +516,15 @@ def test_bars_and_side_pane_blur():
     b, err = C.apply_board({}, {"bars_blur": "pre"})
     assert err == {} and M.board(b)["bars_blur"] == "pre"
     assert M.board({})["bars_blur"] is None and M.board(C.apply_board(b, {"bars_blur": None})[0])["bars_blur"] is None
+
+
+def test_text_glow():
+    # (2026-11-22) Appearance -> Advanced -> Text Glow: on by default; All Screens' or a screen's own over it
+    assert M.merged({})["look"]["text_glow"] is True
+    new, err = C.apply_house({}, {"look.text_glow": False})
+    assert err == {} and M.merged(new)["look"]["text_glow"] is False
+    assert "look.text_glow" in C.apply_house({}, {"look.text_glow": "off"})[1]
+    assert M.merged({"dashboard": {"look": {"text_glow": "no"}}})["look"]["text_glow"] is True
+    b, err = C.apply_board({}, {"text_glow": False})
+    assert err == {} and M.board(b)["text_glow"] is False
+    assert M.board({})["text_glow"] is None and M.board(C.apply_board(b, {"text_glow": None})[0])["text_glow"] is None

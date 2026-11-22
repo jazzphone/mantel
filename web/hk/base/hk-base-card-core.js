@@ -780,6 +780,10 @@
       // reads the variable that surface sets on its root (FONT_ROOT, below).
       ':host{font-family:var(--ha-font-family-body,' + v('font-body') + ')}',
       '*{box-sizing:border-box;font-family:inherit}',
+      // A BUTTON'S WORDS WEAR THE GLOW TOO (DESIGN.md "Text over glass", 2026-11-22): the browsers' own sheet gives
+      // <button> text-shadow: none, so the plate's glow stopped at every button -- People's faces, the vacuum's rooms,
+      // Now Playing's queue. A card's own rule (a white key's none) still wins.
+      'button{text-shadow:inherit}',
       // ON A HOME GRID (a block's card has `size`, hk-home-grid-view): the card
       // and its own root are the block's height, so a plate can fill it
       ':host([size]){height:100%}:host([size])>div{height:100%}',

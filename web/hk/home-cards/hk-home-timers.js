@@ -715,7 +715,7 @@
           // above would otherwise win: same specificity, later)
           '.panel .chip2[aria-pressed="true"]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
           '.panel .start{height:56px;border-radius:28px;margin-top:auto;font-size:18px;font-weight:700;border:0}',
-          '.panel .start[aria-disabled="false"]{background:var(--hk-timer-tint,rgba(255,159,10,0.95));border-color:transparent;  color:rgba(0,0,0,0.85)}',
+          '.panel .start[aria-disabled="false"]{background:var(--hk-timer-tint,rgba(255,159,10,0.95));border-color:transparent;  color:rgba(0,0,0,0.85);text-shadow:none}',
           '.panel .start[aria-disabled="true"]{opacity:1;color:' + window.hkCards.v('ink-3') + ';background:' + window.hkCards.v('key') + '}',
           // WIDE (`data-wide`, set by hk-timers-page-card when the page stacks: an iPad held upright, a tablet with the
           // menu docked): this panel runs the full width under the page, so its one column would be a tall strip. Two

@@ -53,7 +53,7 @@
           '.vac .vk{display:flex;gap:10px}.vac .cmd{all:unset;box-sizing:border-box;height:56px;min-width:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;' +
             'cursor:pointer;',
           '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';font-family:inherit;font-size:17px;font-weight:600;transition:transform .12s ease}',
-          '.vac .cmd.go{flex:1 1 auto;min-width:0;padding:0 14px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}.vac .cmd:active{transform:scale(0.97)}',
+          '.vac .cmd.go{flex:1 1 auto;min-width:0;padding:0 14px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + ';text-shadow:none}.vac .cmd:active{transform:scale(0.97)}',
           '.vac .cmd.clr{flex:none;padding:0 20px;font-size:17px}.vac .cmd[hidden]{display:none}.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') +
             ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none;display:flex;align-items:center;justify-content:center}',
           // (a flex box, as a tile's well glyph is -- hk-base.js: under Home Assistant the glyph is an inline child on a line box,
@@ -92,7 +92,7 @@
           '  --vb-r:calc(var(--vb-key) / 2);border-radius:var(--vb-r);background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-family:inherit;' + C.typeCss('headline') +
             ';white-space:nowrap;cursor:pointer}',
           '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
-          '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
+          '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + ';text-shadow:none}',
           // (TALL'S KEYS, 2026-11-08, the owner: nothing stretches -- Clean is as wide as its word, Dock round beside it, the pair centered)
           // (TALL'S KEYS, 2026-11-09: Clean takes the row's width less the round Dock and 8 px; 48 tall since 2026-11-10, as the other blocks' keys --
           // the owner: at 56 "the pills/controls seem a lot bigger than the other cards, causing almost no room for the animated glyph")
@@ -495,7 +495,7 @@
             '}',
           '.bar .n{min-width:0;font-size:13px;font-weight:600;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.bar .pill{min-width:96px}',
-          '.bar .go[aria-pressed="true"] > span{color:' + SELECTED_TEXT + '}',
+          '.bar .go[aria-pressed="true"] > span{color:' + SELECTED_TEXT + ';text-shadow:none}',
           '.bar .go[aria-disabled="true"]{opacity:0.45;pointer-events:none}',
           '.plate .floor{padding:0 0 10px 0;font-size:15px}',
           '.plate .grid{margin:0 0 16px 0}',

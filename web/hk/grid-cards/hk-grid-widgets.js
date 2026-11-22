@@ -617,7 +617,6 @@
     }
     var ON_CSS = [
       ':host{display:block;height:100%}',
-      'hk-plate.wg{text-shadow:none}',
       '.none{' + type('body') + ';color:' + v('ink-2') + '}'
     ].join('');
     // THE PARTS, House Status's file (a lazy one): asked for once, the card drawn again when it is here

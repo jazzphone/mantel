@@ -48,7 +48,7 @@
       'hk-plate.tv.one{padding:0}',
       '.ch{all:unset;box-sizing:border-box;position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;padding:12px;',
       '  border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:linear-gradient(150deg,var(--c1),var(--c2));color:#fff;cursor:pointer;',
-      '  overflow:hidden;container-type:size;text-shadow:0 1px 2px rgba(0,0,0,.22);-webkit-tap-highlight-color:transparent;transition:transform .12s ease}',
+      '  overflow:hidden;container-type:size;text-shadow:' + C.v('glow') + ';-webkit-tap-highlight-color:transparent;transition:transform .12s ease}',
       '.ch:active{transform:scale(.98)}',
       '.ch:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
       '.one .ch{position:absolute;inset:0;border-radius:inherit;padding:' + C.blockPad('14px') + '}',
@@ -105,7 +105,7 @@
       'hk-plate.tv.xl{display:flex;flex-direction:row;gap:' + C.blockPad('14px').replace(/^.*?(var\(--hk-pad-l,[^)]*\)).*$/, '$1') + ';padding:' + C.blockPad('14px') + '}',
       '.xl .lf{all:unset;box-sizing:border-box;position:relative;flex:none;width:268px;align-self:stretch;overflow:hidden;cursor:pointer;color:#fff;',
       '  border-radius:var(--hk-inner-radius,' + C.R.inner +
-        'px);background:linear-gradient(150deg,var(--c1),var(--c2));text-shadow:0 1px 2px rgba(0,0,0,.22);-webkit-tap-highlight-color:transparent}',
+        'px);background:linear-gradient(150deg,var(--c1),var(--c2));text-shadow:' + C.v('glow') + ';-webkit-tap-highlight-color:transparent}',
       '.xl .lf:active{opacity:.85}.xl .lf:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
       '.xl .lf .bg::before{opacity:.18}.xl .lf .bg::after{background:none}',
       '.xl .ft{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:40px 14px 14px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.76))}',

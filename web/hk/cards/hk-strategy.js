@@ -208,7 +208,9 @@
                     // ...and Bright Glass On (hk-settings.js glass(), on each page)
                     bright_pages: 1,
                     // ...and Bars & Side Pane (hk-settings.js barsBlur(), hk-glass.js reads it live)
-                    bars_blur: 1 };
+                    bars_blur: 1,
+                    // ...and Text Glow (hk-settings.js textGlow(), worn as --hk-glow on the page)
+                    text_glow: 1 };
   // an accessory's fields only the chips read (Status & Chips' status, a custom
   // chip's when / label / attribute): changing one rebuilds nothing
   var CHIP_ONLY = { status: 1, when: 1, label: 1, attribute: 1 };

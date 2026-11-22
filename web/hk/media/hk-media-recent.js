@@ -169,7 +169,7 @@
       // playlists with a horizontal scroll"): five across, the last played above as big as the height left lets it
       '.mu.XL .top .col{align-self:stretch}.pp{all:unset;box-sizing:border-box;margin-top:auto;align-self:flex-start;height:44px;padding:0 20px 0 14px;border-radius:22px;display:inline-flex;' +
         'align-items:center;gap:6px;cursor:pointer;' +
-      '  background:rgba(255,255,255,.94);color:#1c1c1e;' + C.typeCss('headline') +
+      '  background:rgba(255,255,255,.94);color:#1c1c1e;text-shadow:none;' + C.typeCss('headline') +
         ';-webkit-tap-highlight-color:transparent}.pp:active{transform:scale(.96)}.pp hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
       '.mu.XL .cv{--across:5}.mu.XL .cvw{flex:none}.mu.XL .top{flex:1;min-height:0}.mu.XL .last{height:100%;width:auto;aspect-ratio:1}',
       '.top .col{display:flex;flex-direction:column;min-width:0;flex:1}',
@@ -186,7 +186,7 @@
       '.xl2 .lc .t2{font-size:15px;font-weight:400;line-height:20px;color:' + C.v('ink-2') + '}',
       '.xl2 .acts{display:flex;gap:10px;margin-top:auto;flex:none}',
       '.xl2 .acts button{all:unset;box-sizing:border-box;height:56px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-      '.xl2 .acts .pp{flex:1;border-radius:28px;background:rgba(255,255,255,.94);color:#1c1c1e;' + C.typeCss('headline') + '}',
+      '.xl2 .acts .pp{flex:1;border-radius:28px;background:rgba(255,255,255,.94);color:#1c1c1e;text-shadow:none;' + C.typeCss('headline') + '}',
       '.xl2 .acts .br{flex:none;width:56px;border-radius:50%;background:rgba(255,255,255,.16);color:' + C.v('ink') + '}',
       '.xl2 .acts button:active{transform:scale(.96)}',
       '.xl2 .acts button:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:2px}',
