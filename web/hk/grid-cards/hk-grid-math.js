@@ -54,7 +54,7 @@
     // four page swipes)
     var partsMemo = { key: null, ents: null, devs: null, areas: null, by: {} };
     function roomParts(client, area) {
-      var S = window.hkStrategy, out = { lights: [], speakers: [], all: [] };
+      var S = window.hkStrategy, out = { lights: [], speakers: [], all: [], temps: [] };
       if (!S || !S.roomCards || !client || !client.states) return out;
       var HS = window.hkSettings;
       var key = (HS ? HS.version : '') + '|' + nStates(client.states);
@@ -88,7 +88,21 @@
           if (Array.isArray(c.cards)) walk(c.cards);
         });
       })(cards);
+      out.temps = roomTemps(client, area);
       return out;
+    }
+    // THE ROOM'S TEMPERATURE SOURCES, kept with its parts: the area's own sensor (HA's Settings -> Areas -> Related
+    // sensors), then its other temperature sensors, then its thermostats -- never a hidden or diagnostic one (a leak
+    // sensor's chip under a running dishwasher read 91°, 2026-11-21: the Kitchen said 91° beside a 69° Ecobee). From
+    // the registries, so the house's states are not walked.
+    function roomTemps(client, area) {
+      var a = ((client && client.areas) || {})[area] || {}, ents = (client && client.entities) || {}, sensors = [], climates = [];
+      Object.keys(ents).forEach(function (id) {
+        var e = ents[id] || {}, d = dom(id);
+        if ((d !== 'sensor' && d !== 'climate') || e.hidden || e.entity_category || areaOf(client, id) !== area) return;
+        (d === 'sensor' ? sensors : climates).push(id);
+      });
+      return (a.temperature_entity_id ? [a.temperature_entity_id] : []).concat(sensors, climates);
     }
     // WHAT THE ROOM IS DOING, in a line under its name (the widget mock-up,
     // 2026-10-31): its temperature (a sensor's, else its thermostat's reading,
@@ -98,12 +112,12 @@
     function roomLine(client, area, parts, size) {
       var st = client.states || {}, temp = null;
       // (as the house reports it, the way the thermostat's tile says it -- no conversion)
-      var ids = Object.keys(st).filter(function (id) {
-        return areaOf(client, id) === area && ((dom(id) === 'sensor' && attr(st[id], 'device_class') === 'temperature') || dom(id) === 'climate');
-      }).sort(function (a, b) { return (dom(a) === 'sensor' ? 0 : 1) - (dom(b) === 'sensor' ? 0 : 1); });
+      var ids = parts.temps || [];
       for (var i = 0; i < ids.length && temp === null; i++) {
-        var raw = dom(ids[i]) === 'climate' ? attr(st[ids[i]], 'current_temperature') : st[ids[i]].state;
-        if (raw != null && raw !== '' && isFinite(Number(raw)) && !OFF[st[ids[i]].state]) temp = Number(raw);
+        var s = st[ids[i]], climate = dom(ids[i]) === 'climate';
+        if (!s || OFF[s.state] || (!climate && attr(s, 'device_class') !== 'temperature')) continue;
+        var raw = climate ? attr(s, 'current_temperature') : s.state;
+        if (raw != null && raw !== '' && isFinite(Number(raw))) temp = Number(raw);
       }
       var lit = parts.all.filter(function (c) { return dom(c.entity) === 'light' && st[c.entity] && st[c.entity].state === 'on'; }).length;
       var playing = parts.speakers.some(function (c) { return st[c.entity] && st[c.entity].state === 'playing'; });

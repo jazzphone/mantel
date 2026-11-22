@@ -205,6 +205,25 @@ function () {
   eq('Large: the temperature and the lights on', P.roomLine(client, 'den', parts, 'L'), '71° · 1 light on');
   eq('Wide: the short form', P.roomLine(client, 'den', parts, 'W'), '71° · 1 on');
   eq('Extra Large: a speaker playing as well', P.roomLine(client, 'den', parts, 'XL'), '71° · 1 light on · Speaker playing');
+  // the temperature: the area's own sensor first, never a diagnostic one (a leak sensor's chip under a running
+  // dishwasher, 2026-11-21)
+  var warm = H.house({
+    'sensor.sink_leak_chip': ['91.4', { device_class: 'temperature', unit_of_measurement: '°F' }],
+    'sensor.speaker_temperature': ['72.7', { device_class: 'temperature', unit_of_measurement: '°F' }],
+    'sensor.wall_temperature': ['69.3', { device_class: 'temperature', unit_of_measurement: '°F' }]
+  });
+  function warmClient(own) {
+    var h = warm.hass();
+    h.areas = { kitchen: { area_id: 'kitchen', name: 'Kitchen', temperature_entity_id: own } };
+    h.entities = { 'sensor.sink_leak_chip': { area_id: 'kitchen', entity_category: 'diagnostic' },
+                   'sensor.speaker_temperature': reg('kitchen'), 'sensor.wall_temperature': reg('kitchen') };
+    h.devices = {};
+    return window.hkHostClient.from(h);
+  }
+  var wc = warmClient('sensor.wall_temperature');
+  eq('the area\'s own temperature sensor', P.roomLine(wc, 'kitchen', P.roomParts(wc, 'kitchen'), 'L'), '69°');
+  wc = warmClient(null);
+  eq('...none: a room sensor, never a diagnostic one', P.roomLine(wc, 'kitchen', P.roomParts(wc, 'kitchen'), 'L'), '73°');
   // a page of a pager: "2 of 4" from the page's own label, the pager to turn
   var card = H.make('hk-grid-room-card');
   ok('no pager, no dots', card._paging() === null);
