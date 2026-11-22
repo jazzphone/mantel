@@ -580,6 +580,8 @@ ok('All Screens\' phone keys read as a screen\'s, and save back', hb.button_phon
    eq(M.houseMenuSave({ button_phone: 'chip', tab_bar_rooms_phone: null }), { 'menu.button_phone': 'chip', 'menu.bar_rooms_phone': null }));
 // USE THE SIDE STRIP (2026-10-30, the iPhone Duo's strip): a tab bar setting, on unless turned off, All
 // Screens' or a screen's own one at a time, on the Tab Bar page and found by search
+ok('Tab Bar Dim (2026-11-22): All Screens\' menu.bar_dim, a screen\'s own in menu_own -- the switch saved, not sprung back',
+   M.MENU_KEYS.tab_bar_dim === 'bar_dim' && M.menuOwnSet({ menu_own: [] }, { tab_bar_dim: 20 }).menu_own.indexOf('tab_bar_dim') >= 0);
 ok('Use the Side Strip: All Screens\' bar_strip, on unless off, saved back', M.MENU_KEYS.tab_bar_strip === 'bar_strip' &&
    M.houseMenuAsBoard({}).tab_bar_strip === true && M.houseMenuAsBoard({ bar_strip: false }).tab_bar_strip === false &&
    eq(M.houseMenuSave({ tab_bar_strip: false }), { 'menu.bar_strip': false }));

@@ -230,7 +230,7 @@
     var MENU_KEYS = { page_header: 'page_header', menu: 'style', tab_position: 'tab_at', tab_size: 'tab_size',
                       tab_size_phone: 'tab_size_phone', dock_min: 'open_min', time_weather: 'time_weather_at',
                       ha_row: 'ha_row', ha_place: 'ha_at', accent: 'accent', glyph: 'glyph', clock: 'clock', swipe: 'swipe',
-                      tab_bar_scroll: 'bar_scroll', tab_bar_rooms: 'bar_rooms', tab_bar_glass: 'bar_glass',
+                      tab_bar_scroll: 'bar_scroll', tab_bar_rooms: 'bar_rooms', tab_bar_glass: 'bar_glass', tab_bar_dim: 'bar_dim',
                       tab_bar_more: 'bar_more', tab_bar_more_phone: 'bar_more_phone',
                       tab_bar_pos: 'bar_pos', tab_bar_fold: 'bar_fold', tab_bar_start: 'bar_start',
                       tab_bar_adjust: 'bar_adjust', tab_bar_scroll_phone: 'bar_scroll_phone',
@@ -239,7 +239,7 @@
                       button_phone: 'button_phone', tab_bar_rooms_phone: 'bar_rooms_phone' };
     var MENU_DEFAULTS = { page_header: 'current', menu: 'auto', tab_position: '', tab_size: 'large', tab_size_phone: 'standard',
                           dock_min: 1000, time_weather: 'page', ha_row: false, ha_place: 'rooms', accent: 'orange', glyph: 'sidebar', clock: true,
-                          swipe: false, tab_bar_scroll: 'shrink', tab_bar_rooms: 'more', tab_bar_glass: 'house',
+                          swipe: false, tab_bar_scroll: 'shrink', tab_bar_rooms: 'more', tab_bar_glass: 'house', tab_bar_dim: 'glass',
                           tab_bar_more: 'icons', tab_bar_more_phone: 'list', tab_bar_pos: 'bottom',
                           tab_bar_fold: 'start', tab_bar_start: 'full', tab_bar_adjust: true,
                           tab_bar_scroll_phone: 'shrink', tab_bar_tabs: 6, tab_bar_tabs_rail: 6, tab_bar_tabs_phone: 3,
