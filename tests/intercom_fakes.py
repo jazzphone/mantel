@@ -62,6 +62,7 @@ class IntercomMa(MF.HouseMa):
         self.join_script = "ok"                      # ok, never (settles never), error, extra (someone else is in it)
         self.plays = True                            # (with groups) an announced player reads "playing" while it plays
         self.part_script = "ok"                      # ok, never
+        self.heard_at: list[dict] = []               # (with groups) each member's volume as an announcement ended
         self._gets: dict[str, asyncio.Future] = {}
         self._session: aiohttp.ClientSession | None = None
         self._tasks: set[asyncio.Task] = set()
@@ -139,11 +140,25 @@ class IntercomMa(MF.HouseMa):
                 if self.fetch:
                     await self.get(args["url"])
                 playing = self.groups and self.plays and args.get("player_id") in self.model
+                prev: dict[str, int] = {}
                 if playing:
-                    self.model[args["player_id"]]["playback_state"] = "playing"
+                    lead = self.model[args["player_id"]]
+                    # Music Assistant's own path for an idle speaker: every member at the announcement's level (held
+                    # inside 15-75), what it found put back afterward
+                    level = args.get("volume_level")
+                    for m in (lead.get("group_members") or [args["player_id"]]) if level is not None else []:
+                        had = self.model[m]["volume_level"]
+                        if had != min(max(level, 15), 75):
+                            prev[m] = had
+                            self.model[m]["volume_level"] = min(max(level, 15), 75)
+                    lead["playback_state"] = "playing"
                 if self.delay:
                     await asyncio.sleep(self.delay)
                 if playing:
+                    self.heard_at.append({m: self.model[m]["volume_level"] for m in
+                                          (self.model[args["player_id"]].get("group_members") or [args["player_id"]])})
+                    for m, had in prev.items():
+                        self.model[m]["volume_level"] = had
                     self.model[args["player_id"]]["playback_state"] = "idle"
                 err = self.fail.get(args.get("player_id"))
                 await reply(error=err) if err else await reply(None)

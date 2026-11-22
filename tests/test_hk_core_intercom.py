@@ -584,10 +584,21 @@ def test_a_group_player_a_leader_and_a_held_room_stay_out(house, music):
     assert R.sync_sets(house, music, [R.Call(STEREO, STEREO, 40), *calls[:1]], groupable_list(), PIDS) == []
 
 
-def test_rooms_at_different_volumes_make_different_groups(house, music):
+def test_in_live_rooms_at_different_volumes_make_different_groups(house, music):
     calls = [R.Call(K, K, 40), R.Call(OFF, OFF, 40), R.Call(GR, GR, 60), R.Call(LR, LR, 60), R.Call(DEN, DEN, 70)]
     got = R.sync_sets(house, music, calls, groupable_list(), PIDS)
     assert sorted(sorted(c.player for c in s.calls) for s in got) == [sorted([GR, LR]), sorted([K, OFF])]
+
+
+def test_a_messages_rooms_at_different_volumes_make_one_group(house, music):
+    # (2026-11-22: two rooms at 20 and the rest at 60 played as two groups, out of step with each other)
+    calls = [R.Call(K, K, 40), R.Call(OFF, OFF, 40), R.Call(GR, GR, 60), R.Call(LR, LR, 60), R.Call(DEN, DEN, 70)]
+    got = R.sync_sets(house, music, calls, groupable_list(), PIDS, mixed=True)
+    assert [sorted(c.player for c in s.calls) for s in got] == [sorted([K, OFF, GR, LR, DEN])]
+    d = doc(kitchen={"volume": 20})
+    plan = decide(house, music, d, [K, OFF], ma=groupable_list())
+    assert len(plan.sync) == 1 and sorted(c.volume for c in plan.sync[0].calls) == sorted([20, C.volume_of(d, OFF)])
+    assert decide(house, music, d, [K, OFF], mode="live", ma=groupable_list()).sync == []
 
 
 def test_only_speakers_the_leader_can_group_with_join_it(house, music):

@@ -15,6 +15,11 @@ has pressed Send (or started talking in Live) and the rooms are decided.
    checked (Music Assistant must report exactly those members, so no room outside it can hear), announced to once
    through its leader, and parted. A group that doesn't come together, a dead leader or a failed start means one call
    per room, on a new link: a message is never lost to the group step.
+   Rooms at different volumes (``_Tuning``): Music Assistant gives a group one announcement volume (every member is set
+   to it, and put back afterward to what it found), so the group is announced at its quietest room's and every other
+   speaker is first set to its own room's, then set back to it the moment Music Assistant has set the group's -- a cold
+   start takes seconds, so that lands before the first sound, and a late one only leaves a room quieter. Each speaker's
+   own volume is put back after the message.
 5. Live (17.5): each room is watched for the five failure signals; when the talker finishes, the rooms that failed
    get the WHOLE spool as a Message on a new link. Live's groups are the host's (``_live_calls``, with this file's
    join and ``settle``): a group that doesn't come together means one live call per room on the same link, since
@@ -39,7 +44,10 @@ ANNOUNCE_ARGS = frozenset({"player_id", "url", "pre_announce", "volume_level"})
 JOIN = "players/cmd/group_many"
 # (not ungroup_many: it goes by each member's synced_to, which lags, and on the house left 7 of 9 in the group; 2026-11-05)
 PART = "players/cmd/set_members"
-CALL_GRACE = 90.0               # the per-call timeout beyond the mode's limit
+VOLUME = "players/cmd/volume_set"
+# Music Assistant's announce_volume_min / _max defaults: it holds an announcement's level inside them
+ANNOUNCE_MIN, ANNOUNCE_MAX = 15, 75
+CALL_GRACE = 90.0              # the per-call timeout beyond the mode's limit
 CLAIM_WAIT = 8.0                # Live: MA must fetch the link within this of the call (signal 1)
 PLAYING_WAIT = 10.0             # Live: the room's player must be playing within this (signal 3)
 GROUP_WAIT = 4.0                # a temporary group must come together (or part) within this
@@ -63,6 +71,7 @@ class IntercomRun:
         self.groups = {leader: frozenset(members) for leader, members in (groups or {}).items()}  # the plan's sync sets
         self.formed: set[str] = set()     # leaders of groups not parted yet: their part goes through even after close
         self.lent = {leader: frozenset(members) for leader, members in (lent or {}).items()}   # groups left from music
+        self.tuned: set[str] = set()      # speakers whose volume a group's tuning changed: put back even after close
         self.open = audit_id > 0
         self.sent: list[str] = []
 
@@ -93,6 +102,14 @@ class IntercomRun:
                 return False
             target = args["target_player"]
             return frozenset(kids) <= self.groups.get(target, frozenset()) | self.lent.get(target, frozenset())
+        if command == VOLUME:
+            # a speaker of one of the plan's temporary groups, set to its room's volume (or back to its own)
+            pid, vol = args.get("player_id"), args.get("volume_level")
+            if set(args) != {"player_id", "volume_level"} or isinstance(vol, bool) or not isinstance(vol, int) \
+                    or not 0 <= vol <= 100:
+                return False
+            grouped = {*self.groups, *(m for ms in self.groups.values() for m in ms)}
+            return (self.open and pid in grouped) or pid in self.tuned
         if not self.open or command != ANNOUNCE or set(args) - ANNOUNCE_ARGS:
             return False
         if args.get("player_id") not in self.players or args.get("url") not in self.urls:
@@ -341,6 +358,89 @@ async def _say_once(ma: Any, run: IntercomRun, leader: str, url: str, chime: boo
             await asyncio.gather(task, return_exceptions=True)
 
 
+def _level(volume: int) -> int:
+    """The level Music Assistant announces at for ``volume``."""
+    return min(max(int(volume), ANNOUNCE_MIN), ANNOUNCE_MAX)
+
+
+def _volumes(raw: Any) -> dict[str, int | None]:
+    return {pid: p.get("volume_level") for pid, p in _view(raw).items()}
+
+
+class _Tuning:
+    """A group's rooms at volumes of their own (the module's notes, 4). ``want``: {speaker: its room's level}, for every
+    speaker whose room isn't at the group's announcement level. Never raises; whatever fails leaves a room at the
+    group's level, never louder."""
+
+    def __init__(self, ma: Any, run: IntercomRun, want: Mapping[str, int]) -> None:
+        self.ma, self.run, self.want = ma, run, dict(want)
+        self.before: dict[str, int] = {}      # speakers this set, and the volume each had
+        self.ready: dict[str, int] = {}       # speakers at their room's level, as Music Assistant reads it back
+
+    async def _set(self, pid: str, level: int) -> bool:
+        self.run.tuned.add(pid)
+        try:
+            await self.ma.command(self.run, VOLUME, timeout=GROUP_WAIT, player_id=pid, volume_level=int(level))
+            return True
+        except Exception as exc:  # noqa: BLE001 -- the room plays at the group's level
+            log.info("intercom: a speaker's volume could not be set (%s)", error_code(exc))
+            return False
+
+    async def prepare(self) -> None:
+        """Every speaker at its room's level before the announcement, read back (Music Assistant puts back afterward the
+        level it finds when it sets the group's)."""
+        if not self.want:
+            return
+        try:
+            now = _volumes(await self.ma.players())
+            for pid, level in self.want.items():
+                had = now.get(pid)
+                if not isinstance(had, int):
+                    continue                      # a speaker without a volume to read can't be put back
+                if had != level and await self._set(pid, level):
+                    self.before[pid] = had
+                if had == level or pid in self.before:
+                    self.ready[pid] = level
+            await _until(self.ma, lambda raw: all(_volumes(raw).get(p) == v for p, v in self.ready.items()), GROUP_WAIT)
+            now = _volumes(await self.ma.players())
+            self.ready = {p: v for p, v in self.ready.items() if now.get(p) == v}
+        except Exception as exc:  # noqa: BLE001
+            log.info("intercom: the rooms' own volumes could not be read (%s)", error_code(exc))
+            self.ready = {}
+
+    async def hold(self) -> None:
+        """Each speaker back at its room's level as soon as Music Assistant has set the group's. Runs until every one is,
+        or it's canceled (the announcement has played)."""
+        left = dict(self.ready)
+        while left:
+            try:
+                now = _volumes(await self.ma.players())
+            except Exception:  # noqa: BLE001 -- a read that failed says nothing yet
+                now = {}
+            for pid, level in list(left.items()):
+                if now.get(pid) not in (None, level):
+                    left.pop(pid)
+                    await self._set(pid, level)
+            await asyncio.sleep(GROUP_POLL)
+
+    async def restore(self) -> None:
+        """Every speaker this set back to its own volume, once Music Assistant has put back its own change. One somebody
+        has changed meanwhile is left as it is."""
+        if not self.before:
+            return
+        try:
+            await _until(self.ma, lambda raw: all(_volumes(raw).get(p) == self.want[p] for p in self.before), GROUP_WAIT)
+            now = _volumes(await self.ma.players())
+        except Exception:  # noqa: BLE001
+            now = {}
+        for pid, had in self.before.items():
+            if now.get(pid) == self.want[pid]:
+                await self._set(pid, had)
+            else:
+                log.info("intercom: a speaker's volume changed during the message; left as it is")
+        self.before.clear()
+
+
 async def in_step(ma: Any, run: IntercomRun, sync: Any, pids: Mapping[str, str], url: str, *,
                   new_url: Callable[[], str], chime: bool, timeout: float, names: Callable[[str], str],
                   done: Callable[[Any, bool], None] | None = None) -> list[RoomResult]:
@@ -351,10 +451,23 @@ async def in_step(ma: Any, run: IntercomRun, sync: Any, pids: Mapping[str, str],
     heard = False
     results = [RoomResult(c.room, names(c.room), c.player) for c in sync.calls]
     parted = False
+    levels = [c.volume for c in sync.calls if c.volume is not None]
+    volume = min(levels) if levels else sync.leader.volume       # the quietest room's: a late tuning errs quiet
+    tuning = _Tuning(ma, run, {pids[c.player]: _level(c.volume) for c in sync.calls if c.volume is not None
+                               and volume is not None and _level(c.volume) != _level(volume)})
     try:
         why = await _join(ma, run, leader, members)
         if why is None:
-            ok, why, heard = await _say_once(ma, run, leader, url, chime, sync.leader.volume, timeout)
+            try:
+                await tuning.prepare()
+                holding = asyncio.get_running_loop().create_task(tuning.hold())
+                try:
+                    ok, why, heard = await _say_once(ma, run, leader, url, chime, volume, timeout)
+                finally:
+                    holding.cancel()
+                    await asyncio.gather(holding, return_exceptions=True)
+            finally:
+                await asyncio.shield(tuning.restore())
             if ok:
                 await _part(ma, run, leader, members)
                 parted = True

@@ -168,6 +168,13 @@ announcements.
   join costs nothing, so the one path stays.
 - **A group has one announcement volume** (`_prepare_for_announcement` gives every member the same override), so rooms at
   different volumes make separate groups, which aren't in step with each other.
+  *2026-11-22:* the owner heard a whole-house Message out of step (two rooms at 20, the rest at 60: two groups). A
+  Message's rooms now share one group whatever their volumes (`sync_sets(mixed=True)`; Live keeps one volume a group).
+  The group is announced at its quietest room's level, and `driver._Tuning` handles the rest. It first sets every other
+  speaker to its own room's level. Music Assistant 2.10.13's idle path then sets every member to the announcement's
+  level and records the level it found, so it puts back the room's. Mantel sets each speaker back to its room's level
+  as soon as it reads Music Assistant's change, seconds before a cold start's first sound, and restores every speaker's
+  own volume afterward. A late correction only leaves a room quieter.
 - **A speaker that's off stays out** (joining turns it on, and nothing would turn it off). A room holding paused music
   stays out too. HomePods have no power control and always read on.
 - **Music Assistant announces at 15 or more** (`CONF_ENTRY_ANNOUNCE_VOLUME_MIN`), so a test at "volume 2" is at 15.

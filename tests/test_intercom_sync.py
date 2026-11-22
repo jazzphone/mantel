@@ -86,13 +86,20 @@ async def test_every_member_is_left_out_of_the_music_players_and_comes_back(ic, 
     assert await until(lambda: tracker.intercom_players() == [])
 
 
-async def test_a_room_at_another_volume_or_playing_music_keeps_its_own_call(ic):
+async def test_a_room_at_another_volume_plays_in_the_same_group_at_its_own(ic):
+    # (2026-11-22: rooms at two volumes played as two groups, out of step with each other)
     grouping(ic)
     pcm, events = await send(ic, [KITCHEN, DEN, CODY])     # the Cody's Room's volume is the fixture's 70, the others' 40
-    assert sorted(steps(ic))[:1] == ["join"] and said_to(ic).count(CY) == 1
-    assert len(said_to(ic)) == 2 and events[-1]["rooms"] == 3
-    ic.ma.frames.clear()
-    ic.ma.announcements.clear()
+    assert steps(ic) == ["join", "say", "part"]
+    (args,) = ic.ma.announcements
+    assert args["volume_level"] == 40                      # the quietest room's: Music Assistant sets every member to it
+    assert ic.ma.heard_at == [{K: 40, DN: 40, CY: 70}]     # ...and the Cody's Room was set back to its own as it started
+    assert all(ic.ma.model[p]["volume_level"] == 20 for p in (K, DN, CY))       # each speaker back at its own volume
+    assert events[-1] == {"type": "sent", "rooms": 3, "failed": []}
+
+
+async def test_a_room_playing_music_keeps_its_own_call(ic):
+    grouping(ic)
     ic.ma.model[K]["playback_state"] = "playing"
     await ic.ma._set(KITCHEN, "playing")
     assert await until(lambda: ic.host._playing(KITCHEN))
@@ -264,7 +271,12 @@ def gate():
     (ANNOUNCE, {"player_id": "a", "url": URL}, True),
     (ANNOUNCE, {"player_id": "a", "url": "http://elsewhere/"}, False),
     ("players/cmd/power", {"player_id": "a", "powered": False}, False),
-    ("players/cmd/volume_set", {"player_id": "a", "volume_level": 10}, False),
+    (D.VOLUME, {"player_id": "a", "volume_level": 10}, True),               # a group's speaker, to its room's volume
+    (D.VOLUME, {"player_id": "b", "volume_level": 70}, True),
+    (D.VOLUME, {"player_id": "c", "volume_level": 10}, False),              # in no group of the plan
+    (D.VOLUME, {"player_id": "a", "volume_level": 101}, False),
+    (D.VOLUME, {"player_id": "a", "volume_level": True}, False),
+    (D.VOLUME, {"player_id": "a", "volume_level": 10, "extra": 1}, False),
     ("players/cmd/ungroup", {"player_id": "b"}, False),
     ("players/cmd/stop", {"player_id": "a"}, False),
 ])
@@ -280,6 +292,15 @@ def test_a_closed_run_or_one_with_no_groups_refuses_grouping():
     bare = D.IntercomRun(NS(), 1, {"a", "b"}, [URL])
     assert not bare.allow(JOIN, {"target_player": "a", "child_player_ids": ["b"]})
     assert not bare.allow(PART, {"target_player": "a", "player_ids_to_remove": ["b"]})
+    assert not bare.allow(D.VOLUME, {"player_id": "a", "volume_level": 10})
+
+
+def test_a_closed_run_still_puts_back_the_volumes_it_changed_and_no_other():
+    run = gate()
+    run.tuned.add("b")
+    run.close()
+    assert run.allow(D.VOLUME, {"player_id": "b", "volume_level": 20})
+    assert not run.allow(D.VOLUME, {"player_id": "a", "volume_level": 20})
 
 
 def test_a_raw_set_members_is_checked_for_every_speaker_it_names():

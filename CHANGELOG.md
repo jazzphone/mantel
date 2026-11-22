@@ -4,6 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **A Small, Wide or Tall thermostat in Auto lets you pick Heat or Cool**, as Large does: tap a temperature to pick it (a dot appears under it), and the arrows change only that one. They used to move both together.
+
+**Fixed**
+- **An Intercom message plays in step in every room, even when rooms have different volumes.** Rooms at different Intercom volumes used to play as separate groups, a few seconds apart. They now play as one group, each at its own volume.
+
 ## 0.1.169 - 2026-11-21
 
 **Changed**

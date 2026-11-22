@@ -38,7 +38,9 @@ plays on one clock, so ``sync_sets`` finds the calls that can be played the same
 speakers, idle, on their own and able to group, announced to once through its leader. Everything else keeps its own
 call: a room playing music is already in step with the others playing music (Music Assistant mixes it in and arms one
 shared instant), and a room holding paused music is left alone. Music Assistant gives a group one announcement volume,
-so rooms at different volumes make separate groups. In Live the groups are made from the rooms that are live now.
+so a Message's group is announced at its quietest room's and the driver sets every other room to its own as the group
+starts (separate groups per volume weren't in step with each other; 2026-11-22). In Live the groups are made from the
+rooms that are live now, one volume each.
 
 A GROUP LEFT FROM MUSIC (2026-11-05: whole-house music stopped and left every HomePod grouped under the Master Bedroom, so
 the Master Bedroom alone could only "play together with" eight other rooms). Music Assistant keeps a group after its music
@@ -221,19 +223,20 @@ def groupable(p: Any) -> bool:
 
 
 def sync_sets(house: House, music: MusicConfig, calls: list[Call], ma_raw: Any, pids: Mapping[str, str],
-              held: Iterable[str] = ()) -> list[SyncSet]:
+              held: Iterable[str] = (), *, mixed: bool = False) -> list[SyncSet]:
     """The temporary groups a broadcast's ``calls`` can play as (the module's notes). ``held``: rooms holding paused music.
     A group's leader is the one the music engine would pick (the house's preferred leaders, then not a room Home
     Assistant announces to: an announcement to a leader plays on its whole group), and every member is one it can
-    group with."""
+    group with. ``mixed`` (a Message): rooms at different volumes share a group, each set to its own volume as it starts
+    (driver.in_step); otherwise (Live) a group is one volume."""
     players = {p["player_id"]: p for p in ma_raw if isinstance(p, Mapping) and "player_id" in p} if isinstance(
         ma_raw, (list, tuple)) else {}
     held = set(held)
     fit = [c for c in calls if not c.covers and c.room not in held and c.player not in held
            and E.state_of(house, c.room) not in IDLE_NOT and groupable(players.get(pids.get(c.player, "")))]
-    by_volume: dict[int | None, list[Call]] = {}
+    by_volume: dict[Any, list[Call]] = {}
     for c in fit:
-        by_volume.setdefault(c.volume, []).append(c)
+        by_volume.setdefault("set" if mixed and c.volume is not None else c.volume, []).append(c)
     out: list[SyncSet] = []
     for group in by_volume.values():
         while len(group) >= 2:
@@ -416,7 +419,8 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
                 plan.calls.append(Call(p, r, C.volume_of(doc, r), live=bool(can_live), covers=calling[p]))
     order = {r: i for i, r in enumerate(picked)}
     plan.rooms.sort(key=lambda x: order.get(x["room"], 0))
-    plan.sync = sync_sets(house, music, [c for c in plan.calls if c.live or not live_mode], ma_raw, pids, held)
+    plan.sync = sync_sets(house, music, [c for c in plan.calls if c.live or not live_mode], ma_raw, pids, held,
+                          mixed=not live_mode)
     return plan
 
 
