@@ -682,5 +682,38 @@ ok('...the sky saying they are up paints it at once', G._pre.state().busy === tr
 setLook('blur'); V20.v.remove(); skyNode.remove(); Array.from(GL).forEach(leave); advance(300);
 delete window.hkSky; delete globalThis.location;
 
+// (2026-11-21, the owner: Clear Glass had no way to choose Pre-rendered for the tab bar and the Side Pane)
+print('\n=== Bars & Side Pane Pre-rendered: the pinned glass wears the picture, the cards stay as they are ===');
+globalThis.location = { pathname: '/dashboard-home/home' };
+imgRect = { x: 0, y: 0, w: 1280, h: 800 }; document.createElement = function (t) { var e = mkEl(t); if (t === 'img' || t === 'canvas') e._rect = imgRect; return e; };
+var BARS = 'live';
+window.hkSettings.barsBlur = function () { return BARS; };
+var V30 = view(); add(V30.grid, card({ x: 20, y: 300, w: 192, h: 70 }));
+var bar30 = new E('NAV', {}, { x: 410, y: 720, w: 460, h: 64 }); BODY.appendChild(bar30);
+setLook('clear'); advance(300);
+ok('Clear, Live: nothing runs, the bars keep their own blur', !G.stats().active && G.pictured('clear') === 'clear', G.stats());
+BARS = 'pre'; setLook('clear'); advance(300);
+ok('Clear, Pre-rendered: the picture runs for the pinned glass, with no layer for a card',
+   G.stats().active && G.stats().pre && G.stats().bars && layersIn(V30.v).length === 0, G.stats());
+ok('...the bars, the menu and the pane are told to pin (Clear is Blur\'s Pre-rendered for them)', G.pictured('clear') === 'blur_pre');
+G.pin(bar30, 'linear-gradient(red,red)');
+G._pre.show('blob:bars'); advance(100);
+ok('...the bar wears its slice of the picture', /blob:bars/.test(bar30.style.background || ''), bar30.style.background);
+add(V30.grid, card({ x: 230, y: 300, w: 192, h: 70 })); advance(300);
+ok('...and a card joining makes no layer', layersIn(V30.v).length === 0);
+setLook('blur_each'); advance(300);
+ok('Each Card: the same, Blur\'s twin', G.stats().bars && layersIn(V30.v).length === 0 && G.pictured('blur_each') === 'blur_pre');
+setLook('bright_each'); advance(300);
+ok('...Bright Glass\'s Each Card pins as Bright Glass\'s Pre-rendered', G.stats().bars && G.pictured('bright_each') === 'bright_pre');
+setLook('blur'); advance(300);
+ok('Shared Layer: Blur Drawing decides, the setting changes nothing (live layers, nothing pictured)',
+   G.stats().active && !G.stats().pre && !G.stats().bars && layersIn(V30.v).length > 0 && G.pictured('blur') === 'blur');
+BARS = 'live'; setLook('clear'); advance(300);
+ok('Live again: everything off, the bar unpinned', !G.stats().active && G.pictured('clear') === 'clear' && !/blob:/.test(bar30.style.background || ''),
+   bar30.style.background);
+G.unpin(bar30); bar30.remove();
+setLook('blur'); V30.v.remove(); Array.from(GL).forEach(leave); advance(300);
+delete window.hkSettings.barsBlur; document.createElement = mkEl; delete globalThis.location;
+
 print(fail ? 'FAIL ' + fail + ' GLASS BEHAVIOUR TESTS' : 'ALL ' + pass + ' GLASS BEHAVIOUR TESTS PASS');
 if (fail) throw new Error('glass behaviour tests failed');

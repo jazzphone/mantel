@@ -427,6 +427,7 @@
     // own values before), and the rows the sheet shows ([label, was, becomes])
     // -- only what differs. `layout`: the Layout + Look's grid, if any.
     var LOOK_LABELS = { flat: 'Flat', flat_theme: 'Flat Theme', glass: 'Style', accent: 'Accent Color', tab_bar_glass: 'Tab Bar Glass',
+      bars_blur: 'Bars & Side Pane',
       tile_style: 'Tile Style', tile_icons: 'Icons', sky: 'Sky', sky_background: 'Background', sky_color: 'Color', sky_wallpaper: 'Wallpaper',
       sky_wallpaper_night: 'Night Version', sky_wallpaper_motion: 'Wallpaper Motion', sky_flat_background: 'Background in Flat', sky_flat_color: 'Color in Flat', sky_animations: 'Animations',
         sky_weather: 'Weather',

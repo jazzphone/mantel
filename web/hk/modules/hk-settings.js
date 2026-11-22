@@ -765,6 +765,14 @@
       },
       appearance: appearance, rendering: rendering, refreshLook: applyLook,
       glass: glass,
+      // BARS & SIDE PANE (Appearance -> Advanced, 2026-11-21): 'pre' -- the tab bar, the menu and the Side Pane wear
+      // Pre-rendered's picture in Clear Glass and Each Card (hk-glass.js PINNABLE) -- or 'live'; this screen's own
+      // bars_blur, else All Screens' look.bars_blur
+      barsBlur: function () {
+        var b = boardHere(), own = b && b.bars_blur;
+        if (own === 'live' || own === 'pre') return own;
+        return get('look.bars_blur', 'live') === 'pre' ? 'pre' : 'live';
+      },
       lookAt: lookAt,
       // (every variable a look sets: a surface that keeps its own look sets them back -- the Home sheet's Glass and Solid)
       lookVars: function () { return LOOK_VARS.slice(); },

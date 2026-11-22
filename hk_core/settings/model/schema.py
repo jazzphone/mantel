@@ -1094,6 +1094,10 @@ TILE_ICONS, THERMOSTAT_STYLES = ("auto", "color", "white"), HG.THERMOSTAT_STYLES
 # Glass on the main page?"): Home only (the default), the other pages in its Blur; or every page
 BRIGHT_PAGES = ("home", "all")
 
+# BARS & SIDE PANE (look.bars_blur, a screen's bars_blur; Appearance -> Advanced, 2026-11-21): how the tab bar, the menu
+# and the Side Pane blur in Clear Glass and Each Card -- live, or Pre-rendered's picture of the sky (hk-glass.js PINNABLE)
+BARS_BLUR = ("live", "pre")
+
 # Bright Glass's Dim (look.bright_dim, a screen's bright_dim): 0 to this, in %, as the Side Pane's (PANE_DIM_MAX)
 BRIGHT_DIM_MAX = 60
 

@@ -92,6 +92,13 @@
   var FROST = false, frostWas = false, frostWaits = [], FROST_WAIT = 5000;
   // the looks with the shared layer (blur and Bright Glass, live or pictured): the ones the frost picture can stand in for
   var SHARED = { blur: 1, blur_pre: 1, bright: 1, bright_pre: 1 };
+  // BARS & SIDE PANE PRE-RENDERED (look.bars_blur = 'pre', a screen's bars_blur; Appearance -> Advanced, 2026-11-21, the
+  // owner: Clear Glass gave no way to choose how the tab bar and the Side Pane blur): in a look whose cards keep no shared
+  // layer -- Clear, and Each Card -- the pinned glass (the tab bar, the menu, the Side Pane) wears Pre-rendered's picture,
+  // the look named here (its twin), while the cards stay as they are: Pre-rendered's machinery with no layers (CARDS off).
+  // Shared Layer's cards and bars are one choice, Blur Drawing.
+  var PINNABLE = { clear: 'blur_pre', blur_each: 'blur_pre', bright_each: 'bright_pre' };
+  var PIN = false, CARDS = false;
   // A MOVING SKY (Animations on): the clouds drift under the still picture,
   // measured headless 2026-10-11 -- a picture 10 s old was already 5/255 off
   // on average and 70+ in its worst cell, and 8 / 90 by a minute, until the
@@ -1530,7 +1537,7 @@
     // next one lay the page out again -- once per row card on every return
     // to a page (18 forced layouts on the Living Room's Home, traced).
     var todo = [];
-    cards.forEach(function (card) {
+    if (CARDS) cards.forEach(function (card) {
       if (!card.isConnected) return;
       var ps = plates.get(card), back = false;
       if (!ps && !full && dirty.has(card)) back = !!(ps = unpark(card));
@@ -1707,7 +1714,7 @@
   // the compositor. One more blur surface, for one pill, while it is held.
   var carried = new Map();       // card -> its own --hk-glass-backdrop before
   function carry(el, on) {
-    if (!el || on && !active) return;           // no shared layer (another look): nothing to stand in for
+    if (!el || on && !(active && CARDS)) return;   // no shared layer (another look): nothing to stand in for
     (on ? cardsIn(el) : Array.from(carried.keys()).filter(function (c) { return c === el || cardsIn(el).indexOf(c) >= 0; }))
       .forEach(function (c) {
         if (on) {
@@ -1740,7 +1747,7 @@
     // in the page changes size, and everything on these pages is a card --
     // so a card growing (a row added, a picture loaded) says so itself.
     try { hostRo = new ResizeObserver(function () { schedule(false); }); } catch (e) { hostRo = null; }
-    if (hostRo) cards.forEach(function (c) { hostRo.observe(c); });
+    if (hostRo && CARDS) cards.forEach(function (c) { hostRo.observe(c); });
     window.addEventListener('resize', onResize);
     document.addEventListener('visibilitychange', onVisible);
     // A BACKSTOP for a layout move nothing reports (something not a card
@@ -1822,20 +1829,28 @@
   // (--hk-blur-filter)
   // ...and the frost picture (FROST) is Pre-rendered's machinery whatever the mode: a change either way rebuilds the
   // layers, wearing its child or the look's own glass again
+  // ...and Bars & Side Pane Pre-rendered (PIN) is that machinery for the pinned glass alone: no layer for a card
   function sync() {
     var g = glassNow();
-    var want = !!SHARED[g];
-    var wantPre = g === 'blur_pre' || g === 'bright_pre' || (FROST && want);
-    if (active && (wantPre !== PRE || FROST !== frostWas)) stop();
-    PRE = wantPre; frostWas = FROST;
-    if (want) start(); else stop();
+    var want = !!SHARED[g], pin = !want && !!PINNABLE[g] && barsPre();
+    var wantPre = g === 'blur_pre' || g === 'bright_pre' || (FROST && want) || pin;
+    var pinWas = PIN;
+    if (active && (wantPre !== PRE || FROST !== frostWas || want !== CARDS)) stop();
+    PRE = wantPre; frostWas = FROST; CARDS = want; PIN = pin;
+    if (want || pin) start(); else stop();
     if (PRE && active) preTick(false);          // the blur's strength, say
     if (FROST && !want) frostSettle(false);
+    if (pin !== pinWas) frostSaid();            // the pinned glass looks again (pictured)
   }
   function glassNow() { return window.hkSettings && window.hkSettings.glass ? window.hkSettings.glass() : ''; }
+  function barsPre() { var S = window.hkSettings; return !!(S && S.barsBlur && S.barsBlur() === 'pre'); }
   // THE PINNED GLASS'S LOOK (the tab bar, the menu, the Side Pane pin themselves in a Pre-rendered look): the look's
   // Pre-rendered twin while the frost picture is worn, as they must wear it too; told by hk-glass-frost when it changes
-  function pictured(g) { return FROST && SHARED[g] ? (/_pre$/.test(g) ? g : g + '_pre') : g; }
+  // (...and Bars & Side Pane Pre-rendered's twin while PIN is on: Clear's and Each Card's)
+  function pictured(g) {
+    if (FROST && SHARED[g]) return /_pre$/.test(g) ? g : g + '_pre';
+    return PIN && PINNABLE[g] ? PINNABLE[g] : g;
+  }
   function frostSaid() { try { window.dispatchEvent(new Event('hk-glass-frost')); } catch (e) { /* no window events */ } }
   // THE SKY HANDED TO THE TABLET APP (hk-sky-handover.js): on -- a Promise of true once the glass wears the frost
   // picture, false when it can't (a look whose cards blur themselves, no picture in FROST_WAIT); off -- the look's own
@@ -1862,7 +1877,7 @@
     // Only this card is collected again; a card joining a view says the
     // view is on the page (onPage).
     changed: function (card, on) {
-      if (!active) return;
+      if (!active || !CARDS) return;
       if (!card) { schedule(true); return; }
       if (hostRo) { try { if (on) hostRo.observe(card); else hostRo.unobserve(card); } catch (e) { /* gone */ } }
       if (on) { var v = viewOf(card); if (v) onPage(v); }
@@ -1881,7 +1896,7 @@
     carry: carry,
     carrying: function (card) { return carried.has(card); },
     rendered: function (card) {
-      if (!active || !card || !card.isConnected) return;
+      if (!active || !CARDS || !card || !card.isConnected) return;
       var ps = plates.get(card);
       if (ps && !ps.some(gone) && sizeAt.get(card) === treeSize(card)) return;
       dirty.add(card);
@@ -1890,7 +1905,7 @@
     stats: function () {
       var live = 0, pictured = 0;
       eachLayer(function (L) { if (L._hkPre) pictured++; else live++; });
-      return Object.assign({ active: active, cards: cards.size, pre: PRE, frost: FROST, pictured: pictured, live: live,
+      return Object.assign({ active: active, cards: CARDS ? cards.size : 0, pre: PRE, frost: FROST, bars: PIN, pictured: pictured, live: live,
                              preAge: pre.at ? Date.now() - pre.at : null }, stats);
     },
     // PRE-RENDERED: paint the picture again now (debugging, Sky Lab)

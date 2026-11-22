@@ -8,7 +8,7 @@ import re
 from typing import Any
 from ..looks import IDS as LOOK_IDS
 from ..saver_designs import HOLIDAYS as SAVER_HOLIDAYS
-from .schema import (_one_of, _PLACE, _typed, BRIGHT_PAGES, CONF_DASHBOARD, FLAT_BACKGROUNDS, flat_color, flat_colors,
+from .schema import (_one_of, _PLACE, _typed, BARS_BLUR, BRIGHT_PAGES, CONF_DASHBOARD, FLAT_BACKGROUNDS, flat_color, flat_colors,
     FLAT_COLORS_DEFAULT, FLAT_FADE, flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, flat_tint,
     FLAT_THEMES, FLAT_TINT_AMOUNT, GLASS, NP_BARS, NP_GRACES, NP_SIDES, NP_STYLES, photo_look, PHOTO_LOOK_DEFAULTS,
     place_sky_defaults, radar_native, RETIRED_GLASS, sky_landscape, THERMOSTAT_STYLES, TILE_ICONS, TILE_STYLES,
@@ -132,7 +132,7 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     out["look"]["motion"] = out["look"].get("motion") is not False
     if out["look"].get("flat_theme") not in FLAT_THEMES:
         out["look"]["flat_theme"] = "dark"
-    for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),
+    for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("bars_blur", BARS_BLUR), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),
                        ("thermostat_style", THERMOSTAT_STYLES)):
         out["look"][k] = out["look"].get(k) if out["look"].get(k) in choices else DEFAULTS["look"][k]
     out["sky"]["photo_look"] = photo_look(out["sky"].get("photo_look")) or dict(PHOTO_LOOK_DEFAULTS)

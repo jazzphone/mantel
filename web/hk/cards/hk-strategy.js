@@ -206,7 +206,9 @@
                     // the owner, 2026-10-30)
                     side_pane: 1, side_pane_read: 1,
                     // ...and Bright Glass On (hk-settings.js glass(), on each page)
-                    bright_pages: 1 };
+                    bright_pages: 1,
+                    // ...and Bars & Side Pane (hk-settings.js barsBlur(), hk-glass.js reads it live)
+                    bars_blur: 1 };
   // an accessory's fields only the chips read (Status & Chips' status, a custom
   // chip's when / label / attribute): changing one rebuilds nothing
   var CHIP_ONLY = { status: 1, when: 1, label: 1, attribute: 1 };

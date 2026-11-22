@@ -14,6 +14,14 @@
     var h, K, M;
     // THE DECORATIONS' TWO STYLES (sky.decoration_style), a menu at both levels (phase 33)
     var DECOR_STYLES = [['old', 'Old Decorations'], ['new', 'New Decorations']];
+    // BARS & SIDE PANE (look.bars_blur, a screen's bars_blur; settings.py BARS_BLUR; 2026-11-21): how the tab bar, a
+    // docked menu and the Side Pane blur in the looks whose cards don't share Pre-rendered's picture (hk-glass.js
+    // PINNABLE: Clear Glass, and Blurred or Bright drawn Each Card)
+    var BARS_BLUR = [['live', 'Live'], ['pre', 'Pre-rendered']];
+    var BARS_LOOKS = { clear: 1, blur_each: 1, bright_each: 1 };
+    var BARS_FOOT = 'Bars & Side Pane: Live blurs what’s behind them as it moves. Pre-rendered wears a picture of the ' +
+      'background, blurred once and painted again as it changes: lighter on a wall tablet, though rain, snow and passing ' +
+      'things don’t show through. The cards stay as they are.';
     // A SCREEN'S ROW, whose it is (phase 33): Same as All Screens or Just This Screen (b: a screen's page; null on All Screens')
     var whose = function (b, own) { return b ? (own ? 'Just This Screen' : 'Same as All Screens') : null; };
     // ...and a value set back to All Screens' follows All Screens again (o: {house, onChange, reset} of glassRows' v)
@@ -317,7 +325,8 @@
           if (!yes) return;
           if (!x) { self.setH(JSON.parse(JSON.stringify(M.APPEARANCE_DEFAULTS))); return; }
           var ch = Object.assign(M.menuOwnReset(b, 'accent'), { flat: null, glass: 'house', flat_colors: {} });
-          ['flat_theme', 'frost', 'blur', 'tint', 'well', 'frost_tint', 'bright', 'bright_dim', 'bright_pages', 'tile_style', 'tile_icons', 'motion']
+          ['flat_theme', 'frost', 'blur', 'tint', 'well', 'frost_tint', 'bright', 'bright_dim', 'bright_pages', 'bars_blur', 'tile_style', 'tile_icons',
+            'motion']
             .forEach(function (k) { ch[k] = null; });
           if (M.ownsMenu(b, 'tab_bar_glass')) Object.assign(ch, M.menuOwnReset(Object.assign({}, b, { menu_own: ch.menu_own || b.menu_own }), 'tab_bar_glass'));
           self.setB(x.path, ch);
@@ -331,14 +340,28 @@
           c.appendChild(K.group({ header: 'Tab Bar', footer: (x ? '' : 'For every screen with a tab bar that doesn’t choose its own. ') + 'Tinted: a near-solid bar, no blur.' },
             this.tabBarGlassRows(this.menuCtx(x, b), gl.effective)));
         }
-        var modes = M.modesFor(M.glassStyle(gl.effective));
+        var modes = M.modesFor(M.glassStyle(gl.effective)), rows = [], foot = [];
         if (modes && gl.effective !== 'flat') {
           var cur = modes.filter(function (m) { return m[0] === gl.effective; })[0] || modes[0];
-          c.appendChild(K.group({ header: 'Glass', footer: 'How Blurred and Bright glass are drawn: what it costs a wall tablet, and how it looks.' }, [
-            K.nav({ label: 'Blur Drawing', value: cur[1].replace(/ \(.*\)$/, ''), href: base + '/advanced/blur', sk: x ? 'b:glass:mode' : 'look.glass:mode' })]));
+          rows.push(K.nav({ label: 'Blur Drawing', value: cur[1].replace(/ \(.*\)$/, ''), href: base + '/advanced/blur', sk: x ? 'b:glass:mode' : 'look.glass:mode' }));
+          foot.push('How Blurred and Bright glass are drawn: what it costs a wall tablet, and how it looks.');
+        }
+        if (BARS_LOOKS[gl.effective]) { rows.push(this.barsBlurRow(x, b)); foot.push(BARS_FOOT); }
+        if (rows.length) {
+          c.appendChild(K.group({ header: 'Glass', footer: foot.join(' ') }, rows));
         } else if (x && !M.hasTabBar(b)) {
           c.appendChild(K.group({ footer: 'Blur Drawing is for Blurred and Bright glass, and Tab Bar Glass for a screen with a tab bar.' }, []));
         }
+      }
+      // BARS & SIDE PANE (BARS_BLUR): All Screens' look.bars_blur, or a screen's own over it
+      barsBlurRow(x, b) {
+        var self = this, look = this.data.settings.look || {}, house = look.bars_blur === 'pre' ? 'pre' : 'live';
+        var own = !!x && (b.bars_blur === 'live' || b.bars_blur === 'pre');
+        var o = !x ? { value: house, onChange: function (v) { self.setH({ 'look.bars_blur': v }); } }
+          : { value: own ? b.bars_blur : house, own: own, house: house,
+              onChange: function (v) { self.setB(x.path, { bars_blur: v }); }, reset: function () { self.setB(x.path, { bars_blur: null }); } };
+        return K.seg({ label: 'Bars & Side Pane', sk: x ? 'b:bars_blur' : 'look.bars_blur', value: o.value, options: BARS_BLUR,
+                       sub: whose(x, own), onChange: follow(o) });
       }
       // BLUR DRAWING (Blur Mode until phase 33): Shared Layer, Pre-rendered or Each Card -- the same stored values
       blurDrawing(c, x, b) {

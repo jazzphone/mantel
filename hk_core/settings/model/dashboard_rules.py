@@ -10,7 +10,7 @@ from ...notifications.dnd import notify_dnd
 from .. import home_grid as HG
 from .. import saver_layers as SL
 from ..looks import IDS as LOOK_IDS
-from .schema import (AMOUNT, board_headers, board_wallpaper, BRIGHT_DIM_MAX, BRIGHT_GLASS, BRIGHT_PAGES,
+from .schema import (AMOUNT, BARS_BLUR, board_headers, board_wallpaper, BRIGHT_DIM_MAX, BRIGHT_GLASS, BRIGHT_PAGES,
     chips_custom_show, CLOUD_STYLES, DAYTIME_SKIES, DOCK_MIN, FLAT_BACKGROUNDS, flat_color, flat_colors,
     flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, FLAT_THEMES, flat_tint, lively, lively_custom,
     LIVELY_PRESETS, MENU_GLYPHS, NOTIFY_SAVERS, NP_BARS, NP_SIDES, NP_STYLES, page_looks, photo_look, RETIRED_GLASS,
@@ -287,6 +287,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # its own Tile Style and Centered tiles' icons (TILE_STYLES, TILE_ICONS; None: All Screens')
     "tile_style": None, "tile_icons": None,
     "bright_pages": None,
+    # its own Bars & Side Pane (BARS_BLUR; None: All Screens')
+    "bars_blur": None,
     # ...and in a car's browser (car on): car_layout, which Home the screen
     # generates there -- "home" the whole Home every screen has, "car" the
     # car's own (CAR_LAYOUTS); car_width, the layout width the car's window
@@ -565,6 +567,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["tile_style"] = d.get("tile_style") if d.get("tile_style") in TILE_STYLES else None
     out["tile_icons"] = d.get("tile_icons") if d.get("tile_icons") in TILE_ICONS else None
     out["bright_pages"] = d.get("bright_pages") if d.get("bright_pages") in BRIGHT_PAGES else None
+    out["bars_blur"] = d.get("bars_blur") if d.get("bars_blur") in BARS_BLUR else None
     # The screen's own Sky / Background: each flag stored as anything but a
     # boolean is not set (follow All Screens), as a backdrop id not in
     # SKY_BACKDROPS and stops that do not parse are (sky_stops()).

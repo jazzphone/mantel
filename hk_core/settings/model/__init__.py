@@ -41,7 +41,7 @@ from ..looks import IDS as LOOK_IDS
 from .. import kinds, pane_status as PS
 from ..saver_designs import FACES as SAVER_DESIGN_FACES, HOLIDAYS as SAVER_HOLIDAYS, TIMERS as SAVER_TIMERS
 from .schema import (_flag, _MMDD, _one_of, _PLACE, _typed, _whole, ACCENT_HEX, ACCENTS, AMOUNT, BLACK_SCREENS,
-    board_headers, board_wallpaper, BRIGHT_DIM_MAX, BRIGHT_GLASS, BRIGHT_PAGES, BROWSE_CATEGORIES, CHIP_SHOWS,
+    board_headers, board_wallpaper, BARS_BLUR, BRIGHT_DIM_MAX, BRIGHT_GLASS, BRIGHT_PAGES, BROWSE_CATEGORIES, CHIP_SHOWS,
     chips_custom_show, CLOUD_STYLES, CONF_DASHBOARD, DAYTIME_SKIES, discover_rows, DOCK_MIN, FLAT_BACKGROUNDS,
     flat_color, FLAT_COLOR_FIELDS, FLAT_COLOR_IDS, FLAT_COLORS, flat_colors, FLAT_COLORS_DEFAULT, FLAT_FADE,
     flat_field, FLAT_IMAGE_DEFAULTS, flat_image_look, flat_page_colors, FLAT_PAGE_FIELDS, flat_page_image_looks,
@@ -147,6 +147,7 @@ __all__ = [
     'BOARD_TIME',
     'board_wallpaper',
     'BOARD_WHERE',
+    'BARS_BLUR',
     'boards',
     'BRIGHT_DIM_MAX',
     'bright_dim_or_none',

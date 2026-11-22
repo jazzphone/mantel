@@ -503,3 +503,16 @@ def test_bright_glass_on_home_only_by_default():
     b, err = C.apply_board({}, {"bright_pages": "all"})
     assert err == {} and M.board(b)["bright_pages"] == "all"
     assert M.board({})["bright_pages"] is None
+
+
+def test_bars_and_side_pane_blur():
+    # (2026-11-21) Appearance -> Advanced -> Bars & Side Pane: live by default, or Pre-rendered; a screen's own or
+    # All Screens'
+    assert M.merged({})["look"]["bars_blur"] == "live"
+    new, err = C.apply_house({}, {"look.bars_blur": "pre"})
+    assert err == {} and M.merged(new)["look"]["bars_blur"] == "pre"
+    assert C.apply_house({}, {"look.bars_blur": "baked"})[1] == {"look.bars_blur": "choice"}
+    assert M.merged({"dashboard": {"look": {"bars_blur": "fast"}}})["look"]["bars_blur"] == "live"
+    b, err = C.apply_board({}, {"bars_blur": "pre"})
+    assert err == {} and M.board(b)["bars_blur"] == "pre"
+    assert M.board({})["bars_blur"] is None and M.board(C.apply_board(b, {"bars_blur": None})[0])["bars_blur"] is None

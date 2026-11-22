@@ -834,6 +834,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "look.tile_icons": _choice(S.TILE_ICONS),
     "look.thermostat_style": _choice(S.THERMOSTAT_STYLES),
     "look.bright_pages": _choice(S.BRIGHT_PAGES),
+    "look.bars_blur": _choice(S.BARS_BLUR),
     "look.details": _bool,
     "look.sky_switch": _entity("input_boolean", "switch"),
     "look.photos": _photos,
@@ -1376,6 +1377,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "tile_style": _choice(S.TILE_STYLES, none=True),
     "tile_icons": _choice(S.TILE_ICONS, none=True),
     "bright_pages": _choice(S.BRIGHT_PAGES, none=True),
+    "bars_blur": _choice(S.BARS_BLUR, none=True),
     "sky": _bool,
     # this screen's own Sky / Background; None: follow All Screens
     "sky_animations": _bool_or_none,

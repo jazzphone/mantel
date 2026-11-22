@@ -121,6 +121,7 @@
       ['Night Mode (Flat)', 'house/appearance', 'look.flat_night_entity', 'auto theme sunrise sunset helper binary sensor switch'],
       ['Looks', 'house/appearance/looks', 'look.looks', 'look looks preset theme homeview flat performance holiday whimsy weather calming night bedside photo frame one step undo'],
       ['Blur Drawing', 'house/appearance/advanced/blur', 'look.glass:mode', 'blur mode drawing shared layer pre-rendered prerendered each card performance cpu gpu'],
+      ['Bars & Side Pane', 'house/appearance/advanced', 'look.bars_blur', 'tab bar menu side pane blur pre-rendered prerendered live clear glass performance'],
       ['Color from Background', 'house/appearance', 'look.frost_tint', 'frosted tint from background color colour card page behind'],
       ['Reset Appearance', 'house/appearance', 'appearance:reset', 'reset appearance defaults style colors'],
       ['Frost Amount', 'house/appearance', 'look.frost', 'frosted'],
@@ -364,7 +365,7 @@
       ['header', 'Header', ['phone_header', 'kiosk', 'kiosk_header', 'kiosk_sidebar', 'kiosk_admins', 'kiosk_engine', 'kiosk_options'], true],
       // the pages, Home among them, and where each sits in the menu (set on Pages)
       ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers', 'pages_screen'], true],
-      ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'motion', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'sky', 'sky_animations',
+      ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'motion', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'bars_blur', 'sky', 'sky_animations',
         'sky_weather',
         'sky_precipitation', 'sky_focus_pause',
                               'sky_decorations', 'sky_decoration_style', 'sky_seasonal_effects', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
