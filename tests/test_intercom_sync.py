@@ -107,6 +107,17 @@ async def test_a_room_playing_music_keeps_its_own_call(ic):
     assert "join" not in steps(ic) and sorted(said_to(ic)) == sorted([K, DN])
 
 
+async def test_a_room_playing_someone_elses_music_plays_in_the_group(ic):
+    # (2026-11-22: a HomeView's music on the house: each room started the message on its own, seconds apart)
+    grouping(ic)
+    ic.ma.model[K].update(playback_state="playing", active_source="com.apple.tvairplayd")
+    await ic.ma._set(KITCHEN, "playing")
+    assert await until(lambda: ic.host._playing(KITCHEN))
+    pcm, events = await send(ic, [KITCHEN, DEN])
+    assert steps(ic) == ["join", "say", "part"] and len(said_to(ic)) == 1
+    assert events[-1] == {"type": "sent", "rooms": 2, "failed": []}
+
+
 async def test_a_room_holding_paused_music_is_left_alone(ic):
     grouping(ic)
     ic.host.music.resumes._held[DEN] = time.monotonic()

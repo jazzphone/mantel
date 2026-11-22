@@ -10,6 +10,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 **Fixed**
 - **An Intercom message plays in step in every room, even when rooms have different volumes.** Rooms at different Intercom volumes used to play as separate groups, a few seconds apart. They now play as one group, each at its own volume.
+- **An Intercom message over music from Siri, the Music app or a HomeView plays in step.** Each room playing that music used to start the message on its own, seconds apart. Those rooms now join the message's group, like idle rooms. With ma-airplay-groups 0.3.16 or later, the music no longer jumps to the announcement volume before the message.
 
 ## 0.1.169 - 2026-11-21
 

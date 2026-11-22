@@ -563,6 +563,25 @@ def test_a_room_playing_keeps_its_own_call(house, music):
     assert [c.room for c in plan.solo] == [K]
 
 
+@pytest.mark.parametrize("source", ["com.apple.tvairplayd", "com.apple.Music", "com.apple.sonic.music",
+                                    "apple-device://ap_off/session"])
+def test_a_room_playing_someone_elses_music_joins_the_group(house, music, source):
+    # (2026-11-22: Siri and HomeView music on the house: each such room got a call of its own and the message started
+    # seconds apart; Music Assistant can't mix into that music, its stream takes the speaker over)
+    house.set(K, "playing")
+    raw = groupable_list(ap_k={"playback_state": "playing", "active_source": source})
+    assert R.outside(raw[0]) and R.groupable(raw[0])
+    plan = decide(house, music, doc(), [K, OFF, GR], ma=raw)
+    assert len(plan.sync) == 1 and {c.room for c in plan.sync[0].calls} == {K, OFF, GR} and plan.solo == []
+
+
+def test_music_assistants_own_music_is_not_someone_elses(house, music):
+    for p in ({"playback_state": "playing", "active_source": "ap_k"}, {"playback_state": "idle",
+                                                                       "active_source": "com.apple.tvairplayd"},
+              {"playback_state": "playing", "active_source": None}, None):
+        assert not R.outside(dict(groupable_list()[0], **p) if p else None)
+
+
 @pytest.mark.parametrize("change", [
     {"type": "stereo_pair"}, {"available": False}, {"powered": False}, {"playback_state": "playing"},
     {"playback_state": "paused"}, {"supported_features": []}, {"synced_to": "ap_lr"}, {"active_group": "sg_x"},

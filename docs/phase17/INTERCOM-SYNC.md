@@ -175,6 +175,13 @@ announcements.
   level and records the level it found, so it puts back the room's. Mantel sets each speaker back to its room's level
   as soon as it reads Music Assistant's change, seconds before a cold start's first sound, and restores every speaker's
   own volume afterward. A late correction only leaves a room quieter.
+  *Same day, later:* the owner's jump ("the music goes to 60 for a second, then the message") came from music Music
+  Assistant doesn't stream. Siri, the Music app or a HomeView playing to the HomePods was the source, and Music
+  Assistant showed an Apple app as its source, or called the speakers idle (Siri). It can't mix into that music or
+  stop it. Its other path raised the volume under the still-playing music until its own stream took each speaker over,
+  up to ~5 s; as playing rooms they also had calls of their own, seconds apart. `rooms.outside` now lets such a room
+  join the temporary group. ma-airplay-groups 0.3.16 skips Music Assistant's stop and its 10 s wait for those speakers,
+  and holds each one's volume until Music Assistant's stream has started on it.
 - **A speaker that's off stays out** (joining turns it on, and nothing would turn it off). A room holding paused music
   stays out too. HomePods have no power control and always read on.
 - **Music Assistant announces at 15 or more** (`CONF_ENTRY_ANNOUNCE_VOLUME_MIN`), so a test at "volume 2" is at 15.
