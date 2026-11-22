@@ -85,7 +85,8 @@ def _image(item: Any) -> str | None:
     """An item's picture address on the internet (its metadata's first thumb, else its own image)."""
     if not isinstance(item, Mapping):
         return None
-    meta = item.get("metadata") if isinstance(item.get("metadata"), Mapping) else {}
+    m = item.get("metadata")
+    meta = m if isinstance(m, Mapping) else {}
     for img in list(meta.get("images") or []) + [item.get("image")]:
         path = img.get("path") if isinstance(img, Mapping) else img
         kind = img.get("type", "thumb") if isinstance(img, Mapping) else "thumb"

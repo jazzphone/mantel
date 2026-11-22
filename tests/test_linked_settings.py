@@ -8,7 +8,11 @@ from aiohttp import WSMsgType
 
 from mantel_server.linked import linked_settings as LS
 from mantel_server.settings_store import Actor
-from test_features import build, make_env  # noqa: F401
+import test_features
+from test_features import build
+
+# the fixture, by its name here (imported, every test's own `make_env` argument read as redefining it: ruff F811)
+make_env = test_features.make_env
 
 HK = "domain=hk_frontend; protocol=1; features=bridge,settings"
 

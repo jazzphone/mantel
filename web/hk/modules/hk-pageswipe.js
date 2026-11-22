@@ -261,15 +261,20 @@
   }
 
   // ------------------------------------------------------------ styles
+  // (a page the glass has made `relative` to hold its layers -- hk-glass.js recFor, `_hkGlassPos` the page's own
+  // before it -- is saved as its own: put back as it was, the glass's long gone by then, it stayed on the page for
+  // good, 2026-11-21; restore gives it back only while the glass still holds the page)
   function save(el) {
     var o = {};
     PROPS.forEach(function (p) { o[p] = [el.style.getPropertyValue(p), el.style.getPropertyPriority ? el.style.getPropertyPriority(p) : '']; });
+    if (typeof el._hkGlassPos === 'string' && o.position[0] === 'relative') o.position = [el._hkGlassPos, ''];
     return o;
   }
   function restore(el, o) {
     if (!el || !o) return;
     PROPS.forEach(function (p) {
-      if (o[p][0]) el.style.setProperty(p, o[p][0], o[p][1]); else el.style.removeProperty(p);
+      var v = p === 'position' && !o[p][0] && typeof el._hkGlassPos === 'string' ? 'relative' : o[p][0];
+      if (v) el.style.setProperty(p, v, o[p][1]); else el.style.removeProperty(p);
     });
     glassAlong(el, null);
   }

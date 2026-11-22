@@ -4,7 +4,16 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **Appearance, Background and the Screensaver are simpler to find your way around.** A screen's page now has the same Look & Feel rows as the sidebar (Appearance, Background, Menu & Navigation, Side Pane, Now Playing, Screensaver), and each row says **Same as All Screens** or **Just This Screen**. Appearance opens with a Look, then Style: Glass (Clear, Blurred or Bright), Frosted, Tinted or Flat, then Color, Tiles, Motion and Advanced. Background is one page in every style, and Flat can now use the Live Sky or a Wallpaper too. A photo's treatments are on one Adjust Photo page. A screen's screensaver follows All Screens row by row, with its switch at the top.
+- **The TV block and sheet are redesigned**: the remote comes first, and the open app's own icon is the picture (most TV apps send no artwork).
+- **HelperPod**, the HomePod timer reader, is named as such in Connections and pairs with the 6-digit code it shows.
+
 **Added**
+- **Bars & Side Pane** (Appearance → Advanced): in Clear Glass, or Blurred and Bright glass drawn Each Card, the tab bar, a docked menu and the Side Pane can use Pre-rendered's picture of the background instead of blurring it live. It's lighter on a wall tablet, and the cards stay as they are.
+- **Pair This Tablet With a Code** on the sign-in page, for a kiosk browser with no address bar (Kiosk Satellite).
+- **Music AirPlayed to several HomePods from another device** shows as one group with its cover, and its progress bar comes from the song found for the cover.
+- **Mantel for Android**: a wall tablet's AirPlay name can be changed in Wall Tablets.
 - **Room card pop-ups** have the same Sheet appearance options as Home cards. Both offer Light, Dark, or Same as Screen when Flat is selected.
 - **Flat can switch between Light and Dark automatically** at sunrise and sunset. An optional Night Mode entity can control it instead. Auto also gives custom background colors darker nighttime shades.
 - **Seasonal Effects** adds autumn leaves, winter snowflakes and spring petals to dashboard backgrounds, including photos and landscapes. It can run with Seasonal Decorations off.
@@ -13,6 +22,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Falling autumn leaves stay on Home**, including when Apps and Weather use Live Sky.
 - **Apple TV remote volume buttons** fit in a compact row below the remote. The **Intercom** places room selection beside the talk button whenever the sheet is wide enough.
 - **The tab bar blends its pre-rendered backgrounds during a swipe** once both pages have been seen. On a first visit, it fades to the new blur when ready. The icons ease into the destination accent as the highlight moves.
+- **A Room block's temperature** is the area's own sensor (Home Assistant's Settings → Areas), then its thermostats and other temperature sensors, never a diagnostic chip such as a leak sensor's.
+- **The Laundry block lost its power reading** on a screen showing only what its cards use: it now keeps the laundry circuit's watts.
+- **Pre-rendered glass**: a paged block or a sideways row inside a Home Grid now uses the picture on every device, instead of blurring live everywhere but Android.
+- **Repairs counted Mantel's own Home Assistant account** as an administrator who can't save HK settings. It no longer does.
+- **The screensaver beside the Side Pane**: the Christmas tree stands in front of the window again, and the slide corner fades in where it stays, never dropping to the bottom.
+- **Wall Tablets**: the When Nobody's Using It timeline is one bar, square where its parts meet, and a Mantel for Android tablet's last command no longer appears as a row of its own.
 - **The Cameras page lost its cameras after a while** (and any page that lists the house's things could lose some): a settings change built the screen again from only the states its cards were reading by then, so the Cameras page listed just the cameras something else on the screen showed -- often only the first. The screen is now built again from the whole house.
 
 ## 0.1.168 - 2026-11-15

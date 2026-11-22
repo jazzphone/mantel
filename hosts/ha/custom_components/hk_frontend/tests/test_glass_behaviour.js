@@ -682,6 +682,20 @@ ok('...the sky saying they are up paints it at once', G._pre.state().busy === tr
 setLook('blur'); V20.v.remove(); skyNode.remove(); Array.from(GL).forEach(leave); advance(300);
 delete window.hkSky; delete globalThis.location;
 
+// (2026-11-21: the page swipe saved the glass's `relative` with a page and put it back after the glass had let go, so
+// it stayed for good; and the glass letting go took the swipe's `fixed` off a page mid-swipe)
+print('\n=== the glass\'s own position on the page that holds its layers ===');
+setLook('blur'); advance(300);
+var V31 = view(), gv31 = V31.v.children[0], c31 = add(V31.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
+var anch31 = [V31.v, gv31].filter(function (n) { return typeof n._hkGlassPos === 'string'; })[0];
+ok('a static page holding layers is made relative, and says it is the glass\'s (what it was before)',
+   !!anch31 && anch31.style.position === 'relative' && anch31._hkGlassPos === '', anch31 && anch31.style.position);
+anch31.style.position = 'fixed';   // a page swipe parks it
+drop(c31); advance(300);
+ok('letting go leaves a position that is no longer its own, and no longer says it is', anch31.style.position === 'fixed' && anch31._hkGlassPos === undefined,
+   [anch31.style.position, anch31._hkGlassPos]);
+V31.v.remove(); advance(300);
+
 // (2026-11-21, the owner: Clear Glass had no way to choose Pre-rendered for the tab bar and the Side Pane)
 print('\n=== Bars & Side Pane Pre-rendered: the pinned glass wears the picture, the cards stay as they are ===');
 globalThis.location = { pathname: '/dashboard-home/home' };

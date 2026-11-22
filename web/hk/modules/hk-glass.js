@@ -1367,9 +1367,12 @@
     }
     var posWas = null;
     // The layers' containing block must be the anchor (a row may be static).
+    // (_hkGlassPos: what it was, while this is ours -- the page swipe saves and restores a page's position and
+    // keeps ours out of what it puts back: hk-pageswipe.js save)
     if (anchor !== DOC && getComputedStyle(anchor).position === 'static') {
       posWas = anchor.style.position || '';
       anchor.style.position = 'relative';
+      anchor._hkGlassPos = posWas;
     }
     rec = { layers: [], posWas: posWas };
     layers.set(anchor, rec);
@@ -1380,7 +1383,11 @@
     var rec = layers.get(anchor);
     if (!rec) return;
     rec.layers.forEach(function (l) { l.remove(); });
-    if (rec.posWas !== null && anchor !== DOC) anchor.style.position = rec.posWas;
+    // (only our own `relative`: a page the swipe has made `fixed` meanwhile keeps it -- the swipe puts it back)
+    if (rec.posWas !== null && anchor !== DOC) {
+      if (anchor.style.position === 'relative') anchor.style.position = rec.posWas;
+      delete anchor._hkGlassPos;
+    }
     if (ro && anchor !== DOC) { try { ro.unobserve(anchor); } catch (e) { /* gone */ } }
     layers.delete(anchor);
   }

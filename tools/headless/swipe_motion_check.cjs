@@ -72,7 +72,10 @@ const PROBE = () => {
     rest() {
       const v = view(), all = v.getAttribute('style') || '', s = hkPageSwipe._.state(), kids = pagesOf();
       const lingers = /(^|;\s*)will-change\s*:\s*transform\s*(;|$)/.test(all);
-      const st = all.replace(/(^|;\s*)will-change\s*:\s*transform\s*(;|$)/, '$1');
+      // (...and the glass's own `position: relative` on a page that holds its layers: hk-glass.js recFor, `_hkGlassPos`
+      // while it is the glass's -- the shared screens wear Pre-rendered since 2026-11-21, and a Home Grid's view is one)
+      const st = all.replace(/(^|;\s*)will-change\s*:\s*transform\s*(;|$)/, '$1')
+        .replace(typeof v._hkGlassPos === 'string' ? /(^|;\s*)position\s*:\s*relative\s*(;|$)/ : /$^/, '$1');
       const e = deepAt(innerWidth / 2, innerHeight / 2);
       return { path: location.pathname, left: Math.round(v.getBoundingClientRect().left), lingers,
         stray: /(^|;\s*)(transform|position|will-change|opacity|overflow|max-height|pointer-events|transition)\s*:/.test(st),
