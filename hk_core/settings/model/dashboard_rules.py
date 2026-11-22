@@ -128,11 +128,9 @@ TAB_BAR_GLASS = ("house", "tinted", "frosted", "blur")
 
 # ...and Bright Glass's bar (2026-10-30): its light blur and rim, the page
 # you're on a white pill
-TAB_BAR_GLASS = TAB_BAR_GLASS + ("bright",)
-
 # ...and Clear (2026-11-22, the owner: "standard glass has a clear option as well"): Clear Glass's see-through
 # plate, edge and shadow, no blur -- "clear_glass", as "clear" is Tinted's name from before entry 1.12
-TAB_BAR_GLASS = TAB_BAR_GLASS + ("clear_glass",)
+TAB_BAR_GLASS = TAB_BAR_GLASS + ("bright", "clear_glass")
 
 # THE TAB BAR'S DIM (2026-11-22, the owner: "we may need a dim slider for all of them"): "glass" -- Same as the Glass,
 # Bright Glass's Dim where the page wears it (the default, as the Side Pane's) -- or its own percent, 0 to this
