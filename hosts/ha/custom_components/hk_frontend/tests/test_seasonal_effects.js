@@ -70,4 +70,23 @@ function navigate(path) {
 ok('a custom Home shows leaves at the bare dashboard address', navigate('') > 0);
 ok('Apps and Weather each clear the field', navigate('/pages') === 0 && navigate('/weather') === 0);
 ok('a direct return to the custom Home restores the leaves', navigate('/overview') > 0);
+
+// THE PAGES SCREEN HOLDS THE SKY IT BLURS (2026-11-22, the owner: "should stop the animations when it blurs the
+// background"): held, as under the kiosk's black -- its layers kept -- and moving again on the page out from under it.
+// In Flat it blurs nothing, so nothing is held.
+function heldNow() { var el = sky.element(); return !!(el && el.classList.contains('held')); }
+navigate('/pages');
+ok('Flat: the Pages screen blurs nothing, so it asks no hold', sky.element() && !heldNow() && !sky._resolve().covered);
+S._apply({ look: { flat: false }, sky: { animations: true, decorations: false } });
+config.views[0].sky = true; config.views[1].sky = true;
+ok('a glass look: the Pages screen asks the sky to hold', sky._resolve('/dashboard-sky/pages').covered === true);
+ok('...Home, and a page swiped to from it, do not', sky._resolve('/dashboard-sky/overview').covered === false &&
+   !(sky._resolve('/dashboard-sky/weather') || {}).covered);
+// (the live sky can't draw in this DOM: the hold itself on a Flat render that says it, which the house's never does)
+S._apply({ look: { flat: true, flat_theme: 'light' }, sky: { seasonal_effects: true, animations: true, decorations: false } });
+sky.render(client, host, Object.assign({}, opts, { covered: true }));
+ok('a render for a covered page: held, its layers kept', heldNow() && sky.element().isConnected);
+ok('...the sky\'s alone: the cards are not asleep', !window.__hkAsleep);
+sky.render(client, host, opts);
+ok('...the next page\'s render: moving again', !heldNow());
 print('ALL ' + passed + ' SEASONAL EFFECTS TESTS PASS');

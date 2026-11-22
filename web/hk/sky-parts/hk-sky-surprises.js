@@ -1013,8 +1013,10 @@
         else if (bg && bg.mode === 'wallpaper') { wall = bg.wallpaper; still = bg.stops || black; }
         else if (bg && bg.mode === 'photo') { photo = bg.photo || null; look = bg.look || null; if (!photo) still = bg.stops || black; }
       }
+      // (covered: the page blurs the whole sky over -- the Pages screen -- so it is held, hk-sky-api.js applyHidden; not in
+      // Flat, above, where the Pages screen blurs nothing)
       return { variant: variant, backdrop: backdrop, still: still, photo: photo, look: look, wall: wall, page: v.sky_page || null, fallingLeaves: fallingLeaves,
-               enable: cfg.sky && cfg.sky.enable || null,
+               covered: !!v.pages_screen, enable: cfg.sky && cfg.sky.enable || null,
                sleep: cfg.sky && cfg.sky.sleep || null };
     }
 
