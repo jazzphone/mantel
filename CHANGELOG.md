@@ -9,6 +9,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Every card's text now has the same soft glow behind it**, so words read the same over the sky or a background whatever the card. Before, some cards had it and others didn't. Dark words on a white tile or button never have it, and Flat has none. **Text Glow** (Appearance → Advanced, on by default; a screen can choose its own) turns it off.
 
 **Fixed**
+- **A pop-up menu in Settings on an iPad closes once you pick.** After a choice that redraws the page (a wall tablet's Renderer, say), the menu used to stay on screen: a pick in it did nothing, and the next tap anywhere only closed it, so a switch tapped then didn't change. An open menu also keeps working while a Wall Tablets page refreshes under it.
 - **An Intercom message plays in step in every room, even when rooms have different volumes.** Rooms at different Intercom volumes used to play as separate groups, a few seconds apart. They now play as one group, each at its own volume.
 - **An Intercom message over music from Siri, the Music app or a HomeView plays in step.** Each room playing that music used to start the message on its own, seconds apart. Those rooms now join the message's group, like idle rooms. With ma-airplay-groups 0.3.16 or later, the music no longer jumps to the announcement volume before the message.
 

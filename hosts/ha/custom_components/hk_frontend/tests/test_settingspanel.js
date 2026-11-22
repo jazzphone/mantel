@@ -300,4 +300,63 @@ print('\n=== Mantel: every save is refused at the port, nothing sent ===');
   ok('a refused upload is no photo', upl, null);
 })();
 
+// A POP-UP MENU OPEN (2026-11-22, iPad Safari): a redraw while a select's
+// menu was up, or the focus put back on the select a redraw made anew,
+// left a menu on screen over a select that was gone; a choice in it did
+// nothing and the next tap only closed it.
+print('\n=== a pop-up menu open holds the redraws, and its select is not focused again ===');
+(function () {
+  var pg = new (customElements.get('hk-settings-panel'))(), drawn = 0;
+  pg.ready = true; pg.data = {};
+  // render(true) gets as far as typing() only when it draws (and marks itself dirty for later)
+  pg.typing = function () { return true; };
+  Object.defineProperty(pg, '_dirty', { get: function () { return false; }, set: function (v) { if (v) drawn++; } });
+  function select(o) { return Object.assign({ tagName: 'SELECT', isConnected: true, disabled: false }, o); }
+  function at(el) { return { composedPath: function () { return [el]; } }; }
+  function menuOpen(sel) { __resetTimers(); pg._held = pg._menu = pg._menuCap = null; drawn = 0; pg._onPress(at(sel)); }
+
+  var sel = select();
+  menuOpen(sel);
+  P.render.call(pg, true);
+  ok('a redraw while the menu is open is held', [drawn, !!pg._held], [0, true]);
+  ok('...and a press on a select is no press (a Mac\'s menu swallows the release)', !!pg._pressing, false);
+  pg._onRelease({ type: 'change' });
+  P.render.call(pg, true);
+  ok('the choice\'s own change handler draws nothing yet (its save draws too)', drawn, 0);
+  __runTimersUnder(1);
+  ok('...just after it, the held redraw is drawn once', [drawn, pg._held, pg._menu], [1, null, null]);
+
+  menuOpen(sel); P.render.call(pg, true);
+  pg._onMenuAway(at({ tagName: 'P' })); __runTimersUnder(1);
+  ok('a press anywhere else ends the menu (an iPad\'s tap that closes one)', [drawn, pg._menu], [1, null]);
+  menuOpen(sel); P.render.call(pg, true);
+  pg._onMenuAway(at(sel)); __runTimersUnder(1);
+  ok('...a press on the menu\'s own select does not', [drawn, pg._menu === sel], [0, true]);
+
+  menuOpen(sel); P.render.call(pg, true);
+  pg._onFocusOut({ target: sel }); __runTimersUnder(1);
+  ok('its select losing focus ends it', [drawn, pg._menu], [1, null]);
+
+  menuOpen(sel); P.render.call(pg, true);
+  __runTimersUnder(30001); __runTimersUnder(1);
+  ok('a menu left open holds no longer than 30 s', [drawn, pg._menu], [1, null]);
+
+  var other = select();
+  menuOpen(sel); pg._onRelease({ type: 'change' }); pg._onPress(at(other));
+  P.render.call(pg, true); __runTimersUnder(1);
+  ok('another menu opened before the first is over holds on', [drawn, pg._menu === other], [0, true]);
+
+  menuOpen(select({ disabled: true })); P.render.call(pg, true);
+  ok('a disabled select opens no menu and holds nothing', drawn, 1);
+  menuOpen(sel); sel.isConnected = false; P.render.call(pg, true);
+  ok('a menu whose select is gone holds nothing', [drawn, pg._menu], [1, null]);
+
+  menuOpen(select());
+  ok('a select opened by a finger or a mouse is not focused again after a redraw', pg.refocuses({ tagName: 'SELECT' }), false);
+  ok('...any other control is', pg.refocuses({ tagName: 'BUTTON' }), true);
+  pg._onKey();
+  ok('...and a keyboard\'s select is', pg.refocuses({ tagName: 'SELECT' }), true);
+  ok('render asks before it focuses', /t\.focus && this\.refocuses\(t\)\) t\.focus\(/.test(SRC), true);
+})();
+
 print(fail ? 'FAIL ' + fail + ' SETTINGS PANEL TESTS' : 'ALL ' + pass + ' SETTINGS PANEL TESTS PASS');

@@ -254,6 +254,8 @@
   }
   // ------------------------------------------------------------ end of the parts loader
   var BACK, C, CSS, HOUSE, LIBRARY, PENCIL, SIDE, SYSTEM, TICK;
+  // the longest a pop-up menu left open holds the page's redraws (see render())
+  var MENU_HOLD_MS = 30000;
 
   class HkSettingsPanel extends /** @type {HkLooseElementConstructor} */ (HTMLElement) {
     constructor() {
@@ -271,27 +273,76 @@
       // NOT a press on a pop-up menu (a <select>): its list is the browser's
       // own, and on a Mac that list swallows the release -- the page heard no
       // pointerup, every redraw after the choice was held, and the row kept
-      // showing where the page had been until the next click anywhere
+      // showing where the page had been until the next click anywhere. It is
+      // a menu opened instead (render() holds for it), by a finger or a mouse
+      // rather than the keyboard (refocuses())
       this._onPress = function (e) {
         var t = e && e.composedPath ? e.composedPath()[0] : e && e.target;
-        if (t && t.tagName === 'SELECT') return;
+        self._byKey = false;
+        if (t && t.tagName === 'SELECT') {
+          if (!t.disabled) {
+            self._menu = t;
+            clearTimeout(self._menuCap);
+            self._menuCap = setTimeout(self._menuOver, MENU_HOLD_MS);
+          }
+          return;
+        }
         self._pressing = true;
       };
-      this._onRelease = function () {
+      this._onKey = function () { self._byKey = true; };
+      this._onRelease = function (e) {
+        if (e && e.type === 'change' && self._menu) self._menuOver();
         if (!self._pressing) return;
         setTimeout(function () {
           self._pressing = false;
-          var held = self._held;
-          self._held = null;
-          if (held) self.render(held.background, held.navigated);
+          self._drawHeld();
         }, 0);
       };
+      // A POP-UP MENU IS OVER at its choice (change), when its select loses
+      // focus, or at a press anywhere else: on an iPad the tap that closes a
+      // menu without a choice reaches the page as a press (with no click); on
+      // a Mac that click is the menu's, and the next press ends it. Never
+      // held past MENU_HOLD_MS. Drawn just after the choice's own change
+      // handler (the save it starts draws too).
+      this._menuOver = function () {
+        var m = self._menu;
+        if (!m) return;
+        clearTimeout(self._menuCap); self._menuCap = null;
+        setTimeout(function () {
+          if (self._menu !== m) return;          // another menu opened since
+          self._menu = null;
+          self._drawHeld();
+        }, 0);
+      };
+      this._onMenuAway = function (e) {
+        var t = e && e.composedPath ? e.composedPath()[0] : e && e.target;
+        if (self._menu && t !== self._menu) self._menuOver();
+      };
       // typing over: a redraw skipped while typing (render(true)) is drawn now
-      this._onFocusOut = function () {
+      this._onFocusOut = function (e) {
+        if (self._menu && e && e.target === self._menu) self._menuOver();
         setTimeout(function () {
           if (self._dirty && !self.typing()) { self._dirty = false; self.render(true); }
         }, 0);
       };
+    }
+    // FOCUS GOES BACK to the control that had it, as drawn again -- not to a
+    // pop-up menu a finger or a mouse opened (2026-11-22, iPad Safari): an
+    // iPad opens a select's menu again when it is focused, so each redraw
+    // after a choice (the save's, the tablet's answer) opened a new one over
+    // the new select, and the next redraw replaced that select under it. The
+    // menu stayed on screen, a choice in it did nothing, and the next tap
+    // anywhere only closed it (no click: a switch tapped then didn't change).
+    // A keyboard's select keeps its focus (a Mac doesn't open the menu).
+    refocuses(el) {
+      return !(el && el.tagName === 'SELECT' && !this._byKey);
+    }
+    // a redraw held under a press or an open menu, drawn once neither is
+    _drawHeld() {
+      if (this._pressing || this._menu) return;
+      var held = this._held;
+      this._held = null;
+      if (held) this.render(held.background, held.navigated);
     }
     // THE HOST'S ENTRY (window.hkHostClient.entry, below): Home Assistant's
     // panel_custom hands this element the frontend's object; the page gets
@@ -319,6 +370,8 @@
       window.addEventListener('popstate', this._onHash);
       window.hkShell.onNavigate(this._onHash);
       this.shadowRoot.addEventListener('pointerdown', this._onPress, true);
+      window.addEventListener('pointerdown', this._onMenuAway, true);
+      this.shadowRoot.addEventListener('keydown', this._onKey, true);
       window.addEventListener('pointerup', this._onRelease, true);
       // a choice made is a press over, whatever the browser told us
       this.shadowRoot.addEventListener('change', this._onRelease, true);
@@ -331,11 +384,14 @@
       window.removeEventListener('popstate', this._onHash);
       window.hkShell.offNavigate(this._onHash);
       this.shadowRoot.removeEventListener('pointerdown', this._onPress, true);
+      window.removeEventListener('pointerdown', this._onMenuAway, true);
+      this.shadowRoot.removeEventListener('keydown', this._onKey, true);
       window.removeEventListener('pointerup', this._onRelease, true);
       window.removeEventListener('pointercancel', this._onRelease, true);
       this.shadowRoot.removeEventListener('change', this._onRelease, true);
       this.shadowRoot.removeEventListener('focusout', this._onFocusOut);
       this._pressing = false; this._held = null;
+      clearTimeout(this._menuCap); this._menuCap = null; this._menu = null;
       // nothing of this page's keeps running while it is away: a reload due,
       // a preview frame still being asked for its sky or screensaver, the
       // bar's status fading
@@ -780,7 +836,12 @@
       // redraw replaced the very row being pressed, and the click was lost
       // (a kind picked once did nothing; Add Pop-up needed a second tap).
       // Held until the press has ended and clicked, then drawn once.
-      if (this._pressing) {
+      // NOR UNDER AN OPEN POP-UP MENU (a <select>): a redraw replaces the
+      // select, and the system's menu over it closes under the finger (the
+      // tablets' 10-second refresh did). Held until the menu is over
+      // (_menuOver), then drawn once.
+      if (this._menu && !this._menu.isConnected) this._menu = null;
+      if (this._pressing || this._menu) {
         var was = this._held || {};
         this._held = { background: !!(was.background !== undefined ? was.background && background : background),
                        navigated: !!(was.navigated || navigated) };
@@ -808,7 +869,7 @@
       if (fk) {
         var sel = '[data-fk="' + String(fk).replace(/(["\\])/g, '\\$1') + '"]';
         t = /** @type {HTMLElement | null} */ ((inSide ? this.sideEl : this.shadowRoot).querySelector(sel));
-        if (t && t.focus) t.focus({ preventScroll: true });
+        if (t && t.focus && this.refocuses(t)) t.focus({ preventScroll: true });
       }
       if (!t && navigated && !inSide) {
         var h1 = this.pageEl.querySelector('h1');
