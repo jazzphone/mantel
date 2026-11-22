@@ -192,6 +192,7 @@
       ['Tab Bar Position', 'house/menu/tab-bar', 'menu.bar_pos', 'tab bar position top bottom left right rail side placement'],
       ['More Style on Phones', 'house/menu/tab-bar', 'menu.bar_more_phone', 'tab bar more icons list grid sheet phone iphone'],
       ['Tab Bar Glass', 'house/appearance/advanced', 'menu.bar_glass', 'tab bar blur frosted tinted clear transparency look appearance'],
+      ['Tab Bar Dim', 'house/appearance/advanced', 'menu.bar_dim', 'tab bar nav dim darker shade dimmer readable'],
       ['Home Assistant Section Placement', 'house/menu/side', 'menu.ha_at', 'home assistant section where top categories rooms bottom order position place'],
       ['Home Assistant Section', 'house/menu/side', 'menu.ha_row', 'sidebar settings access integrations automations notifications profile show menu'],
       ['Rooms in the Menu', 'house/rooms', 'rooms.menu', 'rooms in the menu order which rooms a to z side menu tab bar more'],
@@ -351,7 +352,7 @@
       // a screen's menu: All Screens', or its own one setting at a time (menu_own)
       ['menu', 'Menu', ['menu', 'menu_own', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                         'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
-                        'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust',
+                        'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_dim', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust',
                           'tab_bar_scroll_phone', 'tab_bar_tabs',
                         'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone',
                         'swipe_pages', 'swipe_left'], true],

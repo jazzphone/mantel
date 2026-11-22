@@ -14,7 +14,7 @@ from .side_pane_rules import pane_resolved
 from .. import saver_layers as SL
 from .dashboard_rules import (board, BOARD_BUTTON_PHONE, BOARD_DEFAULTS, BOARD_HOME_ROOMS, BOARD_MENU_ROOMS,
     BOARD_MENUS, BOARD_NARROW, BOARD_PAGE_ROOMS, BOARD_PHONE_MENUS, BOARD_TAB_SIZES, BOARD_TIME, ENTITY_ID, HA_PLACES,
-    kiosk_from_plugin, SCREEN_PRESETS, SUBENTRY_DASHBOARD, TAB_BAR_FOLD, tab_bar_glass, TAB_BAR_LABELS, TAB_BAR_MORE,
+    kiosk_from_plugin, SCREEN_PRESETS, SUBENTRY_DASHBOARD, TAB_BAR_FOLD, tab_bar_dim, tab_bar_glass, TAB_BAR_LABELS, TAB_BAR_MORE,
     TAB_BAR_POS, tab_bar_rooms, TAB_BAR_SCROLLS, TAB_BAR_SIZES, TAB_BAR_START, TAB_BAR_TABS_PHONE, tab_count,)
 
 
@@ -30,7 +30,7 @@ PAGE_HEADERS = ("current", "smart", "none")
 MENU_KEYS = {"page_header": "page_header", "menu": "style", "tab_position": "tab_at", "tab_size": "tab_size",
              "tab_size_phone": "tab_size_phone", "dock_min": "open_min", "time_weather": "time_weather_at",
              "ha_row": "ha_row", "ha_place": "ha_at", "accent": "accent", "glyph": "glyph", "clock": "clock", "swipe": "swipe",
-             "tab_bar_scroll": "bar_scroll", "tab_bar_rooms": "bar_rooms", "tab_bar_glass": "bar_glass",
+             "tab_bar_scroll": "bar_scroll", "tab_bar_rooms": "bar_rooms", "tab_bar_glass": "bar_glass", "tab_bar_dim": "bar_dim",
              "tab_bar_more": "bar_more", "tab_bar_more_phone": "bar_more_phone", "tab_bar_pos": "bar_pos",
              "tab_bar_fold": "bar_fold", "tab_bar_start": "bar_start", "tab_bar_adjust": "bar_adjust",
              "tab_bar_scroll_phone": "bar_scroll_phone", "tab_bar_tabs": "bar_tabs",
@@ -92,6 +92,7 @@ def house_menu(menu: Mapping[str, Any] | None) -> dict[str, Any]:
             "tab_bar_scroll": pick("bar_scroll", TAB_BAR_SCROLLS, d["tab_bar_scroll"]),
             "tab_bar_rooms": tab_bar_rooms(m.get("bar_rooms")),
             "tab_bar_glass": tab_bar_glass(m.get("bar_glass")),
+            "tab_bar_dim": tab_bar_dim(m.get("bar_dim")),
             "tab_bar_more": pick("bar_more", TAB_BAR_MORE, d["tab_bar_more"]),
             "tab_bar_more_phone": pick("bar_more_phone", TAB_BAR_MORE, d["tab_bar_more_phone"]),
             "tab_bar_pos": pick("bar_pos", TAB_BAR_POS, d["tab_bar_pos"]),

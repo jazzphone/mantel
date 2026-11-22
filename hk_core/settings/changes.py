@@ -263,6 +263,14 @@ def _amount(v: Any) -> int:
     return int(round(v))
 
 
+def _bar_dim(v: Any) -> str | int:
+    if v == S.TAB_BAR_DIM_GLASS:
+        return v
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= S.TAB_BAR_DIM_MAX:
+        raise Invalid("bar_dim")
+    return int(round(v))
+
+
 def _bright_dim(v: Any) -> int:
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= S.BRIGHT_DIM_MAX:
         raise Invalid("bright_dim")
@@ -863,6 +871,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "menu.bar_scroll": _choice(S.TAB_BAR_SCROLLS),
     "menu.bar_rooms": lambda v: _rooms_place(v),
     "menu.bar_glass": _choice(S.TAB_BAR_GLASS),
+    "menu.bar_dim": _bar_dim,
     "menu.bar_more": _choice(S.TAB_BAR_MORE),
     "menu.bar_more_phone": _choice(S.TAB_BAR_MORE),
     "menu.bar_pos": _choice(S.TAB_BAR_POS),
@@ -1327,6 +1336,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "tab_bar_scroll": _choice(S.TAB_BAR_SCROLLS),
     "tab_bar_rooms": lambda v: _rooms_place(v),
     "tab_bar_glass": _choice(S.TAB_BAR_GLASS),
+    "tab_bar_dim": _bar_dim,
     "tab_bar_more": _choice(S.TAB_BAR_MORE),
     "tab_bar_more_phone": _choice(S.TAB_BAR_MORE),
     "tab_bar_pos": _choice(S.TAB_BAR_POS),

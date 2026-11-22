@@ -204,7 +204,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "ha_row": False, "accent": "orange", "swipe": False, "ha_at": "rooms",
              # the tab bar (2026-10-05): while scrolling, its Rooms button,
              # its glass
-             "bar_scroll": "shrink", "bar_rooms": "more", "bar_glass": "house", "bar_more": "icons",
+             "bar_scroll": "shrink", "bar_rooms": "more", "bar_glass": "house", "bar_dim": "glass", "bar_more": "icons",
              "bar_more_phone": "list", "bar_pos": "bottom", "bar_fold": "start", "bar_start": "full",
              # Adjust Content: the page makes room for the bar (on), or the
              # bar floats over it everywhere (off)

@@ -518,6 +518,22 @@ def test_bars_and_side_pane_blur():
     assert M.board({})["bars_blur"] is None and M.board(C.apply_board(b, {"bars_blur": None})[0])["bars_blur"] is None
 
 
+def test_tab_bar_clear_and_dim():
+    # (2026-11-22) Tab Bar Glass's Clear (clear_glass; "clear" stays Tinted's old name) and the tab bar's Dim: Same as
+    # the Glass by default, else 0-60 %; All Screens' menu.bar_dim, a screen's own tab_bar_dim in menu_own
+    assert C.apply_house({}, {"menu.bar_glass": "clear_glass"})[1] == {}
+    assert M.board({"tab_bar_glass": "clear"})["tab_bar_glass"] == "tinted"
+    assert M.merged({})["menu"]["bar_dim"] == "glass" and M.board({})["tab_bar_dim"] == "glass"
+    new, err = C.apply_house({}, {"menu.bar_dim": 25})
+    assert err == {} and M.merged(new)["menu"]["bar_dim"] == 25
+    assert "menu.bar_dim" in C.apply_house({}, {"menu.bar_dim": 75})[1]
+    assert "menu.bar_dim" in C.apply_house({}, {"menu.bar_dim": "dark"})[1]
+    b, err = C.apply_board({}, {"tab_bar_dim": 40})
+    assert err == {} and M.board(b)["tab_bar_dim"] == 40
+    assert M.board({"tab_bar_dim": 99})["tab_bar_dim"] == "glass"
+    assert "tab_bar_dim" in M.MENU_KEYS
+
+
 def test_text_glow():
     # (2026-11-22) Appearance -> Advanced -> Text Glow: on by default; All Screens' or a screen's own over it
     assert M.merged({})["look"]["text_glow"] is True

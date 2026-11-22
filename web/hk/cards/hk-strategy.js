@@ -171,7 +171,7 @@
                     // of settings.py MENU_KEYS but `menu` belongs here:
                     // test_strategy_rebuild.js reads that list and fails on
                     // one left out
-                    ha_place: 1, tab_bar_scroll: 1, tab_bar_rooms: 1, tab_bar_glass: 1, tab_bar_more: 1,
+                    ha_place: 1, tab_bar_scroll: 1, tab_bar_rooms: 1, tab_bar_glass: 1, tab_bar_dim: 1, tab_bar_more: 1,
                     tab_bar_more_phone: 1, tab_bar_pos: 1, tab_bar_fold: 1, tab_bar_start: 1,
                     tab_bar_adjust: 1, tab_bar_scroll_phone: 1, tab_bar_tabs: 1, tab_bar_tabs_rail: 1, tab_bar_tabs_phone: 1,
                     tab_bar_size: 1, tab_bar_labels: 1, tab_bar_strip: 1,

@@ -127,7 +127,7 @@
             style: 'auto', tab_at: '', tab_size: 'large', tab_size_phone: 'standard',
             open_min: 1000, time_weather_at: 'page', ha_row: false, ha_at: 'rooms', accent: 'orange', swipe: false,
             // the tab bar's (a device's Menu "tabbar")
-            bar_scroll: 'shrink', bar_rooms: 'more', bar_glass: 'house', bar_more: 'icons',
+            bar_scroll: 'shrink', bar_rooms: 'more', bar_glass: 'house', bar_dim: 'glass', bar_more: 'icons',
             bar_more_phone: 'list', bar_pos: 'bottom', bar_fold: 'start', bar_start: 'full',
             bar_adjust: true, page_header: 'current',
             bar_tabs: 6, bar_tabs_rail: 6, bar_tabs_phone: 3, bar_size: 'medium', bar_labels: 'show',

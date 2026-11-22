@@ -188,10 +188,18 @@ ok('While Scrolling on Phones: Phones\' own under 640 px (Shrink unless chosen),
 
 print('=== the material ===');
 var mat = T.material;
-ok('the screen\'s look: frosted stays frosted', mat('house', 'frosted') === 'frosted');
-ok('...and Tinted stays Tinted: no blur on a bar that is always up', mat('house', 'tinted') === 'tinted');
-ok('...every other look is one blur (the chips blur themselves on Clear)',
-   mat('house', 'clear') === 'blur' && mat('house', 'blur_each') === 'blur' && mat('house', null) === 'blur');
+ok('Same as Screen on Clear, Tinted or Frosted: the screen\'s own card surface, no blur (2026-11-22, "match all three")',
+   mat('house', 'clear') === 'surface' && mat('house', 'tinted') === 'surface' && mat('house', 'frosted') === 'surface');
+ok('...a blurring look is one blur, Bright Glass\'s own bar',
+   mat('house', 'blur') === 'blur' && mat('house', 'blur_pre') === 'blur' && mat('house', 'blur_each') === 'blur' && mat('house', null) === 'blur' &&
+   mat('house', 'bright_pre') === 'bright');
+ok('Clear as a choice (`clear_glass`; `clear` stays Tinted\'s old name)', mat('clear_glass', 'blur') === 'clearg' && mat('clear', 'blur') === 'tinted');
+ok('...the surface and Clear blur nothing, so nothing is pinned',
+   T.pinFor('surface', 'blur_pre') === null && T.pinFor('clearg', 'bright_pre') === null);
+ok('THE BAR\'S DIM: Same as the Glass (Bright Glass\'s Dim) by default, else its own percent, 0 a clear layer',
+   /--hk-bright-shade/.test(T.barShade('glass')) && /--hk-bright-shade/.test(T.barShade(undefined)) &&
+   T.barShade(20) === 'linear-gradient(rgba(0,0,0,0.2),rgba(0,0,0,0.2))' && T.barShade(90) === 'linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6))' &&
+   T.barShade(0) === 'linear-gradient(transparent,transparent)');
 ok('its own choice wins', mat('tinted', 'blur') === 'tinted' && mat('frosted', 'blur') === 'frosted' &&
    mat('blur', 'frosted') === 'blur');
 ok('...Tinted as the server stores it (`tinted`), and by its old name (`clear`)',

@@ -380,14 +380,18 @@
   function material(setting, look) {
     if (look === 'flat') return 'flat';
     if (setting === 'tinted' || setting === 'clear') return 'tinted';
+    // CLEAR (2026-11-22, the owner: "standard glass has a clear option as well"): Clear Glass's see-through plate,
+    // its edge and shadow, no blur -- `clear_glass`, as `clear` is Tinted's name from before entry 1.12
+    if (setting === 'clear_glass') return 'clearg';
     if (setting === 'frosted' || setting === 'blur' || setting === 'bright') return setting;
     // Same as Screen on Bright Glass (2026-10-30), in any of its modes: the
     // bar's own Bright Glass
     if (look === 'bright' || look === 'bright_pre' || look === 'bright_each') return 'bright';
-    // Same as Screen: the screen's Tinted is this bar's Tinted -- no blur on
-    // a bar that is always up (and no picture to pin behind it)
-    if (look === 'tinted') return 'tinted';
-    return look === 'frosted' ? 'frosted' : 'blur';
+    // Same as Screen on Clear, Tinted or Frosted (2026-11-22, the owner: "match all three"): the screen's own card
+    // surface -- its plate, edge and shadow (--hk-glass-plate, --hk-look-edge, --hk-look-shadow), no blur. Before, a
+    // Clear screen's bar blurred, a Tinted one's was near-black whatever the Darkness, a Frosted one's a solid gray.
+    if (look === 'clear' || look === 'tinted' || look === 'frosted') return 'surface';
+    return 'blur';
   }
 
   // THE BAR WEARS THE PRE-RENDERED PICTURE (hk-glass.js pin) whenever the page's glass is pictured -- Blur or Bright
@@ -395,6 +399,12 @@
   // bright_pre twin) -- for a bar of either blur: its own Bright Glass on a Clear screen too. Before (2026-11-22, the
   // owner: "it doesn't look like the Bright Glass navbar supports pre-rendered? I see leaves behind it moving in real
   // time") only Blur on blur_pre and Bright on bright_pre pinned, so a Bright Glass bar on Clear blurred live.
+  // THE BAR'S DIM as a background layer: 'glass' (or unset) Bright Glass's Dim, a number its own percent
+  function barShade(dim) {
+    if (dim === 'glass' || dim === null || dim === undefined || dim === '') return 'var(--hk-bright-shade,linear-gradient(transparent,transparent))';
+    var n = Math.max(0, Math.min(60, Number(dim) || 0)) / 100;
+    return n > 0 ? 'linear-gradient(rgba(0,0,0,' + n + '),rgba(0,0,0,' + n + '))' : 'linear-gradient(transparent,transparent)';
+  }
   function pinFor(mat, look) {
     return /_pre$/.test(look || '') && (mat === 'blur' || mat === 'bright') ? mat : null;
   }
@@ -411,7 +421,7 @@
     return { hx: box.x - home.x, hy: box.y - home.y, sx: box.w / (home.w || 1), sy: box.h / (home.h || 1) };
   }
 
-  window.hkTabBar = { version: '1.0.0', _: { between: between, offsetsOf: offsetsOf, fit: fit, parts: parts, scrollStep: scrollStep, material: material, pinFor: pinFor,
+  window.hkTabBar = { version: '1.0.0', _: { between: between, offsetsOf: offsetsOf, fit: fit, parts: parts, scrollStep: scrollStep, material: material, pinFor: pinFor, barShade: barShade,
                                              plateFits: plateFits, roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room,
                                                scrollOf: scrollOf,
                                              stripSide: stripSide, stripFit: stripFit,
@@ -489,12 +499,18 @@
       // (Bright Glass's inside on the Blur bar, 2026-11-22, the owner, of a mockup -- "I was referring to how the inside
       // of the tab/nav bar looks, and how the highlight looks too" ... "C": its white wash over a light tint, under the
       // Blur bar's own 24 px blur and soft edge; the highlight below. Was a dark 0.52 plate.)
-      '.blur .g{background:linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);',
+      '.blur .g{background:var(--bar-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);',
       '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}',
       ':host([data-pre-blur]) .blur :is(.pill,.roomsbtn){-webkit-backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6));' +
         'backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6))}',
-      '.frosted .g{background:rgba(62,64,74,0.95)}',
-      '.tinted .g{background:rgba(24,24,28,0.93)}',
+      '.frosted .g{background:var(--bar-shade,linear-gradient(transparent,transparent)),rgba(62,64,74,0.95)}',
+      '.tinted .g{background:var(--bar-shade,linear-gradient(transparent,transparent)),rgba(24,24,28,0.93)}',
+      // (THE SCREEN'S SURFACE and CLEAR, material() above: Same as Screen's on Clear, Tinted and Frosted, and Clear's own)
+      '.surface .g{background:var(--bar-shade,linear-gradient(transparent,transparent)),var(--hk-glass-plate,' + window.hkCards.v('glass-bg') + ');border:var(--hk-look-edge,' +
+        window.hkCards.v('glass-border') + ');' +
+        'box-shadow:var(--hk-look-shadow,' + window.hkCards.v('glass-shadow-pill') + ')}',
+      '.clearg .g{background:var(--bar-shade,linear-gradient(transparent,transparent)),' + window.hkCards.v('glass-bg') + ';border:' + window.hkCards.v('glass-border') + ';box-shadow:' +
+        window.hkCards.v('glass-shadow-pill') + '}',
       // BRIGHT GLASS (2026-10-30, DESIGN.md "Bright Glass"): a white wash over
       // the look's light blur (hkCards.BLUR.bright), the rim; the page you're
       // on a white pill, its name and icon the accent's, deepened to read on
@@ -502,15 +518,16 @@
       // (a little darker under the wash, 2026-10-30: over a light page -- the
       // Climate page's teal -- its names were hard to read)
       // (the look's Dim over it, 2026-11-01: --hk-bright-shade, hk-settings.js brightLook)
-      '.bright .g{background:var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);' +
+      '.bright .g{background:var(--bar-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);' +
         'border-color:transparent;',
       '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
       '  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.22),inset 0 1.5px 0 rgba(255,255,255,0.30),0 10px 30px rgba(0,0,0,0.18)}',
       // (...the Blur bar's page too, 2026-11-22: a white pill, its icon the accent's deepened; its sheets keep theirs)
-      '.bright .tab.here::before,.bright .it.here,.blur .tab.here::before{background:rgba(255,255,255,0.92)}',
-      '.bright .tab.here,.bright .cur,.bright .roomsbtn.here,.bright .it.here span,.bright .it.here hk-icon,.blur .tab.here,.blur .cur,.blur .roomsbtn.here{color:color-mix(in srgb,' + window.hkCards.v('accent') + ' 64%,#000)}',
-      '.bright .tab,.bright .roomsbtn,.blur .tab,.blur .roomsbtn{text-shadow:0 1px 2px rgba(0,0,0,0.30)}',
-      '.bright .tab.here,.blur .tab.here{text-shadow:none}',
+      '.bright .tab.here::before,.bright .it.here,:is(.blur,.surface,.clearg) .tab.here::before{background:rgba(255,255,255,0.92)}',
+      '.bright .tab.here,.bright .cur,.bright .roomsbtn.here,.bright .it.here span,.bright .it.here hk-icon,:is(.blur,.surface,.clearg) :is(.tab.here,.cur,.roomsbtn.here){color:color-mix(in srgb,' +
+        window.hkCards.v('accent') + ' 64%,#000)}',
+      '.bright .tab,.bright .roomsbtn,:is(.blur,.surface,.clearg) :is(.tab,.roomsbtn){text-shadow:0 1px 2px rgba(0,0,0,0.30)}',
+      '.bright .tab.here,:is(.blur,.surface,.clearg) .tab.here{text-shadow:none}',
       // THE PILL
       // TAB_GAP between tabs: two highlights side by side (the page you are
       // on, the one under the pointer) never touch
@@ -604,6 +621,11 @@
       '  -webkit-backdrop-filter:blur(34px) saturate(1.9);backdrop-filter:blur(34px) saturate(1.9)}',  // hkCards.BLUR.heavy
       // (Bright Glass's sheet plate, hk-settings.js BRIGHT.sheet: a deep tint under a sheen, so white names
       // and the icons' circles read over a bright wallpaper; and the page behind dimmed while one is open)
+      // (the surface's and Clear's sheets, 2026-11-22: a see-through plate can't be read over the page -- the look's
+      // floating plate where it has one, Tinted's solid with no blur, else the Blur sheet's)
+      ':is(.surface,.clearg) .sheet.g{background:var(--hk-float-plate,linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),rgba(28,28,32,0.52));' +
+        'border-color:rgba(255,255,255,0.14);box-shadow:0 8px 28px rgba(0,0,0,0.30);-webkit-backdrop-filter:var(--hk-float-backdrop,blur(34px) saturate(1.9));' +
+        'backdrop-filter:var(--hk-float-backdrop,blur(34px) saturate(1.9))}',
       '.bright .sheet.g{background:var(--hk-sheet-plate,rgba(14,20,38,0.55));-webkit-backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.5) brightness(0.86));',
       '  backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.5) brightness(0.86))}',
       '.root.bright.sheeted .scrim{background:rgba(6,10,22,0.22)}',
@@ -856,7 +878,8 @@
     // PINNED) a blurred bar, its rooms button and its sheets wear their slice
     // of it under their own tints instead of blurring the moving sky live
     // (the Blur bar's inside is Bright Glass's wash since 2026-11-22: the same over its picture)
-    var BAR_TINT = 'linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
+    var BAR_TINT =
+      'var(--bar-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
     var SHEET_TINT = 'linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))';
     // ...AND IN BRIGHT GLASS (Pre-rendered, 2026-11-07): the bar and its rooms
     // button wear the same picture -- painted with the look's own light blur
@@ -864,7 +887,7 @@
     // (.bright .g above). Its sheets keep their live 34 px blur: open, they
     // lie over the page's cards, which a picture of the sky cannot show.
     var BRIGHT_TINT =
-      'var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
+      'var(--bar-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
     // `mode`: 'blur' (Blur's Pre-rendered), 'bright' (Bright Glass's), or none
     function pinGlass(mode) {
       var G = window.hkGlass;
@@ -1659,11 +1682,16 @@
       }
       if (!mount()) return;
       var b = M.board() || {};
-      var look = document.documentElement.getAttribute('data-hk-glass');
+      var own = document.documentElement.getAttribute('data-hk-glass'), look = own;
       // (the frost picture over a sky the tablet app draws: as Pre-rendered, hk-glass.js pictured)
-      if (window.hkGlass && window.hkGlass.pictured) look = window.hkGlass.pictured(look);
-      var mat = material(b.tab_bar_glass, look);
+      if (window.hkGlass && window.hkGlass.pictured) look = window.hkGlass.pictured(own);
+      // (the material from the screen's own look -- Clear stays Clear with Bars & Side Pane Pre-rendered, whose picture
+      // is for a bar that blurs -- and the pin from the pictured one)
+      var mat = material(b.tab_bar_glass, own === 'flat' || look === 'flat' ? 'flat' : own);
       pinGlass(pinFor(mat, look));
+      // THE BAR'S DIM (2026-11-22, the owner: "we may need a dim slider for all of them"): Same as the Glass (the
+      // default: Bright Glass's Dim where the page wears it, as the Side Pane's) or its own, 0-60 %
+      S.host.style.setProperty('--bar-shade', barShade(b.tab_bar_dim));
       var width = pageW();
       iconsOnly = b.tab_bar_labels === 'icons';
       S.host.toggleAttribute('data-icons', iconsOnly);
