@@ -390,6 +390,15 @@
     return look === 'frosted' ? 'frosted' : 'blur';
   }
 
+  // THE BAR WEARS THE PRE-RENDERED PICTURE (hk-glass.js pin) whenever the page's glass is pictured -- Blur or Bright
+  // Pre-rendered, or Clear / Each Card with Bars & Side Pane Pre-rendered (hkGlass.pictured: their blur_pre or
+  // bright_pre twin) -- for a bar of either blur: its own Bright Glass on a Clear screen too. Before (2026-11-22, the
+  // owner: "it doesn't look like the Bright Glass navbar supports pre-rendered? I see leaves behind it moving in real
+  // time") only Blur on blur_pre and Bright on bright_pre pinned, so a Bright Glass bar on Clear blurred live.
+  function pinFor(mat, look) {
+    return /_pre$/.test(look || '') && (mat === 'blur' || mat === 'bright') ? mat : null;
+  }
+
   // A PAGE SWIPE'S HIGHLIGHT (2026-10-30, hk-pageswipe.js): the box `k` of
   // the way from the tab you are on (a) to the one the swipe is taking you
   // to (b) -- along a bar or down a rail alike -- and what puts the
@@ -402,7 +411,7 @@
     return { hx: box.x - home.x, hy: box.y - home.y, sx: box.w / (home.w || 1), sy: box.h / (home.h || 1) };
   }
 
-  window.hkTabBar = { version: '1.0.0', _: { between: between, offsetsOf: offsetsOf, fit: fit, parts: parts, scrollStep: scrollStep, material: material,
+  window.hkTabBar = { version: '1.0.0', _: { between: between, offsetsOf: offsetsOf, fit: fit, parts: parts, scrollStep: scrollStep, material: material, pinFor: pinFor,
                                              plateFits: plateFits, roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room,
                                                scrollOf: scrollOf,
                                              stripSide: stripSide, stripFit: stripFit,
@@ -477,8 +486,12 @@
       // THE MATERIAL (material()): one blur, a milky plate, or a near-solid tint
       '.g{pointer-events:auto;box-sizing:border-box;border:1px solid rgba(255,255,255,0.14);',
       '  box-shadow:0 8px 28px rgba(0,0,0,0.30),inset 0 1px 0 rgba(255,255,255,0.10)}',
-      '.blur .g{background:linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)),rgba(28,28,32,0.52);',
-      '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}',
+      // (Bright Glass's rim on the Blur bar too, 2026-11-22, the owner: "I'd actually wish the regular glass nav bar
+      // looking more like the bright glass one ... brightglass has more of hard edge": the inset 1.5 px edge and the
+      // lit top line in place of the 1 px border, its own tint and blur kept)
+      '.blur .g{background:linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)),rgba(28,28,32,0.52);border-color:transparent;',
+      '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);',
+      '  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.22),inset 0 1.5px 0 rgba(255,255,255,0.30),0 8px 28px rgba(0,0,0,0.30)}',
       ':host([data-pre-blur]) .blur :is(.pill,.roomsbtn){-webkit-backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6));' +
         'backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6))}',
       '.frosted .g{background:rgba(62,64,74,0.95)}',
@@ -1649,7 +1662,7 @@
       // (the frost picture over a sky the tablet app draws: as Pre-rendered, hk-glass.js pictured)
       if (window.hkGlass && window.hkGlass.pictured) look = window.hkGlass.pictured(look);
       var mat = material(b.tab_bar_glass, look);
-      pinGlass(mat === 'blur' && look === 'blur_pre' ? 'blur' : mat === 'bright' && look === 'bright_pre' ? 'bright' : null);
+      pinGlass(pinFor(mat, look));
       var width = pageW();
       iconsOnly = b.tab_bar_labels === 'icons';
       S.host.toggleAttribute('data-icons', iconsOnly);

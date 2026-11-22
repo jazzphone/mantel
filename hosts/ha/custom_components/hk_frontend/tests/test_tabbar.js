@@ -196,6 +196,13 @@ ok('its own choice wins', mat('tinted', 'blur') === 'tinted' && mat('frosted', '
    mat('blur', 'frosted') === 'blur');
 ok('...Tinted as the server stores it (`tinted`), and by its old name (`clear`)',
    mat('tinted', 'blur_pre') === 'tinted' && mat('clear', 'frosted') === 'tinted');
+ok('the bar wears the Pre-rendered picture whenever the glass is pictured: Blur or Bright Pre-rendered',
+   T.pinFor('blur', 'blur_pre') === 'blur' && T.pinFor('bright', 'bright_pre') === 'bright');
+ok('...a Bright Glass bar on Clear with Bars & Side Pane Pre-rendered (pictured: blur_pre) too, not live (2026-11-22)',
+   T.pinFor('bright', 'blur_pre') === 'bright' && T.pinFor(mat('bright', 'blur_pre'), 'blur_pre') === 'bright');
+ok('...and never on a live look, or for a bar with no blur',
+   T.pinFor('bright', 'clear') === null && T.pinFor('blur', 'blur') === null && T.pinFor('bright', 'bright') === null &&
+   T.pinFor('tinted', 'blur_pre') === null && T.pinFor('frosted', 'bright_pre') === null && T.pinFor('blur', null) === null);
 
 print('=== where it shows: the menu\'s other form (hkCards.menu.tabBar) ===');
 var C = window.hkCards, M = C.menu;

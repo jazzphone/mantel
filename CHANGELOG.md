@@ -5,10 +5,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Changed**
+- **The regular glass tab bar has Bright Glass's crisp edge**: a lit outline and top line in place of its soft border, with its own tint and blur.
 - **A Small, Wide or Tall thermostat in Auto lets you pick Heat or Cool**, as Large does: tap a temperature to pick it (a dot appears under it), and the arrows change only that one. They used to move both together.
 - **Every card's text now has the same soft glow behind it**, so words read the same over the sky or a background whatever the card. Before, some cards had it and others didn't. Dark words on a white tile or button never have it, and Flat has none. **Text Glow** (Appearance → Advanced, on by default; a screen can choose its own) turns it off.
 
 **Fixed**
+- **A Bright Glass tab bar on a Clear Glass screen no longer blurs live** when Bars & Side Pane is Pre-rendered: it wears the pre-rendered picture like the rest of the bars, so falling leaves and rain no longer move behind it.
 - **The glow behind card text no longer shows a hard-edged band** under names, states and labels. The glow is now tighter, so it fits inside each line of text instead of being cut off at its edge.
 - **A pop-up menu in Settings on an iPad closes once you pick.** After a choice that redraws the page (a wall tablet's Renderer, say), the menu used to stay on screen: a pick in it did nothing, and the next tap anywhere only closed it, so a switch tapped then didn't change. An open menu also keeps working while a Wall Tablets page refreshes under it.
 - **An Intercom message plays in step in every room, even when rooms have different volumes.** Rooms at different Intercom volumes used to play as separate groups, a few seconds apart. They now play as one group, each at its own volume.
