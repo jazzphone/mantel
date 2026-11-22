@@ -10,6 +10,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **Every card's text now has the same soft glow behind it**, so words read the same over the sky or a background whatever the card. Before, some cards had it and others didn't. Dark words on a white tile or button never have it, and Flat has none. **Text Glow** (Appearance → Advanced, on by default; a screen can choose its own) turns it off.
 
 **Fixed**
+- **The glow behind card text no longer shows a hard-edged band** under names, states and labels. The glow is now tighter, so it fits inside each line of text instead of being cut off at its edge.
 - **A pop-up menu in Settings on an iPad closes once you pick.** After a choice that redraws the page (a wall tablet's Renderer, say), the menu used to stay on screen: a pick in it did nothing, and the next tap anywhere only closed it, so a switch tapped then didn't change. An open menu also keeps working while a Wall Tablets page refreshes under it.
 
 ## 1.61.2 - 2026-11-21

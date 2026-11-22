@@ -183,7 +183,9 @@
     'battery-fill-low': 'linear-gradient(180deg, #ff7a70 0%, #ff453a 48%, #d9362c 100%)',
     // what text carries over the sky or a photo
     // (a look may soften it: Bright Glass's --hk-look-text-shadow; DESIGN.md "Text over glass")
-    'glow': 'var(--hk-look-text-shadow,0 1px 3px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.22))',
+    // TIGHT, so a word's own box holds it (2026-11-22, the owner: "Lots of shadows in the text are getting clipped!!"):
+    // every name that can end in an ellipsis hides its overflow, and the 8 px halo it had was cut off in a band there
+    'glow': 'var(--hk-look-text-shadow,0 1px 2px rgba(0,0,0,0.35))',
     // ON A LIT (WHITE) PILL: the room line and the state, the Home app's
     // grays (measured 2026-10-13: room #464649, state #79797b). The state is
     // #767678, 3/255 darker, so it keeps 4.5:1 on white (#79797b is 4.34).

@@ -230,7 +230,7 @@ ok('a lit (opaque white) pill never blurs behind itself', /\[data-on="1"\]\{back
 // words inherit it; hk-elements.js draws before hk-base.js, so it writes T's glow out -- the same value
 var esrc = readFile(HK_ROOT + '/frontend/elements/hk-elements.js');
 var glowT = (bsrc.match(/'glow': '([^']+)'/) || [])[1];
-ok('glow: a look may soften it, else the one value', glowT === 'var(--hk-look-text-shadow,0 1px 3px rgba(0,0,0,0.30), 0 2px 8px rgba(0,0,0,0.22))', glowT);
+ok('glow: a look may soften it, else the one value', glowT === 'var(--hk-look-text-shadow,0 1px 2px rgba(0,0,0,0.35))', glowT);
 ok('...every hk-plate wears it (hkCards.v(\'glow\') written out)', esrc.indexOf("'text-shadow:var(--hk-glow," + glowT + ")}'") >= 0);
 ok('...a lit (white) pill takes it off', /\[data-on="1"\]\{background:white;--hk-glass-backdrop:none;--hk-glow:none\}/.test(tsrc));
 ok('...and an off tile no longer opts out of it', tsrc.indexOf('.grid{text-shadow:var(--hk-look-text-shadow, none)}') < 0);
