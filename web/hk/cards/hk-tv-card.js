@@ -202,7 +202,8 @@
     }
     /** @param {any} lk */
     _mute(lk) {
-      return lk.volume.mode && lk.volume.mute ? '<button type="button" class="rb" data-notap data-vol="mute" aria-label="' + (lk.volume.muted ? 'Unmute' : 'Mute') + '">' + svg('mute') + '</button>' : '';
+      return lk.volume.mode && lk.volume.mute ? '<button type="button" class="rb" data-notap data-vol="mute" aria-label="' + (lk.volume.muted ? 'Unmute' : 'Mute') + '">' + svg('mute') + '</button>' :
+        '';
     }
     /** @param {any[]} apps @param {number} n @param {number} size @param {number} [cols] */
     _apps(apps, n, size, cols) {
@@ -277,7 +278,8 @@
           var rightX = !remote ? '' : '<div data-notap style="flex:none;width:' + rw + 'px;display:flex;flex-direction:column;align-items:center;justify-content:space-between">' +
             (seg ? '<div class="seg"><button type="button" data-to="player" class="' + (to === 'player' ? 'on' : '') + '">' +
               (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + '</button><button type="button" data-to="tv" class="' + (to === 'tv' ? 'on' : '') + '">TV</button></div>' : '') +
-            this._dpad(dx) + '<div class="row" style="gap:18px">' + this._key('back', 'Back', 'back') + this._key('home', 'Home', 'home') + (this._mute(lk) || this._key('play_pause', 'Play or pause', 'pp')) + '</div>' +
+            this._dpad(dx) + '<div class="row" style="gap:18px">' + this._key('back', 'Back', 'back') + this._key('home', 'Home', 'home') +
+              (this._mute(lk) || this._key('play_pause', 'Play or pause', 'pp')) + '</div>' +
             this._capsule(lk, dx) + '</div>';
           body = '<div class="row" style="align-items:stretch;gap:22px;height:100%">' + left + rightX + '</div>';
         }

@@ -56,7 +56,8 @@
           '.now{display:flex;gap:16px;align-items:center;min-width:0}',
           // WHAT'S ON, as a square (the owner, 2026-11-21: most apps send no artwork, so no black screen): the open app's own icon;
           // artwork, when sent, fills it with the app's icon on its corner; a TV on its own input, the input's glyph; off, the TV's
-          '.hero{position:relative;flex:none;width:72px;height:72px;border-radius:' + window.hkCards.R.inner + 'px;display:grid;place-items:center;background-position:center;background-size:cover;background-repeat:no-repeat}',
+          '.hero{position:relative;flex:none;width:72px;height:72px;border-radius:' + window.hkCards.R.inner +
+            'px;display:grid;place-items:center;background-position:center;background-size:cover;background-repeat:no-repeat}',
           '.hero.ico,.hero.art{box-shadow:0 2px 8px rgba(0,0,0,.3)}',
           '.hero.ico{overflow:hidden}.hero.ico img{width:100%;height:100%;object-fit:cover;display:block}',
           '.hero.gl{background:#111;color:#fff}.hero.gl hk-icon{--mdc-icon-size:36px;width:36px;height:36px}',
@@ -65,7 +66,8 @@
           '.hero.off hk-icon{--mdc-icon-size:56px;width:56px;height:56px;color:' + v('ink') + '}',
           '.hero .bdg{position:absolute;right:-5px;bottom:-5px;width:28px;height:28px;border-radius:' + window.hkCards.R.small + 'px;object-fit:cover;box-shadow:0 0 0 2px rgba(0,0,0,.35)}',
           '.words{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}',
-          '.ttl{font-size:17px;font-weight:600;line-height:21px;letter-spacing:-.3px;color:' + v('ink') + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}',
+          '.ttl{font-size:17px;font-weight:600;line-height:21px;letter-spacing:-.3px;color:' + v('ink') +
+            ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}',
           '.sub{font-size:15px;font-weight:500;line-height:20px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.ctl{display:flex;gap:12px;flex:none}',
           '.src{font-size:13px;font-weight:500;color:' + v('ink-2') + ';text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -109,7 +111,8 @@
           '.seg button{all:unset;cursor:pointer;font-size:13px;font-weight:600;padding:9px 16px;border-radius:8px;color:' + v('ink-2') + '}',
           '.seg button.on{background:rgba(255,255,255,.94);color:#1c1c1e}',
           // (a clickpad, as Apple's remote: a rounded square, the arrows at its edges, OK a ring in the middle)
-          '.dpad{position:relative;width:236px;height:236px;border-radius:' + window.hkCards.R.sheet + 'px;background:' + v('key') + ';box-shadow:inset 0 0 0 1px ' + v('line') + ';flex:none;touch-action:manipulation}',
+          '.dpad{position:relative;width:236px;height:236px;border-radius:' + window.hkCards.R.sheet + 'px;background:' + v('key') + ';box-shadow:inset 0 0 0 1px ' + v('line') +
+            ';flex:none;touch-action:manipulation}',
           '.k{all:unset;position:absolute;width:27%;height:27%;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:' + v('ink-2') + '}',
           '.k:active,.k.hit{background:' + v('key-strong') + '}',
           '.k.u{left:36.5%;top:2%}.k.d{left:36.5%;bottom:2%;transform:rotate(180deg)}.k.l{left:2%;top:36.5%;transform:rotate(-90deg)}.k.r{right:2%;top:36.5%;transform:rotate(90deg)}',
