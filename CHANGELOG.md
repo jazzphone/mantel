@@ -6,6 +6,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 **Changed**
 - **A Small, Wide or Tall thermostat in Auto lets you pick Heat or Cool**, as Large does: tap a temperature to pick it (a dot appears under it), and the arrows change only that one. They used to move both together.
+- **Every card's text now has the same soft glow behind it**, so words read the same over the sky or a background whatever the card. Before, some cards had it and others didn't. Dark words on a white tile or button never have it, and Flat has none. **Text Glow** (Appearance → Advanced, on by default; a screen can choose its own) turns it off.
 
 **Fixed**
 - **An Intercom message plays in step in every room, even when rooms have different volumes.** Rooms at different Intercom volumes used to play as separate groups, a few seconds apart. They now play as one group, each at its own volume.

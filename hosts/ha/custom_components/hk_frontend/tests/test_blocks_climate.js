@@ -76,17 +76,26 @@ H.run('CLIMATE BLOCKS', [
     H.ok('...the arrows either side of the name, "Heat · 66°" under it', /data-big-step="-1"[\s\S]*<b>Thermostat<\/b><i>Heat · 66°<\/i>[\s\S]*data-big-step="1"/.test(html), html);
     H.ok('...no row of modes (Tall\'s), the hold\'s modes still there', !/class="mr"/.test(html) && /class="modes"/.test(html));
     var r = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'S'), rh = r.html();
-    H.ok('heat and cool: the two side by side, heat first, as the reading (not keys: no pick), the pair named for a screen reader',
-      /class="tt heat"><small>Heat<\/small><b>68<\/b><\/div><div class="tt cool"><small>Cool<\/small><b>72<\/b>/.test(rh) && !/data-big-pick/.test(rh) &&
-      /aria-label="Heat to 68, cool to 72 degrees/.test(rh), rh.slice(0, 600));
+    H.ok('heat and cool: the two side by side, heat first, each a key that picks it (2026-11-22), the low one picked, the pair named for a screen reader',
+      /<button class="tt heat sel" type="button" data-big-pick="low" aria-pressed="true" aria-label="Heat to 68 degrees"><small>Heat<\/small><b>68<\/b><\/button>/.test(rh) &&
+      /<button class="tt cool" type="button" data-big-pick="high" aria-pressed="false" aria-label="Cool to 72 degrees"><small>Cool<\/small><b>72<\/b><\/button>/.test(rh) &&
+      /aria-label="Heat to 68, cool to 72 degrees/.test(rh), rh.slice(0, 900));
     H.ok('..."Auto · 66°" under the name', /<i>Auto · 66°<\/i>/.test(rh));
-    H.ok('...the name is words (the block\'s own tap opens the sheet), one action on the block: the arrows', !/<button class="nm"/.test(rh) && /<div class="nm">/.test(rh) &&
-      !/data-big-pick|class="trow|class="rng/.test(rh));
+    H.ok('...the name is words (the block\'s own tap opens the sheet)', !/<button class="nm"/.test(rh) && /<div class="nm">/.test(rh) &&
+      !/class="trow|class="rng/.test(rh));
+    H.ok('...the arrows named for the one picked', /aria-label="Raise the heating target"/.test(rh) && !/both targets/.test(rh));
     r._bigNudge(1, function () {});
-    H.ok('...and the arrows slide the pair together (2026-11-08, the controls rule)', r._hold.hi === 73 && r._hold.lo === 69 && r._hold.which === 'both', r._hold);
+    H.ok('...and the arrows step the picked one alone, as Large\'s (2026-11-22, the owner)', r._hold.lo === 69 && r._hold.hi === 72 && r._hold.which === 'low', r._hold);
+    var rp = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'S'), pb = { dataset: { bigPick: 'high' } };
+    rp._bindBig({ querySelectorAll: function (sel) { return sel === '[data-big-pick]' ? [pb] : []; }, querySelector: function () { return null; } }, function () {});
+    pb.onclick({ stopPropagation: function () {} });
+    H.ok('...a tap on Cool picks it: its dot, the arrows named for it', rp._bigPick === 'high' && /class="tt cool sel"[^>]*aria-pressed="true"/.test(rp.html()) &&
+      /class="tt heat"[^>]*aria-pressed="false"/.test(rp.html()) && /aria-label="Raise the cooling target"/.test(rp.html()), rp.html().slice(0, 900));
+    rp._bigNudge(-1, function () {});
+    H.ok('...the cooling target down one, the heating one kept', rp._hold.hi === 71 && rp._hold.lo === 68, rp._hold);
     var rt = big('heat_cool', { target_temp_low: 68, target_temp_high: 89, max_temp: 90 }, 'S');
-    rt._bigNudge(1, function () {});
-    H.ok('...the pair stops at the entity\'s limit, the gap between them kept', rt._hold.hi === 90 && rt._hold.lo === 69, rt._hold);
+    rt._bigPick = 'high'; rt._bigNudge(1, function () {}); rt._bigNudge(1, function () {});
+    H.ok('...a target stops at the entity\'s limit', rt._hold.hi === 90 && rt._hold.lo === 68, rt._hold);
     var o = big('off', { temperature: 68 }, 'S');
     H.ok('off: Off, the arrows not to be used', /<b>Off<\/b>/.test(o.html()) && count(o.html(), /data-big-step="[^"]+" aria-label="[^"]+" disabled/g) === 2);
     var d = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'S', 'dial').html();
@@ -96,9 +105,13 @@ H.run('CLIMATE BLOCKS', [
   function () {
     H.section('the thermostat, Tall: the name, the targets between their arrows, the Mode key');
     var t = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'T'), html = t.html();
-    H.ok('cool over heat, each labelled in its colour', /class="tt cool"[\s\S]*<small>Cool To<\/small><b>72<\/b>[\s\S]*class="tt heat"[\s\S]*<small>Heat To<\/small><b>68<\/b>/.test(html),
+    H.ok('cool over heat, each labeled in its color', /class="tt cool"[\s\S]*<small>Cool To<\/small><b>72<\/b>[\s\S]*class="tt heat[^"]*"[\s\S]*<small>Heat To<\/small><b>68<\/b>/.test(html),
       html.slice(0, 700));
-    H.ok('a range: the name heads the block (words), the two targets one above the other between the arrows that slide both, then one Mode key that opens the sheet (three controls at most, 2026-11-08)', /class="hd"><div class="nm"><b>Thermostat<\/b>[\s\S]*class="tgr"><button class="ar"[^>]*data-big-step="-1"[^>]*aria-label="Lower both targets"[\s\S]*class="tg" data-big-num[\s\S]*class="tt cool"[\s\S]*class="tt heat"[\s\S]*data-big-step="1"[\s\S]*<button class="mb" type="button" data-tstat-details[^>]*>Mode · Auto ›<\/button>/.test(html) && !/class="mr"|class="trow|class="rng|data-big-pick/.test(html), html);
+    var rangeT = new RegExp('class="hd"><div class="nm"><b>Thermostat<\\/b>[\\s\\S]*class="tgr"><button class="ar"[^>]*data-big-step="-1"[^>]*aria-label="Lower the heating target"' +
+      '[\\s\\S]*class="tg" data-big-num[\\s\\S]*class="tt cool" type="button" data-big-pick="high"[\\s\\S]*class="tt heat sel" type="button" data-big-pick="low"' +
+      '[\\s\\S]*data-big-step="1"[\\s\\S]*<button class="mb" type="button" data-tstat-details[^>]*>Mode · Auto ›<\\/button>');
+    H.ok('a range: the name heads the block (words), the two targets one above the other between the arrows that step the picked one, then one Mode key ' +
+      'that opens the sheet', rangeT.test(html) && !/class="mr"|class="trow|class="rng/.test(html), html);
     var sh = big('heat', { temperature: 68 }, 'T').html();
     H.ok('one target: the arrows either side of it, the modes the sheet\'s',
       /class="tgr"><button class="ar"[^>]*data-big-step="-1"[\s\S]*class="tg" data-big-num[\s\S]*data-big-step="1"[\s\S]*class="mb"[^>]*>Mode · Heat ›/.test(sh) && !/class="rng"/.test(sh), sh);
@@ -129,8 +142,9 @@ H.run('CLIMATE BLOCKS', [
     var xr = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'XL').html();
     H.ok('...heat and cool: the two on the face, the picked one\'s dot', /class="pk sel"[^>]*data-big-pick="low"[^>]*>68<\/button><span class="ds"/.test(xr), xr.slice(0, 500));
     var css = big('heat', { temperature: 68 }, 'S')._extraCss();
-    H.ok('the dot is the face\'s; Small, Wide and Tall do not pick (the range is a reading of one designed size)', /\.big \.bn \.pk\.sel::before\{/.test(css) &&
-      !/\.big \.tt\.sel|\.trow|\.rng/.test(css) && /\.big \.tt b\{font-size:44px\}/.test(css));
+    H.ok('the picked target\'s dot: under the face\'s digits, and under a Small, Wide or Tall target\'s (2026-11-22), the targets one designed size',
+      /\.big \.bn \.pk\.sel::before\{/.test(css) && /\.big \.tt\.sel b::after\{[^}]*border-radius:50%/.test(css) &&
+      !/\.trow|\.rng/.test(css) && /\.big \.tt b\{font-size:44px\}/.test(css));
     H.ok('Tall\'s Mode key 44 px, the arrows 40 x 44 with a hit area out 4 px toward the edge only (none overlaps another)', /\.big \.mb\{[^}]*align-self:stretch;height:44px/.test(css) &&
       /\.big :is\(\.ff,\.tgr\) \.ar\{width:40px;height:44px/.test(css) && /\.ar:last-child::after\{left:0;right:-4px\}/.test(css));
     H.ok('Extra Large\'s face leaves the column its room', /:host\(\[size=XL\]\) \.big \.face\{right:calc\(var\(--hk-pad-r,18px\) \+ 200px\)\}/.test(css));
