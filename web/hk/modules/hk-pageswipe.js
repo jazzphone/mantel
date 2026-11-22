@@ -928,8 +928,8 @@
     G.cancelling = false;
   }
 
-  // THE FINGER AT clientX: the page there, and the page beside it, now; nothing is read. What goes with them -- the
-  // highlight, the Side Pane, a ground's strength -- once a frame, with where the finger is by then.
+  // THE FINGER AT clientX: the page there, the page beside it and the Side Pane on it, now; nothing is read. What
+  // goes with them -- the highlight, a ground's strength -- once a frame, with where the finger is by then.
   function follow(clientX) {
     var st = G.stage, dx = clientX - G.x0 + (G.from || 0);
     G.dx = dx;
@@ -948,6 +948,7 @@
     setX(st.view, x, st.base);
     if (N) setX(N.el, x + N.off, st.base);
     if (O) setX(O.el, O.off, st.base);
+    paneWith(st);
     if (!G.frame) {
       var g = G;
       g.frame = true;
@@ -956,7 +957,7 @@
   }
   function companions(g) {
     var st = g.stage, dir = st.x < 0 ? 1 : -1, to = st.items[st.at + dir] || null, N = st.nb[dir], O = st.nb[-dir];
-    var T = window.hkTabBar, P = window.hkSidePane, f = to ? Math.min(1, Math.abs(st.x) / span(st, dir)) : 0, at = (to || st.items[st.at]).path;
+    var T = window.hkTabBar, f = to ? Math.min(1, Math.abs(st.x) / span(st, dir)) : 0, at = (to || st.items[st.at]).path;
     shade(st.here, 1 - f);
     if (N) shade(N.ground, f);
     if (O) shade(O.ground, 0);
@@ -964,8 +965,20 @@
     if (T && T.follow) {
       try { T.follow(f, at); } catch (e) { /* not drawn */ }
     }
-    // (the Side Pane and the bar's place with the finger too, where the pane shows on one page and not the other)
-    if (P && P.follow) P.follow(f, at, { dir: dir, span: span(st, dir) });
+  }
+  // THE SIDE PANE WHERE ITS PAGE IS, IN THE SAME TASK (2026-11-22, the owner on the Kitchen's tablet: the pane "jumps a
+  // little bit while the page is being swiped ... like it's not really locked on the page", swiping fast). It was moved
+  // with the highlight, once a frame -- and a quick flick's lift comes between frames, with the last moves the tablet
+  // held for it: the page went there and settled from there, while the frame that would have brought the pane was
+  // dropped with the finger, and the pane settled from a frame behind (160 px at the lift on a twin of the Kitchen's
+  // screen, closing only as they landed). Where the page is set by a finger, a lift or a catch, the pane is set too.
+  // (Its own place, and the bar's with it, where the pane shows on one page and not the other: hk-sidepane.js follow)
+  function paneWith(st) {
+    var P = window.hkSidePane;
+    if (!P || !P.follow) return;
+    var dir = st.x < 0 ? 1 : -1, to = st.items[st.at + dir] || null, at = (to || st.items[st.at]).path;
+    var f = to ? Math.min(1, Math.abs(st.x) / span(st, dir)) : 0;
+    P.follow(f, at, { dir: dir, span: span(st, dir) });
   }
 
   // THE BACKGROUND WITH THE FINGER (skyFade; 2026-11-05, the owner: swiping to the Calendar, its background
@@ -1120,8 +1133,10 @@
     // (on to a page from the far side of this one -- a flick on from a settle it caught early, chain: this page is still
     // mostly where the last one was -- every page goes by together, the same way, so none passes another)
     var pass = !!to && side !== dir;
-    // (where each is now is what it moves from, not the last frame's)
+    // (where each is now is what it moves from, not the last frame's -- the Side Pane's too: paneWith)
     setX(st.view, x, st.base);
+    st.x = x;
+    paneWith(st);
     Object.keys(st.nb).forEach(function (k) {
       var M = st.nb[k];
       if (M) { setX(M.el, M.off + (pass || M.dir === side ? x : 0), st.base); moved.push(M.el); }
@@ -1238,6 +1253,8 @@
       // (however little was left of the way: the finger is moving this page now, and what it wears has to come back)
       heat(st);
     }
+    // (the Side Pane stops where its page stopped, as it is caught -- on the page the finger holds now)
+    paneWith(st);
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, stage: st, target: null, grid: null, live: true,
           calm: false, pts: [[e.timeStamp || Date.now(), e.clientX]], dx: 0, caught: { to: to }, chain: chain,
           from: st.items[st.at + (x < 0 ? 1 : -1)] ? x : x / GIVE, sky: sky || null, skyAsk: sky ? sky.path : null };

@@ -367,7 +367,9 @@ What lost them, each found in the bench's per-flick record (the swipe's own `why
   a page further; every page then moves together (`run`, `pass`), so none passes another. A finger on a settle toward a
   stand-in holds it rather than landing on it and refusing the finger.
 - **A catch did its work under the finger.** The tab bar's and the Side Pane's first follow ran inside the press (30-60 ms
-  at 4x CPU, with a sky render); they wait for the next frame now, as every other move's do. The landing itself still runs
+  at 4x CPU, with a sky render); they wait for the next frame now, as every other move's do. (Since 2026-11-22 the Side
+  Pane's place is set in the press again, with its page -- only style writes, the press the same at 4x CPU; the bar, the
+  sky and the grounds still wait: "The Side Pane a frame behind", below.) The landing itself still runs
   in the press (`arrive`: the host told, the Side Pane, a layout; ~40 ms at 4x), so a catch's page moves 60-130 ms after the
   finger at 4-6x CPU, against 20-60 for a fresh flick: what is left to take on.
 - **A third of Home refused every swipe.** A swipe that began on the Side Pane was "off the page". It is the page's now
@@ -375,6 +377,27 @@ What lost them, each found in the bench's per-flick record (the swipe's own `why
 
 The bench is `.ci/motion-evidence/flick-2026-11-08` (flick.cjs: pages reached, refusals and their `why`, the first move
 after each touch, long frames; overlap.cjs: no page passes another, frame by frame).
+
+### The Side Pane a frame behind (2026-11-22)
+
+The owner, on the Kitchen's tablet: the pane "jumps a little bit while the page is being swiped ... like it's not really
+locked on the page", and "you have to act like you are swiping pages fast to see it". The page is set by each move;
+the pane was set once a frame with the highlight (`companions`). A quick flick's lift comes between frames with the
+moves the tablet held for it, and the frame that would have brought the pane went with the finger: the page settled
+from where the finger left it, the pane from a frame behind. Smooth drags never showed it -- each move had its frame.
+
+| Kitchen HomeView twin, 1280 x 800, 4x CPU: a flick off Home, the last move and the lift in one task | before | after |
+|---|---|---|
+| pane against its page at the lift | 160 px behind | 0 |
+| mid-settle | 128, 110, 97 px | 0 |
+| a catch's press (4 catches) | 30-35 ms | the same |
+
+Now `paneWith` sets the pane wherever the page is set -- a move, a settle's start (`run`), a catch -- in the same task;
+the highlight, the grounds and the sky still wait for the frame. `side_pane_check`'s quick flicks fire the moves a frame
+apart and then the last move and the lift in one task, in the page (input from Playwright gets a frame an event, and
+hides it): before, 16-19 frames off by up to 177 px; after, none, but for a first frame of a settle back now and then
+(1 flick in 12 in Chromium, under 6 px) where the two transitions' starts read a millisecond apart. Swipe checks flick
+fast: smooth even drags are not how anyone swipes.
 
 ### The wrong picture at the edges of a swipe (2026-11-08)
 

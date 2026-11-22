@@ -259,6 +259,50 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       want('...landed: the grid as wide as it came in, never a frame elsewhere, the layer gone', [h1.w, h2, landed.slice(0, 4)],
            /\/home$/.test(h2.path) && h2.w === h1.w && !h2.layers.length && landed.length > 5 &&
            landed.every((x) => x[0] === landed[landed.length - 1][0] && x[1] === h1.w));
+      // FAST, AS PEOPLE SWIPE (2026-11-22, the owner on the Kitchen's tablet: the pane "jumps a little bit while the page
+      // is being swiped ... like it's not really locked on the page"; "our swipe test ... should always be tested fast"):
+      // a quick flick as a slow tablet delivers it -- moves a frame apart, then the last move and the lift together
+      // between frames -- off Home and back. The pane was moved once a frame, that frame went with the finger, and it
+      // settled from a frame behind its page. Every frame until each lands, the pane as far from its page as at rest
+      // (smooth drags, above, passed with it in; page input here gets a frame an event, so the flick is the page's own)
+      const flick = (x0, steps, last) => page.evaluate(async ([x0, steps, last]) => {
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
+          for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const p = document.querySelector('hk-side-pane[mode="dash"]'), from = location.pathname, y = 300;
+        const off = () => { const g = deep(document, 'hk-home-grid-view'), gr = g && g.getBoundingClientRect(), pr = p && p.getBoundingClientRect();
+          return gr && gr.width && pr && pr.width && getComputedStyle(p).display !== 'none' ? +(pr.left - gr.left).toFixed(1) : null; };
+        const offs = [], frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+        let going = true;
+        const tick = () => { if (!going) return; if (location.pathname === from) { const o = off(); if (o !== null) offs.push(o); } requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+        const tgt = document.elementFromPoint(x0, y);
+        const fire = (type, x) => tgt.dispatchEvent(new PointerEvent(type, { pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y,
+                                                                          bubbles: true, composed: true, cancelable: true, buttons: type === 'pointerup' ? 0 : 1 }));
+        await frame(); await frame();
+        const rest = off();
+        fire('pointerdown', x0);
+        let x = x0;
+        for (const d of steps) { await frame(); x += d; fire('pointermove', x); }
+        await new Promise((r) => setTimeout(r, 30));
+        x += last; fire('pointermove', x); fire('pointerup', x);
+        for (let i = 0; i < 120 && location.pathname === from; i++) await frame();
+        going = false;
+        // (frames off by more than 1.5 px: one is allowed, under 8 px -- the first frame of a settle back, now and then,
+        // its two transitions' start read a millisecond apart, 1 flick in 12 in Chromium; the pane a frame behind was
+        // off by tens of px every frame of the settle)
+        const off15 = offs.filter((o) => Math.abs(o - rest) > 1.5).length;
+        return { rest, from, to: location.pathname, frames: offs.length, off: off15, worst: +offs.reduce((m, o) => Math.max(m, Math.abs(o - rest)), 0).toFixed(1) };
+      }, [x0, steps, last]);
+      const sideNow = await page.evaluate(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return p && p.hasAttribute('on') ? p.getAttribute('side') : null; });
+      if (sideNow === 'left' || sideNow === 'right') {
+        const f1 = await flick(Math.round(W * 0.6), [-20, -60], -Math.round(W * 0.15));
+        await page.waitForFunction(() => !document.querySelector('hk-side-pane[mode="dash"]').hasAttribute('on'));
+        const f2 = await flick(Math.round(W * 0.3), [20, 60], Math.round(W * 0.15));
+        await page.waitForFunction(() => { const p = document.querySelector('hk-side-pane[mode="dash"]');
+          return /\/home$/.test(location.pathname) && p.hasAttribute('on') && !p.style.transform; });
+        want('a quick flick off Home and one back: every frame the pane as far from its page as at rest (locked, never a frame behind)', [f1, f2],
+             [f1, f2].every((f) => f.rest !== null && f.frames > 3 && f.off <= 1 && f.worst < 8) && /\/pages$/.test(f1.to) && /\/home$/.test(f2.to));
+      } else notes.push('quick flicks: no side pane at ' + W + 'x' + H);
       // UP, IT WAITS BESIDE NOTHING (2026-11-14, the Kitchen's tablet: left on the Pages screen, the idle return brought
       // Home back under the screensaver and Home stood without its pane). On the Pages screen the pane waits off the
       // screen beside Home's page; Home reached while the swipe stands down (asleep: no stage, no hand-over) has its
