@@ -83,7 +83,7 @@
       amplifier: 25, bed: 32, 'blinds-open': 26, 'desktop-tower': 25, fire: 26, 'gamepad-variant': 28,
       'printer-3d': 23, 'roller-shade': 26, 'run-fast': 26, server: 26, 'server-network': 24, sword: 27,
       // the players, at the Home app's sizes
-      speaker: 36, homepod: 36, 'homepod-mini': 40, 'apple-tv': 35
+      speaker: 36, homepod: 36, 'homepod-mini': 40, 'apple-tv': 35, homeview: 38
     };
     // THE HOME GLYPHS ADDED 2026-10-01 (Apple's Home symbols, offered by the
     // gear): NOT MEASURED against the Home app -- each is sized like its
@@ -173,9 +173,10 @@
           icon_states: { unlocked: 'hk:lock-open-variant' }, icon_color: 'mint', label_mode: 'title',
           view_layout: TALL });
       },
-      // THE DEVICE SAYS WHAT IT IS: a HomePod and a HomePod mini
-      // are drawn as themselves, an Apple TV as the box (hk:homepod 36 px,
-      // hk:homepod-mini 40 px, hk:apple-tv 35 px) -- read off the device's model.
+      // THE DEVICE SAYS WHAT IT IS: a HomePod, a HomePod mini and a
+      // HomeView are drawn as themselves, an Apple TV as the box (hk:homepod
+      // 36 px, hk:homepod-mini 40 px, hk:homeview 38 px -- Apple draws it 8 %
+      // taller than the HomePod -- hk:apple-tv 35 px) -- read off the model.
       media_player: function (id, name, st, model) {
         var dc = st && st.attributes && st.attributes.device_class;
         var m = String(model || '').toLowerCase();
@@ -192,10 +193,10 @@
         }
         // A speaker is drawn at 36 px like a HomePod, not at the 23 px
         // default.
-        var mini = /homepod mini/.test(m), pod = !mini && /homepod/.test(m);
+        var mini = /homepod mini/.test(m), pod = !mini && /homepod/.test(m), view = /homeview|homeaccessory/.test(m);
         return { type: 'custom:hk-media-card', entity: id, name: name,
-          icon: mini ? 'hk:homepod-mini' : pod ? 'hk:homepod' : 'hk:speaker',
-          icon_size: mini ? '40px' : '36px',
+          icon: mini ? 'hk:homepod-mini' : pod ? 'hk:homepod' : view ? 'hk:homeview' : 'hk:speaker',
+          icon_size: mini ? '40px' : view ? '38px' : '36px',
           icon_color: 'rgba(255, 255, 255, 0.85)', bare_icon: true,
           bare_icon_color: 'rgba(152, 152, 157, 1)', well_background: 'transparent' };
       },

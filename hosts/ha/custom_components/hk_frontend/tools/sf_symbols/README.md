@@ -23,7 +23,8 @@ No restart: the next page load picks it up, and the Repairs entry
 |---|---|
 | `manifest.json` | every hk: glyph → the SF symbol it is drawn from (plus the few scaled, split or cut ones, and the Material Design Icons paths, which are Apache-2.0 and ship here); `weather` lists the symbols the header draws in multicolor |
 | `sfsvg.py` | export via the SF Symbols CLI, and the fit into the 24×24 box every glyph shares |
-| `symbols.txt` | the 353 SF symbol names the manifest uses, one per line (generated) |
+| `symbols.txt` | the 354 SF symbol names the manifest uses, one per line (generated) |
+| `system_symbol.swift` | a symbol the SF Symbols app doesn't list yet, read from macOS's own set (a `"system": true` entry: Apple keeps a new product's glyph there under a code, HomeView's `B60489D1A39349AFA3504AE69B1C9133`); `sfsvg.py` runs it when the app doesn't know a name |
 | `export_all.sh` | exports every symbol in `symbols.txt` as SVG, on a Mac, with no Python |
 | `names.py` | regenerates `symbols.txt` and `docs/Glyph-Names.md` from the manifest; a test fails when they fall behind |
 | `build_glyphs.py` | writes `hk-glyphs.js` (the icons, then a `weather` section: each symbol's layers with their multicolor role); `--check <file>` compares a build with an existing file instead |

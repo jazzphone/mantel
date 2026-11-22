@@ -41,9 +41,20 @@ def export(symbol: str, cache: str) -> str | None:
     if not os.path.exists(out):
         r = subprocess.run([cli(), "export", symbol, "--format", "svg", "--output", out],
                            capture_output=True, text=True)
-        if r.returncode != 0 or not os.path.exists(out):
+        if (r.returncode != 0 or not os.path.exists(out)) and not system(symbol, out):
             return None
     return open(out, encoding="utf-8").read()
+
+
+def system(symbol: str, out: str) -> bool:
+    """A symbol the app doesn't list yet, read from macOS's own set (system_symbol.swift): Apple keeps a new
+    product's glyph there under a code until the SF Symbols app publishes it. False if this Mac hasn't it."""
+    here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "system_symbol.swift")
+    try:
+        r = subprocess.run(["swift", here, symbol, out], capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return r.returncode == 0 and os.path.exists(out)
 
 
 def layers(svg: str) -> list[tuple[str, str]]:

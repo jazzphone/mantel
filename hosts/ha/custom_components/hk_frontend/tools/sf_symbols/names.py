@@ -38,6 +38,8 @@ def symbols_txt(m: dict) -> str:
 def _note(v: dict) -> str:
     if "path" in v:
         return "Material Design shape, included (not Apple’s)"
+    if v.get("system"):
+        return "macOS’s own symbol (the SF Symbols app doesn’t list it yet; macOS 27.2 has it)"
     if "scale" in v:
         return f"scaled to {v['scale']:g}"
     return ""

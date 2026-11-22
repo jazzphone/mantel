@@ -68,6 +68,7 @@ const MDI_ALIAS = {
   "air-humidifier-active": "air-humidifier", "apple-tv": "apple", "christmas-tree": "pine-tree",
   "cross-latin": "cross", "homepod": "speaker", "homepod-mini": "speaker", "sparkles": "creation",
   "homepod-pair": "speaker-multiple", "homepod-mini-pair": "speaker-multiple", "homepod-and-homepod-mini": "speaker-multiple",
+  "homeview": "monitor",
   "spigot": "valve", "star-fill": "star",
   "fan-desk": "fan", "fan-floor": "fan", "dehumidifier": "air-humidifier-off",
   "roman-shade": "roller-shade-closed", "roman-shade-open": "roller-shade", "skylight": "window-closed-variant",

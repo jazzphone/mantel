@@ -437,6 +437,7 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
     // HomePods and Apple TVs by their device's model
     var T = window.hkStrategy.tile.media_player;
     ok('a HomePod mini is drawn as one', T('media_player.k', 'Kitchen', { attributes: {} }, 'HomePod Mini').icon === 'hk:homepod-mini');
+    ok('a HomeView is drawn as one', T('media_player.k', 'Kitchen', { attributes: {} }, 'HomeView').icon === 'hk:homeview');
     ok('a HomePod as a HomePod', T('media_player.l', 'Living', { attributes: {} }, 'HomePod 2').icon === 'hk:homepod');
     ok('an Apple TV as the box', T('media_player.a', 'TV', { attributes: {} }, 'Apple TV 4K (gen 3)').icon === 'hk:apple-tv');
     ok('any other speaker is a speaker', T('media_player.s', 'S', { attributes: {} }, 'pi').icon === 'hk:speaker');
