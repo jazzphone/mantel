@@ -562,6 +562,15 @@ ok('a page layer whose picture is out of line blurs live meanwhile', layersIn(r2
 r22._cs.transform = 'none';                       // still again
 G.refresh(); advance(300);
 ok('...and wears the picture again once it lines up (it stayed live for good)', layersIn(r22).every(function (l) { return imgsOf(l).length === 1 && !live(l); }));
+// (2026-11-21, the owner, the Kitchen HomeView in Pre-rendered: leaves moving behind the TV block in its Swipe card -- a
+// layer inside the Home Grid's own fit, on a device that isn't Android. The fit is a transform that stays: the picture
+// is placed by hand there, on every device, and the layer never blurs live)
+var r23 = row(V22.grid, 560); add(r23, card({ x: 20, y: 567, w: 192, h: 70 }));
+r23._cs.transform = 'matrix(0.9, 0, 0, 0.9, 0, 0)'; r23.__hkFit = true;
+G.refresh(); advance(300);
+ok('a layer inside a Home Grid\'s fit wears the picture, placed by hand, on any device',
+   layersIn(r23).length > 0 && layersIn(r23).every(function (l) { var i = imgsOf(l); return i.length === 1 && !live(l) && i[0].style.backgroundAttachment === 'scroll'; }),
+   layersIn(r23).map(function (l) { return [l.style.backdropFilter, imgsOf(l).map(function (i) { return i.style.backgroundAttachment; })]; }));
 setLook('blur'); V22.v.remove(); Array.from(GL).forEach(leave); advance(300);
 document.createElement = mkEl;
 

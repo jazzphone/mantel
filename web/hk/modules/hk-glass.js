@@ -523,11 +523,11 @@
     if (typeof anchor.addEventListener === 'function' || anchor === DOC) {
       var placing = 0;
       (anchor === DOC ? window : anchor).addEventListener('scroll', function () {
-        if (!(FROST || BY_HAND) || placing) return;
+        if (!(FROST || byHand(layer)) || placing) return;
         placing = requestAnimationFrame(function () {
           placing = 0;
           if (!layer.isConnected) return;
-          var m = RIDES ? alongOf(layer) : null;
+          var m = rides(layer) ? alongOf(layer) : null;
           frostPlaceAll(layer, m, m ? viewOf(layer) : null);
         });
       }, { passive: true });
@@ -577,12 +577,15 @@
   // a paged room, thermostat, scenes or accessories block), and a row scrolled sideways -- read as out of line and
   // blurred live: 6 of a test screen's 7 layers, on the tablets that chose Pre-rendered because live blur is what they
   // can't afford. Placed by hand (frostPlace: from where the layer is on the screen, its scale counted) the picture is
-  // in line under that fit, and follows its scroller (the layer's own scroll listener, above). Android only, where every picture
-  // is placed by hand and rides with its page; elsewhere such a layer still blurs live, as it did.
+  // in line under that fit, and follows its scroller (the layer's own scroll listener, above).
+  // ...ON EVERY DEVICE (2026-11-21, the owner, the Kitchen HomeView in Pre-rendered: "I can clearly see leaves moving
+  // behind" the TV block, in its Swipe card). It was Android's alone, and an iPad or a desktop showing a wall tablet's
+  // screen still blurred that layer live. A layer inside a fit (inFit) is placed by hand and rides with its page through
+  // a swipe wherever it is drawn, as every layer on Android does (byHand, rides).
   function lined(img) {
     if (FROST) return true;
     for (var n = flatParent(img.parentNode || img); n && n.nodeType === 1 && n !== document.documentElement; n = flatParent(n)) {
-      if (n.__hkAlong || (BY_HAND && n.__hkFit)) continue;
+      if (n.__hkAlong || n.__hkFit) continue;
       var t = getComputedStyle(n).transform;
       if (t && t !== 'none') return false;
     }
@@ -653,6 +656,14 @@
   // What it gives up: for the third of a second a page is on its way, the frost in a card is the sky where the card
   // will be, not where it is.
   var RIDES = BY_HAND;
+  // a layer inside a Home Grid's fit (hk-layout-home-grid.js: root.__hkFit) -- a pager's track, a row scrolled sideways:
+  // placed by hand and riding through a swipe on every device (lined, above)
+  function inFit(L) {
+    for (var n = L && flatParent(L); n && n.nodeType === 1 && n !== document.documentElement; n = flatParent(n)) if (n.__hkFit) return true;
+    return false;
+  }
+  function byHand(L) { return BY_HAND || inFit(L); }
+  function rides(L) { return RIDES || inFit(L); }
   // (Its layer is NOT given a layer of its own to spare that drawing at a swipe's start: tried 2026-11-14, will-change on
   // the layer -- Android's WebView then drew the picture across the layer's whole box, not only in the cards' shapes, a
   // lighter box around every page: the owner saw it at once by the back arrow. It saved nothing that could be measured.)
@@ -748,9 +759,9 @@
     if (L._hkOverlay && !FROST) return;
     var m = alongOf(L);
     if (!m) L._hkNoPic = false;
-    if ((FROST || BY_HAND) && !m) frostPlaceAll(L);
+    if ((FROST || byHand(L)) && !m) frostPlaceAll(L);
     // (a page a swipe has, its pictures riding with it: looked at again where they will rest -- its box may have changed)
-    else if (RIDES && m) frostPlaceAll(L, m, viewOf(L));
+    else if (rides(L) && m) frostPlaceAll(L, m, viewOf(L));
     if (L._hkPre) { if (!lined(L._hkPre)) { L._hkNoPic = true; preUndress(L); } }
     else if (!L._hkNoPic) preDress(L);
   }
@@ -795,7 +806,7 @@
   function shiftPic(img, m, el) {
     var opa = img.__hkOpa !== undefined ? img.__hkOpa : 'opacity ' + PRE_FADE + 'ms linear';
     // (a picture that rides with its page: placed for where the page will rest, once, and left -- RIDES)
-    if (RIDES && isFrost(img)) {
+    if (isFrost(img) && rides(img.parentNode)) {
       if (img.style.position === 'fixed' || img.style.transform) { frostAt(img, null); img.__hkPos = img.__hkSize = null; }
       if (img.style.transition !== opa) img.style.transition = opa || 'none';
       if (m) { if (img.parentNode && !img.__hkRides) { img.__hkRides = true; frostPlace(img, m, el); } }
@@ -843,7 +854,7 @@
       }
       // (the one it wore before, still fading out under it after a repaint, too)
       Array.prototype.forEach.call(L.querySelectorAll('[data-hk-pre]'), function (img) { shiftPic(img, m, el); });
-      if (!m && (FROST || BY_HAND)) frostPlaceAll(L);
+      if (!m && (FROST || byHand(L))) frostPlaceAll(L);
     });
   }
 
@@ -1147,7 +1158,7 @@
       var am = alongOf(L);
       if (am) { img.__hkOpa = same ? 'opacity ' + ms + 'ms linear' : ''; shiftPic(img, am, viewOf(L)); }
       L.appendChild(img);
-      if (isFrost(img)) { if (!am) frostPlace(img); else if (RIDES) shiftPic(img, am, viewOf(L)); }
+      if (isFrost(img)) { if (!am) frostPlace(img); else if (rides(L)) shiftPic(img, am, viewOf(L)); }
       L._hkPre = img;
       // THE OLD PICTURE GOES ONCE THE NEW ONE IS IN -- counted from when its
       // fade STARTS, not from when it was put in. The fade starts in the next
