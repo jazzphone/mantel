@@ -23,18 +23,22 @@
       minus: '<rect x="5" y="11" width="14" height="2.2" rx="1.1"/>',
       plus: '<rect x="5" y="11" width="14" height="2.2" rx="1.1"/><rect x="10.9" y="5" width="2.2" height="14" rx="1.1"/>',
       spk: '<path d="M4 9h4l5-4v14l-5-4H4z"/>',
-      spk2: '<path d="M3 9h4l5-4v14l-5-4H3zM15.5 8.5a5 5 0 0 1 0 7l-1.2-1.2a3.3 3.3 0 0 0 0-4.6zM18 6a8.5 8.5 0 0 1 0 12l-1.2-1.2a6.8 6.8 0 0 0 0-9.6z"/>'
+      spk2: '<path d="M3 9h4l5-4v14l-5-4H3zM15.5 8.5a5 5 0 0 1 0 7l-1.2-1.2a3.3 3.3 0 0 0 0-4.6zM18 6a8.5 8.5 0 0 1 0 12l-1.2-1.2a6.8 6.8 0 0 0 0-9.6z"/>',
+      mute: '<path d="M3 9h4l5-4v14l-5-4H3zM15.3 9.4l1.3-1.3 2.4 2.4 2.4-2.4 1.3 1.3-2.4 2.4 2.4 2.4-1.3 1.3-2.4-2.4-2.4 2.4-1.3-1.3 2.4-2.4z"/>',
+      input: '<path fill-rule="evenodd" d="M3 8h18v5.5L18.5 16h-13L3 13.5zM5 10v2.7L6.3 14h11.4l1.3-1.3V10z"/>'
     };
 
     /** @param {string} k @param {number} [n] */
     function svg(k, n) { return '<svg viewBox="0 0 24 24" width="' + (n || 22) + '" height="' + (n || 22) + '" aria-hidden="true" fill="currentColor">' + I[k] + '</svg>'; }
 
-    // an app's tile: its App Store icon, else Apple's own glyph, else its name
-    /** @param {any} a @param {string} [cls] */
-    function tile(a, cls) {
-      var inner = a.icon ? '<img src="' + esc(a.icon) + '" alt="" loading="lazy" draggable="false">' : a.glyph ? '<hk-icon icon="' + esc(a.glyph) + '"></hk-icon>' : '<span>' + esc(a.name) + '</span>';
-      return '<button type="button" class="app' + (a.icon ? ' pic' : a.glyph ? ' gl' : ' nm') + (a.now ? ' now' : '') + (cls ? ' ' + cls : '') + '" data-app="' + esc(a.name) +
-        '" aria-label="' + esc(a.name) + '">' + inner + '</button>';
+    // an app's tile: its App Store icon (else Apple's own glyph, else its name) with its name under it, as on a home screen
+    /** @param {any} a */
+    function tile(a) {
+      // (no icon or glyph: its initials in the tile, its name already under it)
+      var mono = String(a.name || '?').split(/[\s+:-]+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
+      var inner = a.icon ? '<img src="' + esc(a.icon) + '" alt="" loading="lazy" draggable="false">' : a.glyph ? '<hk-icon icon="' + esc(a.glyph) + '"></hk-icon>' : '<span>' + esc(mono) + '</span>';
+      return '<button type="button" class="app' + (a.now ? ' now' : '') + '" data-app="' + esc(a.name) + '" aria-label="' + esc(a.name) + '"><div class="ic' +
+        (a.icon ? ' pic' : a.glyph ? ' gl' : ' nm') + '">' + inner + '</div><span class="an">' + esc(a.name) + '</span></button>';
     }
 
     class TvPanel extends Panel {
@@ -50,61 +54,68 @@
           '.lab button{all:unset;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + v('ink-2') + '}',
           // WATCHING: the picture, what's on, play/pause and power
           '.now{display:flex;gap:16px;align-items:center;min-width:0}',
-          // THE PICTURE: the player's artwork; else the open app's icon on a wash of its own colors; else a dark screen with the glyph.
-          // Every background part said on its own, so a picture never repeats (a shorthand with a theme's value in it could fall back)
-          '.art{position:relative;overflow:hidden;flex:0 0 auto;width:176px;aspect-ratio:16/9;border-radius:12px;display:grid;place-items:center;',
-          '  background-color:#101018;background-position:center;background-size:cover;background-repeat:no-repeat}',
-          '.art.scr{background-image:linear-gradient(155deg,#2a2a36 0%,#14141c 55%,#0a0a10 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
-          '.art.scr hk-icon{--mdc-icon-size:40px;width:40px;height:40px;color:rgba(255,255,255,.42)}',
-          // (the open app's icon in the middle of a black picture: the owner, 2026-11-11 -- not a bright wash of its colors)
-          '.art.ico{background-color:#050507;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
-          // (placed, not a grid item: in WebKit the grid's auto row took the icon's own size, so its 62 % pushed it out of the picture and only its
-          // top edge showed at the foot -- the owner's iPad, 2026-11-11. Against the picture's box, whose height its aspect ratio gives, it is exact)
-          '.art .aic{position:absolute;left:50%;top:50%;height:62%;width:auto;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
+          // WHAT'S ON, as a square (the owner, 2026-11-21: most apps send no artwork, so no black screen): the open app's own icon;
+          // artwork, when sent, fills it with the app's icon on its corner; a TV on its own input, the input's glyph; off, the TV's
+          '.hero{position:relative;flex:none;width:72px;height:72px;border-radius:' + window.hkCards.R.inner + 'px;display:grid;place-items:center;background-position:center;background-size:cover;background-repeat:no-repeat}',
+          '.hero.ico,.hero.art{box-shadow:0 2px 8px rgba(0,0,0,.3)}',
+          '.hero.ico{overflow:hidden}.hero.ico img{width:100%;height:100%;object-fit:cover;display:block}',
+          '.hero.gl{background:#111;color:#fff}.hero.gl hk-icon{--mdc-icon-size:36px;width:36px;height:36px}',
+          '.hero.nm{background:' + v('key') + ';color:' + v('ink') + '}.hero.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:6px}',
+          '.hero.inp{background:#1b1f27;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);color:rgba(255,255,255,.85)}',
+          '.hero.off hk-icon{--mdc-icon-size:56px;width:56px;height:56px;color:' + v('ink') + '}',
+          '.hero .bdg{position:absolute;right:-5px;bottom:-5px;width:28px;height:28px;border-radius:' + window.hkCards.R.small + 'px;object-fit:cover;box-shadow:0 0 0 2px rgba(0,0,0,.35)}',
           '.words{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}',
-          '.ttl{font-size:17px;font-weight:600;letter-spacing:-.3px;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          '.sub{font-size:13px;font-weight:500;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          '.ctl{display:flex;gap:12px;margin-top:10px}',
+          '.ttl{font-size:17px;font-weight:600;line-height:21px;letter-spacing:-.3px;color:' + v('ink') + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}',
+          '.sub{font-size:15px;font-weight:500;line-height:20px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.ctl{display:flex;gap:12px;flex:none}',
+          '.src{font-size:13px;font-weight:500;color:' + v('ink-2') + ';text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.rb{all:unset;box-sizing:border-box;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:' + v('key') + ';color:' + v('ink') + ';flex:none}',
           '.rb.solid{background:rgba(255,255,255,.94);color:#1c1c1e}',
           '.rb.on{background:rgba(255,255,255,.94);color:#1c1c1e}',
           '.rb:active{transform:scale(.94)}',
-          '.rb:focus-visible,.app:focus-visible,.chip:focus-visible,.k:focus-visible,.ok:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+          '.rb:focus-visible,.app:focus-visible,.chip:focus-visible,.k:focus-visible,.ok:focus-visible,.cap button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
           // VOLUME
-          '.vol{display:flex;align-items:center;gap:10px;min-width:0}',
+          '.vrow{display:flex;align-items:center;gap:12px;align-self:stretch;justify-content:center}',
+          '.vol{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}',
           '.vol svg{color:' + v('ink-2') + ';flex:none}',
           '.vol input{flex:1 1 auto;min-width:0;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:' + v('line-strong') + ';outline:none;margin:0}',
           '.vol input::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}',
           '.vol input::-moz-range-thumb{width:26px;height:26px;border:0;border-radius:50%;background:#fff}',
-          '.steps{display:flex;align-items:center;justify-content:center;gap:14px}',
-          '.steps span{font-size:13px;font-weight:600;color:' + v('ink-2') + ';min-width:64px;text-align:center}',
+          '.cap{display:flex;align-items:center;width:186px;height:44px;border-radius:22px;flex:none;background:' + v('key') + '}',
+          '.cap button{all:unset;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:' + v('ink') + '}',
+          '.cap button:active{background:' + v('key-strong') + '}',
+          '.cap span{flex:1 1 auto;text-align:center;font-size:13px;font-weight:600;color:' + v('ink-2') + '}',
           // INPUTS
           '.chips{display:flex;flex-wrap:wrap;gap:8px}',
           '.chip{all:unset;box-sizing:border-box;height:36px;border-radius:18px;padding:0 14px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;',
           '  font-size:13px;font-weight:600;background:' + v('key') + ';color:' + v('ink') + ';max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.chip.on{background:rgba(255,255,255,.94);color:#1c1c1e}',
           '.chip small{font-weight:500;opacity:.7}',
-          // APPS: 64 px tiles (the one open is not ringed: its icon is already in the picture -- the owner, 2026-11-11)
-          '.apps{display:grid;grid-template-columns:repeat(auto-fill,64px);gap:12px;justify-content:space-between}',
-          '.app{all:unset;box-sizing:border-box;width:64px;height:64px;border-radius:12px;cursor:pointer;position:relative;display:grid;place-items:center;overflow:hidden;',
+          // APPS: 64 px icons with their names under them, as on a home screen (the one open is not ringed: its icon is the picture)
+          '.apps{display:grid;grid-template-columns:repeat(auto-fill,72px);gap:14px 12px;justify-content:space-between}',
+          '.app{all:unset;box-sizing:border-box;width:72px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}',
+          '.app .ic{box-sizing:border-box;width:64px;height:64px;border-radius:' + window.hkCards.R.inner + 'px;position:relative;display:grid;place-items:center;overflow:hidden;',
           '  background:' + v('key') + ';color:' + v('ink') + ';box-shadow:0 2px 6px rgba(0,0,0,.18)}',
-          '.app img{width:100%;height:100%;object-fit:cover;display:block}',
-          '.app.gl{background:#111;color:#fff}.app.gl hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
-          '.app.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
-          '.app:active{transform:scale(.95)}',
+          '.app .ic img{width:100%;height:100%;object-fit:cover;display:block}',
+          '.app .ic.gl{background:#111;color:#fff}.app .ic.gl hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
+          '.app .ic.nm span{font-size:22px;font-weight:700;letter-spacing:-.5px}',
+          '.app .an{font-size:13px;font-weight:500;line-height:16px;color:' + v('ink-2') + ';max-width:72px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.app:active .ic{transform:scale(.95)}',
           '.all{max-height:300px;overflow-y:auto;overscroll-behavior:contain}',
           // THE REMOTE
-          '.rem{align-items:center;gap:16px;padding-top:18px}',
+          '.rem{align-items:center;gap:16px}',
+          '.rem .lab{align-self:stretch;align-items:center}',
           '.seg{display:flex;gap:2px;padding:3px;border-radius:12px;background:' + v('key') + '}',
           '.seg button{all:unset;cursor:pointer;font-size:13px;font-weight:600;padding:9px 16px;border-radius:8px;color:' + v('ink-2') + '}',
           '.seg button.on{background:rgba(255,255,255,.94);color:#1c1c1e}',
-          '.dpad{position:relative;width:236px;height:236px;border-radius:50%;background:' + v('key') + ';box-shadow:inset 0 0 0 1px ' + v('line') + ';flex:none;touch-action:manipulation}',
-          '.k{all:unset;position:absolute;width:27%;height:27%;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:' + v('ink') + '}',
+          // (a clickpad, as Apple's remote: a rounded square, the arrows at its edges, OK a ring in the middle)
+          '.dpad{position:relative;width:236px;height:236px;border-radius:' + window.hkCards.R.sheet + 'px;background:' + v('key') + ';box-shadow:inset 0 0 0 1px ' + v('line') + ';flex:none;touch-action:manipulation}',
+          '.k{all:unset;position:absolute;width:27%;height:27%;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:' + v('ink-2') + '}',
           '.k:active,.k.hit{background:' + v('key-strong') + '}',
           '.k.u{left:36.5%;top:2%}.k.d{left:36.5%;bottom:2%;transform:rotate(180deg)}.k.l{left:2%;top:36.5%;transform:rotate(-90deg)}.k.r{right:2%;top:36.5%;transform:rotate(90deg)}',
-          '.ok{all:unset;position:absolute;left:31%;top:31%;width:38%;height:38%;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:15px;font-weight:600;',
-          '  color:' + v('ink') + ';background:' + v('key-strong') + ';box-shadow:inset 0 0 0 1px ' + v('line') + '}',
-          '.ok:active,.ok.hit{background:rgba(255,255,255,.3)}',
+          '.ok{all:unset;position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:15px;font-weight:600;',
+          '  color:' + v('ink') + ';box-shadow:inset 0 0 0 2px ' + v('line-strong') + '}',
+          '.ok:active,.ok.hit{background:' + v('key-strong') + '}',
           '.keys{display:flex;gap:16px;justify-content:center}.keys .rb{width:52px;height:52px}',
           '.kl{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:11px;font-weight:500;color:' + v('ink-2') + '}.kl span{width:52px;text-align:center}',
           '.none{font-size:15px;color:' + v('ink-2') + ';text-align:center;margin:auto}',
@@ -116,14 +127,18 @@
           ':host([wide]) .col.r{flex:0 0 300px}',
           // (the remote spread down its card: the switch at the top, the pad as big as the column takes, the keys toward the foot)
           ':host([wide]) .col.r .crd{flex:1 1 auto;justify-content:space-evenly}',
-          ':host([wide]) .dpad{width:264px;height:264px}',
+          ':host([wide]) .dpad{width:240px;height:240px}',
           ':host([wide]) .keys{gap:22px}:host([wide]) .kl{gap:22px}:host([wide]) .keys .rb{width:58px;height:58px}:host([wide]) .kl span{width:58px}',
           // (the left column's last card takes what's left, so both columns end on the sheet's bottom inset: 2026-11-11, the owner)
           ':host([wide]) .col.l > .crd.fill{flex:1 0 auto}',
           // ONE COLUMN ON A PHONE: one scroll, the remote after Watching
           ':host(:not([wide])) .pn{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
           ':host(:not([wide])) .pn::-webkit-scrollbar{display:none}',
-          ':host(:not([wide])) .art{width:128px}'
+          ':host(:not([wide])) .hero{width:64px;height:64px}',
+          // (on a phone the keys go under what's on, beside the picture's edge, so the title keeps the row)
+          ':host(:not([wide])) .now{flex-wrap:wrap;row-gap:10px}',
+          ':host(:not([wide])) .words{flex:1 1 0}',
+          ':host(:not([wide])) .ctl{flex-basis:100%;padding-left:80px;box-sizing:border-box}'
         ].join('');
       }
       hkWidthKind() { return 'tv'; }
@@ -168,7 +183,11 @@
           this._built = true; this._builtFor = set.id; this._appsKey = ''; this._inKey = ''; this._artKey = '';
           var seg = can.player && can.tv ? '<div class="seg" role="tablist" aria-label="The remote controls"><button type="button" data-to="player">' +
             (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + '</button><button type="button" data-to="tv">TV</button></div>' : '';
-          var remote = can.player || can.tv ? '<div class="crd rem">' + seg +
+          var vrow = '<div class="vrow" hidden><button type="button" class="rb mu" data-vol="mute" aria-label="Mute">' + svg('mute') + '</button>' +
+            '<div class="vol" hidden>' + svg('spk', 16) + '<input type="range" min="0" max="100" step="1" aria-label="Volume">' + svg('spk2', 18) + '</div>' +
+            '<div class="cap" hidden><button type="button" data-vol="down" aria-label="Volume down">' + svg('minus') + '</button><span>Volume</span>' +
+            '<button type="button" data-vol="up" aria-label="Volume up">' + svg('plus') + '</button></div></div>';
+          var remote = can.player || can.tv ? '<div class="crd rem"><div class="lab"><span>Remote</span>' + seg + '</div>' +
             '<div class="dpad"><button type="button" class="k u" data-key="up" aria-label="Up">' + svg('up', 28) + '</button><button type="button" class="k d" data-key="down" aria-label="Down">' +
               svg('up', 28) + '</button>' +
             '<button type="button" class="k l" data-key="left" aria-label="Left">' + svg('up', 28) + '</button><button type="button" class="k r" data-key="right" aria-label="Right">' + svg('up', 28) +
@@ -178,13 +197,11 @@
               '</button><button type="button" class="rb" data-key="home" aria-label="Home">' + svg('home', 24) + '</button>' +
             '<button type="button" class="rb" data-key="play_pause" aria-label="Play or pause">' + svg('pp', 24) +
               '</button></div><div class="kl"><span>Back</span><span>Home</span><span>Play</span></div></div>' +
-            '<div class="steps" hidden><button type="button" class="rb" data-vol="down" aria-label="Volume down">' + svg('minus') +
-              '</button><span>Volume</span><button type="button" class="rb" data-vol="up" aria-label="Volume up">' + svg('plus') + '</button></div>' +
-            '</div>' : '';
-          var left = '<div class="crd"><div class="lab">Watching</div><div class="now"><div class="art"></div><div class="words"><div class="ttl"></div><div class="sub"></div>' +
+            vrow + '</div>' : '';
+          var left = '<div class="crd"><div class="lab"><span>Now Watching</span><span class="src"></span></div><div class="now"><div class="hero"></div>' +
+            '<div class="words"><div class="ttl"></div><div class="sub"></div></div>' +
             '<div class="ctl"><button type="button" class="rb solid pp" aria-label="Play or pause">' + svg('pause') + '</button><button type="button" class="rb pw" aria-label="Power">' +
-              svg('power') + '</button></div></div></div>' +
-            '<div class="vol" hidden>' + svg('spk', 16) + '<input type="range" min="0" max="100" step="1" aria-label="Volume">' + svg('spk2', 18) + '</div></div>' +
+              svg('power') + '</button></div></div>' + (remote ? '' : vrow) + '</div>' +
             '<div class="crd ins" hidden><div class="lab">Input</div><div class="chips"></div></div>' +
             '<div class="crd aps" hidden><div class="lab"><span class="at">Recent Apps</span><button type="button" class="tog">All Apps…</button></div><div class="apps"></div></div>';
           this._root.innerHTML = '<div class="pn"><div class="col l">' + left + (wide ? '' : remote) + '</div>' + (wide && remote ? '<div class="col r">' + remote + '</div>' : '') + '</div>';
@@ -218,25 +235,35 @@
           });
         }
         var q = function (/** @type {string} */ s) { return self._root.querySelector(s); };
-        // WATCHING
-        var art = q('.art'), apps = T.apps(this.client, set, undefined, this._all ? undefined : (wide && this._fitN) || 8), nowApp = apps.filter(function (a) { return a.now; })[0];
-        var artKey = lk.art ? 'a' + lk.art : nowApp && nowApp.icon ? 'i' + nowApp.icon : 's';
-        if (artKey !== this._artKey) {
-          this._artKey = artKey;
+        // NOW WATCHING
+        var apps = T.apps(this.client, set, undefined, this._all ? undefined : (wide && this._fitN) || 8);
+        var nowApp = T.apps(this.client, set).filter(function (a) { return a.now; })[0];
+        var hero = q('.hero'), heroKey = [lk.onPlayer, lk.tvOn, lk.on, lk.art, nowApp && (nowApp.icon || nowApp.glyph || nowApp.name)].join('|');
+        if (heroKey !== this._artKey) {
+          this._artKey = heroKey;
           var url = function (/** @type {string} */ u) { return 'url("' + u.replace(/"/g, '%22') + '")'; };
-          art.className = 'art' + (artKey === 's' ? ' scr' : artKey.charAt(0) === 'i' ? ' ico' : '');
-          art.style.backgroundImage = lk.art ? url(lk.art) : '';
-          art.innerHTML = lk.art ? '' : nowApp && nowApp.icon ? '<img class="aic" alt="" src="' + esc(nowApp.icon) + '">'
-            : '<hk-icon icon="hk:television"></hk-icon>';
+          var kind = lk.onPlayer && lk.art ? 'art' : lk.onPlayer && nowApp ? (nowApp.icon ? 'ico' : nowApp.glyph ? 'gl' : 'nm') : lk.onPlayer ? 'gl' : lk.tvOn ? 'inp' : 'off';
+          hero.className = 'hero ' + kind;
+          hero.style.backgroundImage = kind === 'art' ? url(lk.art) : '';
+          hero.innerHTML = kind === 'art' ? (nowApp && nowApp.icon ? '<img class="bdg" alt="" src="' + esc(nowApp.icon) + '">' : '')
+            : kind === 'ico' ? '<img alt="" src="' + esc(nowApp.icon) + '" draggable="false">'
+            : kind === 'nm' ? '<span>' + esc(nowApp.name) + '</span>'
+            : kind === 'inp' ? svg('input', 36)
+            : '<hk-icon icon="' + esc(kind === 'gl' && nowApp && nowApp.glyph ? nowApp.glyph : 'hk:television') + '"></hk-icon>';
         }
-        q('.ttl').textContent = lk.title;
-        q('.sub').textContent = lk.sub || (lk.onPlayer ? '' : lk.tvOn ? 'On the TV' : lk.unavailable ? 'Unavailable' : '');
+        q('.src').textContent = lk.onPlayer && set.tv && set.input ? (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + ' · ' + set.input : '';
+        q('.ttl').textContent = lk.on ? lk.title : set.name;
+        q('.sub').textContent = lk.sub || (lk.onPlayer ? (lk.app && lk.app !== lk.title ? lk.app : '') : lk.tvOn ? 'On the TV' : lk.unavailable ? 'Unavailable' : 'Off');
         var pp = q('.pp');
         pp.hidden = !lk.onPlayer;
         pp.innerHTML = svg(lk.playing ? 'pause' : 'play');
         q('.pw').classList.toggle('on', lk.on);
-        // VOLUME: a slider where the device takes a level; - and + on the remote where it only steps
-        var vol = lk.volume, vr = q('.vol'), steps = q('.steps');
+        // VOLUME, under the remote: a slider where the device takes a level, - and + where it only steps, mute where it mutes
+        var vol = lk.volume, vr = q('.vol'), steps = q('.cap'), mu = q('.mu');
+        q('.vrow').hidden = !vol.mode;
+        mu.hidden = !vol.mute;
+        mu.classList.toggle('on', !!vol.muted);
+        mu.setAttribute('aria-label', vol.muted ? 'Unmute' : 'Mute');
         vr.hidden = vol.mode !== 'set';
         if (vol.mode === 'set' && vol.level != null && !(this._drag && Date.now() - this._drag < 1500)) {
           /** @type {HTMLInputElement} */ (vr.querySelector('input')).value = String(Math.round(vol.level * 100));
@@ -275,7 +302,7 @@
         // Measured against the column's own foot, which the sheet sets, never the card's, which its apps set.
         if (wide && !this._all && !aps.hidden) {
           var col = this._root.querySelector('.col.l'), grid = q('.apps'), cb = col.getBoundingClientRect(), gb = grid.getBoundingClientRect();
-          var cols = Math.max(1, Math.floor((gb.width + 12) / 76)), rows = Math.max(2, Math.floor((cb.bottom - gb.top - 14 + 12) / 76));
+          var cols = Math.max(1, Math.floor((gb.width + 12) / 84)), rows = Math.max(2, Math.floor((cb.bottom - gb.top - 14 + 14) / 100));
           if (gb.width > 0 && cols * rows !== (this._fitN || 8)) { this._fitN = cols * rows; this._appsKey = ''; this._render(); }
         }
       }
