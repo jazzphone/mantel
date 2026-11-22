@@ -232,6 +232,9 @@ class HkControlCard extends HTMLElement {
       .sub{font-size:12.5px;line-height:1.2;font-weight:540;color:${window.hkCards.v('ink-2')};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       button{font:inherit;color:${window.hkCards.v('ink')};border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
       button:active{transform:scale(.96);filter:brightness(.92)}
+      /* (the glow rule, 2026-11-22: every word on a plate glows; a button's own text-shadow is none, so it inherits the plate's. This card is
+         not HkBase's and never had BASE_CSS's) */
+      button{text-shadow:inherit}
       .segment{height:46px;border-radius:14px;background:${window.hkCards.v('key')};font-size:13px;font-weight:680;padding:0 12px;transition:.15s ease}
       .segment.active{background:var(--hk-accent,rgba(255,159,10,.96));color:#fff;box-shadow:0 5px 14px rgba(255,130,0,.23)}
       .segments{display:grid;gap:8px}
@@ -250,7 +253,7 @@ class HkControlCard extends HTMLElement {
       ".option-row.many{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}" +
       ".option-row.many .segment{height:40px;border-radius:20px;background:" + window.hkCards.v('key') + ";font-size:13px;font-weight:600;padding:0 10px;" +
       "white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
-      ".option-row.many .segment.active{background:#fff;color:#1c1c1e;box-shadow:none}" +
+      ".option-row.many .segment.active{background:#fff;color:#1c1c1e;box-shadow:none;text-shadow:none}" +
       // EVERY ONE 44 px (the user: one height everywhere), the thermostat's
       // fan row too -- smaller text says it is the secondary one
       C.segCss(".tstat-modes",{on:".active",fill:true,font:"var(--hk-tstat-seg-font,12.5px)"}) +
@@ -688,7 +691,7 @@ class HkControlCard extends HTMLElement {
       :host([size=S]) .big .modes,:host([size=W]) .big .modes{display:none;grid-template-columns:1fr 1fr;align-content:center;gap:8px;padding:14px}
       :host([size=S]) .big.choosing .modes,:host([size=W]) .big.choosing .modes{display:grid}
       .big .modes .segment{flex:none;height:44px;border:0;border-radius:22px;color:${window.hkCards.v('ink')};font-size:15px;font-weight:600}
-      .big .modes .segment.active{background:#fff;color:#1c1c1e;box-shadow:none}
+      .big .modes .segment.active{background:#fff;color:#1c1c1e;box-shadow:none;text-shadow:none}
     `;
   }
   // Fraction (0..1 of the ring) -> a point on it. The ring runs 135deg to
