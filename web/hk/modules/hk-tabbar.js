@@ -486,12 +486,11 @@
       // THE MATERIAL (material()): one blur, a milky plate, or a near-solid tint
       '.g{pointer-events:auto;box-sizing:border-box;border:1px solid rgba(255,255,255,0.14);',
       '  box-shadow:0 8px 28px rgba(0,0,0,0.30),inset 0 1px 0 rgba(255,255,255,0.10)}',
-      // (Bright Glass's rim on the Blur bar too, 2026-11-22, the owner: "I'd actually wish the regular glass nav bar
-      // looking more like the bright glass one ... brightglass has more of hard edge": the inset 1.5 px edge and the
-      // lit top line in place of the 1 px border, its own tint and blur kept)
-      '.blur .g{background:linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)),rgba(28,28,32,0.52);border-color:transparent;',
-      '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);',
-      '  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.22),inset 0 1.5px 0 rgba(255,255,255,0.30),0 8px 28px rgba(0,0,0,0.30)}',
+      // (Bright Glass's inside on the Blur bar, 2026-11-22, the owner, of a mockup -- "I was referring to how the inside
+      // of the tab/nav bar looks, and how the highlight looks too" ... "C": its white wash over a light tint, under the
+      // Blur bar's own 24 px blur and soft edge; the highlight below. Was a dark 0.52 plate.)
+      '.blur .g{background:linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);',
+      '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}',
       ':host([data-pre-blur]) .blur :is(.pill,.roomsbtn){-webkit-backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6));' +
         'backdrop-filter:var(--hk-blur-filter,blur(24px) saturate(1.6))}',
       '.frosted .g{background:rgba(62,64,74,0.95)}',
@@ -507,10 +506,11 @@
         'border-color:transparent;',
       '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
       '  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.22),inset 0 1.5px 0 rgba(255,255,255,0.30),0 10px 30px rgba(0,0,0,0.18)}',
-      '.bright .tab.here::before,.bright .it.here{background:rgba(255,255,255,0.92)}',
-      '.bright .tab.here,.bright .cur,.bright .roomsbtn.here,.bright .it.here span,.bright .it.here hk-icon{color:color-mix(in srgb,' + window.hkCards.v('accent') + ' 64%,#000)}',
-      '.bright .tab,.bright .roomsbtn{text-shadow:0 1px 2px rgba(0,0,0,0.30)}',
-      '.bright .tab.here{text-shadow:none}',
+      // (...the Blur bar's page too, 2026-11-22: a white pill, its icon the accent's deepened; its sheets keep theirs)
+      '.bright .tab.here::before,.bright .it.here,.blur .tab.here::before{background:rgba(255,255,255,0.92)}',
+      '.bright .tab.here,.bright .cur,.bright .roomsbtn.here,.bright .it.here span,.bright .it.here hk-icon,.blur .tab.here,.blur .cur,.blur .roomsbtn.here{color:color-mix(in srgb,' + window.hkCards.v('accent') + ' 64%,#000)}',
+      '.bright .tab,.bright .roomsbtn,.blur .tab,.blur .roomsbtn{text-shadow:0 1px 2px rgba(0,0,0,0.30)}',
+      '.bright .tab.here,.blur .tab.here{text-shadow:none}',
       // THE PILL
       // TAB_GAP between tabs: two highlights side by side (the page you are
       // on, the one under the pointer) never touch
@@ -855,7 +855,8 @@
     // WITH A PICTURE OF THE SKY (Blur Mode Pre-rendered, hk-glass.js
     // PINNED) a blurred bar, its rooms button and its sheets wear their slice
     // of it under their own tints instead of blurring the moving sky live
-    var BAR_TINT = 'linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)),linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))';
+    // (the Blur bar's inside is Bright Glass's wash since 2026-11-22: the same over its picture)
+    var BAR_TINT = 'linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
     var SHEET_TINT = 'linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))';
     // ...AND IN BRIGHT GLASS (Pre-rendered, 2026-11-07): the bar and its rooms
     // button wear the same picture -- painted with the look's own light blur
