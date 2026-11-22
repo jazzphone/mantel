@@ -24,7 +24,10 @@
 //     drawn by the pane's own renderer when it is there, nothing when not;
 //   * over the screen's own background, blurred, with the time drawn faintly
 //     behind; the date and time top left, who is using the screen top right;
-//   * more pages than fit: a second Pages screen, dots at the foot;
+//   * more pages than fit: they go on down, the screen scrolling up and down
+//     (2026-11-22, the owner: "instead of the Apps page creating multiple
+//     pages ... it would just vertically scroll"; it was a second Pages
+//     screen beside the first, dots at the foot);
 //   * the Home pill at the foot where the screen shows no tab bar (Home Pill:
 //     Automatic), or always, or never: a tap or a swipe up goes Home.
 //
@@ -34,7 +37,8 @@
 // THE GEOMETRY is the mock-up's, measured at a 1180 x 820 tablet: 120 px
 // icons in 176 x 200 slots, six across and three down, 62 px in from each
 // side and 130 px down. Upright it is four by five, on a phone four by six;
-// everything scales as one (`s`) to the room the screen has.
+// everything scales as one (`s`) to the room the screen has. That many rows
+// fill the window; more go on below it.
 (function () {
   'use strict';
 
@@ -53,9 +57,12 @@
   var CORNER = 0.224;
   // the badge: 34 tall, 8 out past the icon's corner
   var BADGE = 34, BADGE_OUT = 8, BADGE_FONT = 20;
-  // a widget sits in its slots 12 in from each side, 4 down, and stops 36
-  // above where a label would be; its corner
-  var WIDGET_IN = 12, WIDGET_TOP = 4, WIDGET_FOOT = 36, WIDGET_R = 30;
+  // A WIDGET LINES UP WITH THE ICONS' PLATES (2026-11-22, the owner: "they don't align vertically with the icons...
+  // because the widgets don't have text below them"), as HomeView's do: its top the top of the icons in its first row, its
+  // bottom the foot of the plates in its last, its sides the outer edges of the plates either side -- and its name under
+  // it, on the line of the names in its last row (the owner's photo of a HomeView: "Weather" under the weather widget).
+  // Its corner
+  var WIDGET_R = 30;
   // the side gutter (62 of a 1180 px screen), never under 16
   var GUTTER = 0.0525, GUTTER_MIN = 16;
   // the screens shown once the layout has held still this long after a draw, and never later than SETTLE_MAX ms after
@@ -63,7 +70,7 @@
   var SETTLE_QUIET = 150, SETTLE_MAX = 700;
   // the header's room: 16 % of the height, 100..150
   var TOP_SHARE = 0.16, TOP_MIN = 100, TOP_MAX = 150;
-  // the foot: the dots alone, or the dots over the Home pill
+  // the foot: a margin, or the Home pill's room
   var FOOT = 44, FOOT_PILL = 90;
   // the time behind: 470 px of an 820 tall screen, 16 % white
   var TIME_H = 0.573, TIME_W = 0.398, TIME_ALPHA = 0.16;
@@ -144,59 +151,48 @@
   }
 
   // WHERE EVERYTHING GOES: `n` icons and the widgets ([{kind, size, place}])
-  // on screens of cols x rows. The widgets first, on the first screen that
-  // has room: each on its side (place), from the top, More 2 x 2 and Less
-  // 2 x 1 (on a screen narrower than two, none). Then the icons, in order, in
-  // the cells left, row by row; a screen full, the next.
-  //   -> [{ icons: [{ i, col, row }], widgets: [{ w (index), col, row, cw, ch }] }]
+  // in one grid `cols` across, as many rows down as it takes (`rows`, the
+  // window's: a widget taller than it has no place). The widgets first: each
+  // on its side (place), from the top, More 2 x 2 and Less 2 x 1 (on a screen
+  // narrower than two, none). Then the icons, in order, in the cells left,
+  // row by row, on down past the window's rows.
+  //   -> { icons: [{ i, col, row }], widgets: [{ w (index), col, row, cw, ch }], rows (how many it took, at least one) }
   function place(n, widgets, cols, rows) {
-    var screens = [];
-    function screen(k) {
-      while (screens.length <= k) {
-        var used = [];
-        for (var r = 0; r < rows; r++) used.push(new Array(cols).fill(false));
-        screens.push({ icons: [], widgets: [], used: used });
-      }
-      return screens[k];
-    }
-    function free(sc, col, row, cw, ch) {
-      if (col < 0 || row < 0 || col + cw > cols || row + ch > rows) return false;
-      for (var r = row; r < row + ch; r++) for (var c = col; c < col + cw; c++) if (sc.used[r][c]) return false;
+    var used = [], out = { icons: [], widgets: [], rows: 1 };
+    function line(r) { while (used.length <= r) used.push(new Array(cols).fill(false)); return used[r]; }
+    function free(col, row, cw, ch) {
+      if (col < 0 || row < 0 || col + cw > cols) return false;
+      for (var r = row; r < row + ch; r++) for (var c = col; c < col + cw; c++) if (line(r)[c]) return false;
       return true;
     }
-    function take(sc, col, row, cw, ch) {
-      for (var r = row; r < row + ch; r++) for (var c = col; c < col + cw; c++) sc.used[r][c] = true;
+    function take(col, row, cw, ch) {
+      for (var r = row; r < row + ch; r++) for (var c = col; c < col + cw; c++) line(r)[c] = true;
+      out.rows = Math.max(out.rows, row + ch);
     }
     (widgets || []).forEach(function (w, wi) {
       var cw = 2, ch = w.size === 'less' ? 1 : 2;
       if (cw > cols || ch > rows) return;
       var col = w.place === 'left' ? 0 : cols - cw;
-      for (var k = 0; k < 8; k++) {
-        var sc = screen(k);
-        for (var row = 0; row + ch <= rows; row++) {
-          if (free(sc, col, row, cw, ch)) {
-            take(sc, col, row, cw, ch);
-            sc.widgets.push({ w: wi, col: col, row: row, cw: cw, ch: ch });
-            return;
-          }
+      for (var row = 0; ; row++) {
+        if (free(col, row, cw, ch)) {
+          take(col, row, cw, ch);
+          out.widgets.push({ w: wi, col: col, row: row, cw: cw, ch: ch });
+          return;
         }
       }
     });
-    var k = 0, at = 0;
+    var at = 0;
     for (var i = 0; i < n; i++) {
       for (;;) {
-        var sc = screen(k);
-        if (at >= cols * rows) { k++; at = 0; continue; }
         var row = Math.floor(at / cols), col = at % cols;
         at++;
-        if (sc.used[row][col]) continue;
-        sc.used[row][col] = true;
-        sc.icons.push({ i: i, col: col, row: row });
+        if (line(row)[col]) continue;
+        take(col, row, 1, 1);
+        out.icons.push({ i: i, col: col, row: row });
         break;
       }
     }
-    if (!screens.length) screen(0);
-    return screens.map(function (sc) { return { icons: sc.icons, widgets: sc.widgets }; });
+    return out;
   }
 
   // THE HOME PILL: Automatic shows it where the screen has no tab bar
@@ -284,15 +280,16 @@
       '.who{position:absolute;border-radius:50%;display:grid;place-items:center;overflow:hidden;font-weight:600;',
       '  color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.7)}',
       '.who img{width:100%;height:100%;object-fit:cover}',
-      // the screens, side by side; one at a time, snapped
-      '.screens{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;',
-      '  scrollbar-width:none;overscroll-behavior-x:contain}',
+      // the icons, scrolling up and down when there are more than fit (a sideways pan is the page swipe's; cut clean at
+      // the window's edges, as every list that scrolls)
+      '.screens{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;overscroll-behavior-y:contain;',
+      '  -webkit-overflow-scrolling:touch}',
       '.screens::-webkit-scrollbar{display:none}',
       // SHOWN ONCE IT HOLDS STILL (2026-10-31, the owner: the icons "kind of jump into place" as it loads): until its
       // size and its glyphs have settled (_settle), the screens are drawn but not shown, then fade in where they stay
       '.screens{transition:opacity ' + C.DUR.fade + ' ease}',
       ':host([data-settling]) .screens{opacity:0;transition:none}',
-      '.screen{position:relative;flex:none;width:100%;height:100%;scroll-snap-align:start}',
+      '.screen{position:relative;width:100%;min-height:100%}',
       '.app{all:unset;box-sizing:border-box;position:absolute;display:grid;justify-items:center;align-content:start;cursor:pointer}',
       '.app:focus-visible .ic{outline:3px solid rgba(255,255,255,.85);outline-offset:3px}',
       '.ic{position:relative;display:grid;place-items:center;box-shadow:0 6px 18px rgba(0,0,0,.22);color:#fff;',
@@ -320,11 +317,9 @@
       // a widget's place
       '.wd{position:absolute;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.22)}',
       '.wd>*{width:100%;height:100%;box-sizing:border-box}',
-      // the dots, and the Home pill
-      '.dots{position:absolute;left:0;right:0;display:flex;justify-content:center;gap:2px}',
-      '.dots button{all:unset;width:18px;height:18px;display:grid;place-items:center;cursor:pointer}',
-      '.dots button::after{content:"";width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.45)}',
-      '.dots button[aria-current="true"]::after{background:#fff}',
+      // its name, where an icon's would be (.nm's look)
+      '.wdn{position:absolute;pointer-events:none}',
+      // the Home pill
       // (the button is the pill's reach: 44 tall over the pill, the pill at its foot; its drag is up -- pan-x, so a
       // sideways swipe that starts on it is still the page's: hkDrag.sideways reads none as a control's own)
       '.pill{all:unset;box-sizing:border-box;position:absolute;left:50%;bottom:0;transform:translateX(-50%);display:grid;',
@@ -339,7 +334,7 @@
       '.open{position:absolute;inset:0;z-index:2;display:grid;place-items:center;',
       '  background:rgba(0,0,0,.18);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}',
       // (the screen under it fades back, as iPadOS's: a slow tablet or a browser without the blur shows no icons through)
-      ':host([data-open]) .screens,:host([data-open]) .dots{opacity:.12;transition:opacity ' + C.DUR.fade + ' ease}',
+      ':host([data-open]) .screens{opacity:.12;transition:opacity ' + C.DUR.fade + ' ease}',
       '.open h2{margin:0 0 18px;font-size:30px;font-weight:600;text-align:center;text-shadow:0 1px 6px rgba(0,0,0,.3)}',
       '.open .box{position:relative;background:rgba(255,255,255,.22);border-radius:' + C.R.sheet + 'px;overflow:auto;',
       '  box-shadow:0 10px 30px rgba(0,0,0,.2)}',
@@ -466,7 +461,7 @@
         this._key = key;
         this.toggleAttribute('data-flat', d.flat);
         this.toggleAttribute('data-open', !!this._folder);
-        var keep = this._root.querySelector('.screens'), at = keep ? keep.scrollLeft : 0;
+        var keep = this._root.querySelector('.screens'), at = keep ? keep.scrollTop : 0;
         this._root.innerHTML = this._html(d, sz, now);
         var first = !this._built;
         this._built = true;
@@ -475,7 +470,7 @@
         if (!this._firstSize) this._firstSize = sz;   // (what it was first drawn at: the check holds it to its size now)
         this._d = d;
         var sc = this._root.querySelector('.screens');
-        if (sc && at) sc.scrollLeft = at;
+        if (sc && at) sc.scrollTop = at;
         this._mountWidgets(d);
         this._wire(d);
         this._skies();
@@ -517,8 +512,7 @@
         var W = sz.W, Ht = sz.H, pill = pillOn(d.ps.pill, d.tabBar);
         var g = grid(W, Ht, { pill: pill }), s = g.s;
         g.now = now;                             // the calendar icon's day: the time this is drawn for
-        var screens = place(d.list.length, d.widgets, g.cols, g.rows);
-        this._screens = screens.length;
+        var sc = place(d.list.length, d.widgets, g.cols, g.rows);
         var out = '<div class="bg"></div>';
         // the time, faint, behind it all -- the Background Clock, Off unless
         // chosen (2026-10-30)
@@ -528,6 +522,11 @@
           out += '<div class="time" aria-hidden="true" style="top:' + (g.phone ? 64 : Math.round(40 * s)) + 'px;font-size:' +
                  Math.round(Math.min(Ht * TIME_H, W * TIME_W)) + 'px">' + esc(hm) + '</div>';
         }
+        // THE ICONS, all in one screen that scrolls up and down when they are more than fit -- the date and who's here at
+        // its top, going up with them; the foot's room (the pill's) left under the last row. Its sideways pan is always the
+        // page swipe's (the owner's Pixel Tablet, 2026-11-01: the browser took one for a strip of screens and canceled it)
+        var self = this, tall = g.top + sc.rows * g.slotH + g.foot;
+        out += '<div class="screens" style="touch-action:pan-y pinch-zoom"><div class="screen" data-s="0" style="height:' + tall.toFixed(1) + 'px">';
         // the date and time, top left; who's here, top right
         var fs = g.phone ? 15 : 20, top = g.phone ? 18 : 40;
         out += '<div class="when" style="left:' + Math.round(g.gutter) + 'px;top:calc(env(safe-area-inset-top, 0px) + ' + top +
@@ -540,35 +539,26 @@
                  tintHex('orange') + '">' + (d.who.pic ? window.hkCards.artImg(d.who.pic, { ph: 'av', ini: d.who.name.trim().charAt(0).toUpperCase(), color: tintHex('orange') }) :
                    esc(d.who.name.trim().charAt(0).toUpperCase())) + '</div>';
         }
-        // the screens of icons
-        var self = this;
-        // (more than one: their own sideways swipe; one: none of its own -- a finger's sideways pan is the page swipe's,
-        // where the browser took it for the strip and cancelled the swipe: the owner's Pixel Tablet, 2026-11-01)
-        out += '<div class="screens"' + (screens.length > 1 ? ' data-hk-control' : ' style="touch-action:pan-y pinch-zoom"') + '>';
-        screens.forEach(function (sc, k) {
-          out += '<div class="screen" data-s="' + k + '">';
-          sc.widgets.forEach(function (w) {
-            var x = g.gutter + w.col * g.slotW + WIDGET_IN * s, y = g.top + w.row * g.slotH + WIDGET_TOP * s;
-            out += '<div class="wd" data-w="' + w.w + '" data-kind="' + esc(d.widgets[w.w].kind) + '" style="left:' + x.toFixed(1) + 'px;top:' + y.toFixed(1) +
-                   'px;width:' + (w.cw * g.slotW - 2 * WIDGET_IN * s).toFixed(1) + 'px;height:' + (w.ch * g.slotH - (WIDGET_TOP + WIDGET_FOOT) * s).toFixed(1) +
-                   'px;border-radius:' + (WIDGET_R * s).toFixed(1) + 'px"></div>';
-          });
-          sc.icons.forEach(function (c) {
-            var it = d.list[c.i];
-            var x = g.gutter + c.col * g.slotW, y = g.top + c.row * g.slotH + Math.max(0, (g.slotH - SLOT_H * s) / 2);
-            out += self._app(it, d, g, 'left:' + x.toFixed(1) + 'px;top:' + y.toFixed(1) + 'px;width:' + g.slotW.toFixed(1) + 'px');
-          });
-          out += '</div>';
+        var iconDown = Math.max(0, (g.slotH - SLOT_H * s) / 2);
+        sc.widgets.forEach(function (w) {
+          // (an icon's plate: centered in its slot across, iconDown below its row's top -- _app's place, below)
+          var x = g.gutter + w.col * g.slotW + (g.slotW - g.icon) / 2, y = g.top + w.row * g.slotH + iconDown;
+          out += '<div class="wd" data-w="' + w.w + '" data-kind="' + esc(d.widgets[w.w].kind) + '" style="left:' + x.toFixed(1) + 'px;top:' + y.toFixed(1) +
+                 'px;width:' + ((w.cw - 1) * g.slotW + g.icon).toFixed(1) + 'px;height:' + ((w.ch - 1) * g.slotH + g.icon).toFixed(1) +
+                 'px;border-radius:' + (WIDGET_R * s).toFixed(1) + 'px"></div>';
+          var P = window.hkSidePane, nm = (P && P.KINDS && P.KINDS[d.widgets[w.w].kind] || [])[0] || '';
+          if (nm) {
+            out += '<div class="nm wdn" data-wn="' + w.w + '" aria-hidden="true" style="left:' + x.toFixed(1) + 'px;top:' +
+                   (y + (w.ch - 1) * g.slotH + g.icon + LABEL_GAP * s).toFixed(1) + 'px;width:' + ((w.cw - 1) * g.slotW + g.icon).toFixed(1) +
+                   'px;font-size:' + g.label.toFixed(1) + 'px">' + esc(nm) + '</div>';
+          }
         });
-        out += '</div>';
-        // the dots: one per screen, with two or more
-        var dotsAt = pill ? 60 : 16;
-        if (screens.length > 1) {
-          out += '<div class="dots" role="tablist" style="bottom:' + dotsAt + 'px">' + screens.map(function (x, k) {
-            return '<button type="button" data-dot="' + k + '" aria-label="Pages ' + (k + 1) + ' of ' + screens.length + '"' +
-                   (k === 0 ? ' aria-current="true"' : '') + '></button>';
-          }).join('') + '</div>';
-        }
+        sc.icons.forEach(function (c) {
+          var it = d.list[c.i];
+          var x = g.gutter + c.col * g.slotW, y = g.top + c.row * g.slotH + iconDown;
+          out += self._app(it, d, g, 'left:' + x.toFixed(1) + 'px;top:' + y.toFixed(1) + 'px;width:' + g.slotW.toFixed(1) + 'px');
+        });
+        out += '</div></div>';
         if (pill) {
           var pw = g.phone ? PILL_W_PHONE : PILL_W, ph = g.phone ? PILL_H_PHONE : PILL_H;
           out += '<button class="pill" type="button" aria-label="Home" style="--pw:' + pw + 'px;--ph:' + ph + 'px;height:calc(env(safe-area-inset-bottom, 0px) + ' +
@@ -659,7 +649,12 @@
           try { got = d.render(w.kind, w.size, { client: self.client, place: 'pages', side: w.place }); } catch (e) { got = null; }
           if (got && got.nodeType) slot.appendChild(got);
           else if (typeof got === 'string' && got) slot.innerHTML = got;
-          else slot.remove();
+          else {
+            // (nothing to draw: no widget there, nor its name)
+            var nm = self._root.querySelector('.wdn[data-wn="' + slot.getAttribute('data-w') + '"]');
+            if (nm) nm.remove();
+            slot.remove();
+          }
           if (got && got.nodeType) els.push(got);
         });
         this._widgetEls = els;
@@ -680,12 +675,6 @@
             var go = t.closest('[data-go]');
             if (go) { e.stopPropagation(); self._folder = false; window.hkShell.navigate(go.getAttribute('data-go')); return; }
             if (t.closest('[data-folder]')) { self._folder = true; self.redraw(); return; }
-            var dot = t.closest('[data-dot]');
-            if (dot) {
-              var sc = root.querySelector('.screens');
-              if (sc) sc.scrollTo({ left: +dot.getAttribute('data-dot') * sc.clientWidth, behavior: 'smooth' });
-              return;
-            }
             if (t.closest('.pill')) { if (!self._pillSwiped) self._home(); self._pillSwiped = false; return; }
             if (t.closest('[data-close]') && !t.closest('.box')) { self._folder = false; self.redraw(); }
           });
@@ -699,14 +688,6 @@
             if (y0 !== null && y0 - e.clientY > PILL_SWIPE) { self._pillSwiped = true; self._home(); }
             y0 = null;
           });
-        }
-        // which screen is showing: its dot
-        var sc = root.querySelector('.screens');
-        if (sc && this._screens > 1) {
-          sc.addEventListener('scroll', function () {
-            var k = Math.round(sc.scrollLeft / Math.max(1, sc.clientWidth));
-            root.querySelectorAll('[data-dot]').forEach(function (b) { b.setAttribute('aria-current', String(+b.getAttribute('data-dot') === k)); });
-          }, { passive: true });
         }
       }
     }

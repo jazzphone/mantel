@@ -103,8 +103,12 @@
       for (var i = 0; i < cvs.length; i++) if (cvs[i].__src && !cvs[i].__drawn) return true;
       return false;
     }
+    // COVERED (2026-11-22, the owner: the Pages screen "should stop the animations when it blurs the background"): a page
+    // that lays a blur over the whole sky (the Pages screen, resolve's `covered`) holds the sky, as the kiosk's black does
+    // -- its layers kept, so a page out from under it moves again on its next frame. A sky moving under a blur re-blurs
+    // the whole window every frame for a picture nobody can make out. The sky's alone: the cards are not asleep.
     function applyHidden() {
-      var hid = document.hidden || sleeping(), still = ST.ksDark || ST.unfocused, z = sleeping() || still;
+      var hid = document.hidden || sleeping(), still = ST.ksDark || ST.unfocused || ST.covered, z = sleeping() || ST.ksDark || ST.unfocused;
       if (ST.mounted) {
         ST.mounted.classList.toggle('hidden', hid);
         ST.mounted.classList.toggle('held', !hid && still);
