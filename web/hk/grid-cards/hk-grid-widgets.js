@@ -701,10 +701,12 @@
             var on = x.ids.length, c = Math.floor(i / per), j = i % per, rx = c * (cw - X), ry = j * rh, tw = 17 + 13 * String(on).length;
             var r = { lead: K.glyph(x.kind.icon, gp, K.tone(k, on ? x.kind.color : dim, !!on && !k.white), !!on && !k.white), lw: gp, lh: gp, t: cap(x.kind.many), quiet: !on,
               label: openLabel(x), data: { 'open-kind': x.kind.key } };
-            if (on) r.trw = tw - 6; else { r.trail = x.kind.rest; r.trw = x.kind.rest.length * 9 + 4; }
+            if (on) r.trw = tw - 6; else r.trw = x.kind.rest.length * 6;
             inner2 += K.row(k, rx, ry, cw, r, j === per - 1 || i === every.length - 1, rh);
             if (on) inner2 += K.box(rx + cw - X - tw, ry + (rh - 24) / 2, tw, 24, '', 'display:flex;align-items:center;justify-content:flex-end;gap:8px;pointer-events:none',
               '<span style="width:9px;height:9px;border-radius:50%;flex:none;background:' + x.kind.color + '"></span><span class="kt num">' + on + '</span>');
+            // (at rest, the word -- "Off", "Idle" -- the softer gray, right-aligned on the same end; the name keeps the room)
+            else inner2 += K.tx(rx + cw - X - 44, ry + (rh - 22) / 2, 44, 'kb', x.kind.rest, 'text-align:right;pointer-events:none');
           });
           return '<style>.kit .sc{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}' +
             '.kit .sc::-webkit-scrollbar{display:none}</style><div class="a sc" role="list" style="' + K.st(0, y0, w, room) + '">' + inner2 + '</div>';
