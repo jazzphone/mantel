@@ -416,6 +416,56 @@ async def test_the_widgets_read_chosen_states_and_the_timers_only_as_one_may_see
     assert (await m.client.get("/api/app/states?ids=light.kitchen")).status == 401
 
 
+async def test_the_sensor_widget_reads_a_days_graph_only_with_history_on_it(mantel):
+    """/api/app/history: a reading's last hours averaged into at most HISTORY_POINTS points, through Home Assistant's
+    history with ``history`` on the reading (not just view); a word for a state answers no points."""
+    from mantel_server.apps import app_api as A
+    m = mantel
+    m.app["hub"].store.states.update({
+        "sensor.living_room_temperature": {"s": "70.5", "a": {"friendly_name": "Living Room", "unit_of_measurement": "°F"},
+                                           "lc": 1.0, "lu": 1.0},
+        "sensor.washer": {"s": "Rinse", "a": {"friendly_name": "Washer"}, "lc": 1.0, "lu": 1.0}})
+    now = m.now[0]
+
+    class History:
+        def __init__(self):
+            self.asked = []
+
+        async def close(self):
+            pass
+
+        async def request(self, msg, *, server_read=False):
+            self.asked.append(msg)
+            eid = msg["entity_ids"][0]
+            if eid == "sensor.washer":
+                return {eid: [{"s": "Wash", "lu": now - 600}, {"s": "Rinse", "lu": now - 60}]}
+            return {eid: [{"s": "68", "a": {}, "lu": now - 30 * 3600},             # from before the window: its start
+                          {"s": "69", "lu": now - 3600}, {"s": "71", "lu": now - 3500},
+                          {"s": "unavailable", "lu": now - 100}, {"s": "70.5", "lu": now - 10}]}
+    m.app["hub"].readproxy = ha = History()
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    r, got = await phone.call("GET", "/api/app/history?id=sensor.living_room_temperature")
+    assert r.status == 200 and got["unit"] == "°F" and got["hours"] == 24
+    assert [p[1] for p in got["points"]] == [68.0, 70.0, 70.5]       # the hour before now: 69 and 71 averaged
+    assert got["points"][0][0] < got["points"][1][0] < got["points"][2][0] <= now
+    asked = ha.asked[-1]
+    assert asked["entity_ids"] == ["sensor.living_room_temperature"] and asked["minimal_response"] is True
+    r, got = await phone.call("GET", "/api/app/history?id=sensor.washer&hours=2")
+    assert r.status == 200 and got["points"] == []
+    for bad in ("", "?id=light.kitchen", "?id=sensor.x&hours=0", "?id=sensor.x&hours=500", "?id=Sensor.X",
+                "?id=sensor.x&hours=a"):
+        r, _ = await phone.call("GET", "/api/app/history" + bad)
+        assert r.status == 400, bad
+    kid, _ = await sign_in_app(m, "kid", "child")
+    m.forget_cookies()
+    before = len(ha.asked)
+    r, _ = await kid.call("GET", "/api/app/history?id=sensor.living_room_temperature")
+    assert r.status == 403 and len(ha.asked) == before               # never asked Home Assistant
+    assert (await m.client.get("/api/app/history?id=sensor.living_room_temperature")).status == 401
+    assert len(A.history_points([{"s": str(i), "lu": now - i} for i in range(5000)], now - 86400, now)) <= A.HISTORY_POINTS
+
+
 async def test_commands_are_off_unless_the_operator_turned_them_on(mantel):
     m = mantel
     phone, _ = await sign_in_app(m)

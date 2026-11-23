@@ -57,7 +57,11 @@ ENTITIES = [{"entity_id": "light.kitchen", "area_id": "kitchen"}, {"entity_id": 
             {"entity_id": "switch.porch_lights", "area_id": "porch"}, {"entity_id": "scene.movie_night", "area_id": "living_room"},
             # the HomeView widgets' (the app's Climate, House Status and Timers widgets)
             {"entity_id": "climate.living_room", "area_id": "living_room"}, {"entity_id": "binary_sensor.back_door", "area_id": "porch"},
-            {"entity_id": "cover.garage_door", "area_id": "porch"}, {"entity_id": "timer.pasta", "area_id": "kitchen"}]
+            {"entity_id": "cover.garage_door", "area_id": "porch"}, {"entity_id": "timer.pasta", "area_id": "kitchen"},
+            # the Sensor widget's readings (a graph from FictionalHistory)
+            {"entity_id": "sensor.living_room_temperature", "area_id": "living_room"},
+            {"entity_id": "sensor.kitchen_humidity", "area_id": "kitchen"}, {"entity_id": "sensor.house_power", "area_id": None},
+            {"entity_id": "sensor.washer_status", "area_id": None}]
 STATES = {
     "light.kitchen": {"s": "on", "a": {"friendly_name": "Kitchen", "brightness": 180}},
     "light.living_room": {"s": "off", "a": {"friendly_name": "Living Room"}},
@@ -74,7 +78,39 @@ STATES = {
     "binary_sensor.back_door": {"s": "on", "a": {"friendly_name": "Back Door", "device_class": "door"}},
     "cover.garage_door": {"s": "closed", "a": {"friendly_name": "Garage Door", "device_class": "garage"}},
     "timer.pasta": {"s": "active", "a": {"friendly_name": "Pasta", "duration": "0:12:00"}},     # ends 12 minutes after the start
+    "sensor.living_room_temperature": {"s": "70.4", "a": {"friendly_name": "Living Room Temperature", "unit_of_measurement": "°F",
+                                                          "device_class": "temperature", "state_class": "measurement"}},
+    "sensor.kitchen_humidity": {"s": "41", "a": {"friendly_name": "Kitchen Humidity", "unit_of_measurement": "%",
+                                                 "device_class": "humidity", "state_class": "measurement"}},
+    "sensor.house_power": {"s": "1240", "a": {"friendly_name": "House Power", "unit_of_measurement": "W",
+                                              "device_class": "power", "state_class": "measurement"}},
+    "sensor.washer_status": {"s": "Rinse", "a": {"friendly_name": "Washer Status"}},
 }
+
+
+class FictionalHistory:
+    """Home Assistant's history for the fictional readings: a day of a smooth daily swing around each one's value."""
+
+    SWING = {"sensor.living_room_temperature": 2.5, "sensor.kitchen_humidity": 6.0, "sensor.house_power": 700.0}
+
+    async def close(self):
+        pass
+
+    async def request(self, msg, *, server_read=False):
+        import math
+        if msg.get("type") != "history/history_during_period":
+            raise ConnectionError("unavailable")
+        now = time.time()
+        out = {}
+        for eid in msg.get("entity_ids") or []:
+            base, swing = STATES.get(eid, {}).get("s"), self.SWING.get(eid)
+            if swing is None:
+                out[eid] = [{"s": base, "lu": now - 3600}]
+                continue
+            out[eid] = [{"s": str(round(float(base) + swing * math.sin((now - t) / 86400 * 2 * math.pi + 1)
+                                        + swing * 0.15 * math.sin(t / 900), 2)), "lu": t}
+                        for t in range(int(now - 86400), int(now), 300)]
+        return out
 FLIP = {("light", "turn_on"): "on", ("light", "turn_off"): "off", ("switch", "turn_on"): "on", ("switch", "turn_off"): "off",
         ("lock", "lock"): "locked", ("lock", "unlock"): "unlocked", ("cover", "open_cover"): "open",
         ("cover", "close_cover"): "closed"}
@@ -202,6 +238,7 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
         web.WebSocketResponse.send_str = slow_send
     hub = app["hub"]
     hub.registry.load(AREAS, [], ENTITIES)
+    hub.readproxy = FictionalHistory()
     hub.store.apply_event({"a": {k: {"s": v["s"], "a": dict(v["a"]), "lc": time.time() - 3600} for k, v in STATES.items()}})
     ends = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 12 * 60))
     hub.store.apply_event({"c": {"timer.pasta": {"+": {"a": {"finishes_at": ends}}}}})

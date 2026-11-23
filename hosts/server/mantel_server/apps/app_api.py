@@ -14,6 +14,10 @@ the server exactly as the screens' socket is:
                                  the order asked: the widgets made for one thing (an accessory, a thermostat, the
                                  house's doors and locks); ``?domain=timer`` instead: every timer the person may view
                                  that counts (active or paused), soonest first
+  GET  /api/app/history?id=&hours=  a reading's last hours (1 to HISTORY_HOURS_MAX, 24 unless asked) as at most
+                                 HISTORY_POINTS averaged points [epoch seconds, value], for the Sensor widget's
+                                 graph; only with ``history`` on it (a Child or a guest may see a reading and not
+                                 its past). A reading that is not a number answers no points.
   GET  /api/app/art?entity=      a player's artwork (media_art.py's rule: view on the player)
   GET  /api/app/snap?id=         a notification's snapshot (notify_snaps.py's rule), for the notification extension
   POST /api/app/push/register    the app's APNs token and notification key (apns.py); refused (409 push_off) once
@@ -57,6 +61,9 @@ ATTRS = ("friendly_name", "unit_of_measurement", "device_class", "brightness", "
          "finishes_at", "remaining", "duration", "min_temp", "max_temp", "target_temp_step", "hvac_modes")
 STATES_MAX = 24
 STATE_DOMAINS = frozenset({"timer"})
+HISTORY_DOMAINS = frozenset({"sensor", "binary_sensor", "number", "input_number", "counter"})
+HISTORY_HOURS_MAX = 168
+HISTORY_POINTS = 48
 STATUS = {"forbidden": 403, "commands_disabled": 503, "unavailable": 503, "unauthenticated": 401,
           "invalid_command": 400, "not_allowed": 400, "audit_unavailable": 503}
 
@@ -171,6 +178,79 @@ async def states(request: web.Request) -> web.Response:
     if domain is not None:
         shown = sorted(shown, key=lambda e: str((e.get("attributes") or {}).get("finishes_at") or "~"))[:STATES_MAX]
     return ok({"states": shown, "at": request.app["clock"]()})
+
+
+def _number(v) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f == f and f not in (float("inf"), float("-inf")) else None
+
+
+def _when(row: dict) -> float | None:
+    """A history row's time: the compressed form's epoch (``lu``/``lc``), else its ISO ``last_changed``."""
+    for k in ("lu", "lc"):
+        if isinstance(row.get(k), (int, float)):
+            return float(row[k])
+    from datetime import datetime
+    for k in ("last_updated", "last_changed"):
+        if isinstance(row.get(k), str):
+            try:
+                return datetime.fromisoformat(row[k].replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                pass
+    return None
+
+
+def history_points(rows: list, start: float, end: float, n: int = HISTORY_POINTS) -> list[list[float]]:
+    """At most ``n`` points over [start, end]: each the average of the numbers that fell in its slice, at the slice's
+    middle; a reading from before the window counts from the start (it held until the next one)."""
+    width = (end - start) / n
+    sums, counts = [0.0] * n, [0] * n
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        v, t = _number(row.get("s", row.get("state"))), _when(row)
+        if v is None or t is None or t > end:
+            continue
+        i = min(n - 1, max(0, int((t - start) // width)))
+        sums[i] += v
+        counts[i] += 1
+    return [[round(start + (i + 0.5) * width, 1), round(sums[i] / counts[i], 3)] for i in range(n) if counts[i]]
+
+
+@open_route("app_dpop", reads="view", why=WHY_APP)     # and history on the reading, below
+@app_route
+async def history(request: web.Request) -> web.Response:
+    eid = request.query.get("id") or ""
+    try:
+        hours = int(request.query.get("hours") or 24)
+    except ValueError:
+        hours = 0
+    if not ENTITY.match(eid) or eid.split(".", 1)[0] not in HISTORY_DOMAINS or not 0 < hours <= HISTORY_HOURS_MAX:
+        return error(400, "invalid_query", message=f"id of a reading, hours 1 to {HISTORY_HOURS_MAX}")
+    authz = request.app.get("authz")
+    if authz is None or eid not in authz.may_read(_principal(request), "history", [eid]):
+        return error(403, "forbidden")
+    proxy = getattr(request.app["hub"], "readproxy", None)
+    if proxy is None:
+        return error(503, "unavailable")
+    from datetime import datetime, timezone
+    end = float(request.app["clock"]())
+    start = end - hours * 3600
+    def iso(t: float) -> str:
+        return datetime.fromtimestamp(t, timezone.utc).isoformat()
+    try:
+        res = await proxy.request({"type": "history/history_during_period", "start_time": iso(start),
+                                   "end_time": iso(end), "entity_ids": [eid], "minimal_response": True,
+                                   "no_attributes": True, "significant_changes_only": False})
+    except (ConnectionError, asyncio.TimeoutError, OSError):
+        return error(503, "unavailable")
+    rows = res.get(eid) if isinstance(res, dict) else None
+    st = (request.app["hub"].store.states.get(eid) or {}).get("a") or {}
+    return ok({"id": eid, "hours": hours, "unit": st.get("unit_of_measurement"),
+               "points": history_points(rows or [], start, end), "at": end})
 
 
 @open_route("app_dpop", reads="self", why=WHY_APP)
@@ -345,8 +425,9 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_put("/api/app/favorites", put_favorites)
     app.router.add_get("/api/app/entities", entities)
     app.router.add_get("/api/app/states", states)
+    app.router.add_get("/api/app/history", history)
     app.router.add_post("/api/app/command", command)
     app.setdefault("public_paths", set()).update({"/api/app/summary", "/api/app/favorites", "/api/app/entities",
-                                                  "/api/app/states",
+                                                  "/api/app/states", "/api/app/history",
                                                   "/api/app/command", "/api/app/push/register", "/api/app/snap",
                                                   "/api/app/art"})
