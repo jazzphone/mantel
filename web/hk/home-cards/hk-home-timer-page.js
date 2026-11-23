@@ -697,7 +697,11 @@
         }
         root.querySelectorAll('[data-go]').forEach((/** @type {any} */ b) => b.addEventListener('click', () => {
           var v = self._kitRoll && self._kitRoll.get(); if (!v || !(v.h || v.m || v.s)) return;
-          self._callResp('script', 'quick_timer_start', { duration: R.hms(v) }).then((/** @type {any} */ r) => { if (!r.ok || r.response && r.response.started === false) self._newGridTimer(); });
+          self._callResp('script', 'quick_timer_start', { duration: R.hms(v) }).then((/** @type {any} */ r) => {
+            if (!r.ok || r.response && r.response.started === false) { self._newGridTimer(); return; }
+            // (the New Timer sheet opens on the last length started, as it did when the block held that card)
+            if (K.HkTimerNewCard) K.HkTimerNewCard.last = { h: v.h || 0, m: v.m || 0, s: v.s || 0 };
+          });
         }));
       }
       _sigOf() {

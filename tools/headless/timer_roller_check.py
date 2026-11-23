@@ -1,7 +1,8 @@
 """The timer wheels (hk-roller.js; the owner's mockup 5c, 2026-11-09, "Yes, build it") against the fictional home, never a
 household's: an Extra Large Timers block with nothing running makes a timer in the block -- three wheels (hours,
 minutes, seconds) on 0, 15 and 0; a finger's flick on the minutes wheel settles on another number and Start says so; a
-tap on a number moves its wheel there; Start sends script.quick_timer_start the HH:MM:SS. The "+" on a Wide block opens
+tap on a number moves its wheel there; Start sends script.quick_timer_start the HH:MM:SS. The kit's Extra Large block (phase 34) holds the wheels in its own plate, no card inside it, and its key says Start
+Timer (the wheels say the length). The "+" on a Wide block opens
 the New Timer sheet, the same wheels where the keypad was.
 
     python tools/headless/timer_roller_check.py [--shots DIRECTORY]
@@ -24,7 +25,7 @@ args = parser.parse_args()
 DEEP = "window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);" \
        "window.cell=(id)=>deep(document,'.cell[data-id=\"'+id+'\"]')[0];" \
        "window.blk=(id)=>deep(cell(id),'hk-timer-strip-card')[0];" \
-       "window.maker=()=>deep(blk('x').shadowRoot,'hk-timer-new-card')[0];" \
+       "window.maker=()=>blk('x');" \
        "window.wheels=(r)=>deep(r,'.hkr-w');"
 GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
     {'id': 'x', 'card': 'timers', 'size': 'XL', 'at': [0, 0]},
@@ -47,18 +48,19 @@ async def main():
             await b.open(origin + '/blocks/home', cookie)
             assert await b.wait('window.__mantelReady===true', 30)
             await b.eval(DEEP)
-            assert await b.wait("!!maker() && wheels(maker().shadowRoot).length===3", 20), 'the Extra Large block has the New Timer card, three wheels'
+            assert await b.wait("!!maker() && wheels(maker().shadowRoot).length===3", 20), 'the Extra Large block has its three wheels'
             await asyncio.sleep(0.8)
             vals = "wheels(maker().shadowRoot).map(w=>w.getAttribute('aria-valuenow'))"
-            start = "deep(maker().shadowRoot,'.start')[0].textContent"
-            assert await b.eval(vals) == ['0', '15', '0'] and await b.eval(start) == 'Start 15 min', (await b.eval(vals), await b.eval(start))
+            # (the kit's key: "Start Timer" whatever the wheels say -- 2026-11-22, one plate with the wheels and Start in it, docs/phase34/PLAN.md)
+            start = "deep(maker().shadowRoot,'button.key[data-go] .kt')[0].textContent"
+            assert await b.eval(vals) == ['0', '15', '0'] and await b.eval(start) == 'Start Timer', (await b.eval(vals), await b.eval(start))
             # (the minutes wheel at 15 in its band: scrolled 15 rows)
             got = await b.eval("(()=>{const w=wheels(maker().shadowRoot)[1];return {top:w.scrollTop,row:w.clientHeight/5}})()")
             assert abs(got['top'] - 15 * got['row']) < 1.5, got
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
                 await b.screenshot(args.shots / 'roller-xl.png')
-            # A FLICK UP on the minutes wheel: it spins on and settles on a whole number past 15, and Start follows -- the finger
+            # A FLICK UP on the minutes wheel: it spins on and settles on a whole number past 15 -- the finger
             # on its "min", not its numbers: a wheel takes a finger anywhere in its column (2026-11-10, the owner)
             r = await b.eval("(()=>{const b=wheels(maker().shadowRoot)[1].getBoundingClientRect(),u=deep(maker().shadowRoot,'.hkr-u')[1].getBoundingClientRect();"
                              "return {x:(u.left+u.right)/2,y:b.top+b.height*.7,h:b.height}})()")
@@ -72,15 +74,12 @@ async def main():
             m = int(await b.eval(vals + "[1]"))
             row = await b.eval("(()=>{const w=wheels(maker().shadowRoot)[1];return {top:w.scrollTop,row:w.clientHeight/5}})()")
             assert m > 15 and abs(row['top'] - m * row['row']) < 1.5, (m, row)
-            assert await b.eval(start) == f'Start {m} min', await b.eval(start)
-            print(f'  flick: the minutes wheel settled on {m}, Start says so')
+            print(f'  flick: the minutes wheel settled on {m}')
             # A TAP ON A NUMBER: the hours wheel's 1, under the band
             t = await b.eval("(()=>{const e=deep(maker().shadowRoot,'.hkr-w')[0].querySelector('[data-v=\"1\"]').getBoundingClientRect();return {x:(e.left+e.right)/2,y:(e.top+e.bottom)/2}})()")
             await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': t['x'], 'y': t['y']}])
             await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
             assert await b.wait(vals + "[0]==='1'", 5), await b.eval(vals)
-            await asyncio.sleep(0.8)
-            assert await b.eval(start) == f'Start 1 hr {m} min', await b.eval(start)
             print('  tap: the hours wheel moved to 1')
             # THE KEYS: the seconds wheel focused, Down twice -- 2 seconds
             await b.eval("wheels(maker().shadowRoot)[2].focus()")
@@ -90,7 +89,7 @@ async def main():
             assert await b.wait(vals + "[2]==='2'", 5), await b.eval(vals)
             # START: the start script with the wheels' HH:MM:SS
             await b.eval("window.__sent=null;maker()._callResp=(d,s,data)=>{window.__sent={call:d+'.'+s,data};return Promise.resolve({ok:true,response:{started:true}})}")
-            await b.eval("deep(maker().shadowRoot,'.start')[0].click()")
+            await b.eval("deep(maker().shadowRoot,'button.key[data-go]')[0].click()")
             assert await b.wait("!!window.__sent", 5)
             sent = await b.eval("window.__sent")
             assert sent['call'] == 'script.quick_timer_start' and sent['data']['duration'] == f'01:{m:02d}:02', sent
