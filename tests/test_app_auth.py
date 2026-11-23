@@ -384,6 +384,38 @@ async def test_favorites_and_summary_show_only_what_one_may_see(mantel):
     assert any(reading) and reading == sorted(reading)      # what one switches before the readings (the cap's 500)
 
 
+async def test_the_widgets_read_chosen_states_and_the_timers_only_as_one_may_see(mantel):
+    """/api/app/states: the HomeView widgets made for one thing (an accessory, a thermostat, the doors and locks, the
+    timers) read just those states, the Summary's way: view on each, the order asked."""
+    m = mantel
+    m.app["hub"].store.states.update(STATES)
+    m.app["hub"].store.states.update({
+        "timer.pasta": {"s": "active", "a": {"friendly_name": "Pasta", "duration": "0:10:00",
+                                             "finishes_at": "2026-11-23T20:30:00+00:00"}, "lc": 1.0, "lu": 1.0},
+        "timer.tea": {"s": "active", "a": {"friendly_name": "Tea", "finishes_at": "2026-11-23T20:05:00+00:00"},
+                      "lc": 1.0, "lu": 1.0},
+        "timer.done": {"s": "idle", "a": {"friendly_name": "Done"}, "lc": 1.0, "lu": 1.0}})
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    r, got = await phone.call("GET", "/api/app/states?ids=lock.front_door,light.kitchen,light.nowhere")
+    assert r.status == 200 and [e["entity_id"] for e in got["states"]] == ["lock.front_door", "light.kitchen"]
+    assert got["states"][1]["attributes"]["brightness"] == 200
+    r, got = await phone.call("GET", "/api/app/states?domain=timer")
+    assert [e["entity_id"] for e in got["states"]] == ["timer.tea", "timer.pasta"]          # soonest first, idle left out
+    assert got["states"][1]["attributes"]["finishes_at"] == "2026-11-23T20:30:00+00:00"
+    for bad in ("", "?ids=", "?ids=" + ",".join(f"light.l{i}" for i in range(30)), "?ids=Light.X", "?domain=lock",
+                "?ids=light.kitchen&domain=timer"):
+        r, _ = await phone.call("GET", "/api/app/states" + bad)
+        assert r.status == 400, bad
+    kid, _ = await sign_in_app(m, "kid", "child")                     # a Child with no rooms granted: nothing
+    m.forget_cookies()
+    r, got = await kid.call("GET", "/api/app/states?ids=lock.front_door,light.kitchen")
+    assert r.status == 200 and got["states"] == []
+    r, got = await kid.call("GET", "/api/app/states?domain=timer")
+    assert got["states"] == []
+    assert (await m.client.get("/api/app/states?ids=light.kitchen")).status == 401
+
+
 async def test_commands_are_off_unless_the_operator_turned_them_on(mantel):
     m = mantel
     phone, _ = await sign_in_app(m)
