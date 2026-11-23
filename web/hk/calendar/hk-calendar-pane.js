@@ -155,7 +155,9 @@
       _range() {
         var now = new Date();
         // (Extra Large: the month it shows, turned with its arrows)
-        if (this._cellSize() === 'XL') { var m = this._mon || now, w = weekStart(new Date(m.getFullYear(), m.getMonth(), 1)); return [w, addDays(w, 42)]; }
+        // (Large too, drawn by the kit: its month, whatever `month` says)
+        if (this._cellSize() === 'XL' || (this._cellSize() === 'L' && this._kitOn())) { var m = this._mon || now, w = weekStart(new Date(m.getFullYear(), m.getMonth(), 1)); return [w, addDays(w, 42)];
+          }
         if (this._month()) { var a = weekStart(new Date(now.getFullYear(), now.getMonth(), 1)); return [a, addDays(a, 42)]; }
         return [day0(now), addDays(day0(now), this._days())];
       }
@@ -217,6 +219,9 @@
       _renderBlock(sized) {
         var d0 = day0(new Date());
         this._watchBlock();
+        // (the kit's Calendar, below; the older drawings stay for what it draws none of: Month View on a Tall block)
+        if (this._kitOn() && this._renderKit(sized, d0)) return;
+        if (this._kitHtml && window.hkKit) window.hkKit.forget(this);
         if (sized === 'XL') { this._renderMonthDay(); return; }
         if (this._month() && sized !== 'S' && sized !== 'W') { this._renderMonth(sized, d0); return; }
         this._renderNext(sized, d0);
@@ -311,41 +316,180 @@
         if (cut) this._root.querySelector('.ft').textContent = cut.filter(function (r) { return r.hasAttribute('data-ev'); }).length + ' more';
         this._wireTaps();
       }
+      _kitOn() { return !!(window.hkKit && window.hkKit.on(this)); }
+      // THE KIT'S CALENDAR (phase 34, round 12; hk-kit.js): Small is HomeView's centered tile -- the date as the figure, the weekday, the
+      // next event; Wide and Tall the list plate (the calendar glyph in red, the day and date, a row for each event with its calendar's
+      // color as a bar, "N more"); Large the MONTH (the owner: "it would be nice to have a view with the full months calendar. Like in XL
+      // or maybe even in L") -- today a red circle, a dot under each day with something on it, a tap on a day opens it on the Calendar
+      // page; Extra Large the month and, beside it after a hairline, the chosen day's events (today's at first; a tap on a day chooses it,
+      // a tap on the chosen one opens it). Month View on a Tall block keeps the older drawing (false).
+      _renderKit(sized, d0) {
+        var K = window.hkKit, h = this.client, self = this;
+        if (!K || !h || !this._config || (sized === 'T' && this._month())) return false;
+        var k = K.ctx(this), now = new Date(), w = k.w, ht = k.h, E = k.E, X = k.X, o = '', esc2 = K.esc, has = this._calIds(h).length > 0;
+        var gl = K.glyph('mdi:calendar', 28, CAL_RED, true), day = DOW_LONG[d0.getDay()], date = MON[d0.getMonth()] + ' ' + d0.getDate();
+        var label = 'Calendar, ' + day + ', ' + date;
+        var bar = function (/** @type {any} */ e) { return '<span style="display:block;width:4px;height:40px;border-radius:calc(4px / 2);background:' + rgba(evRgb(e, h), 1) + '"></span>'; };
+        var none = function (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ ww) { return K.tx(x, y, ww, 'kb', has ? 'Nothing scheduled' : 'No calendars'); };
+        var done = function (/** @type {string} */ html, /** @type {string} */ name) {
+          return K.draw(self, K.plate(k, html, { label: name }), function (/** @type {any} */ root) { self._bindKit(root); });
+        };
+        if (sized === 'S' || sized === 'W' || sized === 'T') {
+          var up = upcoming(this._evs, d0, now, this._days());
+          this._shown = up.map(function (u) { return u.e; });
+          if (sized === 'S') {
+            var u0 = up[0], sub = u0 ? smallLine(u0) : has ? 'Nothing scheduled' : 'No calendars', sq = ht >= 180, fs = sq ? 64 : 48;
+            var fig = '<span class="kh num" style="font-size:' + fs + 'px;height:' + fs + 'px">' + d0.getDate() + '</span>';
+            o = '<button type="button" class="hit" data-notap data-go="1" aria-label="' + esc2(label + (u0 ? '. Next: ' + u0.e.title : '')) + '" style="inset:0"></button>' +
+              K.box(0, 0, w, ht, '', 'pointer-events:none', K.tile(k, fig, day, sub));
+            return done(o, label);
+          }
+          var items = up.map(function (u, n) {
+            return { lead: bar(u.e), lw: 4, lh: 40, t: u.e.title, b: whenLine(u), label: u.e.title + ', ' + whenLine(u), data: { ev: n } };
+          });
+          var shown = K.rows(k, 0, w, 70, ht - E, 1, items);
+          o = shown.html + (items.length ? '' : none(X, 70, w - 2 * X)) + K.head(k, { g: gl, title: day, sub: date, more: shown.more || 0 });
+          return done(o, label);
+        }
+        // the month (Large; Extra Large's left 405)
+        var mon = this._mon || new Date(now.getFullYear(), now.getMonth(), 1), xl = sized === 'XL', sel = xl ? (this._sel || day0(now)) : null;
+        var M = monthModel(this._evs, h, mon, now, sel), lw = xl ? 405 : w;
+        o = K.head(k, { g: gl, title: M.name, sub: String(M.year) }) + monthHtml(K, M, E, 70, lw - 2 * E, ht - 70 - E, xl);
+        this._shown = [];
+        if (xl) {
+          var evs = onDay(this._evs, sel), isToday = sameDay(sel, now), rx = lw - 3, rw = w - rx;
+          this._shown = evs;
+          var rowsX = evs.map(function (e, n) {
+            return { lead: bar(e), lw: 4, lh: 40, t: e.title, b: whenShort(e, sel), quiet: isToday && e.end <= now, label: e.title + ', ' + whenShort(e, sel), data: { ev: n } };
+          });
+          var cap = K.rows(k, rx, rw, 70, ht - E, 1, rowsX);
+          o += K.box(lw, 18, 1, ht - 36, 'sep', '') + K.tx(rx + X, 18, rw - 2 * X, 'kt', isToday ? 'Today' : esc2(DOW_LONG[sel.getDay()])) +
+            K.tx(rx + X, 42, rw - 2 * X, 'kb', esc2(DOW_LONG[sel.getDay()] + ', ' + MON3[sel.getMonth()] + ' ' + sel.getDate())) + cap.html + (rowsX.length ? '' : none(rx + X, 70, rw - 2 * X));
+          // ("N more": the chosen day, opened on the Calendar page)
+          if (cap.more) o += '<button type="button" class="hit" data-notap data-day="' + ymd(sel) + '" aria-label="' + cap.more + ' more events" style="' + K.st(w - X - 84, 14, 84 + X - 6, 32) +
+            'border-radius:12px;display:flex;justify-content:flex-end;align-items:center;gap:1px"><span class="kb" style="padding-right:4px">' + cap.more + ' more</span>' +
+            K.svg('chev', 16, K.v('ink-3', 'rgba(255,255,255,0.40)')) + '</button>';
+        }
+        return done(o, 'Calendar, ' + M.name + ' ' + M.year);
+      }
+      // the kit's buttons, each its own listener (a tap on one never reaches the block's: the kit stops it)
+      /** @param {any} root */
+      _bindKit(root) {
+        var self = this;
+        root.querySelectorAll('[data-ev],[data-day],[data-go]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._tapOn(b); }); });
+      }
       // THE BLOCK'S TAPS, once: an event's row its sheet; Small the next event (or the Calendar page); a day of
       // the month chosen, then opened; the month's arrows
       _wireTaps() {
         if (this._taps) return;
         this._taps = true;
         var self = this;
+        this._root.addEventListener('click', function (ev) {
+          var t = ev.target && ev.target.closest && ev.target.closest('[data-ev],[data-day],[data-mon],[data-go]');
+          if (t) self._tapOn(t);
+        });
+        this._root.addEventListener('keydown', function (ev) {
+          if (ev.key !== 'Enter' && ev.key !== ' ') return;
+          var t = ev.target && ev.target.closest && ev.target.closest('[data-ev],[data-day],[data-mon],[data-go]');
+          if (t) { ev.preventDefault(); self._tapOn(t); }
+        });
+      }
+      // ONE TAP, on the element that says what it is (the older drawings' roles and the kit's buttons alike): an event its sheet,
+      // Small the next event (else the Calendar page), a day of the month -- Extra Large chooses it, then opens it; Large opens it
+      // at once -- and the month's arrows (the older Extra Large)
+      _tapOn(t) {
+        var self = this, shown = this._shown || [];
         var go = function (day) {
           var dash = '/' + (String(location.pathname).split('/')[1] || '') + '/';
           window.hkCards.navigate(dash + 'calendar?day=' + ymd(day), self);
         };
-        var act = function (ev) {
-          var t = ev.target && ev.target.closest && ev.target.closest('[data-ev],[data-day],[data-mon],[data-go]');
-          if (!t) return;
-          var shown = self._shown || [];
-          if (t.hasAttribute('data-ev')) { var e = shown[+t.getAttribute('data-ev')]; if (e) show(self.client, e); return; }
-          if (t.hasAttribute('data-go')) { if (shown[0]) show(self.client, shown[0]); else go(new Date()); return; }
-          if (t.hasAttribute('data-day')) {
-            var d = parseYmd(t.getAttribute('data-day'));
-            if (!d) return;
-            if (sameDay(d, self._sel || new Date())) { go(d); return; }
-            self._sel = d;
-            self.redraw();
-            return;
-          }
-          // a month on: the 1st chosen, or today in today's month
-          var now = new Date(), m0 = self._mon || new Date(now.getFullYear(), now.getMonth(), 1);
-          var m = new Date(m0.getFullYear(), m0.getMonth() + Number(t.getAttribute('data-mon')), 1);
-          self._mon = m;
-          self._sel = m.getMonth() === now.getMonth() && m.getFullYear() === now.getFullYear() ? day0(now) : m;
-          self._fetch();
-          self.redraw();
-        };
-        this._root.addEventListener('click', act);
-        this._root.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); act(ev); } });
+        if (t.hasAttribute('data-ev')) { var e = shown[+t.getAttribute('data-ev')]; if (e) show(this.client, e); return; }
+        if (t.hasAttribute('data-go')) { if (shown[0]) show(this.client, shown[0]); else go(new Date()); return; }
+        if (t.hasAttribute('data-day')) {
+          var d = parseYmd(t.getAttribute('data-day'));
+          if (!d) return;
+          // (the kit's Large has no list beside it to choose a day for: a tap opens it)
+          if (this._cellSize() === 'L' && this._kitHtml) { go(d); return; }
+          if (sameDay(d, this._sel || new Date())) { go(d); return; }
+          this._sel = d;
+          this.redraw();
+          return;
+        }
+        // a month on: the 1st chosen, or today in today's month
+        var now = new Date(), m0 = this._mon || new Date(now.getFullYear(), now.getMonth(), 1);
+        var m = new Date(m0.getFullYear(), m0.getMonth() + Number(t.getAttribute('data-mon')), 1);
+        this._mon = m;
+        this._sel = m.getMonth() === now.getMonth() && m.getFullYear() === now.getFullYear() ? day0(now) : m;
+        this._fetch();
+        this.redraw();
       }
+    }
+
+    // THE KIT'S CALENDAR, its parts. The month: { name, year, weeks, letters, cells } -- the cells run from the first day of the week the
+    // month starts in, null outside the month, else { d, n, today, sel, weekend, colors (up to three, each calendar's own), count }
+    /** @param {any[]} evs @param {any} h @param {Date} mon @param {Date} now @param {Date|null} sel */
+    function monthModel(evs, h, mon, now, sel) {
+      var first = new Date(mon.getFullYear(), mon.getMonth(), 1), a = weekStart(first), last = new Date(mon.getFullYear(), mon.getMonth() + 1, 0);
+      var weeks = Math.ceil((Math.round((day0(last) - a) / DAY_MS) + 1) / 7), cells = [];
+      for (var i = 0; i < weeks * 7; i++) {
+        var d = addDays(a, i);
+        if (d.getMonth() !== mon.getMonth()) { cells.push(null); continue; }
+        var colors = /** @type {string[]} */ ([]), own = ownDay(evs, d);
+        own.forEach(function (e) { var c = rgba(evRgb(e, h), 1); if (colors.indexOf(c) < 0 && colors.length < 3) colors.push(c); });
+        cells.push({ d: d, n: d.getDate(), today: sameDay(d, now), sel: !!sel && sameDay(d, sel), weekend: d.getDay() === 0 || d.getDay() === 6, colors: colors, count: own.length });
+      }
+      return { name: MON[mon.getMonth()], year: mon.getFullYear(), weeks: weeks, letters: dows(['S', 'M', 'T', 'W', 'T', 'F', 'S']), cells: cells };
+    }
+    // the month as a grid in a box (x, y, w, hh): the weekday letters, then the weeks sharing the height, each day a button of its own
+    // with its number in a circle (today's filled red, white and bold; the chosen day's ringed) and a dot for each calendar with something on it
+    /** @param {any} Kit @param {any} M @param {number} x @param {number} y @param {number} w @param {number} hh @param {boolean} small */
+    function monthHtml(Kit, M, x, y, w, hh, small) {
+      var cw = w / 7, top = 22, rh = (hh - top) / M.weeks, ch = Math.max(20, Math.min(rh - 6, cw - 6, small ? 30 : 36)), t0 = Math.max(0, (rh - ch - 9) / 2), o = '';
+      var r1 = function (/** @type {number} */ n) { return Math.round(n * 10) / 10; };
+      M.letters.forEach(function (/** @type {string} */ l, /** @type {number} */ i) { o += Kit.tx(x + i * cw, y, cw, 'kl', Kit.esc(l), 'text-align:center;font-size:13px'); });
+      M.cells.forEach(function (/** @type {any} */ c, /** @type {number} */ i) {
+        if (!c) return;
+        var num = '<span class="a fc num" style="left:' + r1((cw - ch) / 2) + 'px;top:' + r1(t0) + 'px;width:' + r1(ch) + 'px;height:' + r1(ch) + 'px;border-radius:50%;font-size:' +
+          (small ? 15 : 17) +
+          'px;font-weight:' + (c.today ? 700 : 500) + ';' + (c.today ? 'background:' + CAL_RED + ';color:#fff;text-shadow:none' : c.weekend ? 'color:' + Kit.v('ink-2', 'rgba(255,255,255,0.68)') :
+            '') +
+          (c.sel && !c.today ? ';box-shadow:inset 0 0 0 2px ' + Kit.v('ink', 'rgba(255,255,255,0.94)') : '') + '">' + c.n + '</span>';
+        var dots = c.colors.length ? '<span class="a" style="left:' + r1(cw / 2 - (c.colors.length * 8 - 3) / 2) + 'px;top:' + r1(t0 + ch + 4) + 'px;height:5px;display:flex;gap:3px">' +
+          c.colors.map(function (/** @type {string} */ k) { return '<i style="width:5px;height:5px;border-radius:50%;background:' + k + '"></i>'; }).join('') + '</span>' : '';
+        var name = DOW_LONG[c.d.getDay()] + ', ' + MON[c.d.getMonth()] + ' ' + c.n + (c.count ? ', ' + c.count + (c.count === 1 ? ' event' : ' events') : '');
+        o += '<button type="button" class="hit" data-notap data-day="' + ymd(c.d) + '" aria-label="' + Kit.esc(name) + '" style="' +
+          Kit.st(x + (i % 7) * cw, y + top + Math.floor(i / 7) * rh, cw, rh) +
+          'border-radius:12px">' + num + dots + '</button>';
+      });
+      return o;
+    }
+    // WHAT IS COMING for a list: from now on, today's first and then each later day's (`days` of them), each { e, day, i } -- an event is
+    // listed once, under the day it first shows
+    /** @param {any[]} evs @param {Date} d0 @param {Date} now @param {number} days */
+    function upcoming(evs, d0, now, days) {
+      var out = /** @type {any[]} */ ([]), seen = /** @type {any[]} */ ([]);
+      for (var i = 0; i < days; i++) {
+        var d = addDays(d0, i);
+        onDay(evs, d).filter(function (e) { return e.end > now && seen.indexOf(e) < 0; }).forEach(function (e) { seen.push(e); out.push({ e: e, day: d, i: i }); });
+      }
+      return out;
+    }
+    // the day a later event is under, in a word: "Tomorrow", "Wed"
+    /** @param {any} u */
+    function dayWord(u) { return u.i === 1 ? 'Tomorrow' : DOW_LONG[u.day.getDay()].slice(0, 3); }
+    // a list row's second line: when, with the day first for a later one -- "4:00 PM", "Tomorrow, 9:00 AM", "Wed, All day"
+    /** @param {any} u */
+    function whenLine(u) {
+      var t = whenShort(u.e, u.day, true).replace(/:00 (AM|PM)$/, ' $1');        // ("4 PM": the hour on the hour, as a narrow row holds it)
+      return u.i === 0 ? t : dayWord(u) + ', ' + t;
+    }
+    // Small's line under the weekday: the next event and its time ("Dinner 6:30 PM", as far as a cell holds it), a later day's with the day first
+    /** @param {any} u */
+    function smallLine(u) {
+      var t = whenShort(u.e, u.day, true);
+      if (u.i) return dayWord(u) + ' ' + u.e.title;
+      var full = u.e.title + (t === 'All day' ? '' : ' ' + t);
+      return full.length <= 15 ? full : u.e.title;
     }
 
     // ONE EVENT'S ROW in a block: its color as a bar, its name, and when -- the start (Tall), or from and to and
@@ -384,6 +528,7 @@
     }
 
     // what the shell and the later parts use of this one
+    HkCalendarPaneCard.monthModel = monthModel;       // (the suites)
     K.fitRows = fitRows; K.HkCalendarPaneCard = HkCalendarPaneCard;
   };
 })();
