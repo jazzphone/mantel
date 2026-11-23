@@ -132,7 +132,7 @@
   }
 
   var HkBrowseCard, HkMusicPlaylistsCard, HkNowPlayingCard, HkRecentMusicCard, HkScreensaverNowCard,
-      HkSpeakerPickerCard, HkTvChannelsCard, playlistTiles, RECENT, recentCovers, tintOf, TV_SLOTS, tvGrid, heroFirst, LASTPL;
+      HkSpeakerPickerCard, HkTvChannelsCard, playlistTiles, RECENT, recentCovers, tintOf, TV_SLOTS, tvGrid, tvLayout, heroFirst, LASTPL;
   function kit() {
     return {
       button: button, C: C, create: create, drawNoMusic: drawNoMusic, esc: esc, feed: feed, HkBase: HkBase, M: M,
@@ -146,7 +146,7 @@
     HkNowPlayingCard = K.HkNowPlayingCard; HkRecentMusicCard = K.HkRecentMusicCard;
     HkScreensaverNowCard = K.HkScreensaverNowCard; HkSpeakerPickerCard = K.HkSpeakerPickerCard;
     HkTvChannelsCard = K.HkTvChannelsCard; playlistTiles = K.playlistTiles; RECENT = K.RECENT;
-    recentCovers = K.recentCovers; tintOf = K.tintOf; TV_SLOTS = K.TV_SLOTS; tvGrid = K.tvGrid; heroFirst = K.heroFirst; LASTPL = K.LASTPL;
+    recentCovers = K.recentCovers; tintOf = K.tintOf; TV_SLOTS = K.TV_SLOTS; tvGrid = K.tvGrid; tvLayout = K.tvLayout; heroFirst = K.heroFirst; LASTPL = K.LASTPL;
   }
 
   loadParts(function () {
@@ -284,7 +284,7 @@
 
     // (for tests: the Home Grid widgets' pure pieces)
     window.hkMedia = { version: '1.0.0', _: { recentCovers: recentCovers, playlistTiles: playlistTiles, heroFirst: heroFirst, LASTPL: LASTPL, tvGrid: tvGrid, tintOf: tintOf, RECENT: RECENT,
-      TV_SLOTS: TV_SLOTS } };
+      TV_SLOTS: TV_SLOTS, tvLayout: tvLayout } };
   });
   });
 })();

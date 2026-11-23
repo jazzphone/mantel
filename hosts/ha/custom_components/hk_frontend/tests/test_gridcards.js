@@ -492,6 +492,11 @@ function () {
   eq('...four in Full Width, one row, the tiles nearest 16:9', P.camGrid('XXL', 4, 1260, 310), [4, 1]);
   eq('...six in a landscape Full: 3 x 2, not 2 x 3', P.camGrid('F', 6, 1260, 630, 6), [3, 2]);
   eq('...one camera: the whole block', P.camGrid('XL', 1), [1, 1]);
+  // THE MOSAIC (round 12): the layout that gives each camera the largest 16:9 picture in the block (a last row shares its width)
+  eq('mosaic, Extra Large (614 x 405): two stacked wide boxes, three as 2 x 2, four 2 x 2, five and six 3 x 2',
+     [2, 3, 4, 5, 6].map(function (n) { return P.camGrid('XL', n, 614, 405, 6); }), [[1, 2], [2, 2], [2, 2], [3, 2], [3, 2]]);
+  eq('...Full Width (1260 x 310): three in a row, four in a row, six 4 x 2 never 6 x 1', [3, 4, 8].map(function (n) { return P.camGrid('XXL', n, 1260, 310, 6); }),
+     [[3, 1], [4, 1], [4, 2]]);
   var cams = ['camera.driveway', 'camera.front_doorbell', 'camera.garden'];
   eq('a ring names its camera', P.camRing(cams, 'camera.garden'), 'camera.garden');
   eq('...or a camera called doorbell', [P.camRing(cams, null), P.camRing(cams, 'camera.elsewhere')], ['camera.front_doorbell', 'camera.front_doorbell']);
@@ -575,5 +580,16 @@ function () {
   var tag = function (o) { var c = G.config({ card: 'camera', size: 'L', at: [0, 0], opts: o }, ctx); return (c.cards ? c.cards[0] : c).name_tag; };
   eq('the option is a name_tag', G.table().camera.opts.name, 'name_tag');
   eq('...Automatic unless set', [tag({}), tag({ name: 'hide' }), tag({ name: 'show' })], ['auto', 'hide', 'show']);
+},
+function () {
+  H.section('a camera block\'s Picture (round 12): Live, Snapshots, or Automatic -- what the block always did');
+  var G = window.hkGridCatalog, ctx = { cameras: ['camera.porch'] };
+  var cfg = function (o, size) { var c = G.config({ card: 'camera', size: size || 'L', at: [0, 0], opts: o }, ctx); return c.cards ? c.cards[0] : c; };
+  eq('the options are a camera_picture and the Cameras\' refresh', [G.table().camera.opts.picture, G.table().camera.opts.refresh], ['camera_picture', 'refresh']);
+  eq('Automatic (none stored): no `picture`, so the screen\'s Live First Camera decides, as before', ['picture' in cfg({}), 'refresh' in cfg({})], [false, false]);
+  eq('...Live and Snapshots go to the mosaic', [cfg({ picture: 'live' }).picture, cfg({ picture: 'snapshots', refresh: 20 }).picture, cfg({ picture: 'snapshots', refresh: 20 }).refresh],
+    ['live', 'snapshots', 20]);
+  eq('every size is the kit\'s picture, Extra Large too', ['S', 'W', 'T', 'L', 'XL'].map(function (s) { var c = cfg({}, s); return [c.type, c.kit]; }),
+     [1, 2, 3, 4, 5].map(function () { return ['custom:hk-camera-mosaic-card', true]; }));
 }
 ]);

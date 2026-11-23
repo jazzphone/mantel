@@ -83,7 +83,11 @@ CATALOG: dict[str, dict[str, Any]] = {
                "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select",
                         # name (2026-10-31, the owner): the camera's name at the foot -- Automatic shows it on a
                         # tile cell and leaves it off HomeView's square cells; Show or Hide either way
-                        "name": "name_tag"}},
+                        "name": "name_tag",
+                        # picture (round 12, 2026-11-23, the owner: "the option to have it live or snapshots"): Live, or
+                        # Snapshots; absent, Automatic -- what the block always did, the screen's Live First Camera. refresh:
+                        # s between a snapshot's frames
+                        "picture": "camera_picture", "refresh": "refresh"}},
     # THE CAMERAS FACE (2026-10-30): up to nine stills at once, arranged to the block; Full is the whole view.
     # cameras: the ones shown (none: all, in Cameras' order); refresh: s between stills
     "cameras": {"sizes": ("XL", "XXL", "F"), "sources": (), "opts": {"cameras": "cameras", "refresh": "refresh"}},
@@ -331,6 +335,16 @@ PERIODS = ("day", "week", "month")
 NAME_TAGS = ("auto", "show", "hide")
 
 
+# a camera block's picture (round 12): live video, or snapshots on the block's refresh
+CAMERA_PICTURES = ("live", "snapshots")
+
+
+def _camera_picture(v: Any) -> str:
+    if v not in CAMERA_PICTURES:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _tile_height(v: Any) -> str:
     if v not in TILE_HEIGHTS:
         raise GridInvalid("grid_option")
@@ -559,6 +573,7 @@ OPTION_KINDS = {
     "tile_height": _tile_height,
     "period": _period,
     "name_tag": _name_tag,
+    "camera_picture": _camera_picture,
     "tap_target": _tap_target,
     "music_tap": _music_tap,
     "np_background": _np_background,

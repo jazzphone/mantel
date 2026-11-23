@@ -472,6 +472,42 @@ function () {
   });
 },
 function () {
+  H.section('Live TV, the kit\'s card (round 12): each channel a show -- its art, its name, its channel -- that tunes when tapped');
+  // where the tiles go: columns x rows by size, the art 16:9 at the column's width, shorter (never stretched) only where the cell is
+  var L = Mx.tvLayout, sq = function (s, n) { return L(s, { W: 405, T: 196, L: 405, XL: 614 }[s], { W: 196, T: 405, L: 405, XL: 405 }[s], s === 'W' ? 13 : 72, n, 13, 13); };
+  eq('square cells: Wide 2 x 1, Tall 1 x 2, Large 2 x 2, Extra Large 3 x 2', ['W', 'T', 'L', 'XL'].map(function (s) { var l = sq(s, 9); return [l.cols, l.rows, l.shown]; }),
+     [[2, 1, 2], [1, 2, 2], [2, 2, 4], [3, 2, 6]]);
+  eq('...the art 16:9 at the column\'s width where the room is there', ['W', 'T', 'L', 'XL'].map(function (s) { var l = sq(s, 9); return Math.abs(l.ah - l.tw * 9 / 16) <= 3; }),
+     [true, true, true, true]);
+  eq('...fewer channels, fewer tiles (never more rows than they need)', [sq('XL', 4).shown, sq('XL', 4).rows, sq('L', 1).rows, sq('T', 1).shown], [4, 2, 1, 1]);
+  var short = L('T', 196, 314, 72, 9, 13, 13);
+  ok('a tile cell\'s Tall (314): the art gives way a little, then a row goes -- never below 3/4 of 16:9', short.ah >= Math.round(short.tw * 9 / 16 * 0.75) - 1 && short.rows * short.th +
+    (short.rows - 1) * 13 <= 314 - 72 - 13 + 6 + 1, short);
+  load(HK_ROOT + '/frontend/modules/hk-kit.js');                         // (the kit only for this section: every other one above is the older card's)
+  try {
+    var withArt = house.states || null;
+    var tv = sized('hk-tv-channels-card', 'L'), cl = client();
+    tv.client = cl; tv._channels = CHANNELS.channels; tv._configured = true; tv._block = function () { return { w: 405, h: 405 }; };
+    tv._render();
+    var html = tv._kitHtml || '';
+    ok('Large draws the kit\'s plate', /<hk-plate class="kit tvk"/.test(html), html.slice(0, 80));
+    eq('...the header and a tile for each of the three channels', [/Live TV/.test(html), (html.match(/data-ch="/g) || []).length], [true, 3]);
+    ok('...a tile\'s words: the show, then "number . channel"', /Evening News/.test(html) && /4\.1 · Channel 4/.test(html) && /7\.1 · Food/.test(html));
+    ok('...a channel with nothing in the guide: the generated tile -- its color, the words "Live" in white', /class="tvt"[^>]*>Live</.test(html) && /linear-gradient\(150deg/.test(html));
+    ok('...the one on now (the first, none played) carries the progress bar, the others none', (html.match(/data-bar="/g) || []).length <= 1);
+    var opened = [];
+    window.hkCameras = { tvPlayer: function (owner, ch) { opened.push(ch.number); return { close: function () {}, update: function () {} }; } };
+    tv.isConnected = true;
+    tv._open(CHANNELS.channels[1]);
+    eq('a tap tunes it (the same player), and the one on now follows', [opened, tv._played], [['7.1'], '7.1']);
+    var one = sized('hk-tv-channels-card', 'S');
+    one.client = cl; one._channels = CHANNELS.channels; one._configured = true; one._block = function () { return { w: 196, h: 196 }; };
+    one._render();
+    ok('Small: HomeView\'s centered tile with the art where the glyph was, the whole tile the tap', /class="ctn"/.test(one._kitHtml) && /class="hit"/.test(one._kitHtml) &&
+      /data-ch="4\.1"/.test(one._kitHtml));
+  } finally { delete window.hkKit; }
+},
+function () {
   H.section('The panel block mounts them, sized');
   var P = customElements.get('hk-grid-panel-card');
   var at = function (kind, size) {

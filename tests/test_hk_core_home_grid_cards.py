@@ -289,6 +289,23 @@ def test_a_camera_name_that_is_not_one_is_refused(name):
     assert errors == {"home_grid": "grid_option"}
 
 
+@pytest.mark.parametrize("picture", ["live", "snapshots"])
+def test_a_camera_blocks_picture_is_live_or_snapshots(picture):
+    # (round 12, 2026-11-23, the owner: "the option to have it live or snapshots"; none stored is Automatic, what the block always did)
+    b, errors = write({"id": "c", "card": "camera", "size": "L", "at": [0, 0], "opts": {"picture": picture, "refresh": 20}})
+    assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"picture": picture, "refresh": 20}
+    b, errors = write({"id": "c", "card": "camera", "size": "XL", "at": [0, 0]})
+    assert errors == {} and "opts" not in b["home_grid"]["items"][0]
+
+
+@pytest.mark.parametrize("picture", ["auto", "Live", "video", True, None, ""])
+def test_a_camera_picture_that_is_not_one_is_refused(picture):
+    _, errors = write({"id": "c", "card": "camera", "size": "L", "at": [0, 0], "opts": {"picture": picture}})
+    assert errors == {"home_grid": "grid_option"}
+    _, errors = write({"id": "c", "card": "camera", "size": "L", "at": [0, 0], "opts": {"refresh": 3}})
+    assert errors == {"home_grid": "grid_option"}
+
+
 # ------------------------------------------------------------ music: Plays On
 # (2026-11-01, the owner: a group chosen in a Music block's Plays On could not be saved -- since presets became Mantel's
 # own lists of rooms the editor offers them by their "preset:<key>" id, which the check took for a bad entity id)

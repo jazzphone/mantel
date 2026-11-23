@@ -423,22 +423,23 @@
     }
 
     // ------------------------------------------------------------ the cameras face
-    // ITS ARRANGEMENT: [columns, rows] for `n` cameras in a block of `size`, at
-    // most Extra Large's 3 x 2, Full Width's 4 x 2, Full's 3 x 3 -- 2 x 4 in a
-    // view two columns wide (`cols`: a phone's). Fewer cameras take fewer
-    // places: the fewest empty, then the tiles nearest 16:9 in the block's
-    // w x h px (unmeasured: as the most it holds would draw them).
-    var CAM_MAX = { XL: [3, 2], XXL: [4, 2] }, WIDE = 16 / 9;
+    // ITS ARRANGEMENT (round 12, the owner: "more like the mosaic camera strip, but with equal size boxes for all the cameras depending on
+    // how many are in there ... the nice thing about mosaic style is it maximizes the camera picture in the space"): [columns, rows] for `n`
+    // cameras in a block of `size`, at most Extra Large's 3 x 2, Full Width's 4 x 2, Full's 3 x 3 -- 2 x 4 in a view two columns wide (`cols`:
+    // a phone's). Of the layouts that hold them in as few rows as their columns need, the one whose boxes show the LARGEST 16:9 picture in
+    // the block's w x h px (a picture is as wide as the box allows and no taller than 16:9 lets it), less a little for each empty place
+    // (a last row with fewer boxes shares the row's width, so it is never empty, only wider); unmeasured, as the most it holds would draw them.
+    var CAM_MAX = { XL: [3, 2], XXL: [4, 2] }, WIDE = 16 / 9, CAM_GAP = 4, CAM_EMPTY = 400;
     function camGrid(size, n, w, h, cols) {
       var max = CAM_MAX[size] || (cols > 0 && cols <= 2 ? [2, 4] : [3, 3]), best = null;
       n = Math.max(1, Math.min(n | 0, max[0] * max[1]));
+      if (!(w > 0 && h > 0)) { w = max[0] * 160; h = max[1] * 90; }
       for (var c = 1; c <= max[0]; c++) {
-        for (var r = 1; r <= max[1]; r++) {
-          if (c * r < n) continue;
-          var ar = w > 0 && h > 0 ? (w / c) / (h / r) : (max[0] / c) / (max[1] / r) * WIDE;
-          var t = { at: [c, r], empty: c * r - n, off: Math.abs(Math.log(ar / WIDE)) };
-          if (!best || t.empty < best.empty || (t.empty === best.empty && t.off < best.off - 1e-9)) best = t;
-        }
+        var r = Math.ceil(n / c);
+        if (r > max[1]) continue;
+        var cw = (w - (c - 1) * CAM_GAP) / c, ch = (h - (r - 1) * CAM_GAP) / r, fit = Math.min(cw, ch * WIDE);
+        var t = { at: [c, r], area: fit * fit / WIDE - (c * r - n) * CAM_EMPTY };
+        if (!best || t.area > best.area + 1e-9) best = t;
       }
       return best.at;
     }
@@ -451,7 +452,7 @@
     }
 
     // what the shell and the later parts use of this one
-    K.areaOf = areaOf; K.attr = attr; K.CAM_MAX = CAM_MAX; K.camGrid = camGrid; K.camRing = camRing;
+    K.areaOf = areaOf; K.attr = attr; K.CAM_MAX = CAM_MAX; K.CAM_GAP = CAM_GAP; K.camGrid = camGrid; K.camRing = camRing;
     K.clockText = clockText; K.COLS = COLS; K.DEFAULT_WINDOWS = DEFAULT_WINDOWS; K.dimCall = dimCall; K.dims = dims;
     K.dom = dom; K.DOORS = DOORS; K.dragged = dragged; K.fit = fit; K.friendly = friendly; K.GAP = GAP;
     K.HOLD_MS = HOLD_MS; K.holds = holds; K.houseMinutes = houseMinutes; K.isGroup = isGroup; K.kind = kind;

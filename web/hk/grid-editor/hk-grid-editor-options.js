@@ -64,7 +64,10 @@
           }
           // THE CAMERAS FACE: how often its stills refresh (s), and which cameras -- none ticked: all of them
           if (kind === 'refresh') {
-            rows.push(K.select({ label: 'Refresh', value: String(opts[key] || 10), options: [5, 10, 15, 20, 30, 60].map((n) => [String(n), 'Every ' + n + ' Seconds']),
+            // (a camera block's: only while its pictures are snapshots -- live has none to refresh)
+            if (card === 'camera' && opts.picture === 'live') return;
+            rows.push(K.select({ label: card === 'camera' ? 'Snapshots' : 'Refresh', value: String(opts[key] || 10),
+              options: [5, 10, 15, 20, 30, 60].map((n) => [String(n), 'Every ' + n + ' Seconds']),
               onChange: (v) => set(key, +v === 10 ? null : +v) }));
             return;
           }
@@ -82,9 +85,16 @@
             rows.push(K.seg({ label: 'Height', value: opts[key] || dflt, options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === dflt ? null : v) }));
             return;
           }
-          // A CAMERA'S NAME at its foot (2026-10-31): Automatic (on a tile cell, not HomeView's square ones), Show, Hide
+          // A CAMERA'S NAME at its foot (2026-10-31): Automatic and Show draw it on every cell since round 12, Hide takes it off
           if (kind === 'name_tag') {
             rows.push(K.seg({ label: 'Name', value: opts[key] || 'auto', options: [['auto', 'Automatic'], ['show', 'Show'], ['hide', 'Hide']], onChange: (v) => set(key, v === 'auto' ? null : v) }));
+            return;
+          }
+          // A CAMERA BLOCK'S PICTURE (round 12, the owner: "the option to have it live or snapshots"): Automatic is what the block always did (the
+          // screen's Live First Camera), Live plays the stream, Snapshots stills on the block's refresh
+          if (kind === 'camera_picture') {
+            rows.push(K.seg({ label: 'Picture', value: opts[key] || 'auto', options: [['auto', 'Automatic'], ['live', 'Live'], ['snapshots', 'Snapshots']],
+              onChange: (v) => set(key, v === 'auto' ? null : v) }));
             return;
           }
           if (kind === 'period') {

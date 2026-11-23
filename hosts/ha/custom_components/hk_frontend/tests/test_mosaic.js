@@ -1293,4 +1293,57 @@ print('\n=== the Cameras face: its grid of tiles, one live in its place (2026-10
   ok('a still asks for its tile\'s size, capped as the strip\'s are', /width=\d+&height=\d+/.test(f._srcFor(f._snaps[0].cam, f._snaps[0]) || ''), f._srcFor(f._snaps[0].cam, f._snaps[0]));
 })();
 
+print('\n=== the camera block\'s Picture and its pill (round 12) ===');
+(function () {
+  var mk = function (cfg) { var m = new C(); m.isConnected = true; m.setConfig(Object.assign({ own_cameras: true, cameras: [{ entity: CAMS[0].entity }] }, cfg || {})); return m; };
+  var hadSettings = window.hkSettings, was = hadSettings && hadSettings.rendering;
+  window.hkSettings = Object.assign({ get: function (k, d) { return d; } }, hadSettings || {});
+  window.hkSettings.rendering = function () { return { autoplay: true }; };
+  try {
+    ok('Live: plays it, whatever the screen\'s Live First Camera says', mk({ picture: 'live' })._liveOn() === true);
+    ok('Snapshots: never plays', mk({ picture: 'snapshots' })._liveOn() === false);
+    window.hkSettings.rendering = function () { return { autoplay: false }; };
+    ok('...and a tablet that plays no video draws stills even when asked for Live', mk({ picture: 'live' })._liveOn() === false);
+    window.hkSettings.rendering = function () { return { autoplay: true }; };
+    ok('Automatic (no picture): the screen\'s Live First Camera, as every block did', mk({})._liveOn() === mk({ picture: undefined })._liveOn());
+    var sg = function (p) { var m2 = mk({ picture: p }); m2.hass = { states: {} }; return m2._sigOf(); };
+    ok('...a change of Picture is a change of what the card draws', sg('live') !== sg('snapshots'), [sg('live'), sg('snapshots')]);
+  } finally { if (hadSettings) hadSettings.rendering = was; window.hkSettings = hadSettings; }
+  // THE PILL'S WORDS (a kit block): "Just now", "12 sec ago", "2 min ago", "1 hr ago"; Small's, with less room, drops "ago"
+  var m = mk({ kit: true });
+  m._pillWords = true; m._pillShort = false;
+  var ago = function (s) { return m._ageText(Date.now() - s * 1000); };
+  ok('the pill says it in words', [ago(1), ago(12), ago(125), ago(7300), ago(90000)].join('|') === 'Just now|12 sec ago|2 min ago|2 hr ago|1 day ago',
+    [ago(1), ago(12), ago(125), ago(7300), ago(90000)].join('|'));
+  m._pillShort = true;
+  ok('...Small\'s without the "ago"', [ago(1), ago(12), ago(125), ago(7300)].join('|') === 'Now|12 sec|2 min|2 hr', [ago(1), ago(12), ago(125), ago(7300)].join('|'));
+  m._pillWords = false;
+  ok('...the strip\'s own labels stay as the Home app says them', ago(125) === '2m' && ago(12) === '12s');
+})();
+print('\n=== the Cameras face as a mosaic: equal boxes, a last row sharing its width (round 12) ===');
+(function () {
+  var st = {};
+  CAMS.forEach(function (c) { st[c.entity] = { state: c.entity === CAMS[2].entity ? 'unavailable' : 'recording',
+    attributes: { friendly_name: c.name, entity_picture: '/api/camera_proxy/' + c.entity + '?token=ABC' } }; });
+  var face = function (n, g) {
+    var m = new C(); m.isConnected = true;
+    m.setConfig({ own_cameras: true, grid: g, seam: 4, show_age: false, cameras: CAMS.slice(0, n).map(function (c) { return { entity: c.entity }; }) });
+    m.hass = { states: st };
+    return (m._root.children || []).filter(function (e) { return /\bgrid\b/.test(e.className); })[0];
+  };
+  var p5 = face(5, [3, 2]);
+  ok('five in 3 x 2: three above, two below sharing the width -- six tracks, spans of 2 and 3, one gap of 4 px', p5.style.gridTemplateColumns === 'repeat(6, minmax(0, 1fr))' &&
+     p5.style.gap === '4px' && p5.children.map(function (t) { return t.style.gridColumn; }).join('|') === '1 / span 2|3 / span 2|5 / span 2|1 / span 3|4 / span 3',
+       p5.children.map(function (t) { return t.style.gridColumn; }).join('|'));
+  ok('...rows one and two', p5.children.map(function (t) { return t.style.gridRow; }).join('') === '11122', p5.children.map(function (t) { return t.style.gridRow; }).join(''));
+  var p4 = face(4, [2, 2]);
+  ok('four in 2 x 2: the plain grid, two tracks', p4.style.gridTemplateColumns === 'repeat(2, minmax(0, 1fr))' && p4.children[3].style.gridColumn === '2 / span 1');
+  var p3 = face(3, [2, 2]);
+  ok('three in 2 x 2: the last box spans the whole row', p3.children[2].style.gridColumn === '1 / span 2' && p3.children[2].style.gridRow === '2');
+  ok('every box has its name with a dot, and the camera that cannot answer a gray one', p3.children.every(function (t) { return t.children.some(function (k) { return /^cn/.test(k.className); }); }) &&
+     /off/.test(p3.children[2].children.filter(function (k) { return /^cn/.test(k.className); })[0].className) &&
+       !/off/.test(p3.children[0].children.filter(function (k) { return /^cn/.test(k.className); })[0].className));
+  ok('...and no age pill (the dot is the sign it is there)', p3.children.every(function (t) { return !t.children.some(function (k) { return k.className === 'age'; }); }));
+})();
+
 print('\n' + (fail? 'FAILURES: '+fail : 'ALL '+pass+' MOSAIC TESTS PASS'));

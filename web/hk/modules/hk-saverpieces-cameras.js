@@ -7,7 +7,9 @@
 //   camera  rectangular, card   opts.camera (a camera entity; the default is the first in Settings' cameras.order that the house
 //                               has, else the first camera.* alphabetically): its still as an <img> (object-fit: cover), its
 //                               name in a small label on a soft dark gradient at the bottom left, 1.2 u in (opts.label: show it,
-//                               custom -- opts.name's words -- or hide it, label and gradient both). A camera with no
+//                               custom -- opts.name's words -- or hide it, label and gradient both). opts.picture (round 12, the owner: "the
+//                               option to have it live or snapshots ... added to the screensaver as well"): Snapshots, a still every ten
+//                               seconds (the default, as it always was), or Live, a still every three: a screensaver decodes no video (below). A camera with no
 //                               still (restored, stale, unavailable, none yet) is a dark placeholder with a camera glyph and the
 //                               name. NEVER a live stream: a still, every ten seconds, while it is shown.
 //   ring    inline, card        for 30 minutes after a doorbell event (window event hk-house-event, kind doorbell). Inline
@@ -57,6 +59,8 @@
 
   var GROUP = 'Cameras';
   var REFRESH_MS = 10000;                                       // the still, while it is shown (the side pane's)
+  var LIVE_MS = 3000;                                           // ...and a piece whose Picture is Live: the fastest the still route is asked
+  var LIVE_GAP = 2500;                                          // (its minimum between two asks)
   var MIN_GAP = 9000;                                           // a still is not asked for more often (the side pane's)
   var BAD_MS = 60000;                                           // a picture that failed is not asked for again with the same address
   var LOST_MS = 30000;                                          // a picture that neither loads nor fails is given up
@@ -156,10 +160,10 @@
     });
   }
   // ask for a camera's next still: off screen first, in place once it has a picture
-  function fetchStill(id, client, now) {
+  function fetchStill(id, client, now, gap) {
     var st = client && client.states && client.states[id], pic = picOf(st), s = stillOf(id);
     if (s.busy && now - s.at > LOST_MS) s.busy = false;
-    if (!pic || s.busy || now - s.at < MIN_GAP || typeof Image !== 'function') return;
+    if (!pic || s.busy || now - s.at < (gap || MIN_GAP) || typeof Image !== 'function') return;
     if (s.bad === pic && now - s.badAt < BAD_MS) return;
     s.busy = true; s.at = now; s.n++;
     var url = stillUrl(pic, s.n), im = new Image();
@@ -176,7 +180,7 @@
   // ------------------------------------------------------------ the pieces alive, and the one timer
   var ENT = [];                                                 // { api, client, now, ctx, k (its image's key), cam (the camera it wants a still of), dead }
   var NOTE = null;                                              // the spec the read just made (read it right after update())
-  var TIMER = { t: null }, KICK = { t: null };
+  var TIMER = { t: null, every: 0 }, KICK = { t: null };
   function note(spec) { NOTE = spec; return spec; }
   // a piece is shown when it is in the page, not hidden by the plan, and has a box
   function shown(e) {
@@ -190,9 +194,9 @@
   // THE TICK: nothing while the page is hidden; else a still for each camera that has a shown piece
   function tick() {
     if (hidden()) return;
-    var now = Date.now(), want = {};
-    ENT.forEach(function (e) { if (!e.dead && e.cam && e.client && shown(e)) want[e.cam] = e.client; });
-    Object.keys(want).forEach(function (id) { fetchStill(id, want[id], now); });
+    var now = Date.now(), want = {}, fast = {};
+    ENT.forEach(function (e) { if (!e.dead && e.cam && e.client && shown(e)) { want[e.cam] = e.client; if (e.fast) fast[e.cam] = true; } });
+    Object.keys(want).forEach(function (id) { fetchStill(id, want[id], now, fast[id] ? LIVE_GAP : MIN_GAP); });
   }
   // the first still (or the one after the page comes back) should not wait ten seconds: asked a moment later, coalesced
   function kick() {
@@ -201,18 +205,18 @@
   }
   // the timer runs while any alive piece wants a still, and not otherwise
   function syncTimer() {
-    var need = ENT.some(function (e) { return !e.dead && e.cam; });
-    if (need && !TIMER.t) TIMER.t = setInterval(tick, REFRESH_MS);
-    else if (!need && TIMER.t) { clearInterval(TIMER.t); TIMER.t = null; }
+    var need = ENT.some(function (e) { return !e.dead && e.cam; }), fast = ENT.some(function (e) { return !e.dead && e.cam && e.fast; }), every = fast ? LIVE_MS : REFRESH_MS;
+    if (TIMER.t && (!need || TIMER.every !== every)) { clearInterval(TIMER.t); TIMER.t = null; }
+    if (need && !TIMER.t) { TIMER.t = setInterval(tick, every); TIMER.every = every; }
   }
   function track(api, piece) {
-    var e = { api: api, piece: piece, client: null, now: null, ctx: null, k: '', cam: '', dead: false }, upd = api.update, des = api.destroy;
+    var e = { api: api, piece: piece, client: null, now: null, ctx: null, k: '', cam: '', fast: false, dead: false }, upd = api.update, des = api.destroy;
     ENT.push(e);
     api.update = function (client, now, ctx) {
       e.client = client; e.now = now; e.ctx = ctx;
       NOTE = null;
       var r = upd.apply(api, arguments);
-      if (NOTE) { e.k = NOTE.k || ''; e.cam = e.k.indexOf('cam:') === 0 ? e.k.slice(4) : ''; }
+      if (NOTE) { e.k = NOTE.k || ''; e.cam = e.k.indexOf('cam:') === 0 ? e.k.slice(4) : ''; e.fast = !!NOTE.fast; }
       syncTimer();
       if (e.cam && !urlFor(e.k) && shown(e)) kick();
       return r;
@@ -252,13 +256,13 @@
     // ITS NAME (2026-11-05): the camera's own (Show), the words given (Custom; none given, its own), or none (Hide): an
     // entity's name is often a device's ("G4 Doorbell Pro Package Camera"), not what a screen in the hall should say
     var o = X.opts || {}, label = o.label === 'hide' ? '' : o.label === 'custom' && typeof o.name === 'string' && o.name.trim() ? o.name.trim().slice(0, 40) : nameOf(id, st);
-    return note({ cam: id, name: label, k: id && !un ? 'cam:' + id : '', un: un ? 1 : 0 });
+    return note({ cam: id, name: label, k: id && !un ? 'cam:' + id : '', un: un ? 1 : 0, fast: o.picture === 'live' });
   }
   function camDraw(s) { return pic(s.k, s.name); }
   W.define('camera', {
     name: 'Camera', group: GROUP, wave: 'B', facts: ['camera'], source: 'camera.entity_picture', when: null,
-    wakes: ['minute', 'house'], pick: null, off: true, opts: { camera: 'entity:camera', label: ['show', 'custom', 'hide'], name: 'text' },
-    defaults: { camera: '', label: 'show', name: '' }, accent: null,
+    wakes: ['minute', 'house'], pick: null, off: true, opts: { camera: 'entity:camera', label: ['show', 'custom', 'hide'], name: 'text', picture: ['snapshots', 'live'] },
+    defaults: { camera: '', label: 'show', name: '', picture: 'snapshots' }, accent: null,
     shapes: {
       rectangular: { read: camRead, draw: camDraw, sample: { cam: '', name: 'Front Door', k: '', un: 1 } },
       card: { read: camRead, draw: camDraw, h: function () { return 16.8; }, sample: { cam: '', name: 'Front Door', k: '', un: 1 } }
@@ -361,6 +365,6 @@
   });
 
   // (for the tests, and a caller that wants the pieces' readings)
-  H.cameras = { stillUrl: stillUrl, STILLS: STILLS, SNAPS: SNAPS, ENT: ENT, TIMER: TIMER, tick: tick, picOf: picOf, pickCamera: pickCamera, nameOf: nameOf,
+  H.cameras = { LIVE_MS: LIVE_MS, LIVE_GAP: LIVE_GAP, stillUrl: stillUrl, STILLS: STILLS, SNAPS: SNAPS, ENT: ENT, TIMER: TIMER, tick: tick, picOf: picOf, pickCamera: pickCamera, nameOf: nameOf,
                 ring: function () { return RING; }, CSS: CSS, REFRESH_MS: REFRESH_MS, RING_MS: RING_MS };
 })();

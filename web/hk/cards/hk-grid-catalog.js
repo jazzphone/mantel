@@ -147,13 +147,16 @@
       return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' || s === 'W' ? { style: 'big' } : {})
                 : stand('Thermostat', 'hk:thermostat', 'No thermostat yet.'); } },
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
-    camera: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
+    // ROUND 12 (2026-11-23, the owner: "I like your camera card from the mock up...we need to include the option to have it live or snapshots"):
+    // the picture to the card's edge with its name at the foot, at every size -- Extra Large included, which no longer swaps in the
+    // picture-beside-today card (hk-camera-today-card stays registered, unused here). `picture`: Live or Snapshots; absent, Automatic, what
+    // the block always did (the screen's Live First Camera); `refresh`: s between a snapshot's frames (hk_core settings/home_grid.py)
+    camera: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag',
+      picture: 'camera_picture', refresh: 'refresh' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
-      // EXTRA LARGE (2026-11-09, mockup 13): the picture beside what that camera saw today -- where the host keeps a Timeline
-      // (Mantel); elsewhere (Home Assistant's HK Frontend) it stays the full picture
-      if (s === 'XL' && ids.length && hostHas('timeline')) return { type: 'custom:hk-camera-today-card', camera: ids[0] };
-      return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
-                            cameras: ids.map(function (id) { return { entity: id }; }), name_tag: o.name || 'auto' }
+      return ids.length ? Object.assign({ type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270', kit: true,
+                            cameras: ids.map(function (id) { return { entity: id }; }), name_tag: o.name || 'auto' },
+                            o.picture ? { picture: o.picture } : {}, o.refresh ? { refresh: o.refresh } : {})
                         : stand('Cameras', 'hk:camera', 'No cameras yet.'); } },
     // THE CAMERAS FACE (2026-10-30; hk-grid-cards.js hk-grid-cameras-card):
     // up to nine stills at once, arranged to the block -- the ones named, else
