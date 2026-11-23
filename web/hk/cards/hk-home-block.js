@@ -9,6 +9,9 @@
 //                        the categories as standard pills over the rooms' lines, Extra Large a column for the categories
 //                        beside the rooms. The plate opens the sheet, a room the sheet at that room, a category its own
 //                        page as its chip does (House Status's way); nothing in the block turns anything on.
+//                        ROUND 12 (2026-11-23): from Wide up the block is the kit's picture card instead -- the top of Apple's Home app: the house's
+//                        picture (four looks by the sun, dimmed), "Home" with its chevron, the inside temperature, and Climate, Lights, Doors and
+//                        Security as glass buttons; Extra Large adds the rooms down the right (_renderKit). Small is unchanged.
 //   hk-detail-home       the sheet's body (hkDetail.open {panel}): the generated Home, as a generated screen draws it --
 //                        the chips, the camera mosaic, Scenes, Favorites, every room (hkStrategy.homeSheet) -- at the Room
 //                        sheet's size. A room's heading opens the room INSIDE the sheet, one level deep, with a "‹ Home"
@@ -52,7 +55,147 @@
   // THE SHEET'S PLACE for a tap: a page it has, else Home
   function placeOf(at, pages) { return at && at !== 'home' && pages && pages[at] ? at : 'home'; }
 
-  var LIB = { segOf: segOf, wideLine: wideLine, roomSay: roomSay, placeOf: placeOf };
+  // ---- ROUND 12 (2026-11-23, the owner: "we probably need to make it somewhat dim, but I like the idea overall...not sure if it
+  // changes throughout the day, but that would be fun"): from Wide up the block is the top of Apple's Home app -- the house's
+  // picture fills it, drawn in four looks by the sun, dimmed so it sits back like a wallpaper, with the categories as glass
+  // buttons over it. What decides each part is here, plain data in and out.
+  // THE SKY'S LOOK from sun.sun (its state and attributes) and the hour: day over 10 degrees up, night under -6 (civil twilight's
+  // end), between them dawn while the sun is rising and dusk while it is setting; with no elevation, above or below the horizon;
+  // with no sun at all, the clock (5-8 dawn, 8-17 day, 17-20 dusk)
+  function skyLook(sun, hour) {
+    var a = (sun && sun.attributes) || {}, el = a.elevation == null || a.elevation === '' ? NaN : Number(a.elevation);
+    var h = hour == null || !isFinite(hour) ? 12 : Number(hour);
+    if (isFinite(el)) {
+      if (el >= 10) return 'day';
+      if (el < -6) return 'night';
+      return (a.rising != null ? !!a.rising : h < 12) ? 'dawn' : 'dusk';
+    }
+    var state = sun && sun.state;
+    if (state === 'above_horizon') return h < 9 ? 'dawn' : h >= 17 ? 'dusk' : 'day';
+    if (state === 'below_horizon') return 'night';
+    return h < 5 ? 'night' : h < 8 ? 'dawn' : h < 17 ? 'day' : h < 20 ? 'dusk' : 'night';
+  }
+  // WHICH OF THE HOUSE'S SEVEN WINDOWS ARE LIT (by their number in the picture): none by day; in the early and late hours as many as
+  // lights are on, in the order a house lights up (the living space first, then up); the lights not known, four
+  var WIN_ORDER = [0, 3, 4, 1, 5, 2, 6];
+  function litWindows(look, lights) {
+    if (look === 'day') return [];
+    var n = lights == null || !isFinite(lights) ? 4 : Math.max(0, Math.min(7, Math.round(Number(lights))));
+    return WIN_ORDER.slice(0, look === 'dawn' ? Math.min(n, 3) : n);
+  }
+  // HOW MANY LIGHTS ARE ON, from the Lights category's reading ("3 On"); null when it does not say
+  function lightsOn(sec) {
+    var r = sec && sec.reading;
+    if (!r || r.none) return null;
+    if (r.num != null && isFinite(Number(r.num))) return Number(r.num);
+    return /off/i.test(String(r.text || '')) ? 0 : null;
+  }
+  // a category's reading as one string: "71°", "3 On", "Disarmed" (no space before a degree or a percent)
+  function readText(r) {
+    if (!r || r.none) return '';
+    if (r.text) return String(r.text);
+    var u = r.unit == null ? '' : String(r.unit);
+    return String(r.num) + (u && !/^[°%]/.test(u) ? ' ' : '') + u;
+  }
+  // THE LINE UNDER "HOME": the inside temperature and what the climate is doing ("71° inside · Heating"; a narrow block "71° · Heating")
+  function homeLine(sec, narrow) {
+    if (!sec) return '';
+    var temp = readText(sec.reading), m = /^(Heating|Cooling)/.exec(String(sec.detail || '')), doing = m ? m[1] : '';
+    if (!temp) return doing;
+    if (!doing) return temp + ' inside';
+    return temp + (narrow ? '' : ' inside') + ' · ' + doing;
+  }
+  // THE CATEGORY BUTTONS: Climate, Lights, Doors, Security (Apple's Home app's own), the ones the screen's status model has, then others to
+  // fill `n`; a quiet Doors (nothing open, so no section) is made up -- "All Closed" -- where the screen has its page (`doorsPage`)
+  var CAT_KINDS = ['climate', 'lights', 'doors_windows', 'security'];
+  function pickCats(sections, n, doorsPage) {
+    var list = sections || [], by = {}, out = [];
+    list.forEach(function (x) { if (!by[x.kind]) by[x.kind] = x; });
+    CAT_KINDS.forEach(function (kd) {
+      var x = by[kd];
+      if (!x && kd === 'doors_windows' && doorsPage) {
+        x = { kind: kd, name: 'Doors', reading: { text: 'All Closed' }, tap: { action: 'navigate', navigation_path: doorsPage }, made: true };
+      }
+      if (x) out.push(x);
+    });
+    list.forEach(function (x) { if (out.length < n && out.indexOf(x) < 0 && CAT_KINDS.indexOf(x.kind) < 0) out.push(x); });
+    return out.slice(0, n);
+  }
+
+  // THE HOUSE'S PICTURE: an illustrated house -- the sky, far hills, a lawn, a house with a wing and a chimney, a pine and a round tree,
+  // windows lit by the evening's lights -- in the four looks, drawn in the block's own px (nothing is scaled, cropped or animated). `dim` is
+  // how much black goes over it, so it sits back like a wallpaper under the words and the buttons.
+  var SKIES = {
+    dawn: { sky: [[0, '#2a3066'], [0.5, '#7d5f96'], [0.78, '#e39b7e'], [1, '#f7d09c']], far: '#4b4262', lawn: '#26332a', wall: '#554c63', wing: '#5d546b',
+            roof: '#2e2a3c', tree: '#1c2a24', off: '#3b3a50', dim: 0.26, stars: 0.35 },
+    day: { sky: [[0, '#4a93dc'], [0.6, '#93c8ef'], [1, '#d6ecf8']], far: '#86ad7c', lawn: '#5c9a4a', wall: '#e8dfce', wing: '#dcd0bb',
+           roof: '#6b5249', tree: '#2e6a3b', off: '#86adc9', dim: 0.42, stars: 0 },
+    dusk: { sky: [[0, '#1b2647'], [0.45, '#4c4f7e'], [0.66, '#d98d68'], [0.74, '#f2c08a']], far: '#232c1d', lawn: '#1a2215', wall: '#171920', wing: '#1d1f28',
+            roof: '#121318', tree: '#121810', off: '#2a2e3a', dim: 0.22, stars: 0.7 },
+    night: { sky: [[0, '#050816'], [0.55, '#0e1735'], [1, '#1c2850']], far: '#0f1529', lawn: '#0b120d', wall: '#0e1017', wing: '#12141c',
+             roof: '#090a10', tree: '#080e0a', off: '#1a1e2b', dim: 0.08, stars: 1 }
+  };
+  var STARS = [[0.08, 0.06, 1.4], [0.2, 0.14, 1], [0.33, 0.05, 1.2], [0.46, 0.12, 1], [0.58, 0.04, 1.3], [0.7, 0.1, 1], [0.82, 0.05, 1.4], [0.92, 0.15, 1],
+               [0.15, 0.28, 1], [0.62, 0.24, 1], [0.88, 0.3, 1.2], [0.4, 0.3, 0.9]];
+  // the seven windows, from the house's center and its ground line: x, y, width, height
+  var WINDOWS = [[-54, -62, 18, 22], [-18, -62, 18, 22], [18, -62, 18, 22], [46, -62, 16, 22], [-54, -32, 18, 22], [30, -32, 18, 22], [-98, -38, 18, 20]];
+  function dimOf(look) { return (SKIES[look] || SKIES.day).dim; }
+  // o: { cx, base, s } the house's center, ground line and scale; lit: the windows' numbers (litWindows)
+  function sceneSvg(w, h, look, o) {
+    var P = SKIES[look] || SKIES.day;
+    o = o || {};
+    w = Math.round(w) || 196;
+    h = Math.round(h) || 196;
+    var sw = o.sw || w, cx = o.cx != null ? o.cx : w / 2, base = o.base != null ? o.base : h * 0.66, sc = o.s || 1, lit = o.lit || [], dark = look !== 'day';
+    var f = function (n) { return Math.round(n * 10) / 10; };
+    var stops = P.sky.map(function (q) { return '<stop offset="' + q[0] + '" stop-color="' + q[1] + '"/>'; }).join('');
+    var d = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true" style="display:block">' +
+      '<defs><linearGradient id="hsk" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="' + f(base) + '">' + stops + '</linearGradient>' +
+      '<radialGradient id="hgl"><stop offset="0" stop-color="#ffbe5a" stop-opacity=".55"/><stop offset="1" stop-color="#ffbe5a" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="hwn" cx=".5" cy=".5" r=".75"><stop offset="0" stop-color="#fff2c8"/><stop offset="1" stop-color="#ffb84d"/></radialGradient>' +
+      '<radialGradient id="hsn"><stop offset="0" stop-color="#fff4d2" stop-opacity=".9"/><stop offset="1" stop-color="#fff4d2" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="hho"><stop offset="0" stop-color="#ffb070" stop-opacity=".75"/><stop offset="1" stop-color="#ffb070" stop-opacity="0"/></radialGradient></defs>' +
+      '<rect width="' + w + '" height="' + h + '" fill="url(#hsk)"/>';
+    if (P.stars) {
+      STARS.forEach(function (t) { d += '<circle cx="' + f(t[0] * w) + '" cy="' + f(t[1] * base) + '" r="' + t[2] + '" fill="#fff" opacity="' + f(P.stars * 0.75) + '"/>'; });
+    }
+    if (look === 'night') d += '<circle cx="' + f(sw * 0.8) + '" cy="' + f(base * 0.24) + '" r="46" fill="url(#hsn)" opacity=".55"/><circle cx="' + f(sw * 0.8) + '" cy="' + f(base * 0.24) +
+      '" r="14" fill="#f4efe0"/><circle cx="' + f(sw * 0.8 + 4) + '" cy="' + f(base * 0.24 - 3) + '" r="3" fill="#d9d2c0"/>';
+    if (look === 'day') {
+      d += '<circle cx="' + f(sw * 0.82) + '" cy="' + f(base * 0.22) + '" r="70" fill="url(#hsn)" opacity=".8"/><circle cx="' + f(sw * 0.82) + '" cy="' + f(base * 0.22) + '" r="15" fill="#fff8dc"/>';
+      [[0.16, 0.3, 1], [0.5, 0.16, 0.8], [0.62, 0.4, 1.1]].forEach(function (c) {
+        var x = c[0] * sw, y = c[1] * base, z = c[2] * 26;
+        d += '<g fill="#fff" opacity=".82"><ellipse cx="' + f(x) + '" cy="' + f(y) + '" rx="' + f(z * 1.6) + '" ry="' + f(z * 0.55) + '"/><ellipse cx="' + f(x - z * 0.7) + '" cy="' +
+          f(y + z * 0.15) + '" rx="' + f(z) + '" ry="' + f(z * 0.5) + '"/><ellipse cx="' + f(x + z * 0.8) + '" cy="' + f(y + z * 0.12) + '" rx="' + f(z * 1.1) + '" ry="' + f(z * 0.48) + '"/></g>';
+      });
+    }
+    // (the sun low behind the house at dawn, the last of it at dusk)
+    if (look === 'dawn' || look === 'dusk') d += '<ellipse cx="' + f(cx + (look === 'dawn' ? 70 : -80) * sc) + '" cy="' + f(base - 14 * sc) + '" rx="' + f(190 * sc) + '" ry="' + f(120 * sc) +
+      '" fill="url(#hho)" opacity="' + (look === 'dawn' ? 0.9 : 0.6) + '"/>';
+    d += '<path d="M0 ' + f(base - 22 * sc) + ' Q ' + f(w * 0.25) + ' ' + f(base - 52 * sc) + ' ' + f(w * 0.5) + ' ' + f(base - 28 * sc) + ' T ' + w + ' ' + f(base - 38 * sc) + ' V ' + h +
+      ' H0Z" fill="' + P.far + '"/>';
+    d += '<path d="M0 ' + f(base - 6 * sc) + ' C ' + f(w * 0.3) + ' ' + f(base - 14 * sc) + ' ' + f(w * 0.7) + ' ' + f(base - 2 * sc) + ' ' + w + ' ' + f(base - 10 * sc) + ' V ' + h + ' H0Z" fill="' +
+      P.lawn + '"/>';
+    d += '<g transform="translate(' + f(cx) + ' ' + f(base) + ') scale(' + f(sc) + ')">';
+    // (a pine at the left, a round tree at the right where there is room for it)
+    d += '<g fill="' + P.tree + '"><path d="M-130 -96 L-152 -58 H-108Z"/><path d="M-130 -76 L-158 -32 H-102Z"/><path d="M-130 -54 L-164 -4 H-96Z"/><rect x="-133" y="-6" width="6" height="8"/></g>';
+    if (w - cx > 150 * sc) d += '<g fill="' + P.tree + '"><rect x="108" y="-24" width="6" height="26"/><circle cx="111" cy="-44" r="25"/><circle cx="126" cy="-30" r="16"/></g>';
+    d += '<rect x="-110" y="-50" width="78" height="50" fill="' + P.wing + '"/><polygon points="-120,-48 -72,-86 -24,-48" fill="' + P.roof + '"/>' +
+      '<rect x="-72" y="-70" width="144" height="70" fill="' + P.wall + '"/><rect x="38" y="-116" width="16" height="34" fill="' + P.roof + '"/>' +
+      '<polygon points="-84,-66 0,-128 84,-66" fill="' + P.roof + '"/>';
+    d += '<rect x="-10" y="-30" width="16" height="30" rx="2" fill="' + (lit.length ? '#ffd27a" opacity=".85' : P.off) + '"/>';
+    WINDOWS.forEach(function (q, i) {
+      var on = lit.indexOf(i) >= 0;
+      if (on) d += '<ellipse cx="' + (q[0] + q[2] / 2) + '" cy="' + (q[1] + q[3] / 2) + '" rx="' + (q[2] * 1.7) + '" ry="' + (q[3] * 1.5) + '" fill="url(#hgl)"/>';
+      d += '<rect x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" rx="2.5" fill="' + (on ? 'url(#hwn)' : P.off) + '"/>' +
+        '<path d="M' + (q[0] + q[2] / 2) + ' ' + q[1] + 'v' + q[3] + 'M' + q[0] + ' ' + (q[1] + q[3] / 2) + 'h' + q[2] + '" stroke="' + (dark ? 'rgba(0,0,0,.35)' : 'rgba(255,255,255,.55)') +
+          '" stroke-width="1.3"/>';
+    });
+    return d + '</g></svg>';
+  }
+
+  var LIB = { segOf: segOf, wideLine: wideLine, roomSay: roomSay, placeOf: placeOf, skyLook: skyLook, litWindows: litWindows, lightsOn: lightsOn,
+              readText: readText, homeLine: homeLine, pickCats: pickCats, CAT_KINDS: CAT_KINDS, sceneSvg: sceneSvg, dimOf: dimOf, LOOKS: ['dawn', 'day', 'dusk', 'night'] };
   window.hkHomeBlock = { version: '1.0.0', lib: LIB };
 
   // ======================================================================== the cards
@@ -490,12 +633,86 @@
         }
         _sigOf() {
           var size = this._size(), base = size === 'S' && this.getAttribute('tile') === 'centred' ? 'hb:S' : super._sigOf(), c = this.client;
+          // (the picture's look: read when told, so a screen keeps sun.sun; the look moves a few times a day, not with its elevation)
+          if (size !== 'S') base += '|' + this._sky();
           if (size === 'S' || size === 'W' || size === 'T' || !c) return base + '|' + this._name() + '|' + (this.getAttribute('tile') || '');
           var self = this;
           return base + '|' + this._name() + '|' + (this.getAttribute('tile') || '') + '|' +
             roomList(c).map(function (r) { return r.id + '=' + roomReading(self.client, r); }).join(';');
         }
+        // THE PICTURE'S LOOK, by the sun now
+        _sky() {
+          var st = this.client && this.client.states, now = new Date();
+          return skyLook(st ? st['sun.sun'] : null, now.getHours() + now.getMinutes() / 60);
+        }
+        // THE KIT'S CARD, Wide and up (round 12; hk-kit.js, docs/phase34/PLAN.md): the top of Apple's Home app -- the house's picture, dimmed,
+        // "Home" with the chevron that says it opens, the inside temperature and what the climate is doing, and the categories as glass
+        // buttons at the foot; Extra Large adds the rooms down the right. Small stays the glyph alone (false: the older drawing).
+        _renderKit() {
+          var K = window.hkKit, size = this._size(), c = this.client, self = this;
+          if (!K || size === 'S' || !c) return false;
+          if (this._watchBlock) this._watchBlock();
+          var k = K.ctx(this), w = k.w, h = k.h, E = k.E, X = k.X, KH = K.KH, G = K.G, name = this._name();
+          var m = this._sections(), sections = (m && m.sections) || [], look = this._sky(), narrow = w < 300, ink = '#fff';
+          var M = C.menu, doors = M && M.pagePath ? (M.pagePath('doors-windows') || M.pagePath('doors') || M.pagePath('security')) : null;
+          var cats = pickCats(sections, size === 'W' || size === 'T' ? 3 : 4, doors), climate = sections.filter(function (x) { return x.kind === 'climate'; })[0];
+          var lw = size === 'XL' ? Math.min(w, 405) : w, o = '';
+          // the picture, where the house stands in the free band between the words and the buttons
+          var at = { W: { cx: w - 124, base: 130, s: 0.74 }, T: { cx: w / 2, base: 176, s: 0.72 }, L: { cx: lw / 2, base: h - 153, s: 1.2 }, XL: { cx: lw / 2, base: h - 153, s: 1.2 } }[size];
+          var lit = litWindows(look, lightsOn(sections.filter(function (x) { return x.kind === 'lights'; })[0]));
+          o += K.box(0, 0, w, h, '', 'overflow:hidden', sceneSvg(w, h, look, { cx: at.cx, base: at.base, s: at.s, lit: lit, sw: lw })) +
+            K.box(0, 0, w, h, 'pho', 'background:linear-gradient(180deg,rgba(0,0,0,.3) 0,rgba(0,0,0,0) 36%,rgba(0,0,0,0) 56%,rgba(0,0,0,.34) 100%),rgba(0,0,0,' + dimOf(look) + ')');
+          // the words: the house's name, large, with the chevron; under it the line
+          o += K.box(X, 16, lw - 2 * X, 28, '', 'display:flex;align-items:center;gap:4px', '<span class="kd" style="flex:0 1 auto;min-width:0">' + esc(name) + '</span>' +
+              K.svg('chev', 18, 'rgba(255,255,255,.85)')) + K.tx(X, 46, lw - 2 * X, 'kb', esc(homeLine(climate, narrow)));
+          // the buttons
+          this._shown = cats;
+          var teal = '#5ce1e6', btn = cats.map(function (x, i) {
+            var kd = x.kind, label = kd === 'doors_windows' ? 'Doors' : x.name, say = readText(x.reading), isOpen = kd === 'doors_windows' && !x.made && !!x.attention;
+            if (kd === 'doors_windows') say = say.replace(/^(\d+) (?:Doors?|Windows?|Garages?)\b/, '$1');      // ("3 Doors Open" is "3 Open" on a button)
+            if (isOpen && !/open/i.test(say)) say += ' Open';
+            var tint = { climate: '#ff9f0a', lights: '#ffcc00', doors_windows: teal, security: ink }[kd] || ink, on = kd === 'lights' ? /^[1-9]/.test(say) : isOpen;
+            var icon = { climate: 'hk:thermostat', lights: 'hk:lightbulb', doors_windows: 'hk:garage', security: 'hk:shield-home' }[kd] || x.icon || 'mdi:circle-outline';
+            return { g: K.glyph(icon, 26, K.tone(k, tint, on || kd === 'climate'), true) + '<span class="hb"><b>' + esc(label) + '</b><i' + (isOpen ? ' style="color:#7fe9ee"' : '') + '>' +
+              esc(say) + '</i></span>', label: label + (say ? ', ' + say : ''), data: { i: i } };
+          });
+          if (size === 'W') o += K.foot(k, btn);
+          else if (size === 'T') o += K.stack(k, btn.map(function (b) { return [b]; }));
+          else o += K.stack(Object.assign({}, k, { w: lw }), K.chunk(btn, 2));
+          if (size === 'XL') {
+            var rooms = roomList(c), rx = lw + 2, rw = w - E - rx, pk = Object.assign({}, k, { X: 16 }), RH = K.RH, list = '';
+            rooms.forEach(function (r, i) {
+              var say = roomReading(c, r), y = i * RH;
+              list += K.row(pk, 0, y, rw, { t: r.name, b: say, trail: '\u00a0', label: r.name + (say ? ', ' + say : ''), data: { r: r.id } }, i === rooms.length - 1, RH) +
+                K.box(rw - 30, y + (RH - 18) / 2, 14, 18, 'fc', 'pointer-events:none', K.svg('chev', 14, 'rgba(255,255,255,.6)'));
+            });
+            o += K.box(rx, E, rw, h - 2 * E, '', 'border-radius:' + k.r + 'px;background:rgba(0,0,0,.34)') + K.tx(rx + 16, E + 14, rw - 32, 'kl', 'Rooms') +
+              '<div class="a sc" role="list" style="' + K.st(rx, E + 44, rw, h - 2 * E - 44) + '">' + list + '</div>';
+          }
+          var css = '<style>.kit.photo{color:#fff;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.8);--hk-ink-3:rgba(255,255,255,.6);--hk-line:rgba(255,255,255,.16);--hk-glow:none;text-shadow:none}' +
+            '.kit.photo .kd,.kit.photo .kb{text-shadow:0 1px 4px rgba(0,0,0,.45)}' +
+            // (the buttons: a translucent dark and a hairline ring, never a blur of their own -- the picture is under them)
+            '.kit.photo .key{background:rgba(28,30,40,.62);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 1px 0 rgba(255,255,255,.2);justify-content:flex-start;gap:10px;' +
+              'padding:0 12px 0 14px;' +
+            'text-shadow:none}.kit.photo .key:active{background:rgba(28,30,40,.82)}' +
+            '.kit.photo .hb{display:flex;flex-direction:column;min-width:0;text-align:left}' +
+            '.kit.photo .hb b{font-weight:600;font-size:17px;letter-spacing:-.3px;line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            '.kit.photo .hb i{font-style:normal;font-weight:400;font-size:15px;line-height:20px;color:rgba(255,255,255,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            '.kit.photo .sc{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}' +
+            '.kit.photo .sc::-webkit-scrollbar{display:none}.kit.photo .row:active{background:rgba(255,255,255,.1)}</style>';
+          return K.draw(this, K.plate(k, css + o, { label: name + '. Opens ' + name, cls: 'photo' }), function (/** @type {any} */ root) {
+            root.querySelectorAll('[data-i]').forEach(function (/** @type {any} */ b) {
+              b.addEventListener('click', function () {
+                var sec = (self._shown || [])[Number(b.getAttribute('data-i'))];
+                if (!sec || !P.go(self, sec, false)) self._open('home');
+              });
+            });
+            root.querySelectorAll('[data-r]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._openRoom(b.getAttribute('data-r')); }); });
+          });
+        }
         _render() {
+          // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none: Small)
+          if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) { this._built = false; return; } } else if (this._kitHtml) { window.hkKit.forget(this); this._built = false; }
           var self = this;
           if (!this._built) {
             this._built = true;
