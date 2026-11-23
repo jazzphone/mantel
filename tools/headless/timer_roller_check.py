@@ -1,9 +1,8 @@
 """The timer wheels (hk-roller.js; the owner's mockup 5c, 2026-11-09, "Yes, build it") against the fictional home, never a
 household's: an Extra Large Timers block with nothing running makes a timer in the block -- three wheels (hours,
-minutes, seconds) on 0, 15 and 0; a finger's flick on the minutes wheel settles on another number and Start says so; a
-tap on a number moves its wheel there; Start sends script.quick_timer_start the HH:MM:SS. The kit's Extra Large block (phase 34) holds the wheels in its own plate, no card inside it, and its key says Start
-Timer (the wheels say the length). The "+" on a Wide block opens
-the New Timer sheet, the same wheels where the keypad was.
+minutes, seconds) on 0, 15 and 0; a finger's flick on the minutes wheel settles on another number; a tap on a number
+moves its wheel there; Start sends script.quick_timer_start the HH:MM:SS. The kit's Extra Large block (phase 34) holds the
+wheels in its own plate, no card inside it, and its key says Start Timer (the wheels say the length). The "+" on a Wide block opens
 
     python tools/headless/timer_roller_check.py [--shots DIRECTORY]
 """

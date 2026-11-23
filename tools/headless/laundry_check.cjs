@@ -30,11 +30,13 @@ function blocks() {
     const cut = [...sr.querySelectorAll(words)].filter((e) => e.getClientRects().length && e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent);
     const text = (s) => [...sr.querySelectorAll(s)].filter((e) => e.getClientRects().length).map((e) => e.textContent);
     // the steps: each bar's fill, and the name under it (where it has room for one)
-    const bars = [...sr.querySelectorAll('.a:has(> i)')].map((e) => ({ fill: e.firstElementChild.style.width, name: ((e.nextElementSibling || {}).className || '').includes('kl') ? e.nextElementSibling.textContent : '' }));
+    const bars = [...sr.querySelectorAll('.a:has(> i)')].map((e) => ({ fill: e.firstElementChild.style.width, name: ((e.nextElementSibling || {}).className || '').includes('kl') ?
+      e.nextElementSibling.textContent : '' }));
     // the readings under the steps: a row's value, then its name
     const rows = [...sr.querySelectorAll('button.row')].map((e) => [(e.nextElementSibling || e).textContent, ((e.nextElementSibling || e).nextElementSibling || e).textContent]);
     return { size: c.getAttribute('size'), past, cut, titles: text('.kd'), lines: text('.kb'), names: text('.kt, .kl, .kd'),
-             steps: bars.map((x) => x.name).filter(Boolean), fills: bars.map((x) => x.fill), pills: text('.key'), arts: sr.querySelectorAll('svg.hkla').length, drawn: [...sr.querySelectorAll('svg.hkla')].map((e) => (e.getAttribute('class').match(/s-(\w+)/) || [])[1]),
+             steps: bars.map((x) => x.name).filter(Boolean), fills: bars.map((x) => x.fill), pills: text('.key'), arts: sr.querySelectorAll('svg.hkla').length,
+               drawn: [...sr.querySelectorAll('svg.hkla')].map((e) => (e.getAttribute('class').match(/s-(\w+)/) || [])[1]),
              halves: sr.querySelectorAll('button.hit').length, rows,
              foot: Math.round(pb.b - Math.max(...parts.map((e) => box(e).b))) };
   });
