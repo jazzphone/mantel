@@ -49,7 +49,9 @@
         // outer boundary. Shadows can extend between the cells.
         st.textContent =
           ':host{--g-room:calc(var(--hk-bar-room,var(--hk-tabbar-h,0px)) + var(--hk-pane-b,0px) + var(--hk-edit-room,0px));display:block;position:relative;' +
-          'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
+          // (less the view's top room where the page keeps one itself: an Apple HomeView's, under Safari's buttons --
+          // web/shim/homeview.js; unset everywhere else)
+          'height:calc(100dvh - var(--g-room) - var(--hk-view-top,0px));max-height:calc(100dvh - var(--g-room) - var(--hk-view-top,0px));overflow:hidden;' +
           // (clear of a side safe area, as every view: hk-grid-view; _measure fits the grid between)
           'container-type:size;box-sizing:border-box;padding-left:' + SAFE_PAD_L + ';padding-right:' + SAFE_PAD_R + '}' +
           '#root{--g-pad:' + GRID.pad + 'px;--g-gap:' + GRID.gap + 'px;' +
