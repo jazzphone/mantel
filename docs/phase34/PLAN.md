@@ -25,6 +25,23 @@ Before it, over the review: bigger touch areas on every card, in HomeView's lang
 a design standpoint ... speak the same language", "close attention to margins/padding/spacing ... that radius follows
 through the cards too".
 
+## Rounds 12 and 13 (2026-11-23): every card built
+
+The owner approved the round 12 review page (https://claude.ai/artifact/UgrmTibpJm66bvV2mAodgx) and said "implement all the changes and
+don't stop until it's done". Built in the kit, each in its card's own file: Thermostat Extra Large (the Large face and its readings,
+Mode and Fan, one plate), Weather (Apple's symbol behind the temperature), Clock (Double Extra Large with the month and the day's
+events), On Now (the count, one bar of what it is made of, the kinds as rows), House Status (the headline's category leaves the list),
+Recent (one line a row), Now Playing (volume as wide as the progress; the cover opens Browse / Queue / Speakers), Live TV (each
+channel's show with its art), Camera (Picture: Live or Snapshots, on the screensaver piece too), Cameras (equal boxes, the largest
+16:9 for the count), Calendar (Large the month; Extra Large the month and the day), Doors & Locks (rows, Lock All that asks first),
+People (who is home as overlapping circles, the latest arrival on top), Laundry (today's animated machines in one plate; a
+washer-dryer too), Battery (Apple's Batteries ring) and Energy Rings (the Fitness rings, a week of them on Extra Large).
+
+Round 13 (the owner: "The Cartoon nature just doesn't work here"): Home and Room are Apple's Home app wallpapers -- soft fields of
+color (Home's by the time of day, a room's by its page color; a room's own picture over it), the glyph in the header (44 px, on the
+words' inset, 300 px and wider) and huge as texture off the lower right (1.4 x the height, 5%); the room's accessories as Home's
+buttons (three rows on Large and Extra Large), Extra Large Room's scenes in Home's panel; and a Background option (Wallpaper / None).
+
 ## The way back: git, not a switch
 
 The trial first shipped behind an Appearance switch (Card Design: Current / New). The owner, 2026-11-23: "I'm not a fan of this
