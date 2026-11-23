@@ -33,7 +33,18 @@
     // header with "N more" and 2 x 2; Extra Large 3 x 2. The one on now (the chosen channel, else the last played here, else the first) carries
     // its progress. THE ART IS THE GUIDE'S, in this order: the show's picture (the now sensor's `image`), else the channel's logo (`logo`) on the
     // channel's color, else a generated tile: the channel's color with the show's name in white. Both pictures come through _artImage, the
-    // signed art route every other picture uses.
+    // signed art route every other picture uses. Where a channel has BOTH a show's picture and a logo, the logo is also a small white mark in the
+    // picture's upper-left corner (tvMark), so the picture does not stand alone.
+    /**
+     * The channel's mark over a show's picture: a white plate in its upper-left corner, a corner radius in from the corner, about a quarter of the
+     * picture's width and an eighth of it tall (the logo fits inside, whole). The progress bar is at the picture's foot, the words below it.
+     * @param {number} i the art's index @param {number} aw the picture's width @param {number} r the picture's corner radius
+     */
+    function tvMark(i, aw, r) {
+      var h = Math.max(16, Math.min(44, Math.round(aw * 0.13))), w = Math.min(130, Math.round(aw * 0.27)), pad = Math.max(3, Math.round(h * 0.18));
+      return '<span class="tvm" data-mark="' + i + '" style="left:' + r + 'px;top:' + r + 'px;height:' + h + 'px;max-width:' + w + 'px;padding:' + pad + 'px ' + (pad + 2) + 'px;' +
+        'border-radius:' + Math.max(4, Math.round(h * 0.28)) + 'px"></span>';
+    }
     var TV_SLOTS = { S: 1, W: 2, T: 3, L: 6, XL: 6 };
     var TV_BACKOFF = [5000, 15000, 60000, 300000];
     function tvShare(a) {
@@ -342,6 +353,10 @@
           '-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.4)}' +
           '.kit .tvg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;padding:4px 9px;border-radius:' + C.R.small + 'px;' +
           'background:rgba(255,255,255,.9);max-width:62%}.kit .tvg img{display:block;height:100%;width:auto;max-width:100%;object-fit:contain}' +
+          // THE CHANNEL'S MARK on a show's picture (2026-11-23, the owner: "Live TV card looks funny with the art: maybe add the channel logo in the
+          // upper left corner of the artwork"): the logo on its small white plate, a corner's radius in from the picture's corner; hidden until the logo has loaded
+          '.kit .tvm{position:absolute;box-sizing:border-box;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.9);visibility:hidden;pointer-events:none}' +
+          '.kit .tvm.on{visibility:visible}.kit .tvm img{display:block;height:100%;width:auto;max-width:100%;object-fit:contain}' +
           '.kit .tvb{position:absolute;height:4px;border-radius:' + C.R.capsule('4px') + ';background:rgba(255,255,255,.38);overflow:hidden;box-shadow:0 0 0 .5px rgba(0,0,0,.18)}' +
           '.kit .tvb i{display:block;height:100%;width:0;border-radius:' + C.R.capsule('4px') + ';background:#fff}</style>';
         var finish = /** @type {(o: string, label?: string) => any} */ (function (o, label) {
@@ -354,6 +369,10 @@
               if (!box) return;
               if (a.image) self._artImage(a.image, box, '', a.px);
               if (a.logo) { var lg = root.querySelector('[data-logo="' + a.i + '"]'); if (lg) self._artImage(a.logo, lg, '', 150); }
+              if (a.mark) {
+                var mk = root.querySelector('[data-mark="' + a.i + '"]'), mi = mk && self._artImage(a.mark, mk, '', 150);
+                if (mi) mi.addEventListener('load', function () { mk.classList.add('on'); });     // (a logo that fails leaves the plate hidden, and nothing shows)
+              }
             });
             self._bars = [];
             root.querySelectorAll('[data-bar]').forEach(function (/** @type {any} */ el) { self._bars.push({ el: el, a: bars[+el.getAttribute('data-bar')] }); });
@@ -380,8 +399,8 @@
           var inner = '<span class="tvf" style="background:linear-gradient(150deg,' + d.t[0] + ',' + d.t[1] + ')">' + gl +
             (d.a.image && !d.a.logo ? '' : '<span class="tvt" style="font-size:' + fs + 'px">' + esc2(d.show) + '</span>') + '</span>' +
               (d.a.image ? '<span class="ai" data-art="' + i + '"></span>' : '');
-          arts.push({ i: i, image: d.a.image || '', logo: !d.a.image && d.a.logo ? d.a.logo : '', px: px });
-          var o = K.box(x, y, aw, ah, 'pic', 'border-radius:' + r + 'px', inner);
+          arts.push({ i: i, image: d.a.image || '', logo: !d.a.image && d.a.logo ? d.a.logo : '', mark: d.a.image && d.a.logo ? d.a.logo : '', px: px });
+          var o = K.box(x, y, aw, ah, 'pic', 'border-radius:' + r + 'px', inner + (d.a.image && d.a.logo ? tvMark(i, aw, r) : ''));
           if (bar && d.a.start && d.a.end) { bars.push(d.a); o += '<div class="a tvb" style="' + K.st(x + 10, y + ah - 14, aw - 20, 4) + '"><i data-bar="' + (bars.length - 1) + '"></i></div>'; }
           return o;
         };
