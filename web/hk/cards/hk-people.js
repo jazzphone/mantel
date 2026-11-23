@@ -365,12 +365,14 @@
         return '<span class="fc" style="width:' + d + 'px;height:' + d + 'px;border-radius:50%;background:' + K.v('key-strong', 'rgba(255,255,255,.24)') + ';color:' + K.v('ink', '#fff') +
           ';font-weight:700;font-size:' + Math.round(d * 0.34) + 'px;box-shadow:0 0 0 ' + ring + 'px var(--pr)">+' + n + '</span>';
       };
-      // the cluster in a square of s px at (x, y)
+      // the cluster in a square of s px at (x, y), drawn at FACES of it about its middle (2026-11-23, the owner: "Can we make the
+      // Glyphs/People/Profile art a little smaller on the Who's Home Card. They are all too big across the board.")
+      var FACES = 0.8;
       var clusterAt = function (x, y, s) {
-        var cs = cluster(people), out = '';
+        var cs = cluster(people), out = '', f = s * FACES, ox = x + (s - f) / 2, oy = y + (s - f) / 2;
         cs.forEach(function (c) {
-          var r = c.r * s, d = Math.round(2 * r), ring = Math.max(3, Math.round(r * 0.07));
-          out += K.box(x + c.x * s - r, y + c.y * s - r, d, d, '', '', c.person ? disc(c.person, d, ring, c.last, false) : more(c.more, d, ring));
+          var r = c.r * f, d = Math.round(2 * r), ring = Math.max(3, Math.round(r * 0.07));
+          out += K.box(ox + c.x * f - r, oy + c.y * f - r, d, d, '', '', c.person ? disc(c.person, d, ring, c.last, false) : more(c.more, d, ring));
         });
         if (!cs.length) out += K.box(x + s * 0.14, y + s * 0.14, s * 0.72, s * 0.72, 'fc', 'border-radius:50%;background:' + K.v('key', 'rgba(255,255,255,.14)'),
           K.glyph('mdi:home-outline', Math.round(s * 0.3), K.v('ink-2', 'rgba(255,255,255,.68)')));

@@ -399,7 +399,8 @@
           var g = c.k === 'clear' ? K.svg('check', 22) : c.k === 'pause' ? K.svg('pause', 22) : c.k === 'resume' ? K.svg('play', 22) :
             '<span class="g" style="width:22px;height:22px"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" ' +
               'rx="3"/></svg></span>';
-          return { g: g, t: c.name, label: c.name + ' the ' + String(m.name).toLowerCase(), data: { k: c.k, m: m.id }, tint: c.k === 'stop' ? RED : '' };
+          return { g: g, t: c.name, label: c.name + ' the ' + String(m.name).toLowerCase(), data: { k: c.k, m: m.id } };
+          // (Stop is a key like the others, in the words' ink -- 2026-11-23, the owner: "the harsh red color for stop on laundry...doesn't look great")
         });
       };
       /** @param {number} x @param {number} y @param {number} ww @param {any} m */
