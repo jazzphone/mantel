@@ -576,8 +576,22 @@ function () {
   window.hkCards.menu.tabBar = function () { return true; };
   window.hkTabBar = { open: function (k) { sheets.push(k); } };
   card._tap();
-  window.hkCards.menu.tabBar = tb; window.hkTabBar = bar; window.hkMenu = was;
+  window.hkCards.menu.tabBar = tb; window.hkTabBar = bar;
   eq('the tab bar showing: its More sheet', [sheets, opened], [['more'], 1]);
+  // NO MENU AT ALL (a screen's Menu off: the owner's Apple HomeView, 2026-11-23, where the tap did nothing): the Pages screen
+  var on = window.hkCards.menu.on, nav = window.hkCards.navigate, items = card._items, went = [];
+  window.hkCards.menu.on = function () { return false; };
+  window.hkCards.navigate = function (path) { went.push(path); };
+  card._items = function () { var a = []; /** @type {any} */ (a).pagesPath = '/apple-homeview/pages'; return a; };
+  card._tap();
+  eq('no tab bar and no side menu: the Pages screen', [went, opened], [['/apple-homeview/pages'], 1]);
+  card._items = function () { return []; };
+  card._tap();
+  eq('...and with no Pages screen either, the menu as before', [went.length, opened], [1, 2]);
+  card._config = { tap: 'none' };
+  card._tap();
+  eq('...When Tapped Nothing still does nothing', [went.length, opened], [1, 2]);
+  window.hkCards.menu.on = on; window.hkCards.navigate = nav; card._items = items; window.hkMenu = was;
 },
 function () {
   H.section('a camera block\'s Name (2026-10-31): Automatic, Show or Hide, handed to its mosaic');
