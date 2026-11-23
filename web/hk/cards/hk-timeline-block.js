@@ -567,6 +567,65 @@
       this._loadSummary();
     }
 
+    // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): a LIST PLATE -- the header (a history glyph, "Recent", what it shows under it,
+    // "N more" at its right end), then rows of 60: the event's glyph at 28 in its kind's color, what happened over where and when. Extra
+    // Large puts them in two columns; a narrow plate says the thing and what it did; Wide, with room for one row, centers the header and
+    // the row as one group; Small is HomeView's tile of the newest event. The morning summary is the same plate: its status, then the
+    // night's kinds with their counts at the right. A row opens what it stands for (`_open`), the plate the Timeline page.
+    _renderKit() {
+      var K = window.hkKit;
+      if (!K) return false;
+      this._watchBlock();
+      var self = this, size = this._size(), k = K.ctx(this), w = k.w, h = k.h, X = k.X, sq = h >= 180, esc2 = K.esc, narrow = w < 300;
+      var teal = K.tone(k, inkOf('teal'), false), hg = K.glyph('mdi:history', 28, teal);
+      /** @param {any} root */
+      var bind = function (root) {
+        root.querySelectorAll('[data-ev]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function (/** @type {any} */ e) { self._open(b.getAttribute('data-ev'), e); }); });
+      };
+      // (the block's own `.kt` is the morning summary's tiles; the kit's title there is a plain box)
+      var fix = '<style>.kit .kt{display:block;flex:none;gap:0}</style>';
+      var finish = function (/** @type {string} */ o) { return K.draw(self, K.plate(k, fix + o, { label: 'Recent' }), bind); };
+      var big = function (/** @type {string} */ ic, /** @type {string} */ color, /** @type {boolean} */ on) { return K.glyph(ic, sq ? 66 : 50, K.tone(k, inkOf(color), on), on); };
+      // nothing to list: the header and a line under it (Small: the tile)
+      var calm = function (/** @type {string} */ sub, /** @type {string} */ line) {
+        if (size === 'S') return finish(K.tile(k, K.glyph('mdi:history', sq ? 66 : 50, teal), 'Recent', sub || line));
+        return finish(K.head(k, { g: hg, title: 'Recent', sub: sub }) + (line ? K.tx(X, K.Y0, w - 2 * X, 'kb', esc2(line)) : ''));
+      };
+      if (!this._lib || this._state === 'loading') return calm('Loading', '');
+      if (this._state === 'error') return calm('', errorWord(this._err));
+      /** @type {any[]} */
+      var items;
+      var ctx = ctxNow(), now = Date.now(), title = 'Recent', sub = '', capped = false;
+      if (viewNow(this._show(), now, ctx) === 'digest' && this._summary && !this._summaryErr) {
+        var d = digestParts(this._summary), st = d.status;
+        if (size === 'S') return finish(K.tile(k, big(st.icon, st.color, true), d.quiet ? st.line : d.label,
+          d.quiet ? d.span || d.label : st.color === 'orange' ? st.line : d.n + (d.n === 1 ? ' event' : ' events')));
+        title = d.label; sub = d.span;
+        items = [/** @type {any} */ ({ lead: K.glyph(st.icon, 28, K.tone(k, inkOf(st.color), true), true), t: st.line, b: st.sub, label: st.line + (st.sub ? ', ' + st.sub : '') })].concat(d.quiet ?
+          [] :
+          d.counts.map(function (/** @type {any} */ c) {
+            return { lead: K.glyph(c.icon, 28, K.tone(k, inkOf(c.color), true), true), t: c.label, trail: String(c.n), label: c.label + ', ' + c.n };
+          }));
+      } else {
+        var all = pick(this._events, limitOf(size));
+        if (!all.length) return calm(NEW_HOUSE[0], NEW_HOUSE[1]);
+        var rows = all.map(function (ev) { return rowView(ev, now, ctx); });
+        if (size === 'S') return finish(K.tile(k, big(rows[0].icon, rows[0].color, rows[0].warn), rows[0].a, tileLine(rows[0])));
+        sub = rows[0].day ? 'Latest events' : 'Today'; capped = !!this._capped;
+        items = rows.map(function (r) {
+          var when = narrow ? (r.day ? wideTime(r) : r.ago) : (r.day ? wideTime(r) : r.agoLong);
+          return { lead: K.glyph(r.icon, 28, K.tone(k, inkOf(r.color), r.warn), r.warn), t: narrow ? r.a : r.title, b: [narrow ? r.b || r.room : r.sub, when].filter(Boolean).join(' · '),
+            label: r.title + ', ' + r.agoLong + (r.sub ? ', ' + r.sub : ''), data: { ev: r.id } };
+        });
+      }
+      // the rows: as many whole ones as the plate holds from 74 down, sharing the room evenly (not past 68); one that fits alone is centered with the header
+      var cols = size === 'XL' ? 2 : 1, yMax = h - k.E, fit = Math.max(1, Math.floor((yMax - K.Y0 + 0.5) / K.RH)), one = fit === 1 && cols === 1;
+      var nShow = Math.min(fit, Math.ceil(items.length / cols)), rh = one || nShow < fit ? K.RH : Math.min(68, (yMax - K.Y0) / fit);
+      var hy = one ? K.headY(h, 46 + 10 + K.RH) : 18, y0 = one ? hy + 56 : K.Y0;
+      var list = K.rows(k, 0, w, y0, y0 + rh * (one ? 1 : nShow) + 0.5, cols, one ? items.slice(0, 1) : items, rh), left = items.length - (one ? 1 : nShow * cols);
+      var more = left > 0 ? left + (capped ? '+' : '') : 0;
+      return finish(K.head(k, { g: hg, title: title, sub: sub, more: more, y: hy }) + list.html);
+    }
     _render() {
       if (!this._built) {
         this._built = true;
@@ -582,6 +641,14 @@
           var t = e.target;
           if ((e.key === 'Enter' || e.key === ' ') && t && t.getAttribute && t.getAttribute('data-ev')) { e.preventDefault(); self._open(t.getAttribute('data-ev'), e); }
         });
+      }
+      // (Card Design: New draws the kit's card over the plate built above; Current, today's, below -- hk-kit.js forgets the New html, and
+      // the plate Current morphs is put back so going back redraws)
+      if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; }
+      else if (window.hkKit && this._kitHtml) {
+        window.hkKit.forget(this);
+        this._root.innerHTML = '<hk-plate class="tb" data-hk-role="card" role="group" aria-label="Recent"></hk-plate>';
+        this._plate = this._root.querySelector('hk-plate');
       }
       var size = this._size(), box = inner(this, size), html;
       if (!this._lib || this._state === 'loading') {

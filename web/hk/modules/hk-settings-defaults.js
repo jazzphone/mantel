@@ -153,6 +153,8 @@
     look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, motion: true, tile_style: 'auto',
       flat_night_entity: null,
       tile_icons: 'auto',
+      // CARD DESIGN (docs/phase34/PLAN.md): the Home Grid's cards as they are, or drawn from the kit (hk-kit.js)
+      card_design: 'current',
       thermostat_style: 'dial', bright_pages: 'home', bars_blur: 'live', text_glow: true, details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {}, look_undo: null,
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)

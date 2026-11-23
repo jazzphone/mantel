@@ -487,6 +487,11 @@
       }
       _render() {
         this._watchBlock();
+        // (Card Design: New, the kit's Security -- not the keypad block, whose keypad is a PIN's own; Current below)
+        if (window.hkKit && window.hkKit.on(this) && !(this._keys() && this._size() === 'XL')) {
+          var me2 = this;
+          if (kitSecurity(this, this._config || {}, function () { me2._tap(); }, function () { me2._tap(); })) { this._built = false; this._e = null; return; }
+        } else if (this._kitHtml) { window.hkKit.forget(this); this._built = false; }
         var self = this, size = this._size(), keys = this._keys() && size === 'XL', alarm = this._alarm();
         // (a tile cell's shorter Extra Large: the keys side by side with the readout and the ways to arm, so
         // each key keeps 44 px -- stacked under the readout they came to 36)
@@ -1023,6 +1028,72 @@
     // a slot at its smallest: Compact's across, Extra Large's down; a row's height
     var HV_PILL_W = 150, HV_SLOT_H = 96, HV_ROW = 54, HV_GAP = 8;
 
+    // ===================================================== Security, New (Card Design; docs/phase34/PLAN.md, hk-kit.js)
+    // The owner's review (2026-11-22): the alarm owns a tile on the block's shape inset -- white when armed, its glyph teal; "Armed" with the mode
+    // under it ("does it need to say Armed Home? Why not just Armed?") -- and every lock and garage, and every open door or window, is a
+    // row beside or under it, what needs a look first (so it is never behind "N more"). Compact is the alarm and four ("the security card
+    // with 4 items ... is ok"); the rows beside the alarm divide its height evenly ("it isn't evenly distributed"). The alarm opens its sheet
+    // (its keypad); a row, its entry's own; "N more", the block's overview. Nothing here operates a lock, a door or the alarm.
+    // The Extra Large keypad block (hk-grid-keypad-card) keeps Current: its keypad is a PIN's own component.
+    /** @param {any} el @param {any} cfg @param {() => void} alarmTap @param {() => void} moreTap */
+    function kitSecurity(el, cfg, alarmTap, moreTap) {
+      var Kit = window.hkKit, size = sizeOf(el) || cfg.size || 'W';
+      if (!Kit) return false;
+      var m = hvModel(el.client, cfg), look = alarmLook(m.alarmSt), k = Kit.ctx(el), w = k.w, h = k.h, E = k.E, sq = h >= 180, esc = Kit.esc;
+      var dw = secRows(el.client).filter(function (r) { return !r.tile && r.open; });
+      var needs = m.open.concat(m.moving, m.unknown), rest = m.secure;
+      var row = function (/** @type {any} */ e, /** @type {boolean} */ bad, /** @type {string} */ icon) {
+        var c = bad ? 'var(--hk-teal,' + C.ACCENTS.teal + ')' : 'var(--hk-ink,rgba(255,255,255,0.94))';
+        return { lead: Kit.glyph(icon, 28, Kit.tone(k, c, bad), bad), t: String(e.name).replace(/ Lock$/, ''), b: bad ? '<span style="color:var(--hk-teal,' + C.ACCENTS.teal + ')">' + esc(e.word) +
+          '</span>' : e.word,
+          bHtml: true, label: e.name + ', ' + e.word, data: { id: e.id } };
+      };
+      var list = needs.map(function (e) { return row(e, true, e.icon); })
+        .concat(dw.map(function (r) { return row({ id: r.id, name: r.name, word: r.value }, true, String(r.icon).replace(/^mdi:/, 'mdi:')); }))
+        .concat(rest.map(function (e) { return row(e, false, e.icon); }));
+      var sum = hvSummary(m, secRows(el.client).filter(function (r) { return !r.tile; })), armed = !!look.armed, trg = !!look.triggered, lit = cfg.lit !== false && armed;
+      var sub = (look.mode ? look.mode + (sum && sum !== 'All secure' ? ' · ' + sum : '') : sum) || look.mode || '';
+      var subBad = needs.length + dw.length > 0 || trg, teal = 'var(--hk-teal,' + C.ACCENTS.teal + ')';
+      var o = '';
+      if (size === 'S') {
+        o = Kit.tile(k, Kit.glyph(look.icon, sq ? 66 : 50, armed ? teal : trg ? C.ACCENTS.red : 'var(--hk-ink,rgba(255,255,255,0.94))', armed || trg), look.word, sub, subBad ?
+          (lit ? '#1d9fb5' : teal) : '');
+        return Kit.draw(el, Kit.plate(k, '<button type="button" class="hit" data-notap data-al="1" aria-label="Alarm, ' + esc(look.word) + '" style="inset:0"></button>' + o,
+          { lit: lit, label: 'Security' }), bind);
+      }
+      // the alarm's tile: centered (a square), or a row of glyph and words (a band across the block)
+      var alarm = function (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ aw, /** @type {number} */ ah, /** @type {boolean} */ band) {
+        var gs = band ? 40 : ah >= 150 ? 48 : 36, ink = armed ? '#1c1c1e' : 'var(--hk-ink,rgba(255,255,255,0.94))', ink2 = armed ? '#767678' : 'var(--hk-ink-2,rgba(255,255,255,0.68))';
+        var g = Kit.glyph(look.icon, gs, armed ? '#1d9fb5' : trg ? C.ACCENTS.red : 'var(--hk-ink,rgba(255,255,255,0.94))', armed || trg);
+        var sb = '<span style="color:' + (subBad ? (armed ? '#1d9fb5' : teal) : ink2) + '">' + esc(sub) + '</span>', inner;
+        if (band) inner = Kit.box(18, (ah - gs) / 2, gs, gs, 'fc', '', g) + Kit.tx(70, ah / 2 - 26, aw - 88, 'kd', esc(look.word), 'color:' + ink) + Kit.tx(70, ah / 2 + 2, aw - 88, 'kb', sb);
+        else { var t0 = Math.round((ah - (gs + 8 + 28 + 22)) / 2);
+          inner = Kit.box((aw - gs) / 2, t0, gs, gs, 'fc', '', g) + Kit.tx(8, t0 + gs + 8, aw - 16, 'kd', esc(look.word), 'text-align:center;color:' + ink) +
+            Kit.tx(8, t0 + gs + 36, aw - 16, 'kb', sb, 'text-align:center'); }
+        return '<button type="button" class="key' + (armed ? ' on' : '') + '" data-notap data-al="1" aria-label="Alarm, ' + esc(look.word + (look.mode ? ' ' + look.mode : '')) +
+          '. Opens its keypad" style="' + Kit.st(x, y, aw, ah) + (armed ? 'background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);' : '') + (trg ? 'background:' + C.ACCENTS.red + ';color:#fff;' : '') +
+          'display:block">' + inner + '</button>';
+      };
+      // the rows, in an area; the last says "N more" when they don't all fit; `even`: the rows share the area's height, at least that tall
+      var area = function (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ aw, /** @type {number} */ yMax, /** @type {number} */ cols, /** @type {number} */ even) {
+        var n = Math.max(1, Math.floor((yMax - y) / (even || Kit.RH))), cap = n * cols, L = list.slice(), rh = even ? (yMax - y) / n : Kit.RH;
+        if (L.length > cap) { var more = L.length - cap + 1; L = L.slice(0, cap - 1).concat([{ lead: Kit.svg('more', 28), t: more + ' more', b: 'In the overview', data: { more: '1' } }]); }
+        return '<div class="a" style="' + Kit.st(x, y, aw, yMax - y) + '">' + Kit.rows(k, 0, aw, 0, yMax - y + 0.5, cols, L, rh).html + '</div>';
+      };
+      if (size === 'W' || size === 'C') {
+        var cols = size === 'C' ? 3 : 2, cell = (w - (cols - 1) * E) / cols, aw = cell - E;
+        o = alarm(E, E, aw, h - 2 * E, false) + area(E + aw + 4, E, w - E - aw - 4, h - E, size === 'C' ? 2 : 1, size === 'C' ? 70 : 56);
+      } else if (size === 'T') { var th = sq ? 150 : 104; o = alarm(E, E, w - 2 * E, th, false) + area(0, E + th + 8, w, h - 8, 1, 0); }
+      else { var bh = sq ? 104 : 88; o = alarm(E, E, w - 2 * E, bh, true) + area(0, E + bh + 8, w, h - 8, size === 'XL' ? 3 : 2, 0); }
+      return Kit.draw(el, Kit.plate(k, o, { label: 'Security' }), bind);
+      /** @param {any} root */
+      function bind(root) {
+        root.querySelectorAll('[data-al]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', alarmTap); });
+        root.querySelectorAll('[data-more]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', moreTap); });
+        root.querySelectorAll('[data-id]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { window.hkShell.moreInfo(b.getAttribute('data-id'), el); }); });
+      }
+    }
+
     class HkGridSecurityHV extends HkBase {
       static get CSS() { return HV_CSS; }
       getCardSize() { return 2; }
@@ -1058,6 +1129,11 @@
       }
       _render() {
         this._watchBlock();
+        // (Card Design: New, the kit's Security; Current below, built afresh when it comes back)
+        if (window.hkKit && window.hkKit.on(this)) {
+          var me = this;
+          if (kitSecurity(this, this._config || {}, function () { me._alarmSheet(); }, function () { me._overview(); })) { this._built = false; this._e = null; return; }
+        } else if (this._kitHtml) { window.hkKit.forget(this); this._built = false; }
         var self = this, size = this._size(), m = hvModel(this.client, this._config || {});
         if (!this._built || this._shape !== size) {
           this._shape = size;

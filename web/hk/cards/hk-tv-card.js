@@ -211,7 +211,100 @@
       return '<div class="apps' + (cols ? ' grid" style="grid-template-columns:repeat(' + cols + ',' + size + 'px)' : '') + '">' +
         apps.slice(0, n).map(function (a) { return tile(a, size); }).join('') + '</div>';
     }
+    // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): the remote first, as Current, in the kit's parts -- the open app's own
+    // icon is the picture (it plays and pauses), its name and the TV's beside it, power, the round pad, Back / Home / Mute / Play /
+    // − / + as keys, the apps' icons in a row on Large and a column on Extra Large. White while the TV is on; glass while off.
+    _renderKit() {
+      var K = window.hkKit, T = window.hkTv, set = this._set(), cfg = this._config || {}, self = this;
+      if (!K || !T || !set) return false;
+      var k = K.ctx(this), w = k.w, h = k.h, E = k.E, X = k.X, KH = K.KH, G = K.G, sq = h >= 180;
+      var lk = T.look(this.client, set), can = T.canArrows(this.client, set), remote = !!(can.player || can.tv);
+      var apps = T.apps(this.client, set, cfg.show || undefined, 12), now = apps.filter(function (a) { return a.now; })[0] || null;
+      var others = apps.filter(function (a) { return !a.now; }), esc2 = K.esc, size = this._size();
+      var title = lk.on ? lk.title : set.name, what = lk.onPlayer ? (lk.sub || (lk.app && lk.app !== title ? lk.app : '')) : lk.tvOn ? (lk.source ? 'On the TV' : '') : lk.unavailable ? 'Unavailable' :
+        'Off';
+      var sub = lk.on ? [what, title !== set.name ? set.name : ''].filter(Boolean).join(' · ') || set.name : what;
+      // an app's icon as a key (n px, the concentric corner where it sits on the edge)
+      var icon = function (/** @type {any} */ a, /** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ n, /** @type {boolean} */ main) {
+        var r = n >= 52 ? k.r : Math.round(n * 0.3), inner;
+        if (main && !lk.on) inner = '<span class="fc" style="width:100%;height:100%">' + K.glyph('hk:television', Math.round(n * 0.62), 'var(--hk-ink,rgba(255,255,255,0.94))') + '</span>';
+        else if (main && lk.onPlayer && lk.art) inner = '<img alt="" src="' + esc2(lk.art) + '" draggable="false">';
+        else if (a && a.icon) inner = '<img alt="" src="' + esc2(a.icon) + '" draggable="false" loading="lazy">';
+        else if (a && a.glyph) inner = '<span class="fc" style="width:100%;height:100%;background:#111;color:#fff">' + K.glyph(a.glyph, Math.round(n * 0.46)) + '</span>';
+        else if (main && lk.tvOn) inner = '<span class="fc" style="width:100%;height:100%;background:#1b1f27;color:rgba(255,255,255,.85)">' + svg('input', Math.round(n * 0.5)) + '</span>';
+        else inner = '<span class="fc kl" style="width:100%;height:100%;padding:4px;white-space:normal;text-align:center;color:var(--hk-ink)">' + esc2(a ? a.name : set.name) + '</span>';
+        var data = main ? (lk.onPlayer ? ' data-act="pp"' : ' data-act="power"') : ' data-app="' + esc2(a.name) + '"';
+        var bg = main && !lk.on ? 'background:var(--hk-key);box-shadow:none;' : '';
+        return '<button type="button" class="pic hit" data-notap' + data + ' aria-label="' + esc2(main ? (lk.onPlayer ? (lk.playing ? 'Pause' : 'Play') : 'Power') : 'Open ' + a.name) +
+          '" style="' + K.st(x, y, n, n) + bg + 'border-radius:' + r + 'px">' + inner + '</button>';
+      };
+      var words = function (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ ww, /** @type {boolean} */ big) {
+        return K.tx(x, y, ww, big ? 'kd' : 'kt', esc2(title)) + K.tx(x, y + (big ? 28 : 24), ww, 'kb', esc2(sub)); };
+      /** @param {string} g @param {string} label @param {any} data @param {number} [n] */
+      var kk = function (g, label, data, n) { return { g: K.svg(g, n || 26), label: label, data: data }; };
+      var BACK = kk('back', 'Back', { key: 'back' }), HOME = kk('home', 'Home', { key: 'home' }), POWER = kk('power', 'Power', { act: 'power' });
+      var PP = lk.onPlayer ? kk(lk.playing ? 'pause' : 'play', lk.playing ? 'Pause' : 'Play', { act: 'pp' }) : kk('pp', 'Play or pause', { key: 'play_pause' });
+      var vol = lk.volume && lk.volume.mode, MUTE = vol && lk.volume.mute ? kk('mute', lk.volume.muted ? 'Unmute' : 'Mute', { vol: 'mute' }) : null;
+      var VDN = vol ? kk('minus', 'Volume down', { vol: 'down' }) : null, VUP = vol ? kk('plus', 'Volume up', { vol: 'up' }) : null, o = '';
+      var appsRow = function (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ ww, /** @type {number} */ n) {
+        var s = 64, m = Math.min(n, others.length), gap = m > 1 ? (ww - m * s) / (m - 1) : 0, out = '';
+        others.slice(0, m).forEach(function (a, i) { out += icon(a, x + i * (s + gap), y, s, false); }); return out; };
+      if (size === 'S') {
+        var z = sq ? 66 : 52, gy = sq ? 32 : 20;
+        o += icon(now, (w - z) / 2, gy, z, true) + K.tx(8, sq ? 113 : 82, w - 16, 'kt', esc2(title), 'text-align:center') + K.tx(8, sq ? 140 : 104, w - 16, 'kb', esc2(sub), 'text-align:center');
+      } else if (size === 'W') {
+        var pd = h - 2 * E, pxx = w - E - pd, lw = remote ? pxx - E - G : w - 2 * E;
+        if (sq) o += icon(now, E, E, 64, true) + words(E + 78, E + 6, lw - 78, true);
+        else o += icon(now, E, E, 52, true) + words(E + 64, E + 4, lw - 64, false);
+        if (remote) o += K.keyRow(E, K.FY(k), lw, [BACK, HOME]) + K.pad(pxx, E, pd);
+        else o += appsRow(E, K.FY(k), w - 2 * E, 5);
+      } else if (size === 'T') {
+        if (sq) o += icon(now, E, E, 64, true) + K.key(w - E - KH, E, KH, KH, POWER) + words(X, 88, w - 2 * X, true);
+        else o += icon(now, E, E, 52, true) + K.tx(E + 64, E + 12, w - E - X - 64, 'kd', esc2(title));
+        if (remote) { var pd2 = sq ? w - 2 * E : 150; o += K.pad((w - pd2) / 2, sq ? 146 : 78, pd2) + K.keyRow(E, K.FY(k), w - 2 * E, [BACK, HOME]); }
+        else o += K.keyGrid(E, sq ? 146 : 78, w - 2 * E, 2, []) + appsRow(E, K.FY(k), w - 2 * E, 2);
+      } else {
+        var lw2 = size === 'XL' ? Math.min(w, Math.round(w * 0.66)) : w, ic = sq ? 80 : 64;
+        o += icon(now, E, E, ic, true) + words(E + ic + 14, E + (ic - 50) / 2, lw2 - 2 * E - ic - 14 - KH - 12, true) + K.key(lw2 - E - KH, E, KH, KH, POWER);
+        var withApps = sq && size === 'L' && others.length, bottom = withApps ? h - E - 64 - 14 : h - E, top = E + ic + 12;
+        if (remote) {
+          var pd3 = Math.min(bottom - top, sq ? 200 : 999, lw2 * 0.52), cx = E + pd3 + 12, cw = lw2 - E - cx, kh = Math.min(76, (bottom - top - 2 * G) / 3), kw = (cw - G) / 2;
+          var ky = top + (bottom - top - 3 * kh - 2 * G) / 2;
+          o += K.pad(E, top + (bottom - top - pd3) / 2, pd3);
+          [[BACK, HOME], [MUTE || PP, MUTE ? PP : null], [VDN, VUP]].forEach(function (r, i) {
+            var list = r.filter(Boolean), ww = list.length === 1 ? cw : kw;
+            list.forEach(function (o2, j) { o += K.key(cx + j * (kw + G), ky + i * (kh + G), ww, kh, /** @type {any} */ (o2)); });
+          });
+        } else o += appsRow(E, top, lw2 - 2 * E, 5);
+        if (withApps) o += appsRow(E, h - E - 64, w - 2 * E, 5);
+        if (size === 'XL') {
+          var rx = lw2 + 5, rw = w - E - rx, isz = Math.min(76, (rw - 16) / 2), rowsN = Math.max(1, Math.floor((h - 2 * E + 12) / (isz + 12)));
+          var vg = rowsN > 1 ? (h - 2 * E - rowsN * isz) / (rowsN - 1) : 0;
+          others.slice(0, 2 * rowsN).forEach(function (a, i) { o += icon(a, rx + (i % 2) * (rw - isz), E + Math.floor(i / 2) * (isz + vg), isz, false); });
+        }
+      }
+      var label = set.name + ', ' + title + (what ? ', ' + what : '');
+      return K.draw(this, K.plate(k, o, { lit: !!lk.on, label: label, cls: 'tv' }), function (/** @type {any} */ root) { self._bindKit(root); });
+    }
+    /** @param {any} root */
+    _bindKit(root) {
+      var self = this, T = window.hkTv, cur = function () { return self._set(); };
+      root.querySelectorAll('[data-app]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._run(T.open(self.client, cur(), b.getAttribute('data-app'))); }); });
+      root.querySelectorAll('[data-act]').forEach(function (/** @type {any} */ b) {
+        b.addEventListener('click', function () { var a = b.getAttribute('data-act'), s = cur(); self._run(a === 'pp' ? T.playPause(self.client, s) : T.power(self.client, s)); });
+      });
+      root.querySelectorAll('[data-vol]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._run(T.volume(self.client, cur(), b.getAttribute('data-vol'))); });
+        });
+      root.querySelectorAll('[data-key]').forEach(function (/** @type {any} */ b) {
+        b.addEventListener('click', function () {
+          var s = cur(), lk2 = T.look(self.client, s), c2 = T.canArrows(self.client, s), dest = self._to && c2[self._to] ? self._to : lk2.arrows;
+          if (dest) self._run(T.press(self.client, s, dest, b.getAttribute('data-key')));
+        });
+      });
+    }
     _render() {
+      // (Card Design: New draws the kit's card; Current, today's, below -- hk-kit.js forgets the New html so going back redraws)
+      if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; } else if (window.hkKit) window.hkKit.forget(this);
       var self = this, T = window.hkTv, size = this._size(), box = this._box(size), set = this._set(), cfg = this._config || {}, body = '', label = '';
       if (!T || !set) {
         var where = window.hkShell && window.hkShell.settingsPlace ? window.hkShell.settingsPlace('Accessories → TVs') : 'Accessories → TVs';

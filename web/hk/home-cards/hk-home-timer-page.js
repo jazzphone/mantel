@@ -543,6 +543,162 @@
           '></div></div>' + more;
         return add + '<div class="tg" style="--cols:' + cols + '">' + units.join('') + '</div>' + more;
       }
+      // ===================================================== NEW (Card Design; docs/phase34/PLAN.md, hk-kit.js)
+      // ONE PLATE, no tile inside it (the owner, 2026-11-22: "I also don't like them separated into separate tiles ... take the best of
+      // both"). From the mockup: each timer's ring with the time in it, its name under, and the foot split into Pause and Stop, each
+      // owning half. From today's block, kept as it is: the soonest timer first, Small the ring alone, Wide one with "+N more", Tall one,
+      // Large two across and Extra Large three across (hairlines between, not tiles); a Start key at the top right on every size
+      // that has room (Tall's is a foot key); with nothing running, the quick lengths (Settings' presets) and, on Large and Extra
+      // Large, the wheels (hk-roller.js) and Start. The countdown is today's own <hk-countdown> (hk-timers.js): one clock while a
+      // countdown exists, none at rest, and it writes the ring's --hk-left. Starting, pausing, resuming and stopping are the calls
+      // the block already makes; Start opens the New Timer sheet.
+      _kitTimers() {
+        var cfg = this._config || {}, on = this._st(cfg.entity || 'sensor.running_quick_timers'), states = (this.client && this.client.states) || {};
+        var secs = (/** @type {any} */ d) => { if (typeof d === 'number') return d; var p = String(d || '').split(':').map(Number); return p.some(isNaN) ? 0 : p.reduce((a, x) => a * 60 + x, 0); };
+        var run = (on && on.attributes && on.attributes.running) || [];
+        /** @type {any[]} */
+        var rows = run.filter((/** @type {any} */ r) => r && r.entity_id).map((/** @type {any} */ r) => ({ id: r.entity_id, name: r.name,
+          attrs: Object.assign({}, r, states[r.entity_id] && states[r.entity_id].attributes), state: states[r.entity_id] && states[r.entity_id].state || 'active' }));
+        Object.keys(states).filter((id) => /^timer\.(quick|hk_timer)_/.test(id) && states[id].state === 'paused').forEach((id) => {
+          if (!rows.some((r) => r.id === id)) rows.push({ id: id, name: states[id].attributes.friendly_name, attrs: states[id].attributes, state: 'paused' });
+        });
+        return rows.filter((r) => r.state === 'paused' || r.attrs.finishes_at && !isNaN(Date.parse(r.attrs.finishes_at)))
+          .sort((a, b) => (Date.parse(a.attrs.finishes_at) || Infinity) - (Date.parse(b.attrs.finishes_at) || Infinity)).map((r) => {
+            var paused = r.state === 'paused', end = Date.parse(r.attrs.finishes_at), left = paused ? secs(r.attrs.remaining) : Math.max(0, (end - Date.now()) / 1000);
+            // (the hub's own "Timer" for one without a name is no name)
+            var nm = r.name && !/^(quick |hk )?timer( \d+)?$/i.test(String(r.name).trim()) ? String(r.name).trim() : '';
+            return { id: r.id, name: nm, paused: paused, end: end, left: Math.round(left), total: secs(r.attrs.duration) };
+          });
+      }
+      // the kit's card: false where it cannot draw (Current draws then)
+      _renderKit() {
+        var K = window.hkKit, C = window.hkCards, self = this, size = this._cellSize();
+        if (!K || !C || !size) return false;
+        this._watchBlock();
+        var O = C.ACCENTS.orange, RD = C.ACCENTS.red, k = K.ctx(this), w = k.w, h = k.h, E = k.E, X = k.X, KH = K.KH, G = K.G, sq = h >= 180, esc = K.esc, FY = K.FY(k);
+        var list = this._kitTimers(), n = list.length, o = '', R = window.hkRoller, wheels = '';
+        var presets = (window.hkSettings && window.hkSettings.get('headers.timers.presets', null)) || [5, 10, 15, 20, 30, 60];
+        var len = (/** @type {number} */ m, /** @type {boolean} */ shortW) => shortW ? (m < 60 ? m + 'm' : m % 60 ? Math.floor(m / 60) + 'h' + (m % 60) : m / 60 + 'h') :
+          m < 60 ? m + ' min' : m % 60 ? Math.floor(m / 60) + ' hr ' + (m % 60) + ' min' : m / 60 + ' hr';
+        var ink3 = K.v('ink-3', 'rgba(255,255,255,.42)'), ink2 = K.v('ink-2', 'rgba(255,255,255,.7)');
+        var startKey = K.key(w - E - KH, E, KH, KH, { g: K.svg('plus', 34, O), label: 'Start a timer', data: { new: '1' } });
+        var stopG = (/** @type {number} */ px) => '<span class="g" style="width:' + px + 'px;height:' + px + 'px;color:' + RD + '"><svg viewBox="0 0 24 24" width="' + px + '" height="' + px +
+          '" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.6"/></svg></span>';
+        var state = (/** @type {any} */ t) => t.paused ? 'Paused' : 'Ends ' + new Date(t.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        var running = list.filter((t) => !t.paused).length, held = n - running;
+        var count = (/** @type {number} */ more) => (running ? running + ' running' : '') + (held ? (running ? ' · ' : '') + held + ' paused' : '') + (more > 0 ? ' · ' + more + ' more' : '');
+        // a timer's ring: time left in orange (gray while paused) round its track, the time inside it, as today's block draws it
+        var ring = (/** @type {any} */ t, /** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ d) => {
+          var hr = t.left >= 3600, fs = Math.max(13, Math.round(d * (hr ? 0.19 : 0.25))), col = t.paused ? ink3 : O;
+          var clock = t.paused ? 'hold="' + t.left + '"' : 'deadline="' + t.end + '"';
+          return K.box(x, y, d, d, 'tr', '', '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" style="stroke:' + K.v('line-strong', 'rgba(255,255,255,.24)') +
+            '"></circle><circle cx="50" cy="50" r="46" pathLength="100" style="stroke:' + col + ';stroke-linecap:round;stroke-dasharray:calc(var(--hk-left,1)*100) 100"></circle></svg>' +
+            '<hk-countdown class="kh" ' + clock + ' total="' + t.total + '" style="font-size:' + fs + 'px;position:relative;display:block;' + (t.paused ? 'color:' + ink2 : '') +
+            '"></hk-countdown>');
+        };
+        // its Pause (Resume) and Stop, a key each, the two sharing the width
+        var pairKeys = (/** @type {any} */ t, /** @type {number} */ uw) => {
+          var wide = (uw - G) / 2 >= 104, nm = t.name || 'timer';
+          return [{ g: K.svg(t.paused ? 'play' : 'pause', 24, O), t: wide ? (t.paused ? 'Resume' : 'Pause') : '', label: (t.paused ? 'Resume ' : 'Pause ') + nm,
+            data: { timer: t.id, service: t.paused ? 'start' : 'pause' } },
+            { g: stopG(22), t: wide ? 'Stop' : '', label: 'Stop ' + nm, data: { timer: t.id, service: 'cancel' } }];
+        };
+        var pair = (/** @type {any} */ t, /** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ uw) => K.keyRow(x, y, uw, pairKeys(t, uw));
+        // a timer as a column: its ring, its name (and when it ends) under it, in the room from `top` down
+        var unit = (/** @type {any} */ t, /** @type {number} */ x, /** @type {number} */ top, /** @type {number} */ uw, /** @type {number} */ d, /** @type {boolean} */ ws) =>
+          ring(t, x + (uw - d) / 2, top, d) + K.tx(x + 6, top + d + 8, uw - 12, 'kt', esc(t.name || 'Timer'), 'text-align:center' + (t.paused ? ';color:' + ink2 : '')) +
+          (ws ? K.tx(x + 6, top + d + 32, uw - 12, 'kb', esc(state(t)), 'text-align:center') : '');
+        var quick = (/** @type {number} */ cnt) => {
+          var pk = [5, 10, 15, 30].filter((m) => presets.indexOf(m) >= 0);
+          presets.forEach((/** @type {number} */ m) => { if (pk.length < cnt && pk.indexOf(m) < 0) pk.push(m); });
+          return pk.slice(0, cnt);
+        };
+        var qkeys = (/** @type {number} */ cnt, /** @type {number} */ kw) => quick(cnt).map(
+          (/** @type {number} */ m) => ({ t: len(m, kw < 84), label: 'Start a ' + len(m, false) + ' timer', data: { preset: m } }));
+        // the wheels, mounted into their place after the draw (R.CSS and the kit's colors for them)
+        var wheelsAt = (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ ww, /** @type {number} */ hh) => {
+          var row = Math.min(40, Math.floor(hh / 5));
+          if (!R || row < 24) return '';
+          wheels = '<style>' + R.CSS + '.kit .hkr{--hkr-ink:' + K.v('ink', '#fff') + ';--hkr-ink2:' + ink2 + ';--hkr-band:' + K.v('key', 'rgba(255,255,255,.14)') + ';--hkr-band-r:' + k.r +
+            'px}</style>';
+          return K.box(x, y + Math.round((hh - row * 5) / 2), ww, row * 5, '', '--hkr-row:' + row + 'px;--hkr-fs:' + Math.max(17, Math.round(row * 0.6)) +
+            'px;--hkr-w:40px;--hkr-uw:34px;--hkr-gap:14px;--hkr-band-x:0px', '<span data-roller></span>');
+        };
+        var goKey = (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ ww) => K.key(x, y, ww, KH,
+          { g: K.svg('plus', 26, O), t: 'Start Timer', label: 'Start a timer with the wheels', data: { go: '1' } });
+        var label = n ? 'Timers, ' + count(0) : 'Timers, none running';
+        if (!n) {
+          // NOTHING RUNNING: Start a Timer and today's quick lengths, as keys
+          if (size === 'S') o = K.tile(k, K.glyph('mdi:timer-plus-outline', sq ? 66 : 50, O, true), 'Start a Timer', 'None running') +
+            '<button type="button" class="hit" data-notap data-new="1" aria-label="Start a timer" style="inset:0"></button>';
+          else if (size === 'W') o = K.tx(X, K.headY(FY, 46), w - X - E - KH - 8, 'kt', 'Timers') + K.tx(X, K.headY(FY, 46) + 24, w - X - E - KH - 8, 'kb', 'None running') + startKey +
+            K.keyRow(E, FY, w - 2 * E, qkeys(4, (w - 2 * E - 3 * G) / 4));
+          else if (size === 'T') {
+            var st = h - E - 3 * KH - 2 * G;
+            o = K.tx(X, 18, w - 2 * X, 'kt', 'Timers') + K.tx(X, 42, w - 2 * X, 'kb', 'None running') +
+              K.stack(k, K.chunk(qkeys(4, 0), 2).concat([[{ g: K.svg('plus', 26, O), t: w - 2 * E >= 160 ? 'Start a Timer' : 'New Timer', label: 'Start a timer', data: { new: '1' } }]]));
+            if (st > 130) o += K.box((w - 56) / 2, 74 + (st - 74 - 56) / 2, 56, 56, 'fc', '', K.glyph('mdi:timer-outline', 56, ink3));
+          } else if (size === 'L') {
+            var wy = 74, qrow = sq;
+            o = K.tx(X, 18, w - 2 * X, 'kt', 'Timers') + K.tx(X, 42, w - 2 * X, 'kb', 'None running');
+            if (qrow) { o += K.keyRow(E, 74, w - 2 * E, qkeys(4, (w - 2 * E - 3 * G) / 4)); wy = 74 + KH + 8; }
+            o += wheelsAt(E, wy, w - 2 * E, FY - 8 - wy) + goKey(E, FY, w - 2 * E);
+          } else {
+            // Extra Large: the lengths on the left, the wheels and Start on the right
+            var lw = Math.round((w - 3 * E) * 0.4), rx = E + lw + E, rows2 = Math.ceil(quick(6).length / 2), qh = rows2 * (KH + G) - G;
+            o = K.tx(X, 18, lw - X + E, 'kt', 'Timers') + K.tx(X, 42, lw - X + E, 'kb', 'None running') + K.keyGrid(E, h - E - qh, lw, 2, qkeys(6, 0).slice(0, rows2 * 2)) +
+              K.box(E + lw + E / 2, E, 1, h - 2 * E, '', 'background:' + K.v('line', 'rgba(255,255,255,.14)')) + wheelsAt(rx, E, w - E - rx, FY - 8 - E) + goKey(rx, FY, w - E - rx);
+            if (h - E - qh - 74 >= 100) o += K.box((lw - 56) / 2 + E, 74 + (h - E - qh - 74 - 56) / 2, 56, 56, 'fc', '', K.glyph('mdi:timer-outline', 56, ink3));
+          }
+        } else if (size === 'S') {
+          var t0 = list[0], d0 = sq ? 78 : Math.max(52, FY - 2 * E - 4), top0 = sq ? E - 2 : E;
+          o = (sq ? unit(t0, 0, top0, w, d0, false) : ring(t0, (w - d0) / 2, top0, d0)) + pair(t0, E, FY, w - 2 * E);
+        } else if (size === 'W') {
+          var d1 = Math.min(h - 2 * E, 128, Math.round(w * 0.33)), x0 = E + d1 + 12, rw = w - E - x0, tw = rw - KH - 8, t1 = list[0];
+          o = ring(t1, E, (h - d1) / 2, d1) + K.tx(x0, E + 9, tw, 'kt', esc(t1.name || 'Timer'), t1.paused ? 'color:' + ink2 : '') + K.tx(x0, E + 33, tw, 'kb', esc(n > 1 ? count(0) : state(t1))) +
+            startKey + pair(t1, x0, FY, rw);
+        } else if (size === 'T') {
+          var t2 = list[0], stY = h - E - 2 * KH - G, ws = sq, av = stY - 8 - 74, d2 = Math.max(56, Math.min(136, w - 2 * E - 14, av - 8 - 24 - (ws ? 24 : 0)));
+          o = K.tx(X, 18, w - 2 * X, 'kt', 'Timers') + K.tx(X, 42, w - 2 * X, 'kb', esc(count(0))) +
+            unit(t2, 0, 74 + (av - (d2 + 8 + 24 + (ws ? 24 : 0))) / 2, w, d2, ws) +
+            K.stack(k, [pairKeys(t2, w - 2 * E), [{ g: K.svg('plus', 26, O), t: w - 2 * E >= 160 ? 'Start a Timer' : 'New Timer', label: 'Start a timer', data: { new: '1' } }]]);
+        } else {
+          // Large two across, Extra Large three: the timers as columns of the one plate, a hairline between
+          var cols = Math.min(size === 'XL' ? 3 : 2, n), cw = (w - 2 * E - (cols - 1) * E) / cols, av2 = FY - 8 - 74, d3 = Math.max(56, Math.min(150, cw - 24, av2 - 8 - 24 - 24));
+          var topU = 74 + (av2 - (d3 + 8 + 48)) / 2;
+          o = K.tx(X, 18, w - X - E - KH - 8, 'kt', 'Timers') + K.tx(X, 42, w - X - E - KH - 8, 'kb', esc(count(n - cols))) + startKey;
+          list.slice(0, cols).forEach((t, i) => {
+            var cx = E + i * (cw + E);
+            o += unit(t, cx, topU, cw, d3, true) + pair(t, cx, FY, cw);
+            if (i) o += K.box(cx - E / 2, 74, 1, FY + KH - 74, '', 'background:' + K.v('line', 'rgba(255,255,255,.14)'));
+          });
+        }
+        var css = '<style>.kit .tr{display:grid;place-items:center}.kit .tr svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}' +
+          '.kit .tr circle{fill:none;stroke-width:8px}</style>';
+        return K.draw(this, css + wheels + K.plate(k, o, { label: label }), function (/** @type {any} */ root) { self._bindKit(root); });
+      }
+      /** @param {any} root */
+      _bindKit(root) {
+        var self = this, R = window.hkRoller;
+        root.querySelectorAll('[data-timer]').forEach((/** @type {any} */ b) => b.addEventListener('click',
+          () => self._call('timer', b.getAttribute('data-service'), { entity_id: b.getAttribute('data-timer') })));
+        root.querySelectorAll('[data-new]').forEach((/** @type {any} */ b) => b.addEventListener('click', () => self._newGridTimer()));
+        var start = (/** @type {number} */ mins) => self._callResp('script', 'quick_timer_start', { duration: HkTimersPageCard.hms(mins) }).then((/** @type {any} */ r) => {
+          if (!r.ok || r.response && r.response.started === false) self._newGridTimer();
+        });
+        root.querySelectorAll('[data-preset]').forEach((/** @type {any} */ b) => b.addEventListener('click', () => start(Number(b.getAttribute('data-preset')))));
+        // THE WHEELS: one roller, made once and put in its place whenever the plate is drawn; Start takes its length
+        var at = root.querySelector('[data-roller]');
+        if (R && at) {
+          if (!this._kitRoll) this._kitRoll = R.create(R.timerCols({ h: 0, m: 15, s: 0 }), { label: 'Timer length' });
+          at.replaceWith(this._kitRoll.el);
+          if (this._kitRoll.sync) this._kitRoll.sync();
+        }
+        root.querySelectorAll('[data-go]').forEach((/** @type {any} */ b) => b.addEventListener('click', () => {
+          var v = self._kitRoll && self._kitRoll.get(); if (!v || !(v.h || v.m || v.s)) return;
+          self._callResp('script', 'quick_timer_start', { duration: R.hms(v) }).then((/** @type {any} */ r) => { if (!r.ok || r.response && r.response.started === false) self._newGridTimer(); });
+        }));
+      }
       _sigOf() {
         var h = this.client;
         if (!h) return null;
@@ -554,6 +710,10 @@
       }
       _render() {
         var cfg = this._config;
+        // (Card Design: New draws the kit's card in a block; Current, today's, below -- built afresh when it comes back)
+        if (window.hkKit && window.hkKit.on(this) && this._cellSize()) {
+          if (this._renderKit()) { this._built = false; this._e = null; this._tapWired = false; return; }
+        } else if (window.hkKit) window.hkKit.forget(this);
         if (!this._built) {
           this._root.innerHTML = '<hk-plate class="strip' +
             (cfg.fixed ? ' fixed' : '') + '" data-hk-role="card"></hk-plate>';

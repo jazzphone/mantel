@@ -310,7 +310,83 @@
       if (this._kid && this._kid.parentNode) this._kid.parentNode.removeChild(this._kid);
       this._kid = null; this._kidKey = '';
     }
+    // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): LIT while its rule holds -- a white plate, the alert's glyph in its color
+    // leading the header (Wide and up: a narrow plate's header is its words), the camera's still between the header and the foot key
+    // on the shape inset with the kit's corner, and its action as the foot key, tinted with the alert's color ("Close It"). The key
+    // does what the pill did: `_go` (a door or a lock opens its controls, which ask first); the plate's tap, the camera's and Small's
+    // (the plate is its action) are the card's own `_tapTarget`. Wide is the header centered over the key, no picture; Small is the
+    // lit tile. A minute's new words are put in place, never a redraw: the camera's still is not rebuilt for them.
+    /** @param {any} m @param {number} px */
+    _kitGlyph(m, px) {
+      // (an alert with no glyph of its own takes the warning triangle, as Current's bare glyph does: the default's circled "!" is a ring alone here)
+      var mb = !m.icon && !m.glyphOf ? Object.assign({}, m, { icon: 'mdi:alert' }) : m;
+      return '<span class="g on" style="width:' + px + 'px;height:' + px + 'px;color:' + m.color + '">' + this._glyph(mb, px, m.color) + '</span>';
+    }
+    // the key's words: the verb and "It" where it is the thing in question ("Close It", "Unlock It"); the others as they are
+    /** @param {string} w */
+    _kitVerb(w) { return /^(Close|Open|Lock|Unlock|Pause|Play)$/.test(w) ? w + ' It' : w; }
+    // the camera's still in the picture's place (`.pic`), its corner the kit's; kept across redraws, moved to the new place
+    /** @param {number} pw @param {number} ph @param {number} r */
+    _kitPicture(pw, ph, r) {
+      var id = this._last.cam, key = id + '|' + pw + 'x' + ph + '|' + r;
+      if (!this._kid || this._kidKey !== key) {
+        if (this._kid && this._kid.parentNode) this._kid.parentNode.removeChild(this._kid);
+        this._kidKey = key;
+        this._kid = C.create({ type: 'custom:hk-camera-mosaic-card', own_cameras: true, cameras: [{ entity: id }], height: ph, fit_w: pw, fit_h: ph,
+                               seam: 0, snapshot_cap: '480x270', name_tag: 'hide', radius: r + 'px', shadow: 'none' });
+        if (this._kid) { this._kid.setAttribute('size', 'L'); this._kid.style.setProperty('--hk-block-pad', '12px'); }
+      }
+      if (this._kid && this.client && this._kid.hkSetClient) this._kid.hkSetClient(this.client);
+      var at = this._root.querySelector('.pic');
+      if (this._kid && at && this._kid.parentNode !== at) at.appendChild(this._kid);
+    }
+    _renderKit() {
+      var K = window.hkKit, self = this, size = this._size();
+      if (!K) return false;
+      this._watchBlock();
+      var m = this._model(), root = this._root;
+      this._last = m;
+      var k = K.ctx(this), w = k.w, h = k.h, E = k.E, KH = K.KH, narrow = w < 300, sq = h >= 180;
+      var key = m.ctl && m.words ? m.words : null, keyY = K.FY(k), label = [m.title, m.sub].filter(Boolean).join(', ');
+      // what is drawn in the picture's place (none on Small and Wide; none when the camera has no still)
+      var y0 = K.Y0, y1 = (key ? keyY - K.G : h - E), pw = w - 2 * E, ph = Math.floor(y1 - y0);
+      var pic = m.cam && size !== 'S' && size !== 'W' && ph >= 60;
+      var build = function (/** @type {string} */ title, /** @type {string} */ sub) {
+        if (size === 'S') return K.tile(k, self._kitGlyph(m, sq ? 66 : 50), title, sub);
+        var g = self._kitGlyph(m, 28), o = K.head(k, { g: g, title: title, sub: sub, y: size === 'W' ? K.headY(key ? keyY : h, 46) : 18 });
+        if (pic) o += '<div class="pic" data-notap style="' + K.st(E, y0, pw, ph) + 'border-radius:' + k.r + 'px"></div>';
+        else if (size !== 'W' && y1 - y0 >= 90) o += K.box((w - 66) / 2, y0 + (y1 - y0 - 66) / 2, 66, 66, 'fc', '', self._kitGlyph(m, 66));
+        if (key) o += K.key(E, keyY, w - 2 * E, KH, { g: self._glyph(m, 26, m.color), t: self._kitVerb(key[0]), tint: m.color, label: key[1] + (m.never ? ': opens its controls' : ''),
+          data: { go: '1' } });
+        return o;
+      };
+      var html = K.plate(k, build(m.title, m.sub), { lit: true, label: label }), skel = K.plate(k, build(m.title ? '·' : '', m.sub ? '·' : ''), { lit: true });
+      var plate = root.querySelector('hk-plate.kit');
+      if (this._kitSkel === skel && plate) {
+        var t = plate.querySelector(size === 'S' ? '.ctn' : '.kt'), s = plate.querySelector(size === 'S' ? '.cts' : '.kb');
+        if (t) t.textContent = m.title;
+        if (s) s.textContent = m.sub;
+        plate.setAttribute('aria-label', label);
+        this._kitHtml = html;
+      } else {
+        this._kitSkel = skel;
+        K.draw(this, html, function (/** @type {any} */ r) {
+          var go = r.querySelector('[data-go]');
+          if (go) go.addEventListener('click', function () { self._go(); });
+        });
+      }
+      if (pic) this._kitPicture(pw, ph, k.r); else this._dropPicture();
+      var cl = this.client;
+      if (cl && cl.bindStateIcon) Array.prototype.forEach.call(root.querySelectorAll('hk-state-icon[data-e]'), function (/** @type {any} */ el) {
+        var st = cl.states && cl.states[el.getAttribute('data-e')];
+        if (st && el.__hkSt !== st) { el.__hkSt = st; cl.bindStateIcon(el, st); }
+      });
+      return true;
+    }
     _render() {
+      // (Card Design: New draws the kit's card; Current, today's, below -- hk-kit.js forgets the New html so going back redraws)
+      if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; }
+      else if (window.hkKit && this._kitHtml) { window.hkKit.forget(this); this._layoutKey = ''; this._kitSkel = null; }
       var self = this, size = this._size(), m = this._model(), box = this._box(size);
       this._last = m;
       var P = plan(size, box.iw, box.ih, !!m.cam, !!m.ctl, box.tile);

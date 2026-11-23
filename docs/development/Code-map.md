@@ -174,6 +174,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-holidays.js` — THE HOLIDAY CALENDAR (phase 20, docs/phase20/HOLIDAY-SLIDE.md)
   - `hk-idle.js` — put a wall tablet back on its dashboard when nobody is using it.
   - `hk-kiosk.js` — HIDE HOME ASSISTANT'S HEADER AND SIDEBAR on a screen that asks (HK Frontend 1.3).
+  - `hk-kit.js` — THE KIT
   - `hk-laundry.js` — LAUNDRY, READ AND DRAWN (phase 22, 2026-11-10; docs/phase22/LAUNDRY.md).
   - `hk-loader.js` — imports the order-independent dashboard modules (MODULES below
   - `hk-menu.js` — THE MENU OF PAGES AND ROOMS, modeled on the Home app's sidebar. *(a shell: its parts are in `web/hk/menu/`, `tools/split_manifests/menu.json`)*

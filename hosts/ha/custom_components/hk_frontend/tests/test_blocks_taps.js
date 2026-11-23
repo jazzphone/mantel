@@ -45,6 +45,7 @@ load(HK_ROOT + '/frontend/modules/hk-stats.js');
 load(HK_ROOT + '/frontend/modules/hk-charts.js');
 load(HK_ROOT + '/frontend/modules/hk-header.js');
 load(HK_ROOT + '/frontend/cards/hk-base.js');
+load(HK_ROOT + '/frontend/modules/hk-kit.js');       // Card Design New's parts (phase 34): the second pass below
 load(HK_ROOT + '/tests/music_house.js');
 load(HK_ROOT + '/frontend/cards/hk-tile.js');
 load(HK_ROOT + '/frontend/cards/hk-room.js');
@@ -251,6 +252,26 @@ function () {
       });
     });
   });
+},
+function () {
+  // CARD DESIGN NEW (docs/phase34/PLAN.md, hk-kit.js): a screen that draws New loses no tap -- every block, at every size and on
+  // both cells, is made and its plate opens just what Current's opens
+  H.section('Card Design New: every block is made, and its plate opens what Current\'s does');
+  var design = 'current';
+  window.hkSettings.cardDesign = function () { return design; };
+  KEYS.forEach(function (key) {
+    TABLE[key].sizes.forEach(function (size) {
+      ['square', 'tile'].forEach(function (cellName) {
+        var label = key + ' ' + size + ' ' + cellName, cur, now;
+        design = 'current';
+        try { cur = plateTap(block(key, size, cellName).el); } catch (e) { cur = 'threw'; }
+        design = 'new';
+        try { now = plateTap(block(key, size, cellName).el); } catch (e) { now = 'threw ' + String(e && e.message || e); }
+        ok(label + ' New: ' + JSON.stringify(now), JSON.stringify(now) === JSON.stringify(cur), { current: cur, new: now });
+      });
+    });
+  });
+  design = 'current';
 },
 function () {
   H.section('a control inside a block keeps its own tap: a click that lands on one opens nothing');

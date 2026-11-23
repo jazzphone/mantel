@@ -15,7 +15,7 @@ from .schema import (AMOUNT, BARS_BLUR, board_headers, board_wallpaper, BRIGHT_D
     flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, FLAT_THEMES, flat_tint, lively, lively_custom,
     LIVELY_PRESETS, MENU_GLYPHS, NOTIFY_SAVERS, NP_BARS, NP_SIDES, NP_STYLES, page_looks, photo_look, RETIRED_GLASS,
     SKY_BACKDROP_IDS, SKY_BACKGROUNDS, SKY_COLOR_IDS, sky_landscape, SKY_MOVING, sky_page_photos, sky_pages,
-    sky_photo, sky_stops, tab_position, TILE_ICONS, TILE_STYLES, WALLPAPER_MOTION, WALLPAPER_NIGHT, WELLS,)
+    sky_photo, sky_stops, tab_position, TILE_ICONS, TILE_STYLES, CARD_DESIGNS, WALLPAPER_MOTION, WALLPAPER_NIGHT, WELLS,)
 from .defaults import KIOSK_ENGINES, SAVER_DEFAULTS, SAVER_ENGINES
 from .pages_screen_rules import pages_screen_own
 from .saver_rules import card_options, saver_options
@@ -300,6 +300,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "bright": None, "bright_dim": None,
     # its own Tile Style and Centered tiles' icons (TILE_STYLES, TILE_ICONS; None: All Screens')
     "tile_style": None, "tile_icons": None,
+    # its own Card Design (CARD_DESIGNS; None: All Screens')
+    "card_design": None,
     "bright_pages": None,
     # its own Bars & Side Pane (BARS_BLUR; None: All Screens')
     "bars_blur": None,
@@ -583,6 +585,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["bright_dim"] = bright_dim_or_none(d.get("bright_dim"))
     out["tile_style"] = d.get("tile_style") if d.get("tile_style") in TILE_STYLES else None
     out["tile_icons"] = d.get("tile_icons") if d.get("tile_icons") in TILE_ICONS else None
+    out["card_design"] = d.get("card_design") if d.get("card_design") in CARD_DESIGNS else None
     out["bright_pages"] = d.get("bright_pages") if d.get("bright_pages") in BRIGHT_PAGES else None
     out["bars_blur"] = d.get("bars_blur") if d.get("bars_blur") in BARS_BLUR else None
     # (Text Glow, 2026-11-22: this screen's own, None follows All Screens' look.text_glow)

@@ -353,6 +353,20 @@ def test_the_climate_pages_thermostat_style():
     assert C.apply_house({}, {"look.thermostat_style": "huge"})[1] == {"look.thermostat_style": "choice"}
 
 
+def test_card_design_for_all_screens_and_for_a_screen():
+    # CARD DESIGN (docs/phase34/PLAN.md): Current unless chosen, so no screen changes until it is switched; New is the kit's cards
+    assert M.merged({})["look"]["card_design"] == "current"
+    assert M.merged({"look": {"card_design": "shiny"}})["look"]["card_design"] == "current"
+    new, err = C.apply_house({}, {"look.card_design": "new"})
+    assert err == {} and M.merged(new)["look"]["card_design"] == "new"
+    assert C.apply_house({}, {"look.card_design": "newer"})[1] == {"look.card_design": "choice"}
+    assert M.board(None)["card_design"] is None                                # Same as All Screens
+    b, err = C.apply_board({}, {"card_design": "new"})
+    assert err == {} and M.board(b)["card_design"] == "new"
+    b, err = C.apply_board(b, {"card_design": None})
+    assert err == {} and M.board(b)["card_design"] is None
+
+
 def test_tile_icons_for_all_screens_and_for_a_screen():
     assert M.merged({})["look"]["tile_icons"] == "auto"                        # white on Bright Glass, else color
     assert M.merged({"dashboard": {"look": {"tile_icons": "pink"}}})["look"]["tile_icons"] == "auto"

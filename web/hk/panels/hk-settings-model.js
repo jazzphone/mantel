@@ -121,7 +121,7 @@
       swipeChanges, TAB_BAR_GLASS, TAB_BAR_LABELS, TAB_BAR_MORE, TAB_BAR_POS, TAB_BAR_ROOMS, TAB_BAR_SCROLLS,
       TAB_BAR_SIZES, TAB_BAR_TABS, TAB_BAR_TABS_PHONE, TAB_SIZES, TABLET_APPS, kioskDeviceApp, tabletAppName, tabletApp, tabletChecks, tabletStatus,
       tabletSummary, tabletTab, tabletTabBar, tabletUrl, tabPosJoin, tabPosLabel, tabPosParts, THERMOSTAT_STYLES,
-      TILE_ICONS, TILE_STYLES, TINT_WELLS, topsOf, usedBy, usesSide, WALLPAPER_MOTION, WALLPAPER_NIGHT, WEATHER_PARTS,
+      TILE_ICONS, CARD_DESIGNS, TILE_STYLES, TINT_WELLS, topsOf, usedBy, usesSide, WALLPAPER_MOTION, WALLPAPER_NIGHT, WEATHER_PARTS,
       weatherShown, WOODLAND, woodlandSummary, WX_DAYS, WX_DETAILS, WX_HOURS, WX_METRICS, WX_PAGE_DEFAULTS, wxPage,
       YAML_DEFAULTS, YAML_REF, yamlRefItem, yamlRefText;
 
@@ -227,7 +227,7 @@
     TABLET_APPS = K.TABLET_APPS; kioskDeviceApp = K.kioskDeviceApp; tabletAppName = K.tabletAppName; tabletApp = K.tabletApp; tabletChecks = K.tabletChecks;
     tabletStatus = K.tabletStatus; tabletSummary = K.tabletSummary; tabletTab = K.tabletTab;
     tabletTabBar = K.tabletTabBar; tabletUrl = K.tabletUrl; tabPosJoin = K.tabPosJoin; tabPosLabel = K.tabPosLabel;
-    tabPosParts = K.tabPosParts; THERMOSTAT_STYLES = K.THERMOSTAT_STYLES; TILE_ICONS = K.TILE_ICONS;
+    tabPosParts = K.tabPosParts; THERMOSTAT_STYLES = K.THERMOSTAT_STYLES; TILE_ICONS = K.TILE_ICONS; CARD_DESIGNS = K.CARD_DESIGNS;
     TILE_STYLES = K.TILE_STYLES; TINT_WELLS = K.TINT_WELLS; topsOf = K.topsOf; usedBy = K.usedBy;
     usesSide = K.usesSide; WALLPAPER_MOTION = K.WALLPAPER_MOTION; WALLPAPER_NIGHT = K.WALLPAPER_NIGHT;
     WEATHER_PARTS = K.WEATHER_PARTS; weatherShown = K.weatherShown; WOODLAND = K.WOODLAND;
@@ -325,7 +325,8 @@
       menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
       MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
       accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
-      GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, TILE_STYLES: TILE_STYLES, TILE_ICONS: TILE_ICONS, THERMOSTAT_STYLES: THERMOSTAT_STYLES,
+      GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, TILE_STYLES: TILE_STYLES, TILE_ICONS: TILE_ICONS, CARD_DESIGNS: CARD_DESIGNS,
+        THERMOSTAT_STYLES: THERMOSTAT_STYLES,
         BRIGHT_PAGES: BRIGHT_PAGES, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT,
         WALLPAPER_MOTION: WALLPAPER_MOTION, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS,
         STATUS_LABELS: STATUS_LABELS,

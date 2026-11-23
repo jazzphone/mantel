@@ -649,7 +649,54 @@
         return JSON.stringify([o.every.map(function (x) { return x.kind.key + x.all.length; }), o.things.map(function (t) { return t.id + (st[t.id] ? st[t.id].last_updated : ''); }),
                                sizeOf(this), this._blockKey || '', !!(window.hkHouseStatus && window.hkHouseStatus.tiles)]);
       }
+      // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): the count with "On" and "In N rooms" as the headline ("All Off" when nothing is), a
+      // reading row per kind the house has (the kinds that are on first, as Current's list; its glyph in the kind's color while something is on,
+      // gray at rest; its count at the right, under the name on a block under 300), and All Off the foot key. A row opens the kind's page or
+      // sheet as Current's does; All Off turns off what is on, as Current's pill (no confirmation there). Small is HomeView's tile with the
+      // count as its figure; Wide the header centered over All Off.
+      _renderKit() {
+        var K = window.hkKit, self = this, o = whatsOn(this.client);
+        if (!K) return false;
+        this._watchBlock();
+        var k = K.ctx(this), w = k.w, h = k.h, E = k.E, X = k.X, size = sizeOf(this) || 'L', RH = K.RH, narrow = w < 300, out = '', dim = K.v('ink-3', 'rgba(255,255,255,.42)');
+        var rooms = {}, nr = 0;
+        o.things.forEach(function (t) { if (t.area && !rooms[t.area]) { rooms[t.area] = 1; nr++; } });
+        var title = o.n ? o.n + ' On' : 'All Off', sub = o.n && nr ? 'In ' + nr + (nr === 1 ? ' room' : ' rooms') : '';
+        var every = o.every.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return (b.x.ids.length ? 1 : 0) - (a.x.ids.length ? 1 : 0) || a.i - b.i; })
+          .map(function (e) { return e.x; });
+        var lead = K.glyph('mdi:power', 28, o.n ? ACC.yellow : dim, !!o.n);
+        var all = o.n ? [{ g: K.svg('power', 24), t: 'All Off', label: 'Turn off all ' + o.n + ' things on', data: { all: '1' } }] : [];
+        if (size === 'S') {
+          var sq = h >= 180, fs = (sq ? 56 : 44) * (String(o.n).length > 2 ? 0.8 : 1);
+          out = K.tile(k, o.n ? '<span class="kh" style="font-size:' + fs + 'px;height:' + fs + 'px">' + o.n + '</span>' : K.glyph('mdi:power', sq ? 66 : 50, dim, false), o.n ? 'On' : 'All Off', sub);
+        } else if (size === 'W') {
+          out = K.head(k, { g: lead, title: title, sub: sub, y: K.headY(all.length ? K.FY(k) : h, sub ? 46 : 24) }) + K.foot(k, all);
+        } else {
+          out = K.head(k, { g: lead, title: title, sub: sub });
+          var y0 = 74, yMax = (all.length ? K.FY(k) - K.G : h - E), cols = size === 'XL' ? 2 : 1;
+          if (every.length && yMax - y0 >= RH * 0.6) {
+            var per = Math.ceil(every.length / cols), cw = (w + (cols - 1) * X) / cols, inner2 = '';
+            every.forEach(function (x, i) {
+              var on = x.ids.length, say = on ? on + (x.kind.key === 'speakers' ? ' playing' : ' on') : x.kind.rest, c = Math.floor(i / per), j = i % per;
+              var r = { lead: K.glyph(x.kind.icon, 28, K.tone(k, on ? x.kind.color : dim, !!on), !!on), t: cap(x.kind.many), quiet: !on,
+                label: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : cap(x.kind.many) + ', ' + x.kind.rest.toLowerCase()),
+                data: { 'open-kind': x.kind.key } };
+              if (narrow) r.b = say; else r.trail = say;
+              inner2 += K.row(k, c * (cw - X), j * RH, cw, r, j === per - 1 || i === every.length - 1, RH);
+            });
+            out += '<style>.kit .sc{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}' +
+              '.kit .sc::-webkit-scrollbar{display:none}</style><div class="a sc" role="list" style="' + K.st(0, y0, w, yMax - y0) + '">' + inner2 + '</div>';
+          }
+          out += K.foot(k, all);
+        }
+        return K.draw(this, K.plate(k, out, { label: 'On now' }), function (/** @type {any} */ root) {
+          root.querySelectorAll('[data-open-kind]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._openKind(b.getAttribute('data-open-kind')); }); });
+          root.querySelectorAll('[data-all]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._off(null, null, true); }); });
+        });
+      }
       _render() {
+        // (Card Design: New draws the kit's card; Current, today's, below -- built afresh when it comes back)
+        if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) { this._built = false; return; } } else if (this._kitHtml) { window.hkKit.forget(this); this._built = false; }
         var self = this;
         if (!this._built) {
           this._root.innerHTML = '<hk-plate class="wg" data-hk-role="card" role="group" aria-label="On now"></hk-plate>';

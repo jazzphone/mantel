@@ -327,7 +327,7 @@
           if (!yes) return;
           if (!x) { self.setH(JSON.parse(JSON.stringify(M.APPEARANCE_DEFAULTS))); return; }
           var ch = Object.assign(M.menuOwnReset(b, 'accent'), { flat: null, glass: 'house', flat_colors: {} });
-          ['flat_theme', 'frost', 'blur', 'tint', 'well', 'frost_tint', 'bright', 'bright_dim', 'bright_pages', 'bars_blur', 'tile_style', 'tile_icons',
+          ['flat_theme', 'frost', 'blur', 'tint', 'well', 'frost_tint', 'bright', 'bright_dim', 'bright_pages', 'bars_blur', 'tile_style', 'tile_icons', 'card_design',
             'motion', 'text_glow']
             .forEach(function (k) { ch[k] = null; });
           if (M.ownsMenu(b, 'tab_bar_glass')) Object.assign(ch, M.menuOwnReset(Object.assign({}, b, { menu_own: ch.menu_own || b.menu_own }), 'tab_bar_glass'));
@@ -614,6 +614,15 @@
             sub: b ? whose(b, ownI) : 'Automatic: white on Bright Glass, in color otherwise',
             onChange: function (v) { if (b) self.setB(path, { tile_icons: v === houseI ? null : v }); else self.setH({ 'look.tile_icons': v }); } }));
         }
+        // CARD DESIGN (docs/phase34/PLAN.md, 2026-11-22, the owner: "if you finish and it just doesn't look great...can I go back to
+        // the cards we have in place today?"): Current draws today's cards; New draws the ones built from the kit (hk-kit.js) where a
+        // card has one. Choosing Current again is the way back.
+        var knownD = function (v) { return (M.CARD_DESIGNS || []).some(function (o) { return o[0] === v; }); };
+        var houseD = knownD((this.data.settings.look || {}).card_design) ? this.data.settings.look.card_design : 'current';
+        var ownD = !!b && knownD(b.card_design);
+        rows.push(K.seg({ label: 'Card Design', sk: b ? 'b:card_design' : 'look.card_design', value: ownD ? b.card_design : houseD, options: M.CARD_DESIGNS,
+          sub: b ? whose(b, ownD) : 'New redraws TV, Security, Thermostat, Timers, House Status, On Now, Recent, Vacuum and Alert. Current is today\u2019s cards',
+          onChange: function (v) { if (b) self.setB(path, { card_design: v === houseD ? null : v }); else self.setH({ 'look.card_design': v }); } }));
         return rows;
       }
       // THE ROWS UNDER GLASS STYLE, the same on All Screens' Appearance and a

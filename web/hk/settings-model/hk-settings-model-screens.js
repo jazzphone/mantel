@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   (window.hkSettingsModelParts = window.hkSettingsModelParts || {})['hk-settings-model-screens'] = function (K) {
-    var choiceLabel = K.choiceLabel, GLASS_STYLES = K.GLASS_STYLES, listText = K.listText, TILE_ICONS = K.TILE_ICONS,
+    var choiceLabel = K.choiceLabel, GLASS_STYLES = K.GLASS_STYLES, listText = K.listText, TILE_ICONS = K.TILE_ICONS, CARD_DESIGNS = K.CARD_DESIGNS,
         TILE_STYLES = K.TILE_STYLES, WALLPAPER_MOTION = K.WALLPAPER_MOTION, WALLPAPER_NIGHT = K.WALLPAPER_NIGHT;
 
     // ------------------------------------------------------------ wall tablets (1.14)
@@ -428,7 +428,7 @@
     // -- only what differs. `layout`: the Layout + Look's grid, if any.
     var LOOK_LABELS = { flat: 'Flat', flat_theme: 'Flat Theme', glass: 'Style', accent: 'Accent Color', tab_bar_glass: 'Tab Bar Glass',
       bars_blur: 'Bars & Side Pane',
-      tile_style: 'Tile Style', tile_icons: 'Icons', sky: 'Sky', sky_background: 'Background', sky_color: 'Color', sky_wallpaper: 'Wallpaper',
+      tile_style: 'Tile Style', tile_icons: 'Icons', card_design: 'Card Design', sky: 'Sky', sky_background: 'Background', sky_color: 'Color', sky_wallpaper: 'Wallpaper',
       sky_wallpaper_night: 'Night Version', sky_wallpaper_motion: 'Wallpaper Motion', sky_flat_background: 'Background in Flat', sky_flat_color: 'Color in Flat', sky_animations: 'Animations',
         sky_weather: 'Weather',
       sky_precipitation: 'Rain & Snow', sky_moving: 'Moving Things', sky_decorations: 'Decorations', sky_liveliness: 'Liveliness',
@@ -440,7 +440,7 @@
       if (k === 'glass' && v === 'house') return 'Same as All Screens';
       if (v === true) return 'On';
       if (v === false) return 'Off';
-      var lists = { glass: GLASS_STYLES, tile_style: TILE_STYLES, tile_icons: TILE_ICONS, sky_wallpaper_night: WALLPAPER_NIGHT, sky_wallpaper_motion: WALLPAPER_MOTION };
+      var lists = { glass: GLASS_STYLES, tile_style: TILE_STYLES, tile_icons: TILE_ICONS, card_design: CARD_DESIGNS, sky_wallpaper_night: WALLPAPER_NIGHT, sky_wallpaper_motion: WALLPAPER_MOTION };
       var o = lists[k] && lists[k].filter(function (x) { return x[0] === v; })[0];
       if (o) return o[1];
       if (k === 'side_pane') return v.dashboard && v.dashboard.show === 'off' ? 'Off' : 'On, beside Home';

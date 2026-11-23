@@ -98,6 +98,13 @@
       if (b && ok(b.tile_icons)) return b.tile_icons;
       return ok(get('look.tile_icons')) ? get('look.tile_icons') : 'auto';
     }
+    // CARD DESIGN, for this screen (docs/phase34/PLAN.md): its own when it sets one, else All Screens' -- 'current' (today's
+    // cards) or 'new' (the cards drawn from the kit, hk-kit.js)
+    function cardDesign() {
+      var b = boardHere(), ok = function (v) { return v === 'current' || v === 'new'; };
+      if (b && ok(b.card_design)) return b.card_design;
+      return ok(get('look.card_design')) ? get('look.card_design') : 'current';
+    }
     // Over a blur: the plate the status chips always had over their own.
     var OVER_BLUR = 'linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.07))';
     // The chips' own blur (hk-chip.js), at the chosen strength: the shared
@@ -342,7 +349,7 @@
     K.brightContrast = brightContrast; K.brightDim = brightDim; K.brightLook = brightLook;
     K.brightPages = brightPages; K.frost = frost; K.frostTint = frostTint; K.HELD = HELD; K.HELD_T = HELD_T;
     K.isBright = isBright; K.isBrightLook = isBrightLook; K.LOOK_VARS = LOOK_VARS; K.LOOKS = LOOKS; K.onHome = onHome;
-    K.RETIRED = RETIRED; K.rgbOf = rgbOf; K.skyStops = skyStops; K.tileIcons = tileIcons; K.tileStyle = tileStyle;
+    K.RETIRED = RETIRED; K.rgbOf = rgbOf; K.skyStops = skyStops; K.tileIcons = tileIcons; K.cardDesign = cardDesign; K.tileStyle = tileStyle;
     K.tintWell = tintWell;
   };
 })();
