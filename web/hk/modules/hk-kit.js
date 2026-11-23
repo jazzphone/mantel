@@ -197,7 +197,9 @@
   /** @param {any} k @param {number} x @param {number} y @param {number} w @param {any} r @param {boolean} [last] @param {number} [rh] */
   function row(k, x, y, w, r, last, rh) {
     rh = rh || RH;
-    var lw = r.lw || (r.lead ? 28 : 0), x1 = x + k.X + (lw ? lw + 12 : 0), trw = r.trail ? Math.min(Math.round(String(r.trail).length * 11 + 12), Math.round((w - k.X - x1 + x) * 0.45)) : 0;
+    // (round 12: r.trw is room kept at the right for a trail the card draws itself -- On Now's dot and count; r.trCss is the trail's own style, Recent's softer time)
+    var lw = r.lw || (r.lead ? 28 : 0), x1 = x + k.X + (lw ? lw + 12 : 0),
+      trw = r.trw != null ? r.trw : r.trail ? Math.min(Math.round(String(r.trail).length * 11 + 12), Math.round((w - k.X - x1 + x) * 0.45)) : 0;
     var tw = x + w - k.X - x1 - (trw ? trw + 10 : 0), ty = y + (rh - (r.b ? 46 : 24)) / 2;
     var data = Object.keys(r.data || {}).map(function (n) { return ' data-' + n + '="' + esc(r.data[n]) + '"'; }).join('');
     var o = '<button type="button" class="row"' + (r.data ? ' data-notap' : '') + data + ' aria-label="' + esc(r.label || r.t) + '" style="' + st(x, y, w, rh) + '"></button>';
@@ -205,7 +207,8 @@
     var tc = r.quiet ? 'kt quiet' : 'kt';
     o += r.b ? tx(x1, ty, tw, tc, esc(r.t), 'pointer-events:none;' + (r.tCss || '')) + tx(x1, ty + 24, tw, 'kb', r.bHtml ? r.b : esc(r.b), 'pointer-events:none')
       : tx(x1, ty, tw, tc, esc(r.t), 'pointer-events:none;' + (r.tCss || ''));
-    if (r.trail) o += tx(x + w - k.X - trw, y + (rh - 22) / 2, trw, 'kb', esc(r.trail), 'text-align:right;pointer-events:none;' + (r.quiet ? '' : 'color:' + v('ink', 'rgba(255,255,255,0.94)')));
+    if (r.trail) o += tx(x + w - k.X - trw, y + (rh - 22) / 2, trw, 'kb', esc(r.trail), 'text-align:right;pointer-events:none;' +
+      (r.trCss != null ? r.trCss : r.quiet ? '' : 'color:' + v('ink', 'rgba(255,255,255,0.94)')));
     if (!last) o += box(x1, y + rh - 1, x + w - k.X - x1, 1, 'sep', 'pointer-events:none');
     return o;
   }
