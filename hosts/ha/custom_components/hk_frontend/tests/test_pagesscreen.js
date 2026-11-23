@@ -128,6 +128,8 @@ var g4 = P.grid(844, 390, {});
 ok('a phone on its side: 6 x 2', g4.cols === 6 && g4.rows === 2, g4);
 var g5 = P.grid(1180, 736, { pill: false });
 ok('beside a tab bar (less height, no pill): still 6 x 3, a little smaller', g5.cols === 6 && g5.rows === 3 && g5.s < 1 && g5.s > 0.9, g5);
+var g6 = P.grid(720, 622, { pill: true, homeView: true }), g6x = P.grid(720, 622, { pill: true });
+ok('an Apple HomeView: 4 x 2, icons half again bigger than 6 x 3 would draw', g6.cols === 4 && g6.rows === 2 && g6.icon > 105 && g6.icon > g6x.icon * 1.4, [g6, g6x]);
 
 print('=== placing them ===');
 var p1 = P.place(10, [], 6, 3);
