@@ -346,6 +346,8 @@
       D.back0 = { id: id, src: src || null, opts: opts };
       var wk = panel.hkWidthKind ? panel.hkWidthKind(h, s) : kind, wpx = typeof wk === 'number' ? wk : WIDTH[wk] || 440;   // (a number: the panel's own)
       sheet.style.setProperty('--hkd-w', wpx + 'px');
+      var hpx = panel.hkHeightKind ? panel.hkHeightKind(h, s) : 0;   // (a number: a taller sheet than the one height, up to the screen less 32)
+      if (typeof hpx === 'number' && hpx > 0) sheet.style.setProperty('--hkd-h', hpx + 'px');
       if (panel.hkFill && panel.hkFill()) panel.classList.add('fill');
       // A sheet as tall as its content (the camera's picture) instead of the
       // one height every control sheet shares; a bare one (the camera) is the

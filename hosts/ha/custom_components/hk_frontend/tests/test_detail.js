@@ -231,6 +231,8 @@ ok('every control sheet one height (680) and one of two widths (460 / 820); the 
    Object.keys(_.WIDTH).every(function (k) { return k === 'camera' || _.WIDTH[k] === 460 || _.WIDTH[k] === 820; }) &&
    /hkAutoHeight\(\) \{ return true; \}/.test(src) &&
    _.WIDTH.climate === 820 && _.WIDTH.sensor === 820 && _.WIDTH.binary === 460 && _.WIDTH.media_tv === 460);
+ok('a panel may ask for a taller sheet (hkHeightKind -> --hkd-h on the sheet); without one it is 680, and the phone and short-screen rules still set their own heights',
+   /height:var\(--hkd-h,' \+ SHEET_H \+ 'px\);max-height:calc\(var\(--hk-vh, 100dvh\) - 32px\)/.test(src) && /panel\.hkHeightKind/.test(src) && /setProperty\('--hkd-h'/.test(src));
 // Every phone sheet is one height, the speaker's (643); a short screen still
 // takes screen - 80, and the tall ones scroll inside it
 ok('a phone sheet is the speaker\'s height (643), never more than the screen less 40 (20 a side on an iPhone SE); content centered by auto margins (a tall one scrolls from the top)',

@@ -204,6 +204,9 @@ async function pane(browser) {
   assert.deepEqual(got.pills.map(x => [x.cover, x.tile]), [[true, false], [false, true], [true, false]], 'covers, and a glyph on a tile where there is none');
   got.pills.forEach((x, i) => assert.ok(x.whole, 'pill ' + i + ': its whole name'));
   assert.ok(new Set(got.pills.map(x => x.left)).size === 1, 'every name starts on one line: ' + got.pills.map(x => x.left));
+  // roomy on a tablet (2026-11-23, the owner: "we could probably make it wider/bigger too"): 740 wide (never past the screen less 32) and the panel's own wide layout
+  const box = await p.evaluate(() => { const sh = __mc.deep(document, '.hkd .sheet')[0].getBoundingClientRect(); return { w: Math.round(sh.width), h: Math.round(sh.height), wide: __mc.panel().hasAttribute('wide') }; });
+  if (W >= 1000) assert.ok(box.w > 520 && box.wide && box.h > 680, 'the music sheet is roomy on a tablet: ' + JSON.stringify(box));
   // (the screensaver's own panel draws its background blurred, and that is the saver check's; the sheet takes none behind it -- hk-media-npsheet.js)
   assert.deepEqual(t.errors, [], 'page errors');
   say('the music sheet from the cover: Browse, Queue and Speakers, covers and whole names in Browse');

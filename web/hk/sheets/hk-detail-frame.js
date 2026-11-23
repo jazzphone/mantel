@@ -54,7 +54,8 @@
     // TWO WIDTHS AND ONE HEIGHT: every sheet is STD wide except the two that
     // lay out in two columns, and every sheet is SHEET_H tall -- the X and the
     // name land in the same place whatever opens. The keys stay per kind so a
-    // kind can move.
+    // kind can move. (A panel with a long list may ask for more height -- hkHeightKind, a number, --hkd-h; the music sheet
+    // does -- and the screen's own cap and the phone's and the short screen's rules below still win.)
     var STD = 460, WIDE = 820, SHEET_H = 680;
     // A SHORT SCREEN: wider than a phone, under 500 px tall, held sideways
     var SHORT_MQ = '(orientation:landscape) and (max-height:500px) and (min-width:' + (C.BP.phone + 1) + 'px)';
@@ -134,7 +135,7 @@
       '.hkd .sheet{position:relative;box-sizing:border-box;pointer-events:auto;',
       '  width:var(--hkd-w,' + STD +
         'px);max-width:calc(var(--hk-vw, 100vw) - max(var(--hk-content-left, 0px), var(--hk-safe-left,env(safe-area-inset-left,0px))) - var(--hk-safe-right,env(safe-area-inset-right,0px)) - 32px);',
-      '  height:' + SHEET_H + 'px;max-height:calc(var(--hk-vh, 100dvh) - 32px);',
+      '  height:var(--hkd-h,' + SHEET_H + 'px);max-height:calc(var(--hk-vh, 100dvh) - 32px);',
       '  display:flex;flex-direction:column;gap:20px;padding:24px;border-radius:38px;',
       // THE COLOUR COMES THROUGH: a light tint over a saturated blur, so the
       // sky and the pills behind tint the sheet the way the Home app's cards
