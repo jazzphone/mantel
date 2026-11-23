@@ -13,6 +13,7 @@ window.hkSettings = { version: 1, get: function (path, fb) { return path === 'ad
 load(HK_ROOT + '/frontend/cards/hk-base.js');
 load(HK_ROOT + '/tests/music_house.js');
 load(HK_ROOT + '/frontend/modules/hk-kit.js');
+load(HK_ROOT + '/frontend/modules/hk-saver-panel.js');
 load(HK_ROOT + '/frontend/cards/hk-media.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-catalog.js');
 
@@ -174,5 +175,29 @@ function () {
   var bar = H.make('hk-now-playing-card');
   bar.setConfig({ type: 'custom:hk-now-playing-card', bar: true });
   ok('the docked bar (no size) keeps its own drawing', bar._renderKit() === false);
+},
+function () {
+  H.section('the cover\'s sheet: the screensaver\'s own panel in a roomy sheet -- wider and taller than the 520 x 680 it was');
+  // (the panel's own drawing is test_saverpanel's and the browser check's; here a stand-in with its element, to see what the sheet does with it)
+  var made = [], realCreate = window.hkSaverPanel.create;
+  window.hkSaverPanel.create = function (o) { var p = { el: document.createElement('div'), o: o, show: function (t) { p.tab = t; }, update: function () {}, destroy: function () {} }; p.el.className = 'mpanel'; p.el.toggleAttribute = HTMLElement.prototype.toggleAttribute; made.push(p); return p; };
+  var S = H.make('hk-music-sheet');
+  ok('a tablet\'s sheet is 740 wide (hk-detail takes a number as the panel\'s own) and asks for 820 of height (the frame caps it at the screen less 32)',
+    S.hkWidthKind() === 740 && S.hkHeightKind() === 820);
+  ok('...the same panel, filling the sheet, the sheet\'s own header and X, the owner\'s dark', S.hkFill() === true && S.hkSheetAppearance().flat_theme === 'dark');
+  S.setConfig({ type: 'hk-music-sheet', tab: 'speakers' });
+  S.client = H.house({ 'media_player.kitchen_homepod_ma': ['playing', { friendly_name: 'Kitchen HomePod' }] }).hass();
+  S._render();
+  var pe = S._p && S._p.el;
+  ok('the screensaver panel is in the sheet (three tabs, Stop, no wide of its own), on the tab asked for', made.length === 1 && made[0].tab === 'speakers' &&
+    made[0].o.tabs.join() === 'browse,queue,speakers' && made[0].o.stop === true);
+  S._fit(740);
+  ok('740 wide: the panel\'s own wide layout (two columns of rooms, three of playlists, the wider shelf), as on the screensaver\'s 500+ card', pe.hasAttribute('wide'));
+  S._fit(358);
+  ok('...a phone\'s sheet (358) keeps the narrow one', !pe.hasAttribute('wide'));
+  S._fit(520);
+  ok('...and 500 or more is wide, the number the screensaver uses', pe.hasAttribute('wide'));
+  S.disconnectedCallback();
+  window.hkSaverPanel.create = realCreate;
 }
 ]);

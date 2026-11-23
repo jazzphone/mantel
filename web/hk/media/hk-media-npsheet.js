@@ -39,7 +39,11 @@
 
     class HkMusicSheet extends HkBase {
       static get CSS() { return CSS(); }
-      hkWidthKind() { return 520; }
+      // ROOMY (the owner, 2026-11-23: "we could probably make it wider/bigger too"): 740 wide where the screen has the room (the frame
+      // caps it at the screen less 32 and a phone's own rules take over) and as tall as the frame lets a sheet be -- 820, held to the screen
+      // less 32 -- so Browse shows more covers across and Queue and Speakers breathe. It was 520 x 680.
+      hkWidthKind() { return 740; }
+      hkHeightKind() { return 820; }
       hkFill() { return true; }
       hkNoGear() { return true; }
       // dark whatever the screen's look (the panel's rows are white on dark)
@@ -66,8 +70,13 @@
         // the music changing under it (a request landing) draws it again without a client
         if (!this._musicOff && window.hkMusic) this._musicOff = window.hkMusic.onChange(function () { if (self._p) self._p.update(); });
       }
+      // THE PANEL'S WIDE LAYOUT (two columns of rooms, three of playlists, the wider shelf) from the sheet's own width, the number the
+      // screensaver's card uses (hk-saver-screens.js: 500); a phone's sheet is under it. One observer, on this sheet alone.
+      /** @param {number} w */
+      _fit(w) { if (this._p && w) this._p.el.toggleAttribute('wide', w >= 500); }
       disconnectedCallback() {
         if (super.disconnectedCallback) super.disconnectedCallback();
+        if (this._ro) { this._ro.disconnect(); this._ro = null; }
         if (this._musicOff) { this._musicOff(); this._musicOff = null; }
         if (this._p) { this._p.destroy(); this._p = null; this._built = false; }
       }
@@ -93,6 +102,11 @@
           this._root.appendChild(this._p.el);
           this._p.show(cfg.tab === 'browse' || cfg.tab === 'speakers' ? cfg.tab : 'queue');
           this._built = true;
+          this._fit(this.clientWidth);
+          if (typeof ResizeObserver === 'function' && !this._ro) {
+            this._ro = new ResizeObserver(function (/** @type {any} */ es) { var e = es && es[0]; if (e) self._fit(e.contentRect.width); });
+            this._ro.observe(this);
+          }
         }
         this._p.update();
       }
