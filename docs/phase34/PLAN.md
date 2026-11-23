@@ -1,13 +1,12 @@
 # Phase 34: Every Home Grid card in one kit, with a way back (plan, 2026-11-22)
 
-**Status: the first cards built (2026-11-22).** The owner: "Lets go ahead and implement - the TV Cards ... The house
+**Status: the first cards built (2026-11-22); the switch removed (2026-11-23, "The way back" below).** The owner: "Lets go ahead and implement - the TV Cards ... The house
 status cards. The One Now Cards. The Recent Cards. The Vacuum Cards, but for these, i'd rather the icon animation be more
 front and center, with there being a Rooms button with a pop up for which rooms you want to select and clean. No need to
 have all the rooms on display. The Alert cards", then "You can also add the security cards too!", "the thermostat cards as
 well", and of Timers: "I also don't like them separated into separate tiles... any way you can take the best of both and
 combine them?" So New covers, first: TV, Security, Thermostat, Timers, House Status, On Now, Recent, Vacuum and Alert; every
-other card draws Current on a New screen until it has its own. The switch (`card_design`), the kit (`hk-kit.js`) and the
-block-taps check's New pass (every block opens from its plate what Current's opens) are in.
+other card keeps its drawing until it has its own. The kit (`hk-kit.js`) is in.
 
 - Line numbers are left out on purpose: search for the names.
 - The review page every decision below was made on: https://claude.ai/artifact/VW9DVM3ZipfFEgzrwT6Gj4 (rounds one to
@@ -26,20 +25,19 @@ Before it, over the review: bigger touch areas on every card, in HomeView's lang
 a design standpoint ... speak the same language", "close attention to margins/padding/spacing ... that radius follows
 through the cards too".
 
-## The way back: a Card Design switch, Current by default
+## The way back: git, not a switch
 
-The new cards are built **beside** today's, never over them, and a screen chooses which it draws:
+The trial first shipped behind an Appearance switch (Card Design: Current / New). The owner, 2026-11-23: "I'm not a fan of this
+'new card' switch. I really just wanted to be able to revert back code wise if I didn't like them." So the switch is gone and the
+kit's cards are simply the code:
 
-- **Appearance → Card Design: Current / New**, on a screen's page and at All Screens (a screen follows All Screens
-  unless it sets its own, as every Appearance row does). Stored as `card_design` (`current` | `new`), checked in
-  `hk_core/settings/changes.py` like `tile_style`. **Current is the default**, so no screen changes until the owner
-  switches it; switching back is the same row, and takes effect on the next draw (no reload, no release).
-- **Today's card code is not edited** by this phase, except to ask which design to draw: a card whose screen says
-  Current draws exactly what it draws today. A test pins that (below, "Checks").
-- **Releases are tagged** as always (vX.Y.Z), so a release can also be rolled back whole; the switch is the everyday
-  way back, the tag the last resort.
-- **When the owner has decided**, the losing design is removed in a change of its own (and the switch with it), so the
-  repository doesn't carry two designs for longer than the trial.
+- **Every card with a kit drawing draws it**, on every screen; a card's older drawing stays only for what the kit doesn't draw
+  (Security's Extra Large keypad block, Small Security's HomeView key tile).
+- **The way back is git**: reverting the phase's commits (the kit and its cards, the White glyphs fix, the switch's removal)
+  brings back the cards as they were. Releases are tagged as always, so a release can also be rolled back whole.
+- A house or screen that stored `card_design` keeps working: the key is dropped when the settings are read.
+- The gallery the owner reviewed them on (every card, every size, four house states):
+  https://claude.ai/artifact/UWgZQFXwfKRf7XtBEnPrbM
 
 ## What the kit is (the decisions taken on the review page)
 
@@ -93,9 +91,7 @@ nothing above a glass layer is transformed at rest.
 
 ## Order of the work
 
-1. **The switch and the kit**: `card_design` in `hk_core` (choice, default, words, search), the Appearance row at a
-   screen and at All Screens, `hk-kit.js` with its parts, and the base card's `cardDesign()` that every card asks.
-   Tests: the setting's checks; the kit's measures (jsc).
+1. **The kit**: `hk-kit.js` with its parts. Tests: the kit's measures (jsc).
 2. **Tiles and groups** (most cards already draw HomeView's tile; their New is the same tile with the kit's edges).
 3. **Thermostat, Timers, Security.**
 4. **The lists**: Calendar, To-do, Recent, Live TV, then House Status and On Now.
@@ -103,14 +99,12 @@ nothing above a glass layer is transformed at rest.
 6. **Devices and readings**: Vacuum, Alert, Camera, Weather, Clock, Battery, Power, Water, Energy Rings.
 7. **Every style pass**: each card at every size in each style (the tools below), fixing what they show.
 8. **On the house's own screens** with `tools/headless/house_twin.py`, then the owner's review. Nothing goes to the
-   house without the owner's OK for that release; when it does, every screen is still Current until one is switched.
+   house without the owner's OK for that release.
 
 Each step is its own commits on main, pushed when its checks pass.
 
 ## Checks (within the checks' budget)
 
-- **Current is untouched**: a jsc test draws a sample of cards with `card_design: current` and compares them with
-  today's output.
 - **The kit's measures**: jsc tests that a part's numbers are the table's (edges, corners, heights, type).
 - **Edges and corners**: a script that measures every shape near a card's edge (its inset from each edge, its corner)
   and names any off the 13 edge or not concentric. Run by hand when a card's drawing changes (it is a one-off, like
@@ -126,5 +120,3 @@ Each step is its own commits on main, pushed when its checks pass.
    are rewritten from this plan; until then it stays as it is. Shall it be updated when the trial ends, or now?
 2. **The touch sizes against DESIGN.md**: the review settled on 64 px keys and 60 px rows; Wide Security's three rows
    share 170 px (57 each). Keep that one exception, or show two rows there?
-3. **Card Design at All Screens**: one switch for the whole house first (simpler to try), or per screen from the start
-   (as planned)?

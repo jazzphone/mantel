@@ -11,7 +11,7 @@ from ..saver_designs import HOLIDAYS as SAVER_HOLIDAYS
 from .schema import (_one_of, _PLACE, _typed, BARS_BLUR, BRIGHT_PAGES, CONF_DASHBOARD, FLAT_BACKGROUNDS, flat_color, flat_colors,
     FLAT_COLORS_DEFAULT, FLAT_FADE, flat_image_look, flat_page_colors, flat_page_image_looks, flat_pages, flat_tint,
     FLAT_THEMES, FLAT_TINT_AMOUNT, GLASS, NP_BARS, NP_GRACES, NP_SIDES, NP_STYLES, photo_look, PHOTO_LOOK_DEFAULTS,
-    place_sky_defaults, radar_native, RETIRED_GLASS, sky_landscape, THERMOSTAT_STYLES, TILE_ICONS, TILE_STYLES, CARD_DESIGNS,
+    place_sky_defaults, radar_native, RETIRED_GLASS, sky_landscape, THERMOSTAT_STYLES, TILE_ICONS, TILE_STYLES,
     wallpaper_choice, WALLPAPER_MOTION, WALLPAPER_NIGHT, weather_page, WELLS,)
 from .defaults import (DEFAULTS, PAGES_SCREEN_CLOCK, PAGES_SCREEN_DEFAULTS, PAGES_SCREEN_ICONS_MAX, PAGES_SCREEN_PATH,
     PAGES_SCREEN_PILL, PAGES_SCREEN_PLACES, PAGES_SCREEN_ROOMS, PAGES_SCREEN_SHOW, PAGES_SCREEN_SIZES,
@@ -134,7 +134,7 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     out["look"]["text_glow"] = out["look"].get("text_glow") is not False
     if out["look"].get("flat_theme") not in FLAT_THEMES:
         out["look"]["flat_theme"] = "dark"
-    for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("bars_blur", BARS_BLUR), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS), ("card_design", CARD_DESIGNS),
+    for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("bars_blur", BARS_BLUR), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),
                        ("thermostat_style", THERMOSTAT_STYLES)):
         out["look"][k] = out["look"].get(k) if out["look"].get(k) in choices else DEFAULTS["look"][k]
     out["sky"]["photo_look"] = photo_look(out["sky"].get("photo_look")) or dict(PHOTO_LOOK_DEFAULTS)

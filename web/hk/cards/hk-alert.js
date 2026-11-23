@@ -310,7 +310,7 @@
       if (this._kid && this._kid.parentNode) this._kid.parentNode.removeChild(this._kid);
       this._kid = null; this._kidKey = '';
     }
-    // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): LIT while its rule holds -- a white plate, the alert's glyph in its color
+    // THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js): LIT while its rule holds -- a white plate, the alert's glyph in its color
     // leading the header (Wide and up: a narrow plate's header is its words), the camera's still between the header and the foot key
     // on the shape inset with the kit's corner, and its action as the foot key, tinted with the alert's color ("Close It"). The key
     // does what the pill did: `_go` (a door or a lock opens its controls, which ask first); the plate's tap, the camera's and Small's
@@ -384,7 +384,7 @@
       return true;
     }
     _render() {
-      // (Card Design: New draws the kit's card; Current, today's, below -- hk-kit.js forgets the New html so going back redraws)
+      // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
       if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; }
       else if (window.hkKit && this._kitHtml) { window.hkKit.forget(this); this._layoutKey = ''; this._kitSkel = null; }
       var self = this, size = this._size(), m = this._model(), box = this._box(size);

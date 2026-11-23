@@ -211,7 +211,7 @@
       return '<div class="apps' + (cols ? ' grid" style="grid-template-columns:repeat(' + cols + ',' + size + 'px)' : '') + '">' +
         apps.slice(0, n).map(function (a) { return tile(a, size); }).join('') + '</div>';
     }
-    // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): the remote first, as Current, in the kit's parts -- the open app's own
+    // THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js): the remote first, as Current, in the kit's parts -- the open app's own
     // icon is the picture (it plays and pauses), its name and the TV's beside it, power, the round pad, Back / Home / Mute / Play /
     // − / + as keys, the apps' icons in a row on Large and a column on Extra Large. White while the TV is on; glass while off.
     _renderKit() {
@@ -303,7 +303,7 @@
       });
     }
     _render() {
-      // (Card Design: New draws the kit's card; Current, today's, below -- hk-kit.js forgets the New html so going back redraws)
+      // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
       if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; } else if (window.hkKit) window.hkKit.forget(this);
       var self = this, T = window.hkTv, size = this._size(), box = this._box(size), set = this._set(), cfg = this._config || {}, body = '', label = '';
       if (!T || !set) {

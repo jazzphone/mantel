@@ -649,7 +649,7 @@
         return JSON.stringify([o.every.map(function (x) { return x.kind.key + x.all.length; }), o.things.map(function (t) { return t.id + (st[t.id] ? st[t.id].last_updated : ''); }),
                                sizeOf(this), this._blockKey || '', !!(window.hkHouseStatus && window.hkHouseStatus.tiles)]);
       }
-      // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): the count with "On" and "In N rooms" as the headline ("All Off" when nothing is), a
+      // THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js): the count with "On" and "In N rooms" as the headline ("All Off" when nothing is), a
       // reading row per kind the house has (the kinds that are on first, as Current's list; its glyph in the kind's color while something is on,
       // gray at rest; its count at the right, under the name on a block under 300), and All Off the foot key. A row opens the kind's page or
       // sheet as Current's does; All Off turns off what is on, as Current's pill (no confirmation there). Small is HomeView's tile with the
@@ -695,7 +695,7 @@
         });
       }
       _render() {
-        // (Card Design: New draws the kit's card; Current, today's, below -- built afresh when it comes back)
+        // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
         if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) { this._built = false; return; } } else if (this._kitHtml) { window.hkKit.forget(this); this._built = false; }
         var self = this;
         if (!this._built) {

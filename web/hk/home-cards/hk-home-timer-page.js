@@ -543,7 +543,7 @@
           '></div></div>' + more;
         return add + '<div class="tg" style="--cols:' + cols + '">' + units.join('') + '</div>' + more;
       }
-      // ===================================================== NEW (Card Design; docs/phase34/PLAN.md, hk-kit.js)
+      // ===================================================== THE KIT'S CARD (phase 34; docs/phase34/PLAN.md, hk-kit.js)
       // ONE PLATE, no tile inside it (the owner, 2026-11-22: "I also don't like them separated into separate tiles ... take the best of
       // both"). From the mockup: each timer's ring with the time in it, its name under, and the foot split into Pause and Stop, each
       // owning half. From today's block, kept as it is: the soonest timer first, Small the ring alone, Wide one with "+N more", Tall one,
@@ -711,7 +711,7 @@
       }
       _render() {
         var cfg = this._config;
-        // (Card Design: New draws the kit's card in a block; Current, today's, below -- built afresh when it comes back)
+        // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
         if (window.hkKit && window.hkKit.on(this) && this._cellSize()) {
           if (this._renderKit()) { this._built = false; this._e = null; this._tapWired = false; return; }
         } else if (window.hkKit) window.hkKit.forget(this);

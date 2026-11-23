@@ -460,7 +460,7 @@
     // (the plate's tap, hk-base.js openTarget): anywhere that is no section -- the heading, a gap -- opens the sheet
     _tapTarget() { var self = this; return [{ run: function () { self._open(); } }]; }
     _open() { var m = this._sections(); return openSheet(m ? m.total : 0); }
-    // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): a headline that answers the glance -- the one thing that matters most, else All Good --
+    // THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js): a headline that answers the glance -- the one thing that matters most, else All Good --
     // and one reading row per section in the chips' order: its glyph (28, in its color while it is on or asks for a look, gray at rest), its
     // name at the left (softer at rest), its reading at the right (under the name on a block under 300). The rows scroll inside the block
     // under the header, as Current's list does; a row opens the page its chip opens, anywhere else the sheet. Small is HomeView's tile;
@@ -530,7 +530,7 @@
       return ok;
     }
     _render() {
-      // (Card Design: New draws the kit's card; Current, today's, below -- built afresh when it comes back)
+      // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
       if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) { this._built = false; return; } } else if (this._kitHtml) { window.hkKit.forget(this); this._built = false; }
       var self = this;
       if (!this._built) {

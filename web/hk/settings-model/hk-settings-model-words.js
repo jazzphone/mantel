@@ -350,8 +350,6 @@
     // on square cells; 2026-11-07, a Centered tile's icons off (look.tile_icons; Automatic: white on Bright Glass) and Climate's thermostats
     var TILE_STYLES = [['auto', 'Automatic'], ['home', 'Home'], ['centred', 'Centered']], TILE_ICONS = [['auto', 'Automatic'], ['color', 'Color'], ['white', 'White']],
         THERMOSTAT_STYLES = [['dial', 'Dial'], ['big', 'Big Number']];
-    // CARD DESIGN (look.card_design, a screen's card_design; docs/phase34/PLAN.md): Current, or New (the cards built from one kit)
-    var CARD_DESIGNS = [['current', 'Current'], ['new', 'New']];
     // BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; settings.py BRIGHT_PAGES)
     var BRIGHT_PAGES = [['home', 'Home Only'], ['all', 'Every Page']];
     var PRESETS = {
@@ -784,7 +782,7 @@
     K.STATUS_SAYS = STATUS_SAYS; K.STATUS_SOURCE = STATUS_SOURCE; K.statusSummary = statusSummary;
     K.stylesFor = stylesFor; K.styleValue = styleValue; K.SWIPE_PAGES = SWIPE_PAGES;
     K.SWIPE_PAGES_SAYS = SWIPE_PAGES_SAYS; K.swipeChanges = swipeChanges; K.TAB_STYLES = TAB_STYLES;
-    K.THERMOSTAT_STYLES = THERMOSTAT_STYLES; K.TILE_ICONS = TILE_ICONS; K.TILE_STYLES = TILE_STYLES; K.CARD_DESIGNS = CARD_DESIGNS;
+    K.THERMOSTAT_STYLES = THERMOSTAT_STYLES; K.TILE_ICONS = TILE_ICONS; K.TILE_STYLES = TILE_STYLES;
     K.TINT_WELLS = TINT_WELLS; K.WALLPAPER_MOTION = WALLPAPER_MOTION; K.WALLPAPER_NIGHT = WALLPAPER_NIGHT;
     K.WOODLAND = WOODLAND; K.woodlandSummary = woodlandSummary;
   };

@@ -353,18 +353,12 @@ def test_the_climate_pages_thermostat_style():
     assert C.apply_house({}, {"look.thermostat_style": "huge"})[1] == {"look.thermostat_style": "choice"}
 
 
-def test_card_design_for_all_screens_and_for_a_screen():
-    # CARD DESIGN (docs/phase34/PLAN.md): Current unless chosen, so no screen changes until it is switched; New is the kit's cards
-    assert M.merged({})["look"]["card_design"] == "current"
-    assert M.merged({"look": {"card_design": "shiny"}})["look"]["card_design"] == "current"
-    new, err = C.apply_house({}, {"look.card_design": "new"})
-    assert err == {} and M.merged(new)["look"]["card_design"] == "new"
-    assert C.apply_house({}, {"look.card_design": "newer"})[1] == {"look.card_design": "choice"}
-    assert M.board(None)["card_design"] is None                                # Same as All Screens
-    b, err = C.apply_board({}, {"card_design": "new"})
-    assert err == {} and M.board(b)["card_design"] == "new"
-    b, err = C.apply_board(b, {"card_design": None})
-    assert err == {} and M.board(b)["card_design"] is None
+def test_a_stored_card_design_is_left_behind():
+    # (Card Design, phase 34's trial switch, removed 2026-11-23 at the owner's word: the kit's cards are simply the code, and the
+    # way back is git) a house or screen that stored one keeps working; the key is dropped and can't be set again
+    assert "card_design" not in M.merged({"look": {"card_design": "new"}})["look"]
+    assert "card_design" not in M.board({"card_design": "new"})
+    assert C.apply_house({}, {"look.card_design": "new"})[1]
 
 
 def test_tile_icons_for_all_screens_and_for_a_screen():

@@ -1090,10 +1090,6 @@ TILE_STYLES = ("auto",) + HG.TILE_STYLES
 # (2026-11-07) Centered tiles' glyphs off (look.tile_icons; Automatic: white on Bright Glass); Climate's thermostats' style
 TILE_ICONS, THERMOSTAT_STYLES = ("auto", "color", "white"), HG.THERMOSTAT_STYLES
 
-# CARD DESIGN (look.card_design, a screen's card_design; docs/phase34/PLAN.md, 2026-11-22): the Home Grid's cards as they
-# are (Current, the default) or drawn from the kit (New, hk-kit.js) -- the owner's way back is choosing Current again
-CARD_DESIGNS = ("current", "new")
-
 # BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; 2026-10-30, the owner: "should we only use Bright
 # Glass on the main page?"): Home only (the default), the other pages in its Blur; or every page
 BRIGHT_PAGES = ("home", "all")

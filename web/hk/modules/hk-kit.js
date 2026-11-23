@@ -2,8 +2,9 @@
 // https://claude.ai/artifact/VW9DVM3ZipfFEgzrwT6Gj4: "everything should be cohesive, and work together from a design standpoint.
 // It all needs to speak the same language" ... "close attention to margins/padding/spacing ... that radius follows through").
 //
-// A card draws New only where the screen's Card Design says so (hkSettings.cardDesign(): 'current', the default, or 'new');
-// Current is today's card, untouched. The parts, in design px of the block (a square cell is 196):
+// Every card that has a kit drawing draws it (the trial's Card Design switch was removed 2026-11-23, the owner: "I really just
+// wanted to be able to revert back code wise"); a card's older drawing stays only for what the kit doesn't draw (its _renderKit
+// returns false). The parts, in design px of the block (a square cell is 196):
 //
 //   EDGES   words on the text inset (--hk-pad-*, 18 on square cells); shapes inside a card -- keys, covers, app icons, pictures,
 //           the alarm's tile -- on the shape inset (--hk-spad-*, 13: the grid's gap)
@@ -125,10 +126,9 @@
   }
 
   // ---------------------------------------------------------------- the block
-  function on(card) {
-    var S = global.hkSettings;
-    try { return !!(S && S.cardDesign && S.cardDesign() === 'new'); } catch (e) { return false; }
-  }
+  // (always: kept as the cards' one question, so the kit can be the only place that decides)
+  /** @param {any} [card] */
+  function on(card) { return true; }
   function px(cs, name, d) { var n = cs ? parseFloat(cs.getPropertyValue(name)) : NaN; return n >= 0 ? n : d; }
   // the block's size and insets, its corner and the look's light or dark
   function ctx(card) {

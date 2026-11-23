@@ -567,7 +567,7 @@
       this._loadSummary();
     }
 
-    // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): a LIST PLATE -- the header (a history glyph, "Recent", what it shows under it,
+    // THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js): a LIST PLATE -- the header (a history glyph, "Recent", what it shows under it,
     // "N more" at its right end), then rows of 60: the event's glyph at 28 in its kind's color, what happened over where and when. Extra
     // Large puts them in two columns; a narrow plate says the thing and what it did; Wide, with room for one row, centers the header and
     // the row as one group; Small is HomeView's tile of the newest event. The morning summary is the same plate: its status, then the
@@ -642,8 +642,7 @@
           if ((e.key === 'Enter' || e.key === ' ') && t && t.getAttribute && t.getAttribute('data-ev')) { e.preventDefault(); self._open(t.getAttribute('data-ev'), e); }
         });
       }
-      // (Card Design: New draws the kit's card over the plate built above; Current, today's, below -- hk-kit.js forgets the New html, and
-      // the plate Current morphs is put back so going back redraws)
+      // (the kit's card over the plate built above, hk-kit.js; the older drawing below only where the kit draws none)
       if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; }
       else if (window.hkKit && this._kitHtml) {
         window.hkKit.forget(this);

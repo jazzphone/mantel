@@ -297,7 +297,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {},
              # TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home Grid's tiles and the room
              # pages' Tall pills in the Home app's layout, or Centred (the glyph above the name and room, HomeView's)
-             "tile_style": "auto", "tile_icons": "auto", "card_design": "current", "thermostat_style": "dial", "bright_pages": "home",
+             "tile_style": "auto", "tile_icons": "auto", "thermostat_style": "dial", "bright_pages": "home",
              # Bars & Side Pane (BARS_BLUR): live, or Pre-rendered in Clear Glass and Each Card
              "bars_blur": "live",
              # TEXT GLOW (Appearance -> Advanced, 2026-11-22, the owner: "add Text Glow under Advanced, default on"):

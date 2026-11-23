@@ -316,7 +316,7 @@
 
       // ---- THE BLOCK (see the CSS): drawn whole each time and morphed in, so
       // a tap's focus and the rooms' scroll survive a state push
-      // NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js), the owner, 2026-11-22: "I'd rather the icon animation be more front and
+      // THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js), the owner, 2026-11-22: "I'd rather the icon animation be more front and
       // center, with there being a Rooms button with a pop up for which rooms you want to select and clean. No need to have all the rooms
       // on display." The vacuum drawn (hk-vacuum-art.js) is the card's middle, as large as the block lets it be, and it is the main key
       // (Clean, Pause, Resume), as a song's cover plays; what it is doing over it; Clean, Dock and Rooms as keys. Rooms opens the
@@ -394,7 +394,7 @@
         });
       }
       _renderBlock(sz) {
-        // (Card Design: New, the kit's vacuum; Current below)
+        // (the kit's vacuum; the older drawing below only where the kit draws none)
         if (window.hkKit && window.hkKit.on(this)) { if (this._renderKitBlock(sz)) return; } else if (window.hkKit) window.hkKit.forget(this);
         var cfg = this._config, esc = C.esc, self = this;
         this._built = false;                       // (the page's markup, if the block ever leaves the grid)

@@ -135,7 +135,7 @@
       LOOK_VARS, lookAt, LOOKS, lovelacePanel, moon, nowRead, nowTemp, often, onHome, pageBackdrop, pageLandscape,
       pageLook, pagePhoto, pageSky, pagesScreen, photoLook, radarNative, radarPlan, reducedMotion, rememberedTablet,
       rememberTablet, RETIRED, rgbOf, seasonalOn, seasonName, SKY_BACKDROPS, skyLook, skyStops, skyWindow, subscribe,
-      swipeLeft, swipePages, tabletOf, themeOn, tileIcons, cardDesign, tileStyle, tintWell, unit, userName, wallpaper, weatherId,
+      swipeLeft, swipePages, tabletOf, themeOn, tileIcons, tileStyle, tintWell, unit, userName, wallpaper, weatherId,
       weatherPage;
 
   var KEY = 'hk_settings';
@@ -676,7 +676,7 @@
     rememberedTablet = K.rememberedTablet; rememberTablet = K.rememberTablet; RETIRED = K.RETIRED; rgbOf = K.rgbOf;
     seasonalOn = K.seasonalOn; seasonName = K.seasonName; SKY_BACKDROPS = K.SKY_BACKDROPS; skyLook = K.skyLook;
     skyStops = K.skyStops; skyWindow = K.skyWindow; subscribe = K.subscribe; swipeLeft = K.swipeLeft;
-    swipePages = K.swipePages; tabletOf = K.tabletOf; themeOn = K.themeOn; tileIcons = K.tileIcons; cardDesign = K.cardDesign;
+    swipePages = K.swipePages; tabletOf = K.tabletOf; themeOn = K.themeOn; tileIcons = K.tileIcons;
     tileStyle = K.tileStyle; tintWell = K.tintWell; unit = K.unit; userName = K.userName; wallpaper = K.wallpaper;
     weatherId = K.weatherId; weatherPage = K.weatherPage;
   }
@@ -791,7 +791,6 @@
       frostTint: frostTint,
       tileStyle: tileStyle,
       tileIcons: tileIcons,
-      cardDesign: cardDesign,
       // the Frosted plate with `wash` ([r, g, b]) in place of its gray, at this
       // screen's Frost amount (hk-frosttint.js)
       frostPlate: function (wash) { return frost(amount('frost'), wash); },

@@ -45,7 +45,7 @@ load(HK_ROOT + '/frontend/modules/hk-stats.js');
 load(HK_ROOT + '/frontend/modules/hk-charts.js');
 load(HK_ROOT + '/frontend/modules/hk-header.js');
 load(HK_ROOT + '/frontend/cards/hk-base.js');
-load(HK_ROOT + '/frontend/modules/hk-kit.js');       // Card Design New's parts (phase 34): the second pass below
+load(HK_ROOT + '/frontend/modules/hk-kit.js');       // the kit every card is drawn from (phase 34)
 load(HK_ROOT + '/tests/music_house.js');
 load(HK_ROOT + '/frontend/cards/hk-tile.js');
 load(HK_ROOT + '/frontend/cards/hk-room.js');
@@ -252,26 +252,6 @@ function () {
       });
     });
   });
-},
-function () {
-  // CARD DESIGN NEW (docs/phase34/PLAN.md, hk-kit.js): a screen that draws New loses no tap -- every block, at every size and on
-  // both cells, is made and its plate opens just what Current's opens
-  H.section('Card Design New: every block is made, and its plate opens what Current\'s does');
-  var design = 'current';
-  window.hkSettings.cardDesign = function () { return design; };
-  KEYS.forEach(function (key) {
-    TABLE[key].sizes.forEach(function (size) {
-      ['square', 'tile'].forEach(function (cellName) {
-        var label = key + ' ' + size + ' ' + cellName, cur, now;
-        design = 'current';
-        try { cur = plateTap(block(key, size, cellName).el); } catch (e) { cur = 'threw'; }
-        design = 'new';
-        try { now = plateTap(block(key, size, cellName).el); } catch (e) { now = 'threw ' + String(e && e.message || e); }
-        ok(label + ' New: ' + JSON.stringify(now), JSON.stringify(now) === JSON.stringify(cur), { current: cur, new: now });
-      });
-    });
-  });
-  design = 'current';
 },
 function () {
   H.section('a control inside a block keeps its own tap: a click that lands on one opens nothing');
@@ -514,17 +494,21 @@ function () {
   // (Extra Large keeps the keypad in HomeView too, 2026-11-08: the keypad card, its entries as HomeView tiles or pills)
   var bx = block('security', 'XL', 'square', { presentation: 'homeview' });
   ok('XL in HomeView keeps the keypad (hk-grid-keypad-card)', bx.tag === 'hk-grid-keypad-card', bx.tag);
+  // (the kit's Security, phase 34: the alarm's tile says data-al, each entry its own data-id, "N more" data-more -- bound to the
+  // card's _alarmSheet, hkShell.moreInfo and _overview; this DOM answers no selectors, so the markup and the handlers are read apart)
   ['S', 'W', 'C', 'L'].forEach(function (size) {
     var b = block('security', size, 'square', { presentation: 'homeview' });
     ok(size + ' is the HomeView presentation (' + b.tag + ')', /hk-grid-security-(hv|key)-card/.test(b.tag));
+    var html = String(b.el._kitHtml || '');
     SHEETS.length = 0; WENT.length = 0;
-    tapAt(b.el, clickFrom(false));
     if (size === 'S') {
-      // the key's plate is its button
+      // (Small is HomeView's own centered tile, the key: its plate is its button)
+      tapAt(b.el, clickFrom(false));
       var plate = b.el._e && b.el._e.card;
       (plate && plate._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
     } else {
-      (b.el._e.al._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
+      ok(size + ': the kit draws it, the alarm a key of its own', html.indexOf('data-al') >= 0, html.slice(0, 200));
+      b.el._alarmSheet();
     }
     // (2026-11-08, the owner: "Shouldn't tapping arm/disarm text ... open the alarm keypad": the alarm's own sheet; the overview is
     // "+N more"'s and a group's)
@@ -533,21 +517,13 @@ function () {
     if (size !== 'S') b.el._overview();
     if (size !== 'S') ok(size + ': the overview: the alarm and every entry as tiles', SHEETS.length === 1 &&
        SHEETS[0].sheet.entries.map(function (e) { return e.entity; }).join() === 'alarm_control_panel.house,lock.front_door,cover.garage_door' && WENT.length === 0, SHEETS);
-    WENT.length = 0;
-    if (size !== 'S') {
-      var slot = b.el._slots[0];
-      WENT.length = 0;
-      (slot._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
-      if (size === 'W') ok('W: the lock\'s line opens its own sheet (one lock: its name)', WENT.length === 1 && WENT[0][1] === 'lock.front_door', WENT);
-      else ok(size + ': an entry opens its own sheet, never operates it', WENT.length === 1 && WENT[0][0] === 'moreInfo' && WENT[0][1] === 'lock.front_door', WENT);
-    }
+    if (size !== 'S') ok(size + ': an entry is a row that opens its own sheet (data-id), never operates it', html.indexOf('data-id="lock.front_door"') >= 0, html.slice(0, 200));
   });
-  // the block's own custom sheet is the overview when it has one
+  // the block's own custom sheet is the overview when it has one -- the alarm's key opens it too
   var b2 = block('security', 'W', 'square', { presentation: 'homeview' });
   b2.el.setConfig(Object.assign({}, b2.el._config, { custom_sheet: { v: 1, title: 'Doors', entries: [{ id: 'e1', entity: 'lock.front_door' }] } }));
   SHEETS.length = 0;
-  (b2.el._e.al._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
-  // (the jsc DOM keeps one element per selector across a redraw, so the redrawn block's area may be heard twice here)
+  b2.el._alarmSheet();
   ok('a block\'s own custom sheet is its overview', SHEETS.length >= 1 && SHEETS.every(function (q) { return q.sheet.title === 'Doors'; }),
     JSON.stringify(SHEETS.map(function (q) { return q.sheet; })));
   // an old Security layout keeps its keypad

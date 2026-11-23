@@ -160,7 +160,7 @@
     var APPEARANCE_DEFAULTS = { 'look.flat': false, 'look.flat_theme': 'dark', 'look.glass': 'clear', 'look.frost': 50, 'look.blur': 50,
       'look.flat_night_entity': null,
       'look.tint': 50, 'look.well': 'dark', 'look.frost_tint': false, 'look.motion': true, 'look.bright': 50, 'look.bright_dim': 0,
-      'look.bright_pages': 'home', 'look.bars_blur': 'live', 'look.text_glow': true, 'look.tile_style': 'auto', 'look.tile_icons': 'auto', 'look.card_design': 'current', 'menu.accent': 'orange',
+      'look.bright_pages': 'home', 'look.bars_blur': 'live', 'look.text_glow': true, 'look.tile_style': 'auto', 'look.tile_icons': 'auto', 'menu.accent': 'orange',
         'menu.bar_glass': 'house',
         'menu.bar_dim': 'glass',
       'look.flat_colors': { accent: 'auto', off_tint: 'auto', pages: 'accent' } };

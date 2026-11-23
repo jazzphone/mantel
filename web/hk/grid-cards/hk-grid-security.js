@@ -487,7 +487,7 @@
       }
       _render() {
         this._watchBlock();
-        // (Card Design: New, the kit's Security -- not the keypad block, whose keypad is a PIN's own; Current below)
+        // (the kit's Security -- not the keypad block, whose keypad is a PIN's own: that one draws below)
         if (window.hkKit && window.hkKit.on(this) && !(this._keys() && this._size() === 'XL')) {
           var me2 = this;
           if (kitSecurity(this, this._config || {}, function () { me2._tap(); }, function () { me2._tap(); })) { this._built = false; this._e = null; return; }
@@ -1028,7 +1028,7 @@
     // a slot at its smallest: Compact's across, Extra Large's down; a row's height
     var HV_PILL_W = 150, HV_SLOT_H = 96, HV_ROW = 54, HV_GAP = 8;
 
-    // ===================================================== Security, New (Card Design; docs/phase34/PLAN.md, hk-kit.js)
+    // ===================================================== Security, the kit's (phase 34; docs/phase34/PLAN.md, hk-kit.js)
     // The owner's review (2026-11-22): the alarm owns a tile on the block's shape inset -- white when armed, its glyph teal; "Armed" with the mode
     // under it ("does it need to say Armed Home? Why not just Armed?") -- and every lock and garage, and every open door or window, is a
     // row beside or under it, what needs a look first (so it is never behind "N more"). Compact is the alarm and four ("the security card
@@ -1129,7 +1129,7 @@
       }
       _render() {
         this._watchBlock();
-        // (Card Design: New, the kit's Security; Current below, built afresh when it comes back)
+        // (the kit's Security; the older drawing below only where the kit draws none)
         if (window.hkKit && window.hkKit.on(this)) {
           var me = this;
           if (kitSecurity(this, this._config || {}, function () { me._alarmSheet(); }, function () { me._overview(); })) { this._built = false; this._e = null; return; }

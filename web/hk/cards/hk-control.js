@@ -145,7 +145,7 @@ class HkControlCard extends HTMLElement {
     // The resolved id is part of the signature: switching speakers can leave
     // state and attributes looking identical (two idle HomePods), and without
     // the id in here the card would keep drawing the previous speaker.
-    const signature = JSON.stringify([id,s?.state,s?.attributes,window.hkSettings?.rendering?.(),window.hkSettings?.cardDesign?.()]);
+    const signature = JSON.stringify([id,s?.state,s?.attributes,window.hkSettings?.rendering?.()]);
     if (signature !== this._signature) {
       this._signature = signature;
       // NOT UNDER A FINGER: a redraw rebuilds the dial, and with it the
@@ -280,7 +280,7 @@ class HkControlCard extends HTMLElement {
       }
       return;
     }
-    // (Card Design: New draws the kit's thermostat -- _renderKit; Current, today's, below: hk-kit.js forgets the New html so going back redraws)
+    // (the kit's thermostat, _renderKit; the older drawing below only where the kit draws none)
     if (this._kitOn()) { if (this._renderKit()) return; } else if (window.hkKit) window.hkKit.forget(this);
     const domain=this._domain(), s=this._state();
     let body="";
@@ -1013,7 +1013,7 @@ class HkControlCard extends HTMLElement {
     el.onkeydown = e => { if (e.key === "Escape" && this._bigModes) { this._bigModes = false; this._render(); } };
   }
 
-  // ---- NEW (Card Design, docs/phase34/PLAN.md; hk-kit.js): HomeView's Big Number in the kit's parts, at every size.
+  // ---- THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js): HomeView's Big Number in the kit's parts, at every size.
   // The setpoint large at 42.7 % of the block; a range's two numbers with a dot under the one picked; EACH CONTROL OWNS A WHOLE
   // REGION of the block with a bare chevron centered in it (Small: the foot's halves, a short cell's side bands; Wide: the
   // lower corners; Tall: a band above the number and one below; Large: the foot's corners); the name and the state at the foot
