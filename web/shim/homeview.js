@@ -18,13 +18,20 @@
 //
 // A classic script in <head> (no inline script: the page's CSP is script-src 'self'), run before anything is laid out,
 // so the first layout is already the wide one. html[hk-homeview] marks the page for anything else that needs to know.
+//
+// THE DISPLAY'S CORNERS (the owner's photo, 2026-11-23: "the bottom corner radius isn't right"): the screen's bottom
+// corners are rounded CORNER pt, the page's own bottom corners. A Square Home Grid on it sits on the bottom edge and
+// rounds its bottom corner blocks to follow them (hk-layout-grid.js cellRadius, hk-layout-home-grid.js _measure); its
+// top corners are under Safari's bar, not the display's, so they keep a block's own radius. window.hkHomeView says so.
 (function () {
   var LAYOUT = 720;   // the page's width in CSS px (544 px of screen: 0.76 of it, about the Square grid's own fit)
   var TOP = 24;       // clear of Safari's floating buttons, in the page's px (measured off the owner's photos: ~15 of 544)
+  var CORNER = 70;    // the display's corner radius in pt of its 544 (measured off the owner's photo)
   var s = window.screen, ua = navigator.userAgent || '';
   if (!(s && /\biPhone\b/.test(ua) && s.width > 0 && s.width === s.height)) return;
   var root = document.documentElement;
   root.setAttribute('hk-homeview', '');
+  window.hkHomeView = { layout: LAYOUT, top: TOP, corner: CORNER * LAYOUT / s.width };   // (the corner in the page's px)
   root.style.setProperty('--hk-safe-top', 'max(env(safe-area-inset-top, 0px), ' + TOP + 'px)');
   root.style.setProperty('--hk-view-top', 'var(--hk-safe-top)');
   var m = document.querySelector('meta[name="viewport"]');

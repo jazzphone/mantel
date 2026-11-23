@@ -95,7 +95,8 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
   ok('a block past the edge is left out, never grows the page', walk(root).indexOf(off) < 0);
   ok('it announces once its cards are in', ready.length === 1 && ready[0] === v);
   var css = v._sr.children[0].textContent;
-  ok('the screen\'s height (less a tab bar\'s room), and nothing scrolls', /:host\{[^}]*height:calc\(100dvh - var\(--g-room\)\)/.test(css) && /:host\{[^}]*overflow:hidden/.test(css));
+  ok('the screen\'s height (less a tab bar\'s room, and an Apple HomeView\'s top room), and nothing scrolls',
+    /:host\{[^}]*height:calc\(100dvh - var\(--g-room\) - var\(--hk-view-top,0px\)\)/.test(css) && /:host\{[^}]*overflow:hidden/.test(css));
   ok('cells preserve shared backdrop access and are size containers', !/\.cell\{[^}]*clip-path/.test(css) && /\.cell\{[^}]*overflow:visible/.test(css) && /\.cell\{[^}]*container-type:size/.test(css));
 
   // re-setting the same cards moves nothing
@@ -191,6 +192,31 @@ function measured(v, w, h) {
      x._root.style['--g-gap'] === undefined && x._root.style['--g-pad'] === undefined && x._root.childNodes[0].style['--hk-block-radius'] === undefined && x.attrs.cell === undefined);
   measured(x, 1180, 736);
   ok('...and measured as before (196 x 150, 10)', x._root.style['--hk-cell-h'] === '150px' && x._root.style.width === '1280.4px', x._root.style.width);
+})();
+
+// ---- a Square screen on an Apple HomeView (2026-11-23, web/shim/homeview.js): the owner's photo, "the bottom corner
+// radius isn't right" -- only the bottom corners are the display's (Safari's bar is over the top ones), they follow its
+// rounder corner, and the grid sits on the bottom edge so they can
+(function () {
+  window.hkHomeView = { corner: 92.6 };
+  var v = new View(), ids = ['t', 'c', 's1', 's2', 'lk', 'lt'], k = ids.map(kid);
+  v.setConfig({ grid: { cols: 3, rows: 3, band: false, cell: 'square', screen: 'square', grow: true }, cards: [
+    { hk_cell: { id: 't', size: 'L', at: [0, 0] } }, { hk_cell: { id: 'c', size: 'S', at: [2, 0] } }, { hk_cell: { id: 's1', size: 'S', at: [2, 1] } },
+    { hk_cell: { id: 's2', size: 'S', at: [0, 2] } }, { hk_cell: { id: 'lk', size: 'S', at: [1, 2] } }, { hk_cell: { id: 'lt', size: 'S', at: [2, 2] } }] });
+  v.cards = k;
+  var root = v._root, kids = root.childNodes, R = function (i) { return kids[i].style['--hk-block-radius']; };
+  ok('HomeView: the top corners are a block\'s own (Safari\'s bar is there, not the display\'s corner)', R(0) === '34px' && R(1) === '34px', [R(0), R(1)]);
+  ok('...the bottom corners follow the display, through the fit\'s --hk-square-outer',
+     R(3) === '34px 34px 34px var(--hk-square-outer,72px)' && R(5) === '34px 34px var(--hk-square-outer,72px) 34px', [R(3), R(5)]);
+  ok('...no words inset at the top corner, the bottom one\'s for its rounder corner', !kids[0].style['--hk-in-t'] && kids[3].style['--hk-in-b'] === '21px',
+     [kids[0].style['--hk-in-t'], kids[3].style['--hk-in-b']]);
+  measured(v, 600, 700);
+  ok('...a grid narrower than the window sits on its bottom edge (the room left is at the top, under Safari\'s bar)', Math.abs(parseFloat(root.style.top) - 100) < 0.01, root.style.top);
+  ok('...its outer corner the display\'s less the grid\'s 14 px edge, in the canvas\'s px (92.6 / 0.9346 - 14 = 85.1)',
+     Math.abs(parseFloat(root.style['--hk-square-outer']) - 85.08) < 0.1, root.style['--hk-square-outer']);
+  measured(v, 720, 598);
+  ok('...side room as well (the grid narrower than the window): never under a block\'s own 34', root.style['--hk-square-outer'] === '34px', root.style['--hk-square-outer']);
+  delete window.hkHomeView;
 })();
 
 // ---- views, and a swipe past the last one (Swipe Between Pages, HOMEVIEW-LOOK.md Phase 0)

@@ -747,12 +747,17 @@
     // (C.R.square), and on a Square screen the outer corner of a block at the
     // screen's corner concentric with the display's (C.R['square-screen']).
     // One value, or four (top-left, top-right, bottom-right, bottom-left).
+    // ON AN APPLE HOMEVIEW (web/shim/homeview.js) only the bottom corners are the display's -- the top ones are under
+    // Safari's bar -- and its corners are rounder than 72: the outer radius is the display's less the grid's edge, in
+    // the canvas's px, which only its fit knows (--hk-square-outer, hk-layout-home-grid.js _measure).
+    function homeViewSquare(g) { return g.screen === 'square' && !!window.hkHomeView; }
     function cellRadius(g, at, span) {
       if (g.cell !== 'square') return '';
       var r = (C.R && C.R.square || 34) + 'px', o = (C.R && C.R['square-screen'] || 72) + 'px';
       if (g.screen !== 'square') return r;
       var l = at[0] === 0, rt = at[0] + span[0] === g.cols, t = at[1] === 0, b = at[1] + span[1] === g.rows;
       if (!((l || rt) && (t || b))) return r;
+      if (homeViewSquare(g)) { o = 'var(--hk-square-outer,' + o + ')'; t = false; if (!b) return r; }
       return [l && t ? o : r, rt && t ? o : r, rt && b ? o : r, l && b ? o : r].join(' ');
     }
     // ...and the room a block's words keep from such an outer corner: the
@@ -761,10 +766,12 @@
     // 72 one -- the owner's "ff" for "Off" and "ood Morning", 2026-10-30. The
     // two sides that meet at an outer corner give (72 - 34) x 0.29, rounded
     // up, more; read by each block's padding as --hk-in-t / -r / -b / -l.
+    // (a HomeView's: its bottom corners only, about 100 px of canvas -- the display's 70 pt at a 3 or 4 column fit)
     function cellInset(g, at, span) {
       if (g.cell !== 'square' || g.screen !== 'square') return null;
-      var r = (C.R && C.R.square || 34), o = (C.R && C.R['square-screen'] || 72), e = Math.ceil((o - r) * (1 - Math.SQRT1_2)) + 1;
-      var l = at[0] === 0, rt = at[0] + span[0] === g.cols, t = at[1] === 0, b = at[1] + span[1] === g.rows;
+      var hv = homeViewSquare(g), r = (C.R && C.R.square || 34), o = hv ? 100 : (C.R && C.R['square-screen'] || 72);
+      var e = Math.ceil((o - r) * (1 - Math.SQRT1_2)) + 1;
+      var l = at[0] === 0, rt = at[0] + span[0] === g.cols, t = at[1] === 0 && !hv, b = at[1] + span[1] === g.rows;
       if (!((l || rt) && (t || b))) return null;
       return { t: t ? e : 0, r: rt ? e : 0, b: b ? e : 0, l: l ? e : 0 };
     }

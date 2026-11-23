@@ -37,6 +37,7 @@ declare global {
     hkHolidayScenes: any;
     hkHolidays: any;
     hkHome: any;
+    hkHomeView: any;
     hkHostClient: any;
     hkHostNotifies: any;
     hkHostPlayer: any;

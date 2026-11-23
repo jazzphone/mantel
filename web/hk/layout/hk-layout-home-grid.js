@@ -306,7 +306,15 @@
         this._gridScale = scale;
         root.style.width = w + 'px'; root.style.height = h + 'px';
         root.style.left = pl + Math.max(0, (cw - w * scale) / 2) + 'px';
-        root.style.top = Math.max(0, (this.clientHeight - h * scale) / 2) + 'px';
+        // (on an Apple HomeView a Square screen sits on the bottom edge, where the display's corners are, and its bottom
+        // corner blocks follow them: the display's radius less how far in the blocks are, in the canvas's px, never under
+        // a block's own -- hk-layout-grid.js cellRadius; the room left over is under Safari's bar, at the top)
+        var hv = g.screen === 'square' ? window.hkHomeView : null, spare = this.clientHeight - h * scale;
+        root.style.top = Math.max(0, hv ? spare : spare / 2) + 'px';
+        if (hv) {
+          var inX = pad + Math.max(0, (cw - w * scale) / 2) / scale;
+          root.style.setProperty('--hk-square-outer', Math.max(C.R && C.R.square || 34, hv.corner / scale - Math.max(pad, inX)) + 'px');
+        }
         root.style.transform = 'scale(' + scale + ')';
         // (the grid's own fit, still between layouts: hk-glass.js lined -- a picture placed by hand inside it is in line)
         root.__hkFit = true;
