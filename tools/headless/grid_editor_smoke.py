@@ -262,7 +262,10 @@ async def main():
                 if key == 'thermostat':
                     assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._state()?.attributes.current_temperature===71",10)
                 if key == 'weather':
-                    assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot.querySelectorAll('.day').length>=3",10)
+                    # (round 12: Weather Large is the kit's -- hours are columns (.kl, a label each) and days rows with a range bar (.trk), not `.day`
+                    # boxes. The preview is 310 px tall, which holds the hours and one day: the guard is that the gallery's made-up forecast reaches the
+                    # card -- three hours and a day, not the "--" of a card with none)
+                    assert await b.wait("(()=>{let r=ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot;return !!r&&r.querySelectorAll('.kl').length>=3&&r.querySelectorAll('.trk').length>=1})()",10)
             await b.eval("ed.pickerCard=null;let it=ed.grid.items.find(i=>i.card==='camera');ed.select(it.id)")
             # Swipe All Cameras hides the one-camera choice; One Camera shows it
             assert await b.eval("![...ed.sidebar.querySelectorAll('select')].some(s=>[...s.options].some(o=>o.value==='camera.backyard'))")
