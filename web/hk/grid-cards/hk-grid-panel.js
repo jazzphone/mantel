@@ -68,6 +68,8 @@
         var S = window.hkStrategy, inv = null;
         try { inv = S && S.inventory ? S.inventory(client, hidesOf()) : null; } catch (e) { inv = null; }
         if (!inv || !(inv.locks.length + inv.doors.length + inv.windows.length + inv.garage.length)) return null;
+        // THE KIT'S DOORS & LOCKS (round 12): every lock, door, garage and window as a row, locks and all (_doorsKit)
+        if (window.hkKit && window.hkKit.on()) return [{ own: 'doors', kit: true, locks: inv.locks, doors: inv.doors, windows: inv.windows, garage: inv.garage }];
         // EVERY SIZE (2026-10-31, the widget mock-up): how many are open, large;
         // Wide the count beside the list, Tall and Large the list under it,
         // Extra Large beside it -- the doors, the garage and the windows, the
@@ -303,6 +305,57 @@
     // a door, a window or the garage: open, and its glyph
     function opened(st) { return !!st && (st.state === 'on' || st.state === 'open' || st.state === 'opening' || st.state === 'closing'); }
     var WAY_GLYPH = { door: ['mdi:door-open', 'mdi:door-closed'], window: ['mdi:window-open', 'mdi:window-closed'], garage: ['mdi:garage-open', 'mdi:garage'] };
+    // THE KIT'S DOORS & LOCKS, as facts: each entry the block covers { id, kind (lock, garage, door, window), name, state (secure, open,
+    // jammed, moving, unknown), word, needs, icon }, what needs you first (the block's own order within each group), the closed windows
+    // folded into one row; the counts in words (`sub`: "1 unlocked · 1 open"; `all`: what all secure says), what needs you
+    // (`bad`), and what Lock All (`lockIds`: unlocked or jammed locks) and Close Garage (`garageIds`: open garage doors that can close)
+    // would send. Nothing that is not positively locked or closed is called so (hk-grid-security.js entryState).
+    /** @param {any} client @param {any} p */
+    function doorsModel(client, p) {
+      var st = (client && client.states) || {}, list = /** @type {any[]} */ ([]);
+      var nameOf = function (/** @type {string} */ id) { return (C.accName && C.accName(id)) || attr(st[id], 'friendly_name') || id; };
+      var add = function (/** @type {string[]} */ ids, /** @type {string} */ kind) {
+        (ids || []).forEach(function (id) {
+          var s = st[id];
+          if (!s) return;
+          var r = /** @type {any} */ ({ id: id, kind: kind, name: kind === 'lock' ? nameOf(id).replace(/ Lock$/, '') : nameOf(id) });
+          if (dom(id) === 'binary_sensor') {
+            var gone = s.state === 'unavailable' || s.state === 'unknown';
+            r.state = s.state === 'on' ? 'open' : gone ? 'unknown' : 'secure'; r.word = s.state === 'on' ? 'Open' : gone ? 'Unavailable' : 'Closed';
+          } else { var e = K.secEntryState(s, id); r.state = e.kind; r.word = e.word; }       // (Security's words for a lock or a door cover)
+          r.needs = r.state !== 'secure';
+          var shut = !r.needs;
+          r.icon = kind === 'lock' ? (r.state === 'open' || r.state === 'jammed' ? 'hk:lock-open-variant' : 'hk:lock') : kind === 'garage' ? (shut ? 'hk:garage-variant' : 'hk:garage-open-variant') :
+            kind === 'door' ? (shut ? 'mdi:door-closed' : 'mdi:door-open') : (shut ? 'mdi:window-closed' : 'mdi:window-open');
+          list.push(r);
+        });
+      };
+      add(p.locks, 'lock'); add(p.garage, 'garage'); add(p.doors, 'door'); add(p.windows, 'window');
+      var shutWin = list.filter(function (r) { return r.kind === 'window' && !r.needs; }), rows = list;
+      if (shutWin.length > 1) {
+        rows = list.filter(function (r) { return shutWin.indexOf(r) < 0; });
+        rows.push({ id: null, kind: 'window', name: 'Windows', state: 'secure', word: shutWin.length + ' closed', needs: false, icon: 'mdi:window-closed' });
+      }
+      rows = rows.filter(function (r) { return r.needs; }).concat(rows.filter(function (r) { return !r.needs; }));
+      var bad = list.filter(function (r) { return r.needs; }), n = function (f) { return list.filter(f).length; }, parts = /** @type {string[]} */ ([]);
+      var unl = n(function (r) { return r.kind === 'lock' && r.state === 'open'; }), jam = n(function (r) { return r.kind === 'lock' && r.state === 'jammed'; });
+      var opn = n(function (r) { return r.kind !== 'lock' && r.state === 'open'; }), mov = n(function (r) { return r.state === 'moving'; }), unk = n(function (r) { return r.state === 'unknown'; });
+      if (unl) parts.push(unl + ' unlocked');
+      if (jam) parts.push(jam + ' jammed');
+      if (opn) parts.push(opn + ' open');
+      if (mov) parts.push(mov + ' moving');
+      if (unk) parts.push(unk + ' unavailable');
+      var locks = n(function (r) { return r.kind === 'lock'; }), ways = n(function (r) { return r.kind === 'door' || r.kind === 'garage'; }), wins = n(function (r) { return r.kind === 'window'; });
+      var f = function (/** @type {any} */ r) { return Number(attr(st[r.id], 'supported_features')) || 0; };
+      return { rows: rows, bad: bad, needs: bad.length, sub: parts.join(' · '), locks: locks, garage: n(function (r) { return r.kind === 'garage' && dom(r.id) === 'cover'; }),
+        all: locks && !ways && !wins ? 'All Locked' : !locks ? 'All Closed' : 'All Secure',
+        has: [locks ? plural(locks, 'lock', 'locks') : '', ways ? plural(ways, 'door', 'doors') : '', wins ? plural(wins, 'window', 'windows') : ''].filter(Boolean).join(' · '),
+        lockIds: list.filter(function (r) { return r.kind === 'lock' && (r.state === 'open' || r.state === 'jammed'); }).map(function (r) { return r.id; }),
+        garageIds: list.filter(function (r) { return r.kind === 'garage' && dom(r.id) === 'cover' && st[r.id].state === 'open' && (f(r) & 2); }).map(function (r) { return r.id; }) };
+    }
+    // a name said short beside others: "Front Door Lock" is "Front", "Garage Door" is "Garage"
+    /** @param {string} name */
+    function shortName(name) { return String(name).replace(/ (Lock|Door)$/i, '').replace(/ Door$/i, '') || name; }
     class HkGridPanelCard extends HkGridFull {
       static get CSS() { return FULL_CSS + PANEL_CSS + WG_CSS; }
       // THE PLATE'S TAP (hk-base.js openTarget; 2026-10-31, the owner on 0.1.94): the page the panel is a part of --
@@ -326,11 +379,14 @@
         var parts = this._parts(), h = this.client, rd = parts && parts[1] && parts[1].readings, st = rd && h ? h.states[rd] : null;
         // (a part of its own: the states it reads, and the block's size)
         var own = parts && parts[0] && parts[0].own ? this._ownIds(parts[0]).map(function (id) { var s = h && h.states[id]; return s ? s.last_updated : null; }) : null;
-        return JSON.stringify([parts, sizeOf(this), st ? st.last_updated : null, own, own ? this._blockKey || '' : null]);
+        return JSON.stringify([parts, sizeOf(this), st ? st.last_updated : null, own, own ? this._blockKey || '' : null, this._failUntil > Date.now() ? this._failed : null]);
       }
       _render() {
         if (!this._config) return;      // (a client update can come before the config: nothing to draw yet -- media-card-check, 2026-11-08)
         var parts = this._parts(), key = JSON.stringify(parts);
+        // (the kit's Doors & Locks draws the whole card; the older drawing below only where the kit draws none)
+        if (parts && parts[0] && parts[0].kit) { if (this._doorsKit(parts[0])) { this._built = false; this._key = null; this._own = null; return; } }
+        else if (this._kitHtml && window.hkKit) { window.hkKit.forget(this); this._built = false; this._key = null; }
         if (this._built && this._key === key) { this._readings(); this._drawOwn(); return; }
         this._key = key; this._kids = []; this._built = true; this._own = null;
         if (!parts) {
@@ -367,7 +423,7 @@
       // A PART OF ITS OWN (the widget sizes): the entities it reads
       _ownIds(p) {
         if (p.own === 'power') return [p.home, p.solar, p.level].filter(Boolean);
-        if (p.own === 'doors') return [].concat(p.doors, p.garage, p.windows);
+        if (p.own === 'doors') return [].concat(p.locks || [], p.doors, p.garage, p.windows);
         if (p.own === 'water') return (p.meter ? [p.meter] : WATER_SRC.ids || []).slice(0, 1).concat(p.leaks || []);
         return [];
       }
@@ -540,6 +596,92 @@
         return '<div class="dh">' + head(26) + '<span class="dt">' + esc(title) + '</span></div><div class="ws dsub">' + esc(line) + '</div>' +
           '<div class="wr tall dl' + (bare ? ' bare' : '') + '" role="list" style="margin-top:12px">' + list.map(row).join('') + '</div>';
       }
+      // THE KIT'S DOORS & LOCKS (round 12, the owner: "Doors & Locks need to be redone with the new style!"; hk-kit.js): Security's rows
+      // without the alarm. Every lock, door, garage and window the block covers is a row -- its glyph, its name and its state -- and what
+      // needs you (unlocked, open, jammed, moving, unreadable) comes first and in teal, so it is never behind "N more" (closed windows are
+      // one row, "Windows -- 8 closed", where there are two or more). Small is HomeView's centered tile ("2 Unsecured" and their names, or
+      // "All Locked"); Wide two columns of rows and no header; Tall the header (the glyph, the name, "1 unlocked · 1 open" in teal), the
+      // rows and Lock All; Large two columns; Extra Large three, and Close Garage beside Lock All where the block has a garage door. A row
+      // opens that entry's own sheet. Lock All and Close Garage ask first and send only what is still where the question found it.
+      /** @param {any} p */
+      _doorsKit(p) {
+        var Kit = window.hkKit, self = this, h = this.client || { states: {} }, cfg = this._config || {};
+        if (!Kit) return false;
+        this._watchBlock();
+        var m = doorsModel(h, p), size = sizeOf(this) || 'S', k = Kit.ctx(this), w = k.w, ht = k.h, E = k.E, X = k.X, esc2 = Kit.esc, sq = ht >= 180;
+        var teal = 'var(--hk-teal,' + ACC.teal + ')', quiet = cfg.glyphs === 'color' ? teal : Kit.tone(k, 'var(--hk-ink-2,rgba(255,255,255,0.68))', false);
+        var gl = function (/** @type {string} */ icon, /** @type {number} */ px, /** @type {boolean} */ bad) { return Kit.glyph(icon, px, bad ? teal : quiet, bad); };
+        var label = 'Doors and locks. ' + (m.needs ? m.sub : m.rows.length ? m.all : 'Nothing to show');
+        if (size === 'S') {
+          var fs = sq ? 66 : 50, names = m.bad.map(function (r) { return m.bad.length > 1 ? shortName(r.name) : r.name; }).join(', ');
+          var tile = Kit.tile(k, gl(m.needs ? 'hk:lock-open-variant' : 'hk:lock', fs, !!m.needs), m.needs ? m.bad.length + ' Unsecured' : m.all, m.needs ? names :
+            m.has.split(' · ').slice(0, 2).join(' · '));
+          return Kit.draw(this, Kit.plate(k, tile, { label: label }), function (/** @type {any} */ root) { self._bindDoors(root); });
+        }
+        var items = /** @type {any[]} */ (m.rows.map(function (r) {
+          return { lead: gl(r.icon, 26, r.needs), t: r.name, b: r.needs ? '<span style="color:' + teal + '">' + esc2(r.word) + '</span>' : esc2(r.word), bHtml: true,
+            label: r.name + ', ' + r.word, data: r.id ? { id: r.id } : { more: '1' } };
+        }));
+        var keys = [], o = '';
+        if (size !== 'W') {
+          if (m.locks) keys.push({ g: Kit.glyph('hk:lock', 24), t: this._failUntil > Date.now() && this._failed === 'lock' ? 'Didn’t Go Through' : 'Lock All', label: 'Lock every door',
+            data: { act: 'lock' }, off: !m.lockIds.length });
+          if (size === 'XL' && m.garage) keys.push({ g: Kit.glyph('hk:garage-variant', 24), t: this._failUntil > Date.now() && this._failed === 'garage' ? 'Didn’t Go Through' : 'Close Garage',
+            label: 'Close the garage door', data: { act: 'garage' }, off: !m.garageIds.length });
+        }
+        var yMax = keys.length ? Kit.FY(k) - 4 : ht - E, cols = size === 'XL' ? 3 : size === 'W' || size === 'L' ? 2 : 1, y0 = size === 'W' ? 8 : 70, rh = Kit.RH;
+        if (size === 'W') { yMax = ht - 8; }
+        // (what does not fit ends in an "N more" slot, as Security's does -- never what needs you while it can be helped)
+        var n0 = Math.max(1, Math.floor((yMax - y0) / rh)), cap = n0 * cols;
+        if (items.length > cap) items = items.slice(0, cap - 1).concat([{ lead: Kit.svg('more', 28), t: (items.length - cap + 1) + ' more', b: 'Doors & Windows', data: { more: '1' } }]);
+        if (size === 'W') {
+          // (no header: the rows share the height, centered)
+          var nr = Math.min(n0, Math.ceil(items.length / cols)); rh = Math.min(76, (yMax - y0) / nr); y0 += ((yMax - y0) - nr * rh) / 2;
+        }
+        o += Kit.rows(k, 0, w, y0, yMax + 0.5, cols, items, rh).html;
+        if (size !== 'W') {
+          var hg = gl(m.needs ? 'hk:lock-open-variant' : 'hk:lock', 28, !!m.needs);
+          o += Kit.head(k, { g: hg, title: 'Doors & Locks', sub: m.needs ? '<span style="color:' + teal + '">' + esc2(m.sub) + '</span>' : m.all, subHtml: true });
+        }
+        if (keys.length) o += Kit.foot(k, keys);
+        return Kit.draw(this, Kit.plate(k, o, { label: label }), function (/** @type {any} */ root) { self._bindDoors(root); });
+      }
+      /** @param {any} root */
+      _bindDoors(root) {
+        var self = this;
+        root.querySelectorAll('[data-id]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { window.hkShell.moreInfo(b.getAttribute('data-id'), self); }); });
+        root.querySelectorAll('[data-more]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { C.openTarget(self, self._tapTarget()); }); });
+        root.querySelectorAll('[data-act]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._doorsAsk(b.getAttribute('data-act')); }); });
+      }
+      // LOCK ALL and CLOSE GARAGE ASK FIRST, as the lock sheet asks before it unlocks (hk-sheet-lock.js: C.confirmSheet), naming what
+      // will move; on Confirm only what is still where the question found it is sent (the lock sheet's `still`), through the card's
+      // own action port -- so Mantel's roles, audit and Allow Control of the House govern it as they do a tap on a lock
+      /** @param {string} act */
+      _doorsAsk(act) {
+        var p = (this._parts() || [])[0], self = this;
+        if (!p || !p.kit) return;
+        var m = doorsModel(this.client || { states: {} }, p), ids = act === 'lock' ? m.lockIds : m.garageIds;
+        if (!ids.length) return;
+        var nm = function (/** @type {string} */ id) { return (m.rows.filter(function (r) { return r.id === id; })[0] || {}).name || id; };
+        var one = ids.length === 1, text = act === 'lock' ? (one ? 'Lock ' + nm(ids[0]) + '?' : 'Lock ' + ids.length + ' doors?') :
+          (one ? 'Close ' + nm(ids[0]) + '?' : 'Close ' + ids.length + ' garage doors?');
+        C.confirmSheet(text, function () { self._doorsSend(act, ids); }, { yes: act === 'lock' ? 'Lock' : 'Close', detail: one ? '' : ids.map(nm).join(', ') });
+      }
+      /** @param {string} act @param {string[]} ids */
+      _doorsSend(act, ids) {
+        var p = (this._parts() || [])[0], self = this;
+        if (!p || !p.kit) return;
+        var m = doorsModel(this.client || { states: {} }, p), now = act === 'lock' ? m.lockIds : m.garageIds;
+        ids = ids.filter(function (id) { return now.indexOf(id) >= 0; });
+        if (!ids.length) return;
+        Promise.resolve(this._call(act === 'lock' ? 'lock' : 'cover', act === 'lock' ? 'lock' : 'close_cover', { entity_id: ids })).then(function (ok) {
+          if (ok !== false) return;
+          // (it did not go -- commands off, a role that may not, the house not answering: the key says so for a moment)
+          self._failed = act; self._failUntil = Date.now() + 4000;
+          self.redraw();
+          setTimeout(function () { if (self.isConnected !== false) self.redraw(); }, 4050);
+        });
+      }
       // THE FADE at the list's foot while more is below (as Now Playing's _idleFade): the class is set after each draw, since the morph would drop it
       _doorsFade(plate) {
         var sc = plate.querySelector('.dl');
@@ -648,6 +790,7 @@
       }
     }
 
+    HkGridPanelCard.doorsModel = doorsModel;          // (the suites)
     // what the shell and the later parts use of this one
     K.ACC = ACC; K.gly = gly; K.hidesOf = hidesOf; K.HkGridPanelCard = HkGridPanelCard; K.inner = inner;
     K.WG_CSS = WG_CSS;

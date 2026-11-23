@@ -56,6 +56,8 @@
       'border-radius:var(--kit-r,21px);background:' + v('key', 'rgba(255,255,255,.14)') + ';color:inherit;text-shadow:inherit;touch-action:manipulation}',
     '.kit .key:active{background:' + v('key-strong', 'rgba(255,255,255,.24)') + '}',
     '.kit .key.on{background:#fff;color:#1c1c1e;text-shadow:none}',
+    // (round 12: a key with nothing to do right now -- Lock All with everything locked -- is dimmed and takes no touch)
+    '.kit .key[disabled]{opacity:.4;cursor:default;pointer-events:none}',
     '.kit .key:focus-visible,.kit .row:focus-visible,.kit .hit:focus-visible{outline:2px solid ' + v('ink-2', 'rgba(255,255,255,0.68)') + ';outline-offset:-2px}',
     '.kit .row,.kit .hit{all:unset;position:absolute;box-sizing:border-box;cursor:pointer}',
     '.kit .row:active,.kit .hit:active{background:' + v('key', 'rgba(255,255,255,.1)') + '}',
@@ -181,7 +183,8 @@
   /** @param {number} x @param {number} y @param {number} w @param {number} h @param {any} o */
   function key(x, y, w, h, o) {
     var data = Object.keys(o.data || {}).map(function (n) { return ' data-' + n + '="' + esc(o.data[n]) + '"'; }).join('');
-    return '<button type="button" class="key' + (o.on ? ' on' : '') + '" data-notap' + data + ' aria-label="' + esc(o.label || o.t || '') + '" style="' + st(x, y, w, h) +
+    return '<button type="button" class="key' + (o.on ? ' on' : '') + '" data-notap' + (o.off ? ' disabled aria-disabled="true"' : '') + data + ' aria-label="' + esc(o.label || o.t || '') +
+      '" style="' + st(x, y, w, h) +
       (o.tint ? 'color:' + o.tint : '') + '">' + (o.g || '') + (o.t ? '<span class="kt" style="color:inherit">' + esc(o.t) + '</span>' : '') + '</button>';
   }
   function keyRow(x, y, w, list) { var n = list.length, kw = (w - (n - 1) * G) / n; return list.map(function (o, i) { return key(x + i * (kw + G), y, kw, KH, o); }).join(''); }
