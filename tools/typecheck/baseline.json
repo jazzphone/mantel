@@ -104,6 +104,8 @@
   "web/hk/library/hk-library-items.js": 0,
   "web/hk/library/hk-library-player.js": 0,
   "web/hk/media/hk-media-now.js": 0,
+  "web/hk/media/hk-media-npkit.js": 0,
+  "web/hk/media/hk-media-npsheet.js": 0,
   "web/hk/media/hk-media-recent.js": 0,
   "web/hk/media/hk-media-saver.js": 0,
   "web/hk/media/hk-media-speakers.js": 0,

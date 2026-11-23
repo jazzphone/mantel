@@ -118,6 +118,8 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-library-items.js` — the items: kinds, the track list, the header, the list and grid, the crumb and the tiles
   - `hk-media.js` — the music cards *(a shell: its parts are in `web/hk/media/`, `tools/split_manifests/media.json`)*
     - `hk-media-now.js` — the player (Now Playing) and its stacked geometry, speaker panel CSS and music-page address
+    - `hk-media-npkit.js` — the Now Playing block drawn from the kit (round 12)
+    - `hk-media-npsheet.js` — the sheet the Now Playing cover opens: Browse, Queue, Speakers
     - `hk-media-speakers.js` — the speaker picker and the notification ids it shows
     - `hk-media-saver.js` — the screensaver's now-playing line and the Browse Music frame
     - `hk-media-recent.js` — the Home Grid's Music block: recently played and the playlists' sheet
