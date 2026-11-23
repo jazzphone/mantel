@@ -350,9 +350,11 @@
         var second = CLEAR || (pickable ? ROOMS : DOCK);
         /** @type {any} */
         var secondG = CLEAR || (pickable ? ROOMSg : DOCKg);
-        // the drawing, as the main key: a box of 200 : 140, centered in the room it is given
-        var art = function (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ aw, /** @type {number} */ ah) {
-          var dw = Math.min(aw, ah / 0.7), dh = dw * 0.7;
+        // the drawing, as the main key: a box of 200 : 140, centered in the room it is given -- `f` of it on Large and Extra Large
+        // (2026-11-23, the owner: "The glyph could probably be a little smaller. Right now it's pretty big!")
+        /** @param {number} x @param {number} y @param {number} aw @param {number} ah @param {number} [f] */
+        var art = function (x, y, aw, ah, f) {
+          var dw = Math.min(aw, ah / 0.7) * (f || 1), dh = dw * 0.7;
           return '<button type="button" class="hit" data-notap data-svc="' + esc(go[0]) + '" aria-label="' + esc(go[2] + ' ' + nm + ', ' + lk.words) + '" style="' +
             Kit.st(x + (aw - dw) / 2, y + (ah - dh) / 2, dw, dh) + 'border-radius:' + k.r + 'px">' + VA.html(lk.state, nm + ', ' + lk.words, lk.doing) + '</button>';
         };
@@ -375,10 +377,10 @@
           o = words(X, 18, w - 2 * X) + art(E, 74, w - 2 * E, top - 74 - 8) + Kit.stack(k, lines);
         } else if (sz === 'L') {
           var keys = [GO, DOCK].concat(pickable || CLEAR ? [second] : []);
-          o = words(X, 18, w - 2 * X) + art(E, 74, w - 2 * E, Kit.FY(k) - 74 - 8) + Kit.foot(k, keys);
+          o = words(X, 18, w - 2 * X) + art(E, 74, w - 2 * E, Kit.FY(k) - 74 - 8, 0.72) + Kit.foot(k, keys);
         } else {
           var lw = Math.round(w * 0.64), kx = lw + 4, kw = w - E - kx, ks = [GO, DOCK].concat(pickable || CLEAR ? [second] : []);
-          o = words(X, 18, lw - X) + art(E, 74, lw - E, h - E - 74);
+          o = words(X, 18, lw - X) + art(E, 74, lw - E, h - E - 74, 0.72);
           ks.forEach(function (o2, i) { o += Kit.key(kx, h - E - (ks.length - i) * KH - (ks.length - 1 - i) * G, kw, KH, o2); });
           if (n && list) { var chosen = list.filter(function (r) { return self._sel.has(r.id); }).map(function (r) { return r.name; });
             o += Kit.tx(kx + X - E, 18, kw - X + E, 'kl', 'Rooms') + Kit.tx(kx + X - E, 40, kw - X + E, 'kb', esc(chosen.join(', ')), 'white-space:normal;max-height:88px'); }

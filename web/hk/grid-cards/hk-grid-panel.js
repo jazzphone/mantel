@@ -123,7 +123,7 @@
       '.rd .now div{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:1 1 0;min-height:0;min-width:0;border-bottom:1px solid ' + v('line') + '}' +
       '.rd .now div:last-child{border-bottom:0}' +
       '.rd .k{' + type('body') + ';color:' + v('ink-2') + '}' +
-      '.rd .v{' + type('title') + ';font-variant-numeric:tabular-nums}' +
+      '.rd .v{' + type('title') + ';color:' + v('ink') + ';font-variant-numeric:tabular-nums}' +
       // (the readings grow with their plate -- the Thermostat XL's left a band of nothing under them, 2026-10-30)
       '.rd .v{font-size:clamp(26px, 12cqh, 40px);line-height:1.1}' +
       // (Mode and Fan, 2026-11-08, the owner: one gray heading style)

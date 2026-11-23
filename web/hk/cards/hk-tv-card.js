@@ -280,7 +280,10 @@
         if (size === 'XL') {
           var rx = lw2 + 5, rw = w - E - rx, isz = Math.min(76, (rw - 16) / 2), rowsN = Math.max(1, Math.floor((h - 2 * E + 12) / (isz + 12)));
           var vg = rowsN > 1 ? (h - 2 * E - rowsN * isz) / (rowsN - 1) : 0;
-          others.slice(0, 2 * rowsN).forEach(function (a, i) { o += icon(a, rx + (i % 2) * (rw - isz), E + Math.floor(i / 2) * (isz + vg), isz, false); });
+          // (the two columns as far apart as the rows, on the right edge -- 2026-11-23, the owner: "Shouldn't it be more right so the
+          // columns have the same spacing as the rows?")
+          var cg = rowsN > 1 ? Math.min(vg, rw - 2 * isz) : G, cx0 = w - E - 2 * isz - cg;
+          others.slice(0, 2 * rowsN).forEach(function (a, i) { o += icon(a, cx0 + (i % 2) * (isz + cg), E + Math.floor(i / 2) * (isz + vg), isz, false); });
         }
       }
       var label = set.name + ', ' + title + (what ? ', ' + what : '');
