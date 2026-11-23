@@ -74,7 +74,9 @@ PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...] | str]]] = {
     "upnext": (("inline", "rectangular"), {}),
     "playin": (("inline",), {}),
     "thisday": (("inline",), {}),
-    "camera": (("rectangular", "card"), {"camera": "entity:camera", "label": ("show", "custom", "hide"), "name": "text"}),
+    "camera": (("rectangular", "card"), {"camera": "entity:camera", "label": ("show", "custom", "hide"), "name": "text",
+                                         # (round 12: Snapshots, a still every ten seconds -- the default -- or Live, every three)
+                                         "picture": ("snapshots", "live")}),
     "ring": (("inline", "card"), {}),
     # wave C: one entity picked, with a suggested default
     "alarm": (("inline", "circular"), {"entity": "entity:sensor"}),

@@ -339,12 +339,13 @@ def test_the_catalog_draws_the_block_where_the_host_has_a_timeline_and_a_stand_i
 
 
 @needs_node
-def test_the_camera_block_at_extra_large_shows_what_it_saw_today_only_where_the_host_has_a_timeline(catalog):
+def test_the_camera_block_at_extra_large_is_the_picture_to_the_edge_whether_or_not_the_host_has_a_timeline(catalog):
+    # (round 12, 2026-11-23, the owner: "I like your camera card from the mock up": every size is the kit's picture with its name at the
+    # foot; the picture-beside-today card is no longer the block's Extra Large, though it stays registered)
     xl, named, large, ha, none = catalog["cameraXl"]
-    assert xl == {"type": "custom:hk-camera-today-card", "camera": "camera.front_door"}
-    assert named == {"type": "custom:hk-camera-today-card", "camera": "camera.yard"}
-    assert large["type"] == "custom:hk-camera-mosaic-card" and large["height"] == 195          # the other sizes are as they were
-    assert ha["type"] == "custom:hk-camera-mosaic-card" and ha["cameras"] == [{"entity": "camera.front_door"}]   # no Timeline: the full picture
+    for cfg, cam in ((xl, "camera.front_door"), (named, "camera.yard"), (ha, "camera.front_door")):
+        assert cfg["type"] == "custom:hk-camera-mosaic-card" and cfg["cameras"] == [{"entity": cam}] and cfg["kit"] is True, cfg
+    assert large["type"] == "custom:hk-camera-mosaic-card" and large["height"] == 195 and large["kit"] is True
     assert none["type"] == "custom:hk-grid-panel-card"                                          # no camera: the note
 
 

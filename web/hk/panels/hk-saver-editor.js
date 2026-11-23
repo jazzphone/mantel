@@ -193,7 +193,7 @@
     entity: 'Sensor', entity2: 'Second Sensor', name: 'Name', min: 'Ring Minimum', max: 'Ring Maximum',
     'alarm.entity': 'Alarm Sensor', 'trash.entity': 'Trash Calendar or Sensor', 'pollen.entity': 'Pollen Sensor', 'appliance.entity': 'Appliance',
     'appliance.entity2': 'Second Appliance', 'travel.entity': 'Place', 'travel.entity2': 'Second Place', 'price.entity': 'Price Sensor',
-    'sensor.entity': 'Entity', 'sensor.entity2': 'Second Entity', 'camera.label': 'Name', 'camera.name': 'Custom Name',
+    'sensor.entity': 'Entity', 'sensor.entity2': 'Second Entity', 'camera.label': 'Name', 'camera.name': 'Custom Name', 'camera.picture': 'Picture',
     lines: 'Lines', weekday: 'Weekday', month: 'Month', year: 'Year', weight: 'Weight', case: 'Letters', tap: 'When Tapped'
   };
   var OPT_SUBS = {
@@ -201,7 +201,9 @@
       'A tap on it wakes the screen on its page (the Weather page for the weather, the Calendar for the date), or opens the details of what it shows (a sensor, a person, a camera). Nothing: a tap ' +
       'only wakes the screen.',
     match: 'The next event with these words in its title; empty, the next all-day event.', name: 'Empty: the entity’s own name.',
-    min: 'The number where the ring is empty.', max: 'The number where the ring is full.'
+    min: 'The number where the ring is empty.', max: 'The number where the ring is full.',
+    // (the Camera piece's Picture: a screensaver decodes no video, so Live is a still every three seconds)
+    picture: 'Live asks for a new still every three seconds; Snapshots every ten. A screensaver plays no video.'
   };
   var CHOICE_WORDS = { aqi: 'AQI', open: 'Only When Open', always: 'Always', normal: 'As Written', upper: 'All Capitals' };
   function titleCase(s) { return String(s).replace(/_/g, ' ').replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }

@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-faces'] = function (K) {
-    var C = K.C, CAM_MAX = K.CAM_MAX, camGrid = K.camGrid, camRing = K.camRing, FULL_CSS = K.FULL_CSS,
+    var C = K.C, CAM_GAP = K.CAM_GAP, CAM_MAX = K.CAM_MAX, camGrid = K.camGrid, camRing = K.camRing, FULL_CSS = K.FULL_CSS,
         HkGridFull = /** @type {HkLooseElementConstructor} */ (K.HkGridFull), setting = K.setting, sizeOf = K.sizeOf, v = K.v;
 
     // THE CLOCK BLOCK (2026-10-24, the owner: "many clocks", for a phone on
@@ -187,7 +187,7 @@
       }
       _cfg() {
         var ids = this._ids(), g = this._arrange(ids.length), shown = ids.slice(0, g[0] * g[1]), live = this._live(shown);
-        return Object.assign({ type: 'custom:hk-camera-mosaic-card', own_cameras: true, grid: g, seam: C.HOME_GRID.gap,
+        return Object.assign({ type: 'custom:hk-camera-mosaic-card', own_cameras: true, grid: g, seam: CAM_GAP, show_age: false,
                                refresh: this._config.refresh || 10, cameras: shown.map(function (id) { return { entity: id }; }) },
                              live ? { live: live } : {});
       }

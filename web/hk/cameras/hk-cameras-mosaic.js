@@ -61,6 +61,17 @@
     //     That is deliberately unlike iOS, whose page is always dark: our sky is
     //     bright in daytime and a transparent seam would cut a bright line
     //     through the mosaic.
+    // HOW OLD A SNAPSHOT IS, in a camera block's pill: s seconds, `short` for Small's narrower one
+    /** @param {number} s @param {boolean} [short] */
+    function ageWords(s, short) {
+      var tail = short ? '' : ' ago', n;
+      if (s < 5) return short ? 'Now' : 'Just now';
+      if (s < 60) return s + ' sec' + tail;
+      if (s < 3600) return Math.floor(s / 60) + ' min' + tail;
+      n = Math.floor(s / 3600);
+      return n < 24 ? n + ' hr' + tail : Math.floor(n / 24) + (Math.floor(n / 24) === 1 ? ' day' : ' days') + tail;
+    }
+
     class HkCameraMosaicCard extends HkBase {
       static get CSS() {
         return [
@@ -207,37 +218,52 @@
           '  --ha-card-border-radius:0px;',
           '  --ha-card-box-shadow:none}',
           '.plate > *{min-width:0;min-height:0}',
-          // THE CAMERAS FACE (`grid`, 2026-10-30; hk-grid-cards.js
-          // hk-grid-cameras-card): not one joined plate but a tile per camera,
-          // apart, each with the block's corner and shadow, its name in a pill at
-          // the foot and its age in one at the top; the live one (a ringing
-          // doorbell) ringed red, LIVE where its age was
-          // (the plate itself has none of the strip's own: no corner, colour or shadow is set on it here)
-          '.plate.grid{width:100%;height:100%;overflow:visible}',
-          '.plate.grid>.snap,.plate.grid>.live{border-radius:' + C.M.radius + ';box-shadow:var(--hk-look-shadow, 0 8px 22px rgba(0,0,0,0.12))}',
-          '.plate.grid>.snap:focus-visible,.plate.grid>.live:focus-visible{outline:3px solid ' + C.v('ink') + ';outline-offset:2px}',
-          '.plate.grid .cn,.plate.blk .cn{position:absolute;left:10px;bottom:10px;z-index:3;max-width:calc(100% - 20px);box-sizing:border-box;',
-          '  height:25px;padding:6px 9px;border-radius:' + C.R.capsule('25px') + ';background:' + C.v('float-plate') + ';color:#fff;font-size:13px;font-weight:600;line-height:13px;',
-          '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}',
-          // (a block's name clear of the pager's dots at the foot's middle; 2026-11-07, the review: in from the corner by the block's inset like the age, and Tall's has its width)
-          '.plate.blk .cn{max-width:calc(50% - 30px);left:var(--hk-block-pad,10px);bottom:var(--hk-block-pad,10px)}.plate.blk[data-sz=T] .cn{max-width:calc(100% - 2 * var(--hk-block-pad,10px))}',
-          // (the block's Name: Hide, or Automatic on HomeView's square cells -- the owner, 2026-10-31: the name
-          // in the corner, "Front Door Camera Low resolution cha...", wasn't wanted there; 2026-11-07: Small and Wide are one row of cells, the rest two -- a tile's tall block is 314, not a square
-          // cell's)
-          '.plate.blk[data-name=hide] .cn{display:none}',
-          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.plate.blk[data-sz=S]:not([data-name=show]) .cn,.plate.blk[data-sz=W]:not([data-name=show]) .cn{display:none}}' +
-            '@container hk-cell (min-height:360px){.plate.blk:not([data-name=show]) .cn{display:none}}',
-          // (in from the corner by the block's own inset -- 18 on square cells, 14 on tiles -- so the capsule sits about
-          // concentric with the block's curve: at 10 it was "really close to the edge", 2026-10-31, the owner)
-          '.plate.grid .age,.plate.blk .age{left:auto;bottom:auto;right:var(--hk-block-pad,10px);top:var(--hk-block-pad,10px);box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' +
-            C.R.capsule('21px') + ';',
-          '  background:' + C.v('float-plate') + ';font-size:11px;font-weight:600;line-height:11px;color:' + C.v('ink-2') + ';text-shadow:none}',
-          '.plate.grid .age:empty,.plate.blk .age:empty{display:none}',
-          '.plate.grid>.on .age{display:none}',
-          '.plate.grid .lv{position:absolute;right:var(--hk-block-pad,10px);top:var(--hk-block-pad,10px);z-index:3;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' +
+          // THE CAMERAS FACE (`grid`, 2026-10-30; hk-grid-cards.js hk-grid-cameras-card), as a MOSAIC (round 12, the owner: "more like the
+          // mosaic camera strip, but with equal size boxes for all the cameras depending on how many are in there ... the nice thing about
+          // mosaic style is it maximizes the camera picture in the space"): equal boxes in the layout that gives each camera the largest 16:9
+          // picture for how many there are (hk-grid-math camGrid; a last row with fewer cameras shares its width evenly), a thin gap that
+          // shows the plate's black, the block's corner on the OUTSIDE only (the plate clips; every box is square), each box its camera's name
+          // with a small dot at the bottom left over a soft gradient. A ringing doorbell's box is the live one: ringed red, LIVE at its top left.
+          '.plate.grid{width:100%;height:100%;overflow:hidden;background:#000;border-radius:var(--hk-block-radius,' + C.M.radius + ');',
+          '  box-shadow:var(--hk-look-shadow, 0 8px 22px rgba(0,0,0,0.12))}',
+          '.plate.grid>.snap,.plate.grid>.live{border-radius:0;box-shadow:none}',
+          '.plate.grid>.snap:focus-visible,.plate.grid>.live:focus-visible{outline:3px solid ' + C.v('ink') + ';outline-offset:-3px}',
+          '.plate.grid>.snap::before,.plate.grid>.live::before,.plate.blk.kc>.snap::before,.plate.blk.kc>.live::before{content:"";position:absolute;left:0;right:0;bottom:0;height:46px;z-index:2;',
+          '  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.45));pointer-events:none}',
+          '.plate.grid .cn,.plate.blk.kc .cn{position:absolute;z-index:3;box-sizing:border-box;display:flex;align-items:center;gap:7px;color:#fff;font-size:15px;font-weight:600;',
+          '  line-height:20px;letter-spacing:-.1px;text-shadow:0 1px 3px rgba(0,0,0,.6);white-space:nowrap;pointer-events:none}',
+          '.plate.grid .cn>span,.plate.blk.kc .cn>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
+          '.plate.grid .cn{left:12px;bottom:10px;max-width:calc(100% - 24px)}',
+          '.plate.grid .cn::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:#30d158;box-shadow:0 0 0 2px rgba(0,0,0,.15)}',
+          '.plate.grid .cn.off::before{background:#8e8e93}',
+          '.plate.grid .age{display:none}',
+          '.plate.grid .lv{position:absolute;left:10px;top:10px;z-index:3;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' +
             C.R.capsule('21px') + ';',
           '  background:#ff3b30;color:#fff;font-size:11px;font-weight:700;line-height:11px;letter-spacing:.06em;pointer-events:none}',
-          '.plate.grid>.on::after{content:"";position:absolute;inset:0;z-index:2;border-radius:inherit;box-shadow:inset 0 0 0 3px #ff3b30;pointer-events:none}',
+          '.plate.grid>.on::after{content:"";position:absolute;inset:0;z-index:2;box-shadow:inset 0 0 0 3px #ff3b30;pointer-events:none}',
+          // THE CAMERA BLOCK (round 12, the owner: "I like your camera card from the mock up"): the picture to the card's edge (the plate
+          // clips it to the block's corner), the camera's name at the bottom left on the 18 inset over a soft gradient, and a pill at the
+          // top left on the 13 edge -- LIVE in red while the stream plays, else how old the picture is ("2 min ago"; "2 min" on Small). The
+          // name's Hide takes the name and the gradient off; Automatic and Show draw it on every cell.
+          '.plate.blk.kc .cn{left:var(--hk-pad-l,18px);bottom:var(--hk-pad-b,18px);max-width:calc(100% - 2 * var(--hk-pad-l,18px))}',
+          '.plate.blk.kc[data-name=hide] .cn{display:none}.plate.blk.kc[data-name=hide]>.snap::before,.plate.blk.kc[data-name=hide]>.live::before{display:none}',
+          '.plate.blk.kc .age,.plate.blk.kc .lv{position:absolute;z-index:3;left:var(--hk-spad-l,13px);top:var(--hk-spad-l,13px);right:auto;bottom:auto;box-sizing:border-box;height:26px;',
+          '  padding:0 10px;border-radius:' + C.R.capsule('26px') + ';display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);color:#fff;font-size:13px;font-weight:700;',
+          '  line-height:26px;letter-spacing:.3px;text-shadow:none;pointer-events:none}',
+          '.plate.blk.kc .age:empty,.plate.blk.kc .lv[hidden]{display:none}',
+          '.plate.blk.kc .lv{background:rgba(255,59,48,.92)}.plate.blk.kc .lv::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:#fff}',
+          // (the camera blocks that are not the kit's -- the Alert's picture, the Extra Large's -- keep their pills: the name and the age as capsules)
+          '.plate.blk:not(.kc) .cn{position:absolute;left:var(--hk-block-pad,10px);bottom:var(--hk-block-pad,10px);z-index:3;max-width:calc(50% - 30px);box-sizing:border-box;',
+          '  height:25px;padding:6px 9px;border-radius:' + C.R.capsule('25px') + ';background:' + C.v('float-plate') + ';color:#fff;font-size:13px;font-weight:600;line-height:13px;',
+          '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}.plate.blk:not(.kc)[data-sz=T] .cn{max-width:calc(100% - 2 * var(--hk-block-pad,10px))}',
+          '.plate.blk:not(.kc)[data-name=hide] .cn{display:none}',
+          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.plate.blk:not(.kc)[data-sz=S]:not([data-name=show]) .cn,.plate.blk:not(.kc)[data-sz=W]:not([data-name=show]) ' +
+            '.cn{display:none}}' +
+            '@container hk-cell (min-height:360px){.plate.blk:not(.kc):not([data-name=show]) .cn{display:none}}',
+          '.plate.blk:not(.kc) .age{left:auto;bottom:auto;right:var(--hk-block-pad,10px);top:var(--hk-block-pad,10px);box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' +
+            C.R.capsule('21px') + ';',
+          '  background:' + C.v('float-plate') + ';font-size:11px;font-weight:600;line-height:11px;color:' + C.v('ink-2') + ';text-shadow:none}',
+          '.plate.blk:not(.kc) .age:empty{display:none}',
         ].join('');
       }
 
@@ -278,9 +304,15 @@
       // this screen's own choice, else All Screens'. Off, it is a snapshot like
       // the others -- in its place and at its size, still the one Live Camera
       // Follows picks -- and no stream is decoded: lighter on the device.
+      //
+      // PICTURE (the camera block's option, round 12, the owner: "we need to include the option to have it live or snapshots"): `picture:
+      // 'live'` plays it as the first tile does, `'snapshots'` is a still on the block's own refresh; neither (Automatic, what every block
+      // did before the option) follows the screen's Live First Camera. A tablet that plays no video draws stills whatever is asked.
       _liveOn() {
-        var P = window.hkSettings;
+        var P = window.hkSettings, pic = this._config && this._config.picture;
         if (P && P.rendering && !P.rendering().autoplay) return false;
+        if (pic === 'snapshots') return false;
+        if (pic === 'live') return true;
         var b = this._board();
         if (typeof b.camera_live_video === 'boolean') return b.camera_live_video;
         var S = window.hkSettings;
@@ -985,6 +1017,8 @@
       _ageText(at) {
         if (!at) return '';
         var s = Math.floor((Date.now() - at) / 1000);
+        // A CAMERA BLOCK'S PILL says it in words ("Just now", "12 sec ago", "2 min ago"; Small, with room for less, "12 sec", "2 min")
+        if (this._pillWords) return ageWords(s, !!this._pillShort);
         if (s < 1)    return 'now';
         if (s < 60)   return s + 's';
         if (s < 3600) return Math.floor(s / 60) + 'm';
@@ -1015,6 +1049,8 @@
       _tickAges() {
         this._wireLiveLabel();
         this._liveShown();
+        // a block's red LIVE pill is there while the video covers the poster, and the age pill is there while it does not
+        if (this._lvEl) { var up = this._liveCovering(); if (this._lvEl.hidden === up) this._lvEl.hidden = !up; }
         var list = (this._snaps || []).slice();
         var ps = this._liveSlot && this._liveSlot.poster;
         if (ps) list.push(ps);
@@ -1402,6 +1438,7 @@
         this._stopTimer();
         var plan = this._plan();
         if (!plan) return;
+        this._pillWords = false; this._lvEl = null;
         if (plan.grid) { this._renderGrid(plan); return; }
 
         var H    = this._num('height', 202.5);
@@ -1423,6 +1460,8 @@
           plan.cols = [];
         }
         var liveRow = under ? '1' : '1 / 3';
+        // (a block's pill speaks in words, from the first cached frame on)
+        this._pillWords = !!(block && plan.live && this._config.kit); this._pillShort = this._pillWords && this._cellSize() === 'S';
         var halfH = (H - SEAM) / 2;
 
         this._children = [];
@@ -1457,11 +1496,20 @@
         // face's own tags
         if (block && plan.live) {
           plate.classList.add('blk');
+          if (this._config.kit) plate.classList.add('kc');          // (the kit's camera block: the pill and the name of round 12)
           plate.setAttribute('data-name', /^(show|hide)$/.test((this._config || {}).name_tag || '') ? this._config.name_tag : 'auto'); plate.setAttribute('data-sz', this._cellSize() || '');
-          var cn = document.createElement('span');
+          var cn = document.createElement('span'), cnt = document.createElement('span');
           cn.className = 'cn';
-          cn.textContent = this._nameOf(plan.live);
+          cnt.textContent = this._nameOf(plan.live);
+          cn.appendChild(cnt);
           plate.firstElementChild.appendChild(cn);
+          // the pill's words, and LIVE while the stream is what shows (_tickAges)
+          if (!plan.still) {
+            var lvp = document.createElement('span');
+            lvp.className = 'lv'; lvp.textContent = 'LIVE'; lvp.hidden = true;
+            plate.firstElementChild.appendChild(lvp);
+            this._lvEl = lvp;
+          }
         }
 
         var self = this;
@@ -1497,16 +1545,25 @@
       // between tablets, camera_still.py), the live one in its place
       _renderGrid(plan) {
         this._watchBlock();
-        var b = this._block(), g = plan.grid, gap = this._num('seam', C.HOME_GRID.gap), self = this;
-        var cw = b ? (b.w - (g[0] - 1) * gap) / g[0] : 320, ch = b ? (b.h - (g[1] - 1) * gap) / g[1] : 180;
+        var b = this._block(), g = plan.grid, gap = this._num('seam', 4), self = this;
+        // THE MOSAIC (round 12): `g[0]` boxes to a row, rows as many as the cameras need; a last row with fewer boxes shares the row's width,
+        // each box spanning an equal share of lcm(columns, its count) tracks, so every box in a row is the same size and the gap is the one gap
+        var n = plan.cams.length, nc = Math.max(1, Math.min(g[0], n)), nr = Math.ceil(n / nc), last = n - (nr - 1) * nc;
+        var gcd = function (/** @type {number} */ x, /** @type {number} */ y) { return y ? gcd(y, x % y) : x; };
+        var tracks = nc * last / gcd(nc, last);
+        var ch = b ? (b.h - (nr - 1) * gap) / nr : 180;
         this._children = [];
         var plate = document.createElement('div');
         plate.className = 'plate grid';
-        plate.style.gridTemplateColumns = 'repeat(' + g[0] + ', minmax(0, 1fr))';
-        plate.style.gridTemplateRows = 'repeat(' + g[1] + ', minmax(0, 1fr))';
+        plate.style.gridTemplateColumns = 'repeat(' + tracks + ', minmax(0, 1fr))';
+        plate.style.gridTemplateRows = 'repeat(' + nr + ', minmax(0, 1fr))';
         plate.style.gap = gap + 'px';
-        plan.cams.forEach(function (cam) {
+        plan.cams.forEach(function (cam, i) {
+          var row = Math.floor(i / nc), inRow = row === nr - 1 ? last : nc, span = tracks / inRow;
+          var cw = b ? (b.w - (inRow - 1) * gap) / inRow : 320;
           var on = plan.live === cam, el = on ? self._liveBox(cam, cw, ch) : self._snap(cam, cw, ch);
+          el.style.gridRow = String(row + 1);
+          el.style.gridColumn = ((i - row * nc) * span + 1) + ' / span ' + span;
           var name = self._nameOf(cam);
           if (on) el.classList.add('on');
           el.setAttribute('role', 'button');
@@ -1515,9 +1572,10 @@
           el.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); self._openCam(cam); }
           });
-          var cn = document.createElement('span');
-          cn.className = 'cn';
-          cn.textContent = name;
+          var cn = document.createElement('span'), cnt = document.createElement('span'), cst = self.client.states[cam.entity];
+          cn.className = 'cn' + (!cst || cst.state === 'unavailable' || cst.state === 'unknown' ? ' off' : '');
+          cnt.textContent = name;
+          cn.appendChild(cnt);
           el.appendChild(cn);
           if (on) {
             var lv = document.createElement('span');
@@ -1636,6 +1694,6 @@
     }
 
     // what the shell and the later parts use of this one
-    K.HkCameraMosaicCard = HkCameraMosaicCard;
+    K.HkCameraMosaicCard = HkCameraMosaicCard; K.ageWords = ageWords;
   };
 })();

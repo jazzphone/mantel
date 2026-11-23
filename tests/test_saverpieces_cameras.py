@@ -126,7 +126,7 @@ print(JSON.stringify({ P: P, again: again, listeners: (LISTEN['hk-house-event'] 
         assert P[k]["group"] == "Cameras" and P[k]["wave"] == "B" and P[k]["name"] and P[k]["source"] and P[k]["wakes"]
         assert P[k]["off"] is True and P[k]["pick"] is None, k                        # off until placed (decision 7)
         assert P[k]["facts"] == [k]
-    assert P["camera"]["opts"] == {"camera": "entity:camera", "label": ["show", "custom", "hide"], "name": "text"}
+    assert P["camera"]["opts"] == {"camera": "entity:camera", "label": ["show", "custom", "hide"], "name": "text", "picture": ["snapshots", "live"]}
     assert P["camera"]["when"] is None and P["camera"]["accent"] is None
     assert P["ring"]["opts"] == {} and P["ring"]["when"] and P["ring"]["accent"] == ["#ffb340", "#b36b00"]       # Last Ring is amber
     # loaded twice: nothing is wrapped or listened for again
@@ -383,6 +383,30 @@ print(JSON.stringify(got));
     assert out["after_a"] == 1 and out["after_c"] == 1 and out["after_all"] == 0
     assert out["dead_tick"] == 0
     assert out["ring"] == 0 and out["restart"] == 1 and out["stop_again"] == 0 and out["none_wanted"] == 0 and out["late"] == 0
+
+
+def test_a_piece_whose_picture_is_live_asks_for_its_still_every_three_seconds_and_snapshots_every_ten(tmp_path):
+    """Round 12, the owner: "the option to have it live or snapshots ... added to the screensaver as well". A screensaver decodes no video,
+    so Live is the fastest the still route is asked: a timer of three seconds while a Live piece is alive, only that camera on the faster gap."""
+    out = run(tmp_path, r"""
+var cl = client(), got = {};
+var snap = mk('camera', 'card', { camera: 'camera.driveway' });            // Picture: Snapshots, the default
+snap.update(cl, T0); flush(); loaded(IMGS[IMGS.length - 1]);
+got.snap_timer = ivs().map(function (i) { return i.ms; });
+var live = mk('camera', 'card', { camera: 'camera.front_door', picture: 'live' });
+live.update(cl, T0); flush(); loaded(IMGS[IMGS.length - 1]);
+got.live_timer = ivs().map(function (i) { return i.ms; });
+function asks(ms) { var n = IMGS.length; NOWMS += ms; tickAll(); var k = IMGS.length - n; IMGS.slice(n).forEach(function (m) { loaded(m); }); return k; }
+got.three = asks(3000);                                                      // only the live camera: the driveway's last ask was three seconds ago
+got.six = asks(3000);                                                        // ...again; the driveway is ten seconds after its own first
+got.nine_ten = asks(4000);
+live.destroy();
+got.back = ivs().map(function (i) { return i.ms; });
+print(JSON.stringify(got));
+""", before=FAKES)
+    assert out["snap_timer"] == [10000] and out["live_timer"] == [3000] and out["back"] == [10000]
+    assert out["three"] == 1 and out["six"] == 1                                    # the live one alone, each three seconds
+    assert out["nine_ten"] == 2                                                     # ten seconds in, the snapshots one is due as well
 
 
 def test_nothing_is_asked_while_the_page_or_the_piece_is_hidden(tmp_path):

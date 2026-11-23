@@ -86,7 +86,8 @@
         if (key === 'swipe') return G.swipe.sample(); if (key === 'alert') return G.alert.sample((k) => self.choices(k), (this.panel.client || {}).states);
         Object.keys(fields).forEach(function (name) {
           var kind = fields[name];
-          if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker',
+          if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'camera_picture', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist',
+            'music_speaker',
             'tv_target', 'tv_show', 'swipe_pages', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'rings_figures', 'sheet_look',
             'sheet_flat_theme', 'security_presentation', 'security_members', 'security_lit',
               'glyph_color'].includes(

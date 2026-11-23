@@ -287,6 +287,16 @@ def test_the_date_takes_its_lines_format_weight_and_capitals():
             C._saver_options({"layout": {"v": 2, "zones": {"tl": [{"piece": "date", "shape": "inline", "opts": bad}]}}})
 
 
+def test_the_camera_piece_takes_a_picture_snapshots_or_live():
+    """Round 12, the owner: "the option to have it live or snapshots ... added to the screensaver as well" -- the Camera piece's Picture."""
+    for pic in ("snapshots", "live"):
+        lay = {"v": 2, "zones": {"tl": [{"piece": "camera", "shape": "card", "opts": {"picture": pic}}]}}
+        assert C._saver_options({"layout": lay})["layout"]["zones"]["tl"][0]["opts"] == {"picture": pic}
+    for bad in ("video", "Live", 1, ""):
+        with pytest.raises(C.Invalid):
+            C._saver_options({"layout": {"v": 2, "zones": {"tl": [{"piece": "camera", "shape": "card", "opts": {"picture": bad}}]}}})
+
+
 @pytest.mark.parametrize("piece,shape,tap,ok", [
     ("weather", "inline", "page", True), ("date", "inline", "none", True), ("music", "card", "page", True),
     ("date", "inline", "open", False), ("time", "inline", "page", False), ("title", "inline", "none", False),
