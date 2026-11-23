@@ -50,7 +50,28 @@ console.log(JSON.stringify({
     sheet(card, {look: 'flat', flat_theme: 'light'}), sheet(card, {look: 'solid', flat_theme: 'dark'}),
     sheet(card, {look: 'glass', flat_theme: 'light'}), sheet(card, {look: 'flat', flat_theme: 'auto'})
   ]])),
-  table: G.table().home
+  table: G.table().home,
+  look: [
+    L.skyLook({ state: 'above_horizon', attributes: { elevation: 48, rising: true } }, 13), L.skyLook({ state: 'above_horizon', attributes: { elevation: 3, rising: true } }, 7),
+    L.skyLook({ state: 'above_horizon', attributes: { elevation: 3, rising: false } }, 18), L.skyLook({ state: 'below_horizon', attributes: { elevation: -3, rising: false } }, 19),
+    L.skyLook({ state: 'below_horizon', attributes: { elevation: -20, rising: false } }, 23), L.skyLook({ state: 'above_horizon', attributes: {} }, 7),
+    L.skyLook({ state: 'above_horizon', attributes: {} }, 12), L.skyLook({ state: 'above_horizon', attributes: {} }, 18), L.skyLook({ state: 'below_horizon' }, 12),
+    L.skyLook(null, 3), L.skyLook(null, 6), L.skyLook(null, 12), L.skyLook(null, 18), L.skyLook(null, 22), L.skyLook({ state: 'x', attributes: { elevation: 5 } }, 9)],
+  lit: [L.litWindows('day', 5), L.litWindows('dusk', 0), L.litWindows('dusk', 3), L.litWindows('night', 40), L.litWindows('night', null), L.litWindows('dawn', 6)],
+  lights: [L.lightsOn({ reading: { num: '3', unit: 'On' } }), L.lightsOn({ reading: { text: 'All Off' } }), L.lightsOn({ reading: { none: true } }), L.lightsOn(null)],
+  line: [L.homeLine({ reading: { num: '71', unit: '°' }, detail: 'Heating · 2 fans' }, false), L.homeLine({ reading: { num: '71', unit: '°' }, detail: 'Heating' }, true),
+         L.homeLine({ reading: { num: '71', unit: '°' }, detail: 'Inside' }, false), L.homeLine({ reading: { none: true }, detail: 'Cooling' }, false), L.homeLine(null, false)],
+  read: [L.readText({ num: '71', unit: '°' }), L.readText({ num: '3', unit: 'On' }), L.readText({ text: 'Disarmed' }), L.readText({ none: true })],
+  cats: (() => {
+    const mk = (kind, name) => ({ kind, name, reading: { text: name } });
+    const all = [mk('security', 'Security'), mk('lights', 'Lights'), mk('timers', 'Timers'), mk('climate', 'Climate')];
+    return { four: L.pickCats(all, 4, null).map((x) => x.kind), three: L.pickCats(all, 3, null).map((x) => x.kind), doors: L.pickCats(all, 4, '/wall/doors').map((x) => [x.kind, !!x.made]),
+             filled: L.pickCats([mk('timers', 'Timers'), mk('vacuums', 'Vacuums')], 4, null).map((x) => x.kind), none: L.pickCats([], 4, null) };
+  })(),
+  scene: Object.fromEntries(L.LOOKS.map((k) => [k, (() => { const s = L.sceneSvg(405, 405, k, { cx: 200, base: 250, s: 1.2, lit: L.litWindows(k, 3) });
+    return { len: s.length, stars: (s.match(/<circle [^>]*fill="#fff" opacity/g) || []).length, moon: s.includes('#f4efe0'),
+             lit: (s.match(/fill="url\(#hwn\)"/g) || []).length,
+             svg: s.startsWith('<svg') && s.endsWith('</svg>'), dim: L.dimOf(k) }; })()]))
 }));
 """
 
@@ -185,3 +206,54 @@ async def test_the_assistants_card_list_offers_it():
     got = await screens.grid_cards(None, {})
     assert got["cards"]["home"] == {"sizes": ["S", "W", "T", "L", "XL"], "pages_from": [], "options": {
         "title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color"}}
+
+
+# -- round 12: the picture card's pure part (2026-11-23) -----------------------------------------------------------------
+@needs_node
+def test_the_picture_follows_the_sun(got):
+    assert got["look"] == ["day", "dawn", "dusk", "dusk", "night",          # elevation: over 10 up is day, under -6 night, between rising dawn / setting dusk
+                           "dawn", "day", "dusk", "night",                  # no elevation: the horizon and the hour
+                           "night", "dawn", "day", "dusk", "night",         # no sun at all: the clock
+                           "dawn"]                                          # a sun with an elevation and no direction: the morning is dawn
+
+
+@needs_node
+def test_windows_light_by_the_lights_on_in_the_evening(got):
+    day, none, three, many, unknown, dawn = got["lit"]
+    assert day == []                      # by day none is lit
+    assert none == []                     # a dark house at night is dark
+    assert three == [0, 3, 4]             # the living space first
+    assert many == [0, 3, 4, 1, 5, 2, 6]  # never more than the seven windows
+    assert len(unknown) == 4              # the lights not known: four
+    assert dawn == [0, 3, 4]              # at dawn three at most
+
+
+@needs_node
+def test_how_many_lights_are_on_comes_from_the_lights_reading(got):
+    assert got["lights"] == [3, 0, None, None]
+
+
+@needs_node
+def test_the_line_under_home_is_the_inside_temperature_and_what_the_climate_does(got):
+    assert got["read"] == ["71°", "3 On", "Disarmed", ""]
+    assert got["line"] == ["71° inside · Heating", "71° · Heating", "71° inside", "Cooling", ""]
+
+
+@needs_node
+def test_the_buttons_are_the_home_apps_categories(got):
+    c = got["cats"]
+    assert c["four"] == ["climate", "lights", "security", "timers"]    # no Doors on this screen: the next fills it
+    assert c["three"] == ["climate", "lights", "security"]
+    assert c["doors"] == [["climate", False], ["lights", False], ["doors_windows", True], ["security", False]]   # a quiet Doors is made up where there is a page
+    assert c["filled"] == ["timers", "vacuums"] and c["none"] == []
+
+
+@needs_node
+def test_each_look_is_drawn_and_dimmed_on_its_own_terms(got):
+    s = got["scene"]
+    assert sorted(s) == ["dawn", "day", "dusk", "night"]
+    assert all(v["svg"] for v in s.values())
+    assert s["night"]["moon"] and not s["day"]["moon"]                                  # the moon only at night
+    assert s["day"]["stars"] == 0 and all(s[k]["stars"] > 0 for k in ("dawn", "dusk", "night"))   # stars: none by day
+    assert [s[k]["lit"] for k in ("dawn", "dusk", "night")] == [3, 3, 3] and s["day"]["lit"] == 0      # three lit windows in the evening, none by day
+    assert 0 < s["night"]["dim"] < s["day"]["dim"] <= 0.5                               # the bright day is dimmed most, the dark night least
