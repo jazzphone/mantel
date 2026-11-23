@@ -241,10 +241,11 @@
     // the tablet showing the screen may be known only once the page is up.
     // `fallback` is the room it shows on a page that is no wall tablet.
     room: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: ['rooms'],
-      opts: { area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target', look: 'sheet_look', flat_theme: 'sheet_flat_theme' }, card: function (s, o, ctx) {
+      opts: { area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target', look: 'sheet_look', flat_theme: 'sheet_flat_theme',
+        background: 'card_background' }, card: function (s, o, ctx) {
       // no room of its own: the tablet's, else the screen's first
       return Object.assign({ type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null,
-        size: s, surface: o.surface, accessory_display: o.accessory_display || 'summary' }, sheetOptions(o)); } },
+        size: s, surface: o.surface, accessory_display: o.accessory_display || 'summary' }, sheetOptions(o), o.background ? { background: o.background } : {}); } },
     scene_suggested: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
     action: { sizes: ['S', 'W'], sources: [], opts: { action: 'action', area: 'area', color: 'boolean' }, card: function (s, o) {
@@ -281,8 +282,9 @@
     // generated Home page in a sheet at that place. Its name (`title`, the house's by default) and Glyphs; no When Tapped:
     // the sheet is where it goes.
     home: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [],
-      opts: { title: 'title', look: 'sheet_look', flat_theme: 'sheet_flat_theme', glyphs: 'glyph_color' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {}, sheetOptions(o), gl(o)); } },
+      opts: { title: 'title', look: 'sheet_look', flat_theme: 'sheet_flat_theme', glyphs: 'glyph_color', background: 'card_background' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {}, sheetOptions(o), gl(o),
+        o.background ? { background: o.background } : {}); } },
     // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as
     // sections, each a tap to its chip's page; the rest, and Small, open the House Status sheet. No options: it shows
     // what the screen's Status Chips say, whether or not the screen draws its chip row. No When Tapped: each section

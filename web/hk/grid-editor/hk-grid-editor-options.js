@@ -92,6 +92,13 @@
           }
           // A CAMERA BLOCK'S PICTURE (round 12, the owner: "the option to have it live or snapshots"): Automatic is what the block always did (the
           // screen's Live First Camera), Live plays the stream, Snapshots stills on the block's refresh
+          // A HOME OR ROOM BLOCK'S BACKGROUND (round 13, the owner: "an option for the Room and Home cards to not have the background"): the
+          // wallpaper (stored as nothing), or None, the block's plain plate
+          if (kind === 'card_background') {
+            rows.push(K.seg({ label: 'Background', value: opts[key] || 'wallpaper', options: [['wallpaper', 'Wallpaper'], ['none', 'None']],
+              onChange: (v) => set(key, v === 'wallpaper' ? null : v) }));
+            return;
+          }
           if (kind === 'camera_picture') {
             rows.push(K.seg({ label: 'Picture', value: opts[key] || 'auto', options: [['auto', 'Automatic'], ['live', 'Live'], ['snapshots', 'Snapshots']],
               onChange: (v) => set(key, v === 'auto' ? null : v) }));

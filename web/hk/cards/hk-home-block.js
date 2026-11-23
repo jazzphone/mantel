@@ -559,7 +559,7 @@
         _sigOf() {
           var size = this._size(), base = size === 'S' && this.getAttribute('tile') === 'centred' ? 'hb:S' : super._sigOf(), c = this.client;
           // (the picture's look: read when told, so a screen keeps sun.sun; the look moves a few times a day, not with its elevation)
-          if (size !== 'S') base += '|' + this._sky();
+          if (size !== 'S') base += '|' + this._sky() + '|' + ((this._config || {}).background || '');
           if (size === 'S' || size === 'W' || size === 'T' || !c) return base + '|' + this._name() + '|' + (this.getAttribute('tile') || '');
           var self = this;
           return base + '|' + this._name() + '|' + (this.getAttribute('tile') || '') + '|' +
@@ -578,16 +578,19 @@
           if (!K || size === 'S' || !c) return false;
           if (this._watchBlock) this._watchBlock();
           var k = K.ctx(this), w = k.w, h = k.h, E = k.E, X = k.X, KH = K.KH, G = K.G, name = this._name();
-          var m = this._sections(), sections = (m && m.sections) || [], look = this._sky(), narrow = w < 300, ink = '#fff';
+          // (bare: the Background option's None -- the block's plain plate, the look's own ink and keys; round 13)
+          var bare = (this._config || {}).background === 'none', ink = bare ? K.v('ink', '#fff') : '#fff';
+          var m = this._sections(), sections = (m && m.sections) || [], look = this._sky(), narrow = w < 300;
           var M = C.menu, doors = M && M.pagePath ? (M.pagePath('doors-windows') || M.pagePath('doors') || M.pagePath('security')) : null;
           var cats = pickCats(sections, size === 'W' || size === 'T' ? 3 : 6, doors), climate = sections.filter(function (x) { return x.kind === 'climate'; })[0];
           var lw = size === 'XL' ? Math.min(w, 405) : w, o = '';
           // the wallpaper by the time of day, its glyph huge and faint off the lower right, and the header's glyph (round 13)
-          o += K.box(0, 0, w, h, '', 'overflow:hidden', K.wallpaper(w, h, WALLS[look] || WALLS.day) + K.texture(lw, h, HOUSE)) + K.headGlyph(k, lw, HOUSE);
+          if (!bare) o += K.box(0, 0, w, h, '', 'overflow:hidden', K.wallpaper(w, h, WALLS[look] || WALLS.day) + K.texture(lw, h, HOUSE));
+          o += K.headGlyph(k, lw, HOUSE, bare ? ink : '');
           // the words: the house's name, large, with the chevron; under it the line
           var tw = lw - 2 * X - (lw >= 300 ? 52 : 0);
           o += K.box(X, 16, tw, 28, '', 'display:flex;align-items:center;gap:4px', '<span class="kd" style="flex:0 1 auto;min-width:0">' + esc(name) + '</span>' +
-              K.svg('chev', 18, 'rgba(255,255,255,.85)')) + K.tx(X, 46, tw, 'kb', esc(homeLine(climate, narrow)));
+              K.svg('chev', 18, bare ? K.v('ink-2', 'rgba(255,255,255,.8)') : 'rgba(255,255,255,.85)')) + K.tx(X, 46, tw, 'kb', esc(homeLine(climate, narrow)));
           // the buttons
           this._shown = cats;
           var teal = '#5ce1e6', btn = cats.map(function (x, i) {
@@ -608,22 +611,24 @@
             rooms.forEach(function (r, i) {
               var say = roomReading(c, r), y = i * RH;
               list += K.row(pk, 0, y, rw, { t: r.name, b: say, trail: '\u00a0', label: r.name + (say ? ', ' + say : ''), data: { r: r.id } }, i === rooms.length - 1, RH) +
-                K.box(rw - 30, y + (RH - 18) / 2, 14, 18, 'fc', 'pointer-events:none', K.svg('chev', 14, 'rgba(255,255,255,.6)'));
+                K.box(rw - 30, y + (RH - 18) / 2, 14, 18, 'fc', 'pointer-events:none', K.svg('chev', 14, bare ? K.v('ink-3', 'rgba(255,255,255,.6)') : 'rgba(255,255,255,.6)'));
             });
-            o += K.box(rx, E, rw, h - 2 * E, '', 'border-radius:' + k.r + 'px;background:rgba(0,0,0,.34)') + K.tx(rx + 16, E + 14, rw - 32, 'kl', 'Rooms') +
+            o += K.box(rx, E, rw, h - 2 * E, '', 'border-radius:' + k.r + 'px;background:' + (bare ? K.v('key', 'rgba(255,255,255,.14)') : 'rgba(0,0,0,.34)')) +
+              K.tx(rx + 16, E + 14, rw - 32, 'kl', 'Rooms') +
               '<div class="a sc" role="list" style="' + K.st(rx, E + 44, rw, h - 2 * E - 44) + '">' + list + '</div>';
           }
-          var css = '<style>.kit.photo{color:#fff;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.8);--hk-ink-3:rgba(255,255,255,.6);--hk-line:rgba(255,255,255,.16);--hk-glow:none;text-shadow:none}' +
-            '.kit.photo .kd,.kit.photo .kb{text-shadow:0 1px 4px rgba(0,0,0,.45)}' +
+          var css = '<style>' + (bare ? '' : '.kit.photo{color:#fff;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.8);--hk-ink-3:rgba(255,255,255,.6);--hk-line:rgba(255,255,255,.16);' +
+            '--hk-glow:none;text-shadow:none}.kit.photo .kd,.kit.photo .kb{text-shadow:0 1px 4px rgba(0,0,0,.45)}' +
             // (the buttons: a translucent dark and a hairline ring, never a blur of their own -- the picture is under them)
-            '.kit.photo .key{background:rgba(28,30,40,.62);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 1px 0 rgba(255,255,255,.2);justify-content:flex-start;gap:10px;' +
-              'padding:0 12px 0 14px;' +
-            'text-shadow:none}.kit.photo .key:active{background:rgba(28,30,40,.82)}' +
+            '.kit.photo .key{background:rgba(28,30,40,.62);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 1px 0 rgba(255,255,255,.2)}' +
+            '.kit.photo .key:active{background:rgba(28,30,40,.82)}') +
+            '.kit.photo .key{justify-content:flex-start;gap:10px;padding:0 12px 0 14px;text-shadow:none}' +
             '.kit.photo .hb{display:flex;flex-direction:column;min-width:0;text-align:left}' +
             '.kit.photo .hb b{font-weight:600;font-size:17px;letter-spacing:-.3px;line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-            '.kit.photo .hb i{font-style:normal;font-weight:400;font-size:15px;line-height:20px;color:rgba(255,255,255,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            '.kit.photo .hb i{font-style:normal;font-weight:400;font-size:15px;line-height:20px;color:' + (bare ? K.v('ink-2', 'rgba(255,255,255,.78)') : 'rgba(255,255,255,.78)') +
+              ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
             '.kit.photo .sc{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}' +
-            '.kit.photo .sc::-webkit-scrollbar{display:none}.kit.photo .row:active{background:rgba(255,255,255,.1)}</style>';
+            '.kit.photo .sc::-webkit-scrollbar{display:none}.kit.photo .row:active{background:' + (bare ? K.v('key', 'rgba(255,255,255,.1)') : 'rgba(255,255,255,.1)') + '}</style>';
           return K.draw(this, K.plate(k, css + o, { label: name + '. Opens ' + name, cls: 'photo' }), function (/** @type {any} */ root) {
             root.querySelectorAll('[data-i]').forEach(function (/** @type {any} */ b) {
               b.addEventListener('click', function () {

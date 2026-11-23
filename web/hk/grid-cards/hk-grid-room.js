@@ -267,7 +267,7 @@
         // (the picture card's own parts -- its chips, scenes, keys -- read when told, so the screen keeps those states)
         this._kd = this._kitOn(p) ? this._kitData(p) : null;
         return JSON.stringify([p.area, p.size, p.name, p.status, p.icon, p.more, p.hmore, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
-                               p.geom, this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile'), this._kd]);
+                               p.geom, this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile'), this._kd, this._config.background || '']);
       }
       // THE PICTURE CARD: a Room (not an Accessory Group) from Wide up
       _kitOn(p) { return !!(window.hkKit && window.hkKit.on(this) && p.area && p.size !== 'S' && this.client && this.client.states); }
@@ -305,11 +305,13 @@
         var k = K2.ctx(this), w = k.w, hh = k.h, E = k.E, X = k.X, KH = K2.KH, G = K2.G, size = p.size, esc2 = K2.esc, xl = size === 'XL' || size === 'XXL', o = '';
         // the wallpaper (round 13): the room's color in Apple's soft fields, the area's own picture over it when it has one; its glyph huge and
         // faint off the lower right, and the header's glyph (hk-kit.js wallpaper, texture, headGlyph)
-        var lw = xl ? Math.min(w, 405) : w;
-        o += K2.box(0, 0, w, hh, '', 'overflow:hidden', K2.wallpaper(w, hh, K2.wallFrom(kd.color)) + (kd.pic ? '<img class="rp" alt="" draggable="false" src="' + esc2(kd.pic) +
+        // (bare: the Background option's None -- the block's plain plate, the look's own ink and keys)
+        var lw = xl ? Math.min(w, 405) : w, bare = (this._config || {}).background === 'none', dim = bare ? K2.v('ink-3', 'rgba(255,255,255,.5)') : 'rgba(255,255,255,.5)';
+        if (!bare) o += K2.box(0, 0, w, hh, '', 'overflow:hidden', K2.wallpaper(w, hh, K2.wallFrom(kd.color)) + (kd.pic ? '<img class="rp" alt="" draggable="false" src="' + esc2(kd.pic) +
           '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">' +
             K2.box(0, 0, w, hh, '', 'background:linear-gradient(180deg,rgba(0,0,0,.4),rgba(0,0,0,0) 40%,rgba(0,0,0,0) 55%,rgba(0,0,0,.45))') : '') +
-          K2.texture(lw, hh, kd.icon)) + K2.headGlyph(k, lw, kd.icon);
+          K2.texture(lw, hh, kd.icon));
+        o += K2.headGlyph(k, lw, kd.icon, bare ? K2.v('ink', '#fff') : '');
         var tw = lw - 2 * X - (lw >= 300 ? 52 : 0);
         o += K2.tx(X, 16, tw, 'kd', esc2(kd.name)) + (kd.line ? K2.tx(X, 46, tw, 'kb', esc2(kd.line)) : '');
         // THE KEYS (round 13, the owner: "Seems like entities would be better ... should these fill the area more or are we able to do 3 rows?"):
@@ -318,7 +320,7 @@
         var n = size === 'W' || size === 'T' ? 3 : 6;
         var keys = kd.accs.slice(0, n).map(function (a) {
           return { on: a.on, label: a.name + ', ' + a.say, data: a.tog ? { ac: a.e } : { e: a.e },
-                   g: K2.glyph(a.g, 26, a.on ? a.c : 'rgba(255,255,255,.5)', true) + '<span class="hb"><b>' + esc2(a.name) + '</b><i>' + esc2(a.say) + '</i></span>' };
+                   g: K2.glyph(a.g, 26, a.on ? (bare && a.c === '#fff' ? K2.v('ink', '#fff') : a.c) : dim, true) + '<span class="hb"><b>' + esc2(a.name) + '</b><i>' + esc2(a.say) + '</i></span>' };
         });
         if (!keys.length) keys = kd.scenes.slice(0, n).map(function (sc) {
           return { g: K2.glyph(sc.icon, 22, sc.on ? '#1c1c1e' : (sc.color || '#fff'), true), t: sc.name, on: sc.on, label: sc.name, data: { sc: sc.id }, scene: true };
@@ -349,25 +351,30 @@
               K2.glyph(sc.icon, 24, sc.on ? (sc.color || '#ffcc00') : '#fff', true) + '<span class="hb"><b>' + esc2(sc.name) + '</b><i>' + (sc.on ? 'On' : 'Scene') + '</i></span></button>' +
               (i2 < kd.scenes.length - 1 ? K2.box(16, y + RH - 1, rw - 32, 1, '', 'background:rgba(255,255,255,.16)') : '');
           });
-          o += K2.box(rx, E, rw, hh - 2 * E, '', 'border-radius:' + k.r + 'px;background:rgba(0,0,0,.3)') + K2.tx(rx + 16, E + 14, rw - 32, 'kl', 'Scenes') +
+          o += K2.box(rx, E, rw, hh - 2 * E, '', 'border-radius:' + k.r + 'px;background:' + (bare ? K2.v('key', 'rgba(255,255,255,.14)') : 'rgba(0,0,0,.3)')) +
+            K2.tx(rx + 16, E + 14, rw - 32, 'kl', 'Scenes') +
             '<div class="a sc" role="list" style="' + K2.st(rx, E + 44, rw, hh - 2 * E - 44) + '">' + list + '</div>';
         }
-        var css = '<style>.kit.room{color:#fff;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.82);--hk-ink-3:rgba(255,255,255,.6);--hk-glow:none;text-shadow:none}' +
+        var css = '<style>' + (bare ? '' : '.kit.room{color:#fff;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.82);--hk-ink-3:rgba(255,255,255,.6);--hk-glow:none;text-shadow:none}' +
           '.kit.room .kd,.kit.room .kb{text-shadow:0 1px 4px rgba(0,0,0,.45)}' +
-          // (glass keys: a translucent white, never a blur of their own; the chosen one white with its glyph and words near-black)
-          '.kit.room .key{background:rgba(28,30,40,.62);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 1px 0 rgba(255,255,255,.2);justify-content:flex-start;gap:10px;' +
-          'padding:0 12px 0 14px;text-shadow:none}.kit.room .key:active{background:rgba(28,30,40,.82)}.kit.room .key .kt{flex:0 1 auto;min-width:0}' +
-          // (an accessory that is on keeps the glass and white words: its glyph in its color says it is on)
-          '.kit.room .key.on,.kit.room.light .key.on{background:rgba(28,30,40,.62);color:#fff}' +
+          // (glass keys over the wallpaper: a translucent dark and a hairline ring, never a blur of their own; an accessory that is on keeps the
+          // glass and white words -- its glyph in its color says it is on)
+          '.kit.room .key{background:rgba(28,30,40,.62);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),inset 0 1px 0 rgba(255,255,255,.2)}' +
+          '.kit.room .key:active{background:rgba(28,30,40,.82)}.kit.room .key.on,.kit.room.light .key.on{background:rgba(28,30,40,.62);color:#fff}') +
+          // (plain: the look's keys; one that is on keeps them too, and the look's words)
+          (bare ? '.kit.room .key.on{background:' + K2.v('key', 'rgba(255,255,255,.14)') + ';color:' + K2.v('ink', '#fff') + '}' : '') +
+          '.kit.room .key{justify-content:flex-start;gap:10px;padding:0 12px 0 14px;text-shadow:none}.kit.room .key .kt{flex:0 1 auto;min-width:0}' +
           '.kit.room .srow{all:unset;position:absolute;box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:0 16px;cursor:pointer}' +
           '.kit.room .srow:active{background:rgba(255,255,255,.08)}.kit.room .srow:focus-visible{outline:2px solid rgba(255,255,255,.8);outline-offset:-2px}' +
           '.kit.room .sc{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}' +
-          '.kit.room .sc::-webkit-scrollbar{display:none}.kit.room .kl{color:rgba(255,255,255,.75)}' +
+          '.kit.room .sc::-webkit-scrollbar{display:none}' + (bare ? '' : '.kit.room .kl{color:rgba(255,255,255,.75)}') +
           '.kit.room .hb{display:flex;flex-direction:column;min-width:0;text-align:left}' +
           '.kit.room .hb b{font-weight:600;font-size:17px;letter-spacing:-.3px;line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-          '.kit.room .hb i{font-style:normal;font-weight:400;font-size:15px;line-height:20px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+          '.kit.room .hb i{font-style:normal;font-weight:400;font-size:15px;line-height:20px;color:' + (bare ? K2.v('ink-2', 'rgba(255,255,255,.8)') : 'rgba(255,255,255,.8)') +
+            ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
           '.kit.room .rc{all:unset;position:relative;box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;' +
-          'background:rgba(0,0,0,.34);color:#fff;font-size:15px;font-weight:600;white-space:nowrap;cursor:pointer}.kit.room .rc::after{content:"";position:absolute;inset:-7px -2px}' +
+          'background:' + (bare ? K2.v('key', 'rgba(255,255,255,.14)') : 'rgba(0,0,0,.34)') + ';color:' + (bare ? K2.v('ink', '#fff') : '#fff') +
+          ';font-size:15px;font-weight:600;white-space:nowrap;cursor:pointer}.kit.room .rc::after{content:"";position:absolute;inset:-7px -2px}' +
           '.kit.room .rc:focus-visible{outline:2px solid rgba(255,255,255,.8)}</style>';
         return K2.draw(this, K2.plate(k, css + o, { label: kd.name, cls: 'room' }), function (/** @type {any} */ root) {
           root.querySelectorAll('[data-sc]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._runScene(b.getAttribute('data-sc')); }); });

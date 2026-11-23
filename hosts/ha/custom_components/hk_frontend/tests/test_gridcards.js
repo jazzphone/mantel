@@ -191,7 +191,8 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target', look: 'sheet_look', flat_theme: 'sheet_flat_theme' },
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target', look: 'sheet_look', flat_theme: 'sheet_flat_theme',
+        background: 'card_background' },
        { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' },
        { tap: 'tap_target', more: 'everything_more' }]);
   // (2026-11-08, round two) Everything's More Places and On Now's Categories, carried into the card only when not the default

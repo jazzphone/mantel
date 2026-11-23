@@ -126,7 +126,10 @@ CATALOG: dict[str, dict[str, Any]] = {
     # the new cards (G3)
     "room": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {
         "area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target",
-        "look": "sheet_look", "flat_theme": "sheet_flat_theme"}},
+        "look": "sheet_look", "flat_theme": "sheet_flat_theme",
+        # background (round 13, 2026-11-23, the owner: "an option for the Room and Home cards to not have the background"):
+        # absent, the wallpaper; "none", the block's plain plate
+        "background": "card_background"}},
     "scene_suggested": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S", "W"), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
@@ -146,7 +149,8 @@ CATALOG: dict[str, dict[str, Any]] = {
     # HOME (phase 27, docs/phase27/PLAN.md): the house as a way in, each part opening the generated Home page in a sheet at
     # that place. Its name (title: the house's by default) and Glyphs; no When Tapped, the sheet is where it goes
     "home": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {
-        "title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color"}},
+        "title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color",
+        "background": "card_background"}},
     # HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md): this screen's status chips as sections, each a tap to its
     # chip's page, the rest in a sheet. No options: what it shows is the screen's Status Chips (chips, chips_quiet,
     # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section
@@ -337,6 +341,16 @@ NAME_TAGS = ("auto", "show", "hide")
 
 # a camera block's picture (round 12): live video, or snapshots on the block's refresh
 CAMERA_PICTURES = ("live", "snapshots")
+
+
+# a Home or Room block's background (round 13): the wallpaper (absent) or none, the plain plate
+CARD_BACKGROUNDS = ("wallpaper", "none")
+
+
+def _card_background(v: Any) -> str:
+    if v not in CARD_BACKGROUNDS:
+        raise GridInvalid("grid_option")
+    return v
 
 
 def _camera_picture(v: Any) -> str:
@@ -574,6 +588,7 @@ OPTION_KINDS = {
     "period": _period,
     "name_tag": _name_tag,
     "camera_picture": _camera_picture,
+    "card_background": _card_background,
     "tap_target": _tap_target,
     "music_tap": _music_tap,
     "np_background": _np_background,

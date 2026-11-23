@@ -114,7 +114,7 @@ def test_the_sheet_opens_at_a_page_it_has_else_at_home(got):
 # -- the catalog and the saved layout ------------------------------------------------------------------------------
 @needs_node
 def test_both_catalogs_name_the_block_its_sizes_and_options(got):
-    opts = {"title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color"}
+    opts = {"title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color", "background": "card_background"}
     assert HG.CATALOG["home"] == {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": opts}
     assert got["table"]["sizes"] == ["S", "W", "T", "L", "XL"] and got["table"]["opts"] == opts
     assert got["card"] == [{"type": "custom:hk-home-block-card", "size": s} for s in ("S", "W", "T", "L", "XL")]
@@ -201,7 +201,7 @@ async def test_the_assistants_card_list_offers_it():
     from mantel_server.mcp.tools import screens
     got = await screens.grid_cards(None, {})
     assert got["cards"]["home"] == {"sizes": ["S", "W", "T", "L", "XL"], "pages_from": [], "options": {
-        "title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color"}}
+        "title": "title", "look": "sheet_look", "flat_theme": "sheet_flat_theme", "glyphs": "glyph_color", "background": "card_background"}}
 
 
 # -- round 12: the picture card's pure part (2026-11-23) -----------------------------------------------------------------

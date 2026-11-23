@@ -340,3 +340,14 @@ def test_glyphs_refuse_anything_else(value):
 def test_glyphs_are_only_the_six_blocks():
     _, errors = write({'id': 'b', 'card': 'weather', 'size': 'L', 'at': [0, 0], 'opts': {'glyphs': 'white'}})
     assert errors == {'home_grid': 'grid_option'}
+
+
+def test_home_and_room_blocks_take_a_background_option():
+    # (round 13, the owner: "an option for the Room and Home cards to not have the background"): None, else the wallpaper (absent)
+    import pytest
+    from hk_core.settings import home_grid as HG
+    for card in ("home", "room"):
+        assert HG.CATALOG[card]["opts"]["background"] == "card_background"
+    assert HG.OPTION_KINDS["card_background"]("none") == "none" and HG.OPTION_KINDS["card_background"]("wallpaper") == "wallpaper"
+    with pytest.raises(HG.GridInvalid):
+        HG.OPTION_KINDS["card_background"]("photo")

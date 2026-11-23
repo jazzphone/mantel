@@ -290,8 +290,8 @@
   }
   // THE HEADER'S GLYPH (the owner: "what is determining the placement and size of the glyph ... It seems just thrown onto the card"): 44 px,
   // the height of the title and its line, its right edge on the words' inset, centered on the title block; on blocks 300 px and wider only
-  /** @param {any} k @param {number} w @param {string} icon */
-  function headGlyph(k, w, icon) { return w < 300 ? '' : box(w - k.X - 44, 20, 44, 44, 'fc', 'opacity:.9;pointer-events:none', glyph(icon, 44, '#fff', true)); }
+  /** @param {any} k @param {number} w @param {string} icon @param {string} [color] */
+  function headGlyph(k, w, icon, color) { return w < 300 ? '' : box(w - k.X - 44, 20, 44, 44, 'fc', 'opacity:.9;pointer-events:none', glyph(icon, 44, color || '#fff', true)); }
   // THE TEXTURE: the same glyph huge and faint ("even larger ... maybe even more faint", "from the lower right"): 1.4 x the block's height
   // (at most 560), off the lower right corner, cut by the block's edges, white at 5%
   /** @param {number} w @param {number} h @param {string} icon */

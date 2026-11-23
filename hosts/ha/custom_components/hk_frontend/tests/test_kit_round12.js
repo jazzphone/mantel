@@ -293,6 +293,9 @@ function () {
     L.slice(L.indexOf('<img'), L.indexOf('<img') + 80));
   var noPic = html(make('room', 'L', {}, function (h) { h.areas.kitchen.picture = 'https://example.com/x.jpg'; }));
   ok('...only a path Home Assistant serves; any other is the wallpaper alone', at(noPic, '<img class="rp"') < 0 && at(noPic, 'radial-gradient(') > 0, '');
+  var bareR = html(make('room', 'L', { background: 'none' })), bareH = html(make('home', 'L', { background: 'none' }));
+  ok('Background None: no wallpaper and no texture, the look\'s own words and keys (Room and Home)', at(bareR, 'radial-gradient(') < 0 && at(bareR, 'opacity:.05') < 0 &&
+    at(bareR, '--hk-ink:#fff') < 0 && at(bareH, 'radial-gradient(') < 0 && at(bareH, '--hk-ink:#fff') < 0 && at(bareR, 'data-ac=') > 0 && at(bareH, '>Home<') > 0, '');
   var el2 = make('room', 'L'), b0 = CALLS().length, key = el2._root.querySelector('[data-ac]');
   if (key && key._listeners && key._listeners.click) { key._listeners.click.forEach(function (f) { f({ stopPropagation: function () {} }); }); }
   // (this DOM binds no listener through querySelectorAll; where one is bound, the tap must toggle)
