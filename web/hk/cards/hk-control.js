@@ -145,7 +145,8 @@ class HkControlCard extends HTMLElement {
     // The resolved id is part of the signature: switching speakers can leave
     // state and attributes looking identical (two idle HomePods), and without
     // the id in here the card would keep drawing the previous speaker.
-    const signature = JSON.stringify([id,s?.state,s?.attributes,window.hkSettings?.rendering?.()]);
+    // (Extra Large's Outside reading is another entity's: in the signature so the face is drawn again when it moves)
+    const signature = JSON.stringify([id,s?.state,s?.attributes,window.hkSettings?.rendering?.(),this.getAttribute("size") === "XL" ? this._outsideTemp() : 0]);
     if (signature !== this._signature) {
       this._signature = signature;
       // NOT UNDER A FINGER: a redraw rebuilds the dial, and with it the
@@ -1134,13 +1135,7 @@ class HkControlCard extends HTMLElement {
       const rh = Math.min(112, Math.round(h * 0.28)), fc = Math.round(h * 0.86), tw = Math.round(fw * 0.72 - 102);
       o = nums(fw / 2, cy, Math.min(Math.floor(h * 0.44), Math.floor(fw * 0.44)), Math.min(Math.floor(h * 0.28), Math.floor(fw * 0.24)), fw - 2 * 24) +
         foot(fw / 2 - tw / 2, fc - 23, tw) + hit(fw * 0.14 - 47, h - rh, 94, rh, -1, 38) + hit(fw * 0.86 - 47, h - rh, 94, rh, 1, 38);
-      if (sz === "XL") {
-        const has = Array.isArray(a.hvac_modes) && a.hvac_modes.length ? a.hvac_modes : ["off", "heat", "cool", "heat_cool"];
-        const four = ["heat", "cool", has.includes("heat_cool") ? "heat_cool" : "auto", "off"].filter(m => has.includes(m));
-        const ICON = { heat: "mdi:fire", cool: "mdi:snowflake", heat_cool: "mdi:thermometer", auto: "mdi:thermometer", off: "mdi:power" }, kx = fw + 4;
-        four.forEach((m, i) => { o += K.key(kx, E + i * (KH + G), w - E - kx, KH, { g: K.glyph(ICON[m], 24), t: this._pretty(m), on: d.mode === m, label: this._pretty(m), data: { "big-mode": m } });
-          });
-      }
+      if (sz === "XL") o += this._kitSide(k, fw, d, lit);
     }
     const css = ":host{display:block;width:100%;box-sizing:border-box}:host([size]){height:100%}hk-plate{display:block}";
     const html = `<style>${css}</style>` + K.plate(k, o, { lit: lit, label: label, cls: "tstat" });
@@ -1148,12 +1143,67 @@ class HkControlCard extends HTMLElement {
     if (window.hkGlass) window.hkGlass.rendered(this);
     return ok;
   }
+  // EXTRA LARGE'S SIDE (round 12, the owner: "For XL, i'd rather have the Large version of the thermostat for the XL card and then to the
+  // right, have the additional data...probably built in to the same card, not detached."): the Large face on the left 405 as it is, a
+  // hairline, then Inside, Humidity and Outside as rows (the glyph, the value over its name) and Mode and Fan as keys on the 13 edge
+  // at the foot. A key opens its choices in place of the column (a row to go back, then one row each); a choice sets it.
+  _kitRows(d) {
+    const a = d.a, out = this._outsideTemp(), deg = n => Number.isFinite(n) ? Math.round(n) + "°" : "";
+    const hum = a.current_humidity == null || a.current_humidity === "" ? NaN : Number(a.current_humidity);
+    return [["mdi:thermometer", "Inside", deg(d.cur)], ["mdi:water-percent", "Humidity", Number.isFinite(hum) ? Math.round(hum) + "%" : ""],
+      ["mdi:weather-partly-cloudy", "Outside", deg(out)]].filter(r => r[2]);
+  }
+  // the outside temperature: the house's outside sensor when Settings names one, else the weather entity's (as the Weather block reads it)
+  _outsideTemp() {
+    const st = (this.client && this.client.states) || {}, HS = window.hkSettings, sid = HS && HS.get ? HS.get("weather.outside", null) : null;
+    const num = v => v == null || v === "" || v === "unknown" || v === "unavailable" ? NaN : Number(v);
+    let t = sid && st[sid] ? num(st[sid].state) : NaN;
+    if (!Number.isFinite(t)) { const w = this._config.weather && st[this._config.weather]; t = w ? num((w.attributes || {}).temperature) : NaN; }
+    return t;
+  }
+  _kitSide(k, fw, d, lit) {
+    const K = window.hkKit, a = d.a, E = k.E, KH = K.KH, G = K.G, h = k.h, w = k.w, kx = fw + E - 4, kw = w - E - kx;
+    const NAME = { heat_cool: "Auto", auto: "Auto", heat: "Heat", cool: "Cool", off: "Off", dry: "Dry", fan_only: "Fan Only" };
+    const word = m => NAME[m] || this._pretty(m);
+    const MODE = { heat: ["mdi:fire", "#ff9f0a"], cool: ["mdi:snowflake", "#0a84ff"], heat_cool: ["mdi:thermometer", ""], auto: ["mdi:thermometer", ""], off: ["mdi:power", ""],
+      dry: ["mdi:water-percent", ""], fan_only: ["mdi:fan", ""] };
+    const modes = ["heat", "cool", "heat_cool", "auto", "off", "dry", "fan_only"].filter(m => Array.isArray(a.hvac_modes) && a.hvac_modes.includes(m));
+    const fans = Array.isArray(a.fan_modes) ? a.fan_modes.filter(m => m != null && m !== "") : [];
+    const cur = d.mode, fan = a.fan_mode, ink = K.v("ink", "rgba(255,255,255,0.94)");
+    let o = K.box(fw, 18, 1, h - 36, "sep", "");
+    const rx = fw - 4, rw = w - rx;
+    const pick = this._xlPick === "mode" && modes.length > 1 ? "mode" : this._xlPick === "fan" && fans.length > 1 ? "fan" : "";
+    if (pick) {
+      // the choices: a row to go back, one row each (the chosen one checked); what does not fit the column is left out, the chosen one kept
+      const list = (pick === "mode" ? modes : fans).slice(), chosen = pick === "mode" ? cur : fan, cap = Math.max(1, Math.floor((h - E - 70) / K.RH));
+      const at = list.indexOf(chosen);
+      const shown = list.length > cap ? list.slice(0, cap - 1).concat([at >= cap - 1 ? list[at] : list[cap - 1]]) : list;
+      const blank = '<span style="display:block;width:22px;height:22px"></span>', say = m => pick === "mode" ? word(m) : this._pretty(m);
+      o += K.row(k, rx, 10, rw, { lead: K.svg("back", 22), lw: 22, lh: 22, t: pick === "mode" ? "Mode" : "Fan", b: "Back", label: "Back", data: { "xl-pick": "" } });
+      o += K.rows(k, rx, rw, 70, h - E, 1, shown.map(m => ({ lead: m === chosen ? K.svg("check", 22) : blank, lw: 22, lh: 22, t: say(m),
+        label: (pick === "mode" ? "Mode " : "Fan ") + say(m), data: pick === "mode" ? { "xl-mode": m } : { "xl-fan": m } }))).html;
+    } else {
+      const reads = this._kitRows(d);
+      o += reads.map((r, i) => K.row(k, rx, 10 + i * K.RH, rw, { lead: K.glyph(r[0], 26, K.v("ink-2", "rgba(255,255,255,0.68)")), lw: 28, lh: 28, t: r[2], b: r[1],
+        label: r[1] + " " + r[2] }, i === reads.length - 1)).join("");
+      const mm = MODE[cur] || MODE.off, onNow = cur !== "off" && cur !== "unavailable" && !!mm[1], keys = [];
+      if (modes.length > 1) keys.push({ g: K.glyph(mm[0], 24, K.tone(k, mm[1] || ink, onNow), onNow), t: word(cur), label: "Mode, " + word(cur), data: { "xl-pick": "mode" } });
+      if (fans.length > 1) keys.push({ g: K.glyph("mdi:fan", 24), t: "Fan " + this._pretty(fan), label: "Fan, " + this._pretty(fan), data: { "xl-pick": "fan" } });
+      keys.forEach((o2, i) => { o += K.key(kx, h - E - (keys.length - i) * KH - (keys.length - 1 - i) * G, kw, KH, o2); });
+    }
+    return o;
+  }
   _bindKit(root) {
     const id = this._entityId(),
       call = (dom, svc, data = {}) => Promise.resolve(this._svc(dom, svc, { entity_id: id, ...data })).catch(err => { console.error("hk-control-card: " + dom + "." + svc + " failed", data, err); });
     root.querySelectorAll("[data-big-step]").forEach(b => b.onclick = e => { e.stopPropagation(); this._bigNudge(Number(b.dataset.bigStep), call); });
     root.querySelectorAll("[data-big-pick]").forEach(b => b.onclick = e => { e.stopPropagation(); this._bigPick = b.dataset.bigPick; this._render(); });
     root.querySelectorAll("[data-big-mode]").forEach(b => b.onclick = e => { e.stopPropagation(); call("climate", "set_hvac_mode", { hvac_mode: b.dataset.bigMode }); });
+    // Extra Large's Mode and Fan: a key opens its choices, a choice sets it and closes them, the first row goes back
+    root.querySelectorAll("[data-xl-pick]").forEach(b => b.onclick = e => { e.stopPropagation(); this._xlPick = b.dataset.xlPick || ""; this._render(); });
+    root.querySelectorAll("[data-xl-mode]").forEach(b => b.onclick = e => { e.stopPropagation(); this._xlPick = ""; call("climate", "set_hvac_mode", { hvac_mode: b.dataset.xlMode }); this._render();
+      });
+    root.querySelectorAll("[data-xl-fan]").forEach(b => b.onclick = e => { e.stopPropagation(); this._xlPick = ""; call("climate", "set_fan_mode", { fan_mode: b.dataset.xlFan }); this._render(); });
   }
 
   _waterDial(s) {

@@ -63,7 +63,7 @@ One shared module, `web/hk/modules/hk-kit.js`, holds the parts; every new card i
 |---|---|---|
 | Accessory, Scene, Action, Intercom | HomeView's centered tile; Wide its sideways tile | XS, S, W, T (as each has) |
 | Accessories, Scenes, Suggested Scene, Doors & Locks, Home, Room, People, Cameras, Music, Everything, Laundry | A set of tiles; the last "N more" | as each has |
-| Thermostat | HomeView's Big Number (dot under the setpoint, numbers at 42.7%); each control owns a whole region; XL adds the modes as rows | S-XL |
+| Thermostat | HomeView's Big Number (dot under the setpoint, numbers at 42.7%); each control owns a whole region; XL (round 12) is the Large face on the left 405, a hairline, then Inside / Humidity / Outside as rows and Mode and Fan as keys that open their choices in place (Fan hidden without fan modes) | S-XL |
 | Timers | A tile per timer (its ring, Pause and Stop owning the foot's halves) and Start a Timer | S-XL |
 | Security | The alarm as a key-shaped tile (white when armed, "Armed" with the mode under it), every member a row, what needs you first; Compact is the alarm and four; XL square adds the keypad | S, W, C, T, L, XL |
 | Calendar, To-do, Recent, Live TV | A list plate: header, rows, "N more"; two columns on XL; Live TV's channels as badges, no picture art | S-XL |
@@ -71,8 +71,8 @@ One shared module, `web/hk/modules/hk-kit.js`, holds the parts; every new card i
 | Now Playing | The screensaver's music slide: the cover's own dark surface, the cover (it plays and pauses), the room with its chevron, the song, progress with times, volume, the transport as keys; Up Next on XL | S-XL |
 | TV | The remote first: the open app's icon and name, power, the pad, Back / Home / Mute / Play / − / +, a row of app icons on Large, a column on XL | S-XL |
 | Vacuum | Header, its rooms as keys (the chosen white), Clean and Dock | S-XL |
-| Weather | The reading (place, hero, details), the hours, the days as rows with range bars | S-XL |
-| Clock | The face; the time and date beside it on wider cards | S-XXL |
+| Weather | The reading (place, hero, details), the hours, the days as rows with range bars; Apple's symbol behind the number on S, W and T (round 12: S centered at half strength, W and T tucked behind the number's end) | S-XL |
+| Clock | The face (Analog and Analog Numbers); the time and date beside it on wider cards; XXL (round 12) is the face, the reading, the month (today red, a dot per calendar with events) and the events still to come, and takes Digital too (the time in the face's place); the second hand only while Motion and Animations allow | S-XXL |
 | Battery, Power, Water | The reading, then its other figures as rows | S-XL |
 | Energy Rings | The rings, their figures as rows beside them | S-XL |
 | Alert | Lit while its rule holds: header, the camera's picture, its action as the foot key | S-XL |

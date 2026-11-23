@@ -111,6 +111,76 @@
       '@media (max-width:' + C.BP.phone + 'px){.wxp .dy{grid-template-columns:52px 40px 32px minmax(25px,1fr) 32px;gap:8px}}'
     ].join('');
 
+    // ---- THE KIT'S WEATHER (round 12, 2026-11-23; docs/phase34/PLAN.md, hk-kit.js): the block drawn from the kit's parts at every size, with
+    // Apple's weather symbols (the glyphs file's layers, in their colors; the white one dimmed where a symbol sits behind a number). The
+    // owner: "id like things center aligned like it was before ... make sure it is more behind the number to have breathing room from the
+    // edge. If we need to dim the glyph more to make it sit better behind, that is fine." Small is centered, the number with the symbol behind
+    // its right half at half strength, 40 clear of the edge, the condition and H / L under it; Wide and Tall put the place, the number, the
+    // condition and H / L on the 18 inset with the symbol tucked behind the end of the number, and the hours under or beside it (three a row,
+    // Tall two rows); Large and Extra Large put the reading with the symbol beside it, a hairline, the hours (five, eight), a hairline and
+    // the days as rows with range bars. d: { place, now, cond, hi, lo, hours: [{ label, cond, night, t }], days: [{ label, cond, lo, hi }],
+    // sym(cond, px, night) }; returns the plate's html.
+    function wxKitFace(Kit, k, sz, d) {
+      var w = k.w, h = k.h, X = k.X, E = k.E, KH = Kit.KH, RH = Kit.RH, big = h >= (sz === 'S' || sz === 'W' ? 180 : 380), fs = big ? 64 : 52, o = '';
+      var deg = function (n) { return n == null ? '--' : Math.round(n) + '°'; };
+      var hl = (d.hi == null && d.lo == null) ? '' : 'H ' + deg(d.hi) + ' L ' + deg(d.lo);
+      // a symbol, the white layer dimmed to `dim` where it sits behind words
+      var sym = function (cond, px, night, dim) {
+        var s = d.sym(cond, px, night);
+        return dim ? s.replace(/fill:var\(--hk-wx-w,#FFFFFF\)/g, 'fill:var(--hk-wx-w,#FFFFFF);fill-opacity:' + dim) : s;
+      };
+      var hours = function (x, y, ww, list) {
+        var cw = ww / Math.max(1, list.length);
+        return list.map(function (hr, i) {
+          var cx = x + i * cw;
+          return Kit.tx(cx, y, cw, 'kl', Kit.esc(hr.label), 'text-align:center') + Kit.box(cx + cw / 2 - 15, y + 24, 30, 30, 'fc', '', sym(hr.cond, 30, hr.night)) +
+            Kit.tx(cx, y + 58, cw, 'kt num', Kit.esc(deg(hr.t)), 'text-align:center');
+        }).join('');
+      };
+      var line = function (x, y, ww) { return Kit.box(x, y, ww, 1, 'sep', ''); };
+      var cap = { S: 3, W: 3, T: 6, L: 5, XL: 8 }, per = w >= 180 ? 3 : 2;
+      if (sz === 'S') {
+        // centered: the symbol behind the number's right half (half strength), the number, the condition, H / L
+        var hh = fs + 6, hy = big ? 34 : 18, sp = big ? 76 : 60;
+        o += Kit.box(Math.round(w / 2 - 14), hy - 18 + (big ? 0 : 6), sp, sp, 'fc', 'opacity:.5', sym(d.cond, sp, d.night)) + Kit.box(0, hy, w, hh, 'fc kh', 'justify-content:center;font-size:' + fs +
+          'px;line-height:' + hh + 'px', Kit.esc(deg(d.now))) +
+          Kit.tx(8, hy + hh + 12, w - 16, 'kt', Kit.esc(d.condName), 'text-align:center') + Kit.tx(8, hy + hh + 38, w - 16, 'kb', Kit.esc(hl), 'text-align:center');
+      } else if (sz === 'W' || sz === 'T') {
+        var wide = sz === 'W', ny = big ? 46 : 40, tx = Math.round(X + fs * 1.35 + 14), sp2 = big ? 72 : 60;
+        // (the place, the number, the condition, H / L on the inset; the symbol behind the end of the number)
+        o += Kit.box(tx - 14, ny - 8 + (big ? 0 : 4), sp2, sp2, 'fc', '', sym(d.cond, sp2, d.night, 0.7)) + Kit.tx(X, 18, wide ? 190 : w - 2 * X, 'kt', Kit.esc(d.place)) +
+          Kit.box(X, ny, wide ? 190 : w - 2 * X, fs + 4, 'kh', 'font-size:' + fs + 'px;height:' + (fs + 4) + 'px', Kit.esc(deg(d.now))) +
+          Kit.tx(X, ny + fs + 8, wide ? 190 : w - 2 * X, 'kb', Kit.esc(d.condName)) + (hl ? Kit.tx(X, ny + fs + 30, wide ? 190 : w - 2 * X, 'kb', Kit.esc(hl)) : '');
+        if (wide) {
+          var rx = 214, rw = w - rx - X, rows = big ? 1 : 1;
+          o += hours(rx, Math.round((h - 82) / 2), rw, d.hours.slice(0, 3));
+        } else {
+          var hy2 = ny + fs + 76, rowsN = Math.max(1, Math.floor((h - hy2 - E + 18) / 100));
+          for (var r = 0; r < rowsN; r++) o += hours(E, hy2 + r * 100, w - 2 * E, d.hours.slice(r * per, (r + 1) * per));
+        }
+      } else {
+        // the reading with its symbol beside it, then the hours and the days under hairlines
+        var ny2 = big ? 46 : 42, symPx = big ? 96 : 80;
+        o += Kit.tx(X, 18, w - 2 * X - symPx - 8, 'kt', Kit.esc(d.place)) + Kit.box(X, ny2, 220, fs + 4, 'kh', 'font-size:' + fs + 'px;height:' + (fs + 4) + 'px', Kit.esc(deg(d.now))) +
+          Kit.tx(X, ny2 + fs + 6, w - 2 * X, 'kb', Kit.esc(d.condName + (hl ? ' · ' + hl : ''))) + Kit.box(w - X - symPx, big ? 14 : 12, symPx, symPx, 'fc', '', sym(d.cond, symPx, d.night));
+        var hy3 = big ? 160 : 140, n = Math.min(cap[sz], d.hours.length);
+        o += line(X, hy3 - 10, w - 2 * X) + hours(E, hy3, w - 2 * E, d.hours.slice(0, n)) + line(X, hy3 + 92, w - 2 * X);
+        var dy = hy3 + 93, room = Math.max(0, Math.floor((h - dy - 6) / RH)), days = d.days.slice(0, room);
+        var lo = Infinity, hi = -Infinity;
+        days.forEach(function (dd) { if (dd.lo != null) lo = Math.min(lo, dd.lo); if (dd.hi != null) hi = Math.max(hi, dd.hi); });
+        var span = Math.max(1, hi - lo), bx = X + 156, bw = w - X - 48 - bx;
+        days.forEach(function (dd, i) {
+          var y = dy + i * RH, a = dd.lo == null ? 0 : (dd.lo - lo) / span, b = dd.lo == null || dd.hi == null ? 0 : (dd.hi - dd.lo) / span;
+          o += Kit.tx(X, y + 18, 64, 'kt', Kit.esc(dd.label)) + Kit.box(X + 66, y + 14, 32, 32, 'fc', '', sym(dd.cond, 32, false)) +
+            Kit.tx(X + 104, y + 19, 44, 'kb num', Kit.esc(deg(dd.lo)), 'text-align:right') +
+            Kit.box(bx, y + 27, bw, 6, 'trk', '', '<span style="position:absolute;left:' + (a * 100).toFixed(1) + '%;width:' + (b * 100).toFixed(1) +
+              '%;top:0;bottom:0;border-radius:calc(6px / 2);background:linear-gradient(90deg,#64d2ff,#ffd60a)"></span>') +
+            Kit.tx(w - X - 44, y + 18, 44, 'kt num', Kit.esc(deg(dd.hi)), 'text-align:right') + (i < days.length - 1 ? Kit.box(X, y + RH - 1, w - 2 * X, 1, 'sep', '') : '');
+        });
+      }
+      return o;
+    }
+
     var PAGE_METHODS = {
       // A HOME GRID BLOCK'S TAP (hk-base.js openTarget; 2026-10-31, the owner on 0.1.94: the Weather block opened
       // nothing): the Weather page, else the weather's own sheet
@@ -184,6 +254,40 @@
         this._balanceHero();
         if (buildDue(this)) build(this, this._root.querySelector('.hero'));
       },
+      // THE KIT'S WEATHER BLOCK (round 12; wxKitFace above): the data read as the older drawing reads it -- the house's outside sensor else the
+      // weather's own for the number, the forecast the card was told of -- and handed to the kit's face. Big Temperature keeps its own drawing.
+      _renderKit(sz) {
+        var Kit = window.hkKit, H = window.hkHeader, cfg = this._config, states = this.client.states, st = states[cfg.entity] || {};
+        if (!Kit || !H || !H.wxSvg) return false;
+        this._watchBlock();
+        var k = Kit.ctx(this), L = window.hkLocale, tag = L && L.tag ? L.tag() : undefined, zone = L && L.zoned ? L.zoned({ weekday: 'short' }) : { weekday: 'short' };
+        var nHours = sz === 'XL' ? 8 : sz === 'L' ? 5 : sz === 'T' ? 6 : 3, nDays = sz === 'XL' || sz === 'L' ? 6 : 1;
+        var days = this._days(nDays), today = days[0] || {}, now = this._nowTemp(), night = !!(H.isNight && H.isNight(states));
+        var live = !/^(unknown|unavailable)$/.test(st.state || 'unknown');
+        var sym = function (cond, px, nt) { return live || cond ? H.wxSvg(cond, px, { night: nt }) : ''; };
+        var hours = this._hours(nHours).map(function (h, i) {
+          return { label: i === 0 ? 'Now' : hourLabel(h.datetime), cond: h.condition, night: nightOf(states, h), t: i === 0 && now !== null ? now : num(h.temperature) };
+        });
+        var rest = days.slice(1).map(function (d) {
+          return { label: new Date(d.datetime).toLocaleDateString(tag, zone), cond: d.condition === 'clear-night' ? 'sunny' : d.condition, lo: num(d.templow), hi: num(d.temperature) };
+        });
+        var place = titled(cfg.place || this._place()), cond = H.conditionName ? H.conditionName(st.state) : String(st.state || '');
+        var face = wxKitFace(Kit, k, sz, { place: place, now: now, condName: cond || '--', cond: st.state, night: night, hi: num(today.temperature), lo: num(today.templow),
+          hours: hours, days: rest, sym: sym });
+        var sky = cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '';
+        // (a sky behind it: the block's own dark glass, its words white, as the older drawing has it)
+        var css = cfg.sky ? 'position:relative;isolation:isolate;background:rgba(0,0,0,.22);--hk-glass-surface:0;backdrop-filter:none;-webkit-backdrop-filter:none;--hk-ink:#fff;' +
+          '--hk-ink-2:rgba(255,255,255,.85);--hk-ink-3:rgba(255,255,255,.55);--hk-line:rgba(255,255,255,.2);--hk-key:rgba(255,255,255,.16);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.6)' : '';
+        var sheet = '<style>:host{display:block;width:100%;box-sizing:border-box}:host([size]){height:100%}hk-plate{display:block}' +
+          '.kit>hk-grid-weather-sky{position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;overflow:hidden}' +
+          '.kit>hk-grid-weather-sky::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.24)}</style>';
+        var label = 'Weather, ' + (now !== null ? Math.round(now) + ' degrees, ' : '') + (cond || '');
+        var ok = Kit.draw(this, sheet + Kit.plate(k, sky + face, { label: label, cls: 'wxk' + (cfg.sky ? ' sky' : ''), css: css }));
+        var el = this._root.querySelector('hk-grid-weather-sky');
+        if (el) el.client = this.client;
+        if (window.hkGlass && window.hkGlass.rendered) window.hkGlass.rendered(this);
+        return ok;
+      },
       // ---- A HOME GRID BLOCK (G2), Weather's own widgets at each size (2026-10-31, the owner's notes on the
       // widget mock-up): Small the place, the temperature, the symbol, the condition and today's high and low;
       // Wide those and the next six hours; Tall the hours down its length (as many as it holds, up to eight);
@@ -200,6 +304,8 @@
           return window.hkHeader && window.hkHeader.wxSvg && !/^(unknown|unavailable)$/.test(state || 'unknown')
             ? window.hkHeader.wxSvg(state, px, { night: night, sym: true }) : '';
         };
+        // (the kit's weather; Big Temperature keeps the older drawing below, and what the kit does not draw)
+        if (!cfg.big && window.hkKit && window.hkKit.on(this)) { if (this._renderKit(sz)) return; } else if (window.hkKit) window.hkKit.forget(this);
         this._watchBlock();
         var hl = [hi !== null ? 'H:' + Math.round(hi) + '°' : '', lo !== null ? 'L:' + Math.round(lo) + '°' : ''].filter(Boolean).join('  ');
         var place = esc(titled(cfg.place || this._place())), now = t !== null ? Math.round(t) + '°' : '--';
