@@ -150,6 +150,17 @@
           (c * k).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 ' + m + ' ' + m + ')"/>' : '') + '</svg>';
     }
 
+    // A RING IN THE KIT (round 12, the Battery and Energy Rings cards; hk-kit.js): the track at 22 %, the arc from the top in `c` with round
+    // caps, in an svg of its own at (cx, cy) of the block; `f` 0..1 (past 1 the arc is full: Energy Rings draws its second lap itself);
+    // `inner` is html over it (a glyph, a badge). Colors are data, never a token
+    function kitRing(cx, cy, r, f, c, sw, inner) {
+      var C2 = 2 * Math.PI * r, m = r + sw, d = 2 * (r + sw), k = Math.max(0, Math.min(1, f || 0));
+      return '<svg class="a" style="left:' + (Math.round((cx - m) * 10) / 10) + 'px;top:' + (Math.round((cy - m) * 10) / 10) + 'px;pointer-events:none" width="' + d + '" height="' + d +
+        '" aria-hidden="true"><g transform="rotate(-90 ' + m + ' ' + m + ')" fill="none" stroke-width="' + sw + '" stroke-linecap="round"><circle cx="' + m + '" cy="' + m + '" r="' + r +
+        '" stroke="' + c + '" stroke-opacity=".22"/>' + (k > 0.001 ? '<circle cx="' + m + '" cy="' + m + '" r="' + r + '" stroke="' + c + '" stroke-dasharray="' +
+        (C2 * k).toFixed(1) + ' ' + C2.toFixed(1) + '"/>' : '') + '</g></svg>' + (inner || '');
+    }
+
     // THE SHELL: HK's plate, gated on the entities its config names
     class HkPowerBase extends HkBase {
       // Flat keeps its motion: the drawing in IS the chart (hk-base flatCss)
@@ -467,9 +478,119 @@
         var s = super._sigOf();
         return s == null ? null : s + '|' + (this._cellSize() || '') + '|' + (this._blockKey || '');
       }
+      // THE RING'S COLOR by the level (round 12, the owner's Battery: "using all the new things we have learned"; Apple's Batteries widget): green,
+      // amber under 20 %, red under 10 %
+      /** @param {number|null} level */
+      static tone(level) { return level == null ? NAMED.green : level < 10 ? NAMED.red : level < 20 ? NAMED.orange : NAMED.green; }
+      // THE KIT'S CARD (phase 34, round 12; hk-kit.js): Apple's Batteries widget for the house battery -- a ring (its color by the level) with the
+      // house-battery glyph inside and a small bolt badge while it charges, the level as the hero, what it is doing ("Charging · full by 1:57 AM").
+      // Bigger, the flows as rows (Solar In, House Using, From the Grid, Full By); Extra Large the day's level as a line (green, a soft fill, the
+      // backup reserve dashed when it is known; the hours' means from the statistics, midnight to now) under the level, a hairline, the rows beside
+      /** @param {string} sized */
+      _renderKit(sized) {
+        var Kt = window.hkKit, c = this._config || {}, h = this.client, P = plan(), W = (P && P.power) || {}, self = this;
+        if (!Kt || !h) return false;
+        this._watchBlock();
+        var k = Kt.ctx(this), w = k.w, ht = k.h, E = k.E, X = k.X, sq = ht >= 180, v = Kt.v, esc2 = Kt.esc;
+        var lvl = numOf(h, c.level), level = lvl == null ? 0 : Math.max(0, Math.min(100, lvl)), stored = numOf(h, c.stored), bh = hoursOf(h, c.backup);
+        var bw = batFlow(h, c), res = numOf(h, c.reserve), col = HkHouseBatteryCard.tone(lvl == null ? null : level), charging = bw > 0;
+        var doing = bw > 0 ? 'Charging' : bw < 0 ? 'Powering the house' : 'Standing by', pct = lvl == null ? '—' : Math.round(level) + '%';
+        var sun = W.solar || c.solar ? pw(h, c.solar || W.solar) : null, home = pw(h, c.home || W.home), grid = pw(h, c.grid || W.grid);
+        var kw = function (/** @type {number|null} */ x) { return x == null ? '—' : Math.abs(x) >= 1000 ? fx(x / 1000, 1) + ' kW' : fx(x, 0) + ' W'; };
+        // WHEN IT IS FULL (charging) or HOW LONG IT LASTS (giving to the house)
+        var cap = stored != null && lvl > 0 ? stored / (lvl / 100) : null, full = '', fullK = 'Full By';
+        if (bw > 0 && cap != null && level < 100) {
+          var hrs = (cap - stored) * 1000 / bw;
+          if (hrs > 0 && hrs < 48) full = new Date(Date.now() + hrs * HOUR).toLocaleTimeString(window.hkLocale.tag(),
+            window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', timeZone: window.hkStats && window.hkStats.tz() }));
+        } else if (bw > 0 && level >= 100) full = 'Full';
+        else if (bh != null) { fullK = 'Lasts'; full = hm(bh); }
+        var state = doing + (full && charging && full !== 'Full' ? ' · full by ' + full : full === 'Full' ? ' · full' : full && bw < 0 ? ' · lasts ' + full : '');
+        var of = stored != null ? fx(stored, 1) + (cap != null ? ' of ' + fx(cap, 1) : '') + ' kWh' : '';
+        var flows = [
+          { g: 'hk:lightning-bolt', c: NAMED.yellow, name: 'Solar In', val: sun == null ? 'None' : kw(sun), more: c.solar || W.solar },
+          { g: 'hk:home', c: '', name: 'House Using', val: kw(home), more: c.home || W.home },
+          { g: 'hk:transmission-tower', c: '', name: grid != null && grid < -5 ? 'To the Grid' : 'From the Grid', val: kw(grid == null ? null : Math.abs(grid)), more: c.grid || W.grid },
+          { g: 'hk:timer-sand', c: '', name: fullK, val: full || '—', more: c.level }];
+        var ink = v('ink', 'rgba(255,255,255,0.94)');
+        var list = function (/** @type {number} */ n, /** @type {boolean} */ two) {
+          return flows.slice(0, n).map(function (f) {
+            var lead = Kt.glyph(f.g, two ? 24 : 26, Kt.tone(k, f.c || v('ink-2', 'rgba(255,255,255,0.68)'), !!f.c));
+            return two ? { lead: lead, lw: 24, lh: 24, t: f.val, b: f.name, label: f.name + ', ' + f.val, data: { more: f.more || '' } }
+              : { lead: lead, t: f.name, trail: f.val, label: f.name + ', ' + f.val, data: { more: f.more || '' } };
+          });
+        };
+        // the ring with its glyph, and the bolt badge while it charges
+        var ring = function (/** @type {number} */ cx, /** @type {number} */ cy, /** @type {number} */ r, /** @type {number} */ sw) {
+          return K.kitRing(cx, cy, r, level / 100, col, sw, Kt.box(cx - r * 0.45, cy - r * 0.45, r * 0.9, r * 0.9, 'fc', 'pointer-events:none',
+            Kt.glyph('hk:home-battery', Math.round(r * 0.8), ink, true)) + (charging ?
+              Kt.box(cx + r * 0.5, cy - r * 0.9, r * 0.5, r * 0.5, 'fc', 'pointer-events:none;border-radius:50%;background:' + col,
+            '<svg viewBox="0 0 24 24" width="' + Math.round(r * 0.34) + '" height="' + Math.round(r * 0.34) + '" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="#fff"/></svg>') : ''));
+        };
+        var o = '', hg = { g: Kt.glyph('hk:home-battery', 28, Kt.tone(k, col, true)), title: 'House Battery', sub: state };
+        if (sized === 'S') {
+          var sr = sq ? 46 : 34, scy = sq ? 66 : 50, sf = sq ? 32 : 26;
+          o = ring(w / 2, scy, sr, sq ? 9 : 7) + Kt.hero(0, scy + sr + (sq ? 20 : 16), w, pct, sf, 'center') + Kt.tx(8, scy + sr + (sq ? 58 : 46), w - 16, 'kb', esc2(doing), 'text-align:center');
+        } else if (sized === 'W') {
+          var wr = Math.min(60, (ht - 2 * E - 11) / 2), wcx = E + wr + 5.5, wx = Math.round(wcx + wr + 5.5 + 22), ww = w - wx - X;
+          o = ring(wcx, ht / 2, wr, 11) + Kt.tx(wx, sq ? 18 : 12, ww, 'kt', 'House Battery') + Kt.hero(wx, sq ? 46 : 38, ww, pct, sq ? 52 : 44) +
+            Kt.tx(wx, sq ? 104 : 88, ww, 'kb', esc2(state), 'white-space:normal') +
+            (sq && sun != null && sun > 0 && state.length <= 27 ? Kt.tx(wx, 140, ww, 'kb', '<span style="color:' + NAMED.yellow + '">' + esc2(kw(sun)) + '</span> from solar', 'color:' + ink) : '');
+        } else if (sized === 'T') {
+          var nrows = ht >= 380 ? 2 : ht >= 300 ? 1 : 0, ry = ht - 6 - nrows * Kt.RH, tr = Math.max(36, Math.min(66, (ry - 18 - 52 - 8 - 24 - 26) / 2)), tcy = 18 + tr + 12;
+          o = ring(w / 2, tcy, tr, 12) + Kt.hero(0, tcy + tr + 22, w, pct, 52, 'center') + Kt.tx(X, tcy + tr + 22 + 56, w - 2 * X, 'kb', esc2(doing), 'text-align:center') +
+            (nrows ? Kt.rows(k, 0, w, ry, ht - 6, 1, list(nrows, true)).html : '');
+        } else if (sized === 'L') {
+          o = Kt.head(k, hg) + ring(E + 83, 168, 76, 14) + Kt.hero(200, 120, w - 200 - X, pct, 64) + (of ? Kt.tx(200, 190, w - 200 - X, 'kb', esc2(of)) : '') +
+            Kt.rows(k, 0, w, 262, ht - 6, 1, list(2, false)).html;
+        } else {
+          var cx0 = E + 6, cy0 = 246, cw = 372, ch = 112, now = Date.now(), chart = this._dayLine(c, lvl, col, res, cx0, cy0, cw, ch, now);
+          o = Kt.head(k, hg) + ring(E + 76.5, 160, 70, 13) + Kt.hero(190, 112, 200, pct, 64) + (of ? Kt.tx(190, 182, 200, 'kb', esc2(of)) : '') + chart +
+            Kt.box(405, 18, 1, ht - 36, 'sep', 'pointer-events:none') + Kt.rows(k, 402, w - 402, 8, ht - 8, 1, list(4, true), 78).html;
+        }
+        return Kt.draw(this, Kt.plate(k, o, { label: 'House Battery, ' + pct + ', ' + state, cls: 'bat' }), function (/** @type {any} */ root) {
+          root.querySelectorAll('[data-more]').forEach(function (/** @type {any} */ b) {
+            var id = b.getAttribute('data-more');
+            if (id) b.addEventListener('click', function () { window.hkShell.moreInfo(id, self); });
+          });
+        });
+      }
+      // THE DAY'S LEVEL AS A LINE (Extra Large): each hour's mean since midnight and the level now, a soft fill under the green line, the reserve
+      // dashed, "12 AM" and "Now" under it with the hours between that have room. None where the statistics have not come, or hold no history
+      /** @param {any} c @param {number|null} lvl @param {string} col @param {number|null} res @param {number} x0 @param {number} y0 @param {number} cw @param {number} ch @param {number} now */
+      _dayLine(c, lvl, col, res, x0, y0, cw, ch, now) {
+        var S = window.hkStats, Kt = window.hkKit, hr = S && c.level ? S.hourly(this.client, c.level, 48, this, { type: 'mean' }) : null, pts = [];
+        if (!hr || !hr.length || !Kt) return '';
+        var t0 = null;
+        for (var i = hr.length - 1; i >= 0; i--) if (S.fields(hr[i].t).hour === 0) { t0 = +hr[i].t; break; }
+        if (t0 == null) t0 = +hr[Math.max(0, hr.length - 24)].t;
+        var span = Math.max(3600000, now - t0), X = function (/** @type {number} */ t) { return x0 + Math.max(0, Math.min(1, (t - t0) / span)) * cw; };
+        var Y = function (/** @type {number} */ x) { return y0 + ch - Math.max(0, Math.min(100, x)) / 100 * ch; };
+        hr.forEach(function (/** @type {any} */ r) { if (+r.t >= t0 && typeof r.v === 'number' && isFinite(r.v) && +r.t + 3600000 < now) pts.push([X(+r.t + 1800000), Y(r.v)]); });
+        if (lvl != null) pts.push([X(now), Y(lvl)]);
+        if (pts.length < 2) return '';
+        var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' '), last = pts[pts.length - 1];
+        var ink3 = Kt.v('ink-3', 'rgba(255,255,255,0.40)'), svg = '<svg class="a" style="left:0;top:0;overflow:visible;pointer-events:none" width="1" height="1" aria-hidden="true">' +
+          '<path d="' + d + ' L' + last[0].toFixed(1) + ' ' + (y0 + ch) + ' L' + pts[0][0].toFixed(1) + ' ' + (y0 + ch) + 'Z" fill="' + col + '" opacity=".18"/>' +
+          (res != null ? '<path d="M' + x0 + ' ' + Y(res).toFixed(1) + 'H' + (x0 + cw) + '" stroke="' + ink3 + '" stroke-dasharray="4 5" stroke-width="1.5" fill="none"/>' : '') +
+          '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>' +
+          '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="5" fill="' + col + '" stroke="#fff" stroke-width="2"/></svg>';
+        var lab = function (/** @type {number} */ x, /** @type {string} */ t, /** @type {string} */ al) {
+          return Kt.tx(al === 'right' ? x - 60 : al === 'center' ? x - 30 : x, y0 + ch + 6, 60, 'kl', t, 'font-size:13px;pointer-events:none;text-align:' + al); };
+        var marks = lab(x0, '12 AM', 'left') + lab(x0 + cw, 'Now', 'right');
+        /** @type {Array<[number, string]>} */ ([[6, '6 AM'], [12, '12 PM'], [18, '6 PM']]).forEach(function (m) {
+          var x = X(t0 + m[0] * 3600000);
+          if (x > x0 + 60 && x < x0 + cw - 78) marks += lab(x, m[1], 'center');
+        });
+        return svg + marks + (res != null ? Kt.tx(x0 + 4, Y(res) - 20, 140, 'kl', 'Reserve ' + Math.round(res) + '%', 'font-size:13px;pointer-events:none') : '');
+      }
       // A HOME GRID BLOCK, from the battery's own readings and the Energy
       // feature's (the plan's power page: the sun, the house and the grid now)
       _renderBlock(sized) {
+        // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
+        if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit(sized)) return; } else if (window.hkKit) window.hkKit.forget(this);
+        // (back from the kit's drawing: this plate was replaced in the root)
+        if (this._card && this._root && this._card.parentNode !== this._root) { this._built = false; this._shell('hb'); }
         var c = this._config || {}, h = this.client, P = plan(), W = (P && P.power) || {};
         var lvl = numOf(h, c.level), level = lvl == null ? 0 : Math.max(0, Math.min(100, lvl));
         var stored = numOf(h, c.stored), bh = hoursOf(h, c.backup), bw = batFlow(h, c), res = numOf(h, c.reserve);
@@ -685,7 +806,7 @@
     K.batFlow = batFlow; K.blockBox = blockBox; K.carHome = carHome; K.carsCharging = carsCharging; K.FLOW = FLOW;
     K.gridDown = gridDown; K.HkHouseBatteryCard = HkHouseBatteryCard; K.HkPowerBase = HkPowerBase;
     K.HkPowerFlowCard = HkPowerFlowCard; K.HkPowerStatusCard = HkPowerStatusCard; K.HkSegmentCard = HkSegmentCard;
-    K.isOn = isOn; K.numOf = numOf; K.powerSplit = powerSplit; K.pw = pw; K.whtml = whtml; K.WIDGET_CSS = WIDGET_CSS;
+    K.kitRing = kitRing; K.isOn = isOn; K.numOf = numOf; K.powerSplit = powerSplit; K.pw = pw; K.whtml = whtml; K.WIDGET_CSS = WIDGET_CSS;
     K.wtxt = wtxt;
   };
 })();

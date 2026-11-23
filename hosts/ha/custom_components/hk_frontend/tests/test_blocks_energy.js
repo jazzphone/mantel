@@ -134,6 +134,17 @@ function () {
   eq('...named for its month', P.month.name, s.monthName);
   ok('today\'s cost heading: so far and the rest of a usual day', P.day.heading.cost > s.today.cost && P.day.heading.cost < s.today.cost + R1.typ.cost, P.day.heading);
 
+  // THE WEEK DAY BY DAY (round 12, the Extra Large rings' seven small ones)
+  var days = P.week.days, td = days && days.filter(function (d) { return d.today; })[0];
+  ok('the week day by day: seven days, one of them today, each with every ring\'s share of a usual day or none (a day to come)',
+     days && days.length === 7 && days.filter(function (d) { return d.today; }).length === 1 && days.every(function (d) { return d.f === null || d.f.length === P.week.rings.length; }), days);
+  ok('...today\'s is what is used so far over a usual day', td && near(td.f[0], s.rings[0].v / s.rings[0].typ, 1e-6), td && td.f);
+  ok('...a day gone is its own day of the daily history over a usual day', days.filter(function (d) { return !d.today && d.f; }).every(
+    function (d) { return d.f.every(function (x) { return x >= 0; }); }) &&
+     days.filter(function (d) { return d.f; }).length === Wk.todayK + 1, [days.filter(function (d) { return d.f; }).length, Wk.todayK]);
+  ok('...the day starts are the week\'s own', days.every(function (d, i) { return +d.t === +Wk.dates[i]; }));
+  ok('...and only the week has them', !P.day.days && !P.month.days);
+
   H.section('hk-energy-rings-card: each size, the switch, a tap');
   var at = function () { return new Date(F.now); };
   var card = sized('hk-energy-rings-card', 'W', { period: 'week' });
@@ -402,5 +413,88 @@ function () {
     window.hkShell.moreInfo = saveM;
     eq('...a kind at rest: its things\' sheet', w2, ['light.kitchen_pendants']);
   });
+},
+function () {
+  H.section('THE KIT (round 12): the Battery and Energy Rings, drawn from hk-kit.js');
+  load(HK_ROOT + '/frontend/modules/hk-kit.js');
+  var VARS = { '--hk-cell-w': 196, '--hk-cell-h': 196, '--g-gap': 13 }, gcs = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = function () { return { getPropertyValue: function (k) { return VARS[k] === undefined ? '' : String(VARS[k]); }, getPropertyPriority: function () { return ''; } }; };
+  var count = function (str, re) { return (str.match(re) || []).length; };
+  // ---- the battery: its color by the level
+  var Bat = customElements.get('hk-house-battery-card');
+  eq('the ring is green; amber under 20 %; red under 10 %', [Bat.tone(82), Bat.tone(20), Bat.tone(19), Bat.tone(10), Bat.tone(9), Bat.tone(0), Bat.tone(null)],
+     ['#30d158', '#30d158', '#ff9f0a', '#ff9f0a', '#ff453a', '#ff453a', '#30d158']);
+  houseStats();
+  var house = H.house({
+    'sensor.battery_level': ['82', { unit_of_measurement: '%' }], 'sensor.stored': ['11.2', { unit_of_measurement: 'kWh' }],
+    'sensor.backup': ['9.5', { unit_of_measurement: 'h' }], 'number.reserve': ['20', { unit_of_measurement: '%' }],
+    'sensor.charge': ['1840', { unit_of_measurement: 'W' }], 'sensor.discharge': ['0', { unit_of_measurement: 'W' }],
+    'sensor.solar_power': ['2.1', { unit_of_measurement: 'kW' }], 'sensor.home_power': ['1400', { unit_of_measurement: 'W' }],
+    'sensor.grid_power': ['0', { unit_of_measurement: 'W' }] });
+  var cfg = { level: 'sensor.battery_level', stored: 'sensor.stored', backup: 'sensor.backup', reserve: 'number.reserve', charge: 'sensor.charge', discharge: 'sensor.discharge' };
+  var draw = function (size, hass) { var c = sized('hk-house-battery-card', size, cfg); VARS['--hk-cell-w'] = 196; VARS['--hk-cell-h'] = 196; c.setAttribute('size', size);
+    hkGive(c, hass || house.hass()); c._render(); return c._kitHtml || ''; };
+  var s = draw('S');
+  ok('S: one kit plate, the ring 82 % round, the level and what it is doing, a bolt while it charges', /<hk-plate class="kit/.test(s) && /stroke-dasharray="23\d\.\d 289\.\d"/.test(s) &&
+    />82%</.test(s) && />Charging</.test(s) &&
+     /M13 2L4 14h6/.test(s) && /stroke="#30d158"/.test(s), s);
+  var w = draw('W');
+  ok('W: the name, the level as the hero, "Charging . full by", the sun in yellow', /House Battery</.test(w) && /kh/.test(w) && /Charging . full by \d{1,2}:\d\d/.test(w) && /from solar/.test(w), w);
+  var t = draw('T');
+  ok('T: the ring over the level and two rows -- the sun and the house, the figure over its name', /aria-label="Solar In, 2.1 kW"/.test(t) && /aria-label="House Using, 1.4 kW"/.test(t) &&
+    count(t, /class="row"/g) === 2, t);
+  var l = draw('L');
+  ok('L: a header with the state, the stored of the whole, two rows: the name left, the figure right', /Charging . full by/.test(l) && /11.2 of 13.\d kWh/.test(l) && count(l, /class="row"/g) === 2 &&
+    /From the Grid|Solar In/.test(l), l);
+  var x = draw('XL');
+  ok('XL: the four flows as rows (Solar In, House Using, From the Grid, Full By)',
+    ['Solar In', 'House Using', 'From the Grid', 'Full By'].every(function (n) { return l.length && x.indexOf('aria-label="' + n + ',') >= 0; }), x);
+  ok('...the day\'s level as a line (green, the fill under it) with the reserve dashed and its words, "12 AM" and "Now" under it', /stroke="#30d158" stroke-width="3"/.test(x) &&
+     /stroke-dasharray="4 5"/.test(x) && /Reserve 20%/.test(x) && />12 AM</.test(x) && />Now</.test(x), x.slice(-1500));
+  var giving = house.set('sensor.charge', '0'); giving = house.set('sensor.discharge', '900');
+  var g = draw('L', giving);
+  ok('giving to the house: no bolt, "Powering the house", how long it lasts', !/M13 2L4 14h6/.test(g) && /Powering the house/.test(g) && /lasts 9h 30m/.test(g), g);
+  var amber = house.set('sensor.battery_level', '15');
+  ok('15 %: amber', /stroke="#ff9f0a"/.test(draw('S', amber)) && !/stroke="#30d158"/.test(draw('S', amber)));
+  var red = house.set('sensor.battery_level', '7');
+  ok('7 %: red', /stroke="#ff453a"/.test(draw('S', red)));
+  var nolvl = house.drop('sensor.battery_level');
+  ok('no level: a dash, an empty ring', />—</.test(draw('S', nolvl)));
+  // ---- the rings
+  var savedHS = window.hkSettings;
+  window.hkSettings = { get: function (k, dflt) { return k === 'energy' ? F.plan : dflt; } };
+  EP.prefs = F.prefs; EP.info = F.info; EP.prefsAt = Date.now(); EP.cache = null;
+  energyStats();
+  var hass = { states: {}, callWS: function () { return new Promise(function () {}); } };
+  var at = function () { return new Date(F.now); };
+  var ring = function (size, cfg2) {
+    var c = sized('hk-energy-rings-card', size, cfg2 || {}); c._clock = at; VARS['--hk-cell-w'] = 196; VARS['--hk-cell-h'] = 196; c.setAttribute('size', size); hkGive(c, hass); c._render(); return c;
+  };
+  var rw = ring('W');
+  var wh = rw._kitHtml;
+  ok('W: one kit plate, the rings, a one-line row per ring: its dot, name and figure in the ring\'s own color', /<hk-plate class="kit/.test(wh) && count(wh, /class="arc" /g) === 3 &&
+    />Energy</.test(wh) && />Cost</.test(wh) &&
+     />Water</.test(wh) && /color:#[0-9a-f]{6};font-weight:600">[\d.,$]+<\/span>/.test(wh), wh);
+  ok('...no unit on a one-line row (the name says it), the usual smaller after the value', !/KWH|GAL/.test(wh) && /opacity:\.85;font-size:\.8em/.test(wh));
+  var rl = ring('L')._kitHtml;
+  ok('L: "Energy" over the period (a tap on it moves it on), the rings, two lines a row with the unit as Fitness writes it', />Energy</.test(rl) && />Today /.test(rl) && /data-p="week"/.test(rl) &&
+     /KWH|GAL/.test(rl), rl);
+  var rx = ring('XL', { period: 'week' });
+  var xh = rx._kitHtml;
+  ok('XL: the week as seven small rings with their day letters, today\'s ringed', count(xh, /class="wk"/g) >= 7 * 3 && count(xh, /box-shadow:inset 0 0 0 2px/g) === 1 &&
+    count(xh, />[SMTWF]<\/div>/g) === 7, xh.length);
+  ok('...the header says This Week, a tap moves to This Month', />This Week /.test(xh) && /data-p="month"/.test(xh));
+  var sm = ring('S');
+  var sh = sm._kitHtml;
+  ok('S: the rings and one line, "6.8 kWh" over "Energy today"', count(sh, /class="arc" /g) === 3 && /kWh/.test(sh) && /Energy today/.test(sh) && !/data-p=/.test(sh), sh);
+  eq('...its tap is When Tapped\'s, the Energy page', sm._tapTarget(), [{ page: 'energy' }]);
+  var rn = ring('XL', { period: 'day' });
+  ok('XL: on Today too, the week under the rings', count(rn._kitHtml, /class="wk"/g) >= 7 * 3);
+  rx._pick('month'); rx._render();
+  ok('a tap on the header\'s period: that period, drawn in place', rx._period === 'month' && />This Month /.test(rx._kitHtml), rx._kitHtml.length);
+  window.hkSettings = savedHS; EP.cache = null; EP.prefs = null;
+  S.hourly = saved.hourly; S.daily = saved.daily; S.fiveMinute = saved.fiveMinute; S.weekStart = saved.weekStart;
+  globalThis.getComputedStyle = gcs;
+  window.hkKit = undefined;
 }
 ]);

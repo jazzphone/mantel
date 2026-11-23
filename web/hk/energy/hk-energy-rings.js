@@ -106,7 +106,8 @@
       static get CSS() { return RINGS_CSS; }
       // (a block's tap, hk-base.js openTarget) Energy. Small is its own control (a tap shows its figures over the
       // rings): its whole plate is a button -- unless its figures are always shown
-      _tapTarget() { return this._cellSize() === 'S' && !this._always ? [] : [{ page: 'energy' }]; }
+      // (the kit's Small is the rings and one line, no box of figures to open: its tap is the block's When Tapped too)
+      _tapTarget() { return this._cellSize() === 'S' && !this._always && !window.hkKit ? [] : [{ page: 'energy' }]; }
       getCardSize() { return 4; }
       setConfig(config) {
         super.setConfig(config);
@@ -120,6 +121,10 @@
       _sigOf() { return JSON.stringify([this._period, this._cellSize(), this._blockKey || '', Math.floor(Date.now() / 60e3), !!plan()]); }
       _render() {
         var size = this._cellSize() || 'L', h = this.client;
+        // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
+        if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit(size)) return; } else if (window.hkKit) window.hkKit.forget(this);
+        // (back from the kit's drawing: this plate was replaced in the root)
+        if (this._card && this._card.parentNode !== this._root) this._built = false;
         if (!this._built) {
           this._root.innerHTML = '<hk-plate class="er" data-hk-role="card"></hk-plate>';
           this._card = this._root.querySelector('hk-plate');
@@ -208,6 +213,119 @@
         // from where they were on an update
         this._ringWas = sweepRings(card, this._ringWas, this._ringFor !== p);
         this._ringFor = p;
+      }
+      // THE KIT'S CARD (phase 34, round 12; hk-kit.js): the Fitness app's rings, the house's own -- today's rings (the same set, colors and
+      // meanings: Energy, Cost, Solar, Water, Gas against a usual period, a white dot where the usual is by now, a second lap past it), each
+      // ring's figure in its own color as Fitness writes them ("16.2/20 KWH": the value in semibold, the usual and the unit smaller).
+      //   S   the rings and one line     W   the rings, a one-line row each (the name, the colored figure)     T   the rings over the rows
+      //   L   a header ("Energy", the period, a tap moves it on), big rings left, a two-line row each      XL  the same with the rows two by two
+      //       and, under them, the week as seven small rings with their day letters, today's ringed -- from the daily history (none, the week is
+      //       left out). The period (Today, This Week, This Month) is the block's option; its header's word moves it on in place (Large, Extra Large)
+      /** @param {string} size */
+      _renderKit(size) {
+        var Kt = window.hkKit, h = this.client, self = this;
+        if (!Kt || !h) return false;
+        var s = null;
+        try { s = summary(h, this, this._clock ? +this._clock() : undefined); } catch (e) { console.warn('[hk-energy-rings]', e && e.message); s = null; }
+        var per = s && s.periods && s.periods[this._period];
+        if (!per || !per.rings.length) return false;
+        this._watchBlock();
+        var k = Kt.ctx(this), w = k.w, ht = k.h, E = k.E, X = k.X, sq = ht >= 180, p = this._period, v = Kt.v, esc2 = Kt.esc;
+        var name = { day: 'Today', week: 'This Week', month: 'This Month' }[p], low = { day: 'today', week: 'this week', month: 'this month' }[p];
+        var ink = v('ink', 'rgba(255,255,255,0.94)');
+        var list = per.rings.map(function (/** @type {any} */ r) { return { key: r.key, c: r.c, f: r.typ > 0 ? r.v / r.typ : 0, tick: r.typ > 0 && r.tick < 1 ? r.tick : null }; });
+        // THE FIGURES: the value, the usual and the unit -- "16.2", "/20", "KWH"; a cost "$2.31", "/$3.10"
+        /** @param {any} r @param {boolean} usual */
+        var parts = function (r, usual) {
+          var money = r.key === 'cost', fmt = function (/** @type {number} */ x, /** @type {number} */ d) {
+            return money ? s.money(x, d) : r.key === 'water' || r.key === 'gas' ? fx(x, 0) : fx(x, Math.abs(x) >= 100 ? 0 : 1); };
+          return { val: fmt(r.v, 2), goal: usual && r.typ > 0 ? '/' + fmt(r.typ, p === 'day' ? 2 : 0) : '', unit: r.unit || '' };
+        };
+        /** @param {any} r @param {boolean} usual @param {boolean} unit */
+        var fig = function (r, usual, unit) {
+          var q = parts(r, usual), tail = q.goal + (unit && q.unit ? ' ' + q.unit.toUpperCase() : '');
+          return '<span style="color:' + r.c + ';font-weight:600">' + esc2(q.val) + '</span>' +
+            (tail ? '<span style="color:' + r.c + ';opacity:.85;font-size:.8em;font-weight:600">' + esc2(tail) + '</span>' : '');
+        };
+        // the rings in a box of `d` px: the block's own ringSvg, its thickness and gap in px (the viewBox is 220)
+        /** @param {number} cx @param {number} cy @param {number} d @param {number} sw @param {any[]} items @param {boolean} [plain] */
+        var rings = function (cx, cy, d, sw, items, plain) {
+          var kk = 220 / d, svg = ringSvg(items, null, 0, { w: sw * kk, step: (sw + 2.5) * kk, r0: 110 - (sw / 2 + 1.5) * kk }).replace('class="rings"', 'class="rings" width="' + d + '" height="' +
+            d + '"');
+          if (plain) svg = svg.replace(/ class="arc( lap)?"/g, ' class="wk"').replace(/ data-k="[^"]*"/g, '');
+          return Kt.box(cx - d / 2, cy - d / 2, d, d, '', 'pointer-events:none', svg);
+        };
+        // a row: a dot in the ring's color, the name, the figure -- on one line (the figure at the right), or under the name
+        // one line: the figure's width in px (the value, then its usual smaller), and whether the name keeps its room beside it
+        /** @param {any} r @param {boolean} usual */
+        var figW = function (r, usual) { var q = parts(r, true); return Math.round(q.val.length * 9.6 + (usual ? q.goal.length * 7.7 : 0) + 3); };
+        /** @param {number} ww @param {any} r */
+        var fits = function (ww, r) { return ww - X - 22 - X - figW(r, true) - 8 >= Math.min(r.name.length * 10.3, 70); };
+        /** @param {number} x @param {number} y @param {number} ww @param {any} r @param {number} rh @param {boolean} last @param {boolean} two @param {boolean} usual */
+        var row = function (x, y, ww, r, rh, last, two, usual) {
+          var x1 = x + X + 22, o = '<button type="button" class="row" aria-label="' + esc2(r.name + ' ' + parts(r, true).val + parts(r, true).goal + ' ' + parts(r, true).unit) +
+            '" style="' + Kt.st(x, y, ww, rh) + '"></button>' + Kt.box(x + X, y + (rh - 10) / 2, 10, 10, '', 'pointer-events:none;border-radius:50%;background:' + r.c);
+          if (two) o += Kt.tx(x1, y + (rh - 46) / 2, ww - X - 22 - X, 'kt', esc2(r.name), 'pointer-events:none') +
+            Kt.tx(x1, y + (rh - 46) / 2 + 24, ww - X - 22 - X, 'kb', fig(r, true, true), 'pointer-events:none;color:' + ink);
+          else {
+            var fw = figW(r, usual);
+            o += Kt.tx(x1, y + (rh - 24) / 2, ww - X - 22 - X - fw - 8, 'kt', esc2(r.name), 'pointer-events:none') +
+              Kt.tx(x + ww - X - fw, y + (rh - 22) / 2, fw, 'kb', fig(r, usual, false), 'pointer-events:none;text-align:right;color:' + ink);
+          }
+          return o + (last ? '' : Kt.box(x1, y + rh - 1, x + ww - X - x1, 1, 'sep', 'pointer-events:none'));
+        };
+        var n = per.rings.length, o = '';
+        /** @param {number} x @param {number} y0 @param {number} ww @param {number} rh @param {number} cols @param {boolean} two */
+        var rowsAt = function (x, y0, ww, rh, cols, two) {
+          var perCol = Math.ceil(n / cols), out = '', cw = (ww + (cols - 1) * X) / cols;
+          // (every row the same: the usual beside each figure, or none beside any where a name has no room for it)
+          var usual = two || per.rings.every(function (/** @type {any} */ r) { return fits(cw, r); });
+          per.rings.forEach(function (/** @type {any} */ r, /** @type {number} */ i) {
+            var c = Math.floor(i / perCol), j = i % perCol; out += row(x + c * (cw - X), y0 + j * rh, cw, r, rh, j === perCol - 1 || i === n - 1, two, usual);
+          });
+          return out;
+        };
+        var head = function (/** @type {string} */ sub) {
+          var chev = Kt.svg('down', 14, Kt.v('ink-3', 'rgba(255,255,255,0.40)'));
+          return Kt.head(k, { title: 'Energy', sub: esc2(sub) + ' ' + chev, subHtml: true }) +
+            '<button type="button" class="hit" data-notap data-p="' + { day: 'week', week: 'month', month: 'day' }[p] + '" aria-label="' + esc2(name) + '. Show ' +
+            { day: 'this week', week: 'this month', month: 'today' }[p] + '" style="' + Kt.st(X - 8, 34, 190, 44) + '"></button>';
+        };
+        if (size === 'S') {
+          var f0 = per.rings[0], q0 = parts(f0, false), sd = sq ? 112 : 84, scy = (sq ? 10 : 6) + sd / 2 + 2;
+          o = rings(w / 2, scy, sd, sq ? 10 : 8, list) + Kt.tx(8, scy + sd / 2 + (sq ? 8 : 4), w - 16, 'kt', fig(f0, false, false).replace(/<\/span>$/, '') + '</span>' +
+            (q0.unit ? '<span style="color:' + ink + '"> ' + esc2(q0.unit) + '</span>' : ''), 'text-align:center;pointer-events:none') +
+            Kt.tx(8, scy + sd / 2 + (sq ? 32 : 26), w - 16, 'kb', esc2(f0.name + ' ' + low), 'text-align:center;pointer-events:none');
+        } else if (size === 'W') {
+          var wd = Math.min(ht - 2 * E, 164), wcx = E + wd / 2, wx = Math.round(wcx + wd / 2 + 14), rh = Math.min(46, (ht - 12) / n);
+          o = rings(wcx, ht / 2, wd, 13, list) + rowsAt(wx, (ht - n * rh) / 2, w - wx, rh, 1, false);
+        } else if (size === 'T') {
+          var rh2 = Math.min(50, Math.floor((ht - 200) / Math.max(1, n))), td = Math.min(w - 2 * E, 164, ht - n * rh2 - 2 * E - 8), ty0 = 18 + td / 2;
+          o = rings(w / 2, Math.max(ty0, E + td / 2), td, 13, list) + rowsAt(0, ht - 6 - n * rh2, w, rh2, 1, false);
+        } else if (size === 'L') {
+          var ld = 199, rhl = Math.min(72, Math.floor((ht - 84 - 8) / n)), lx = E + ld + 10;
+          o = head(name) + rings(E + ld / 2, 74 + (ht - 74) / 2, ld, 15, list) + rowsAt(lx, 84, w - lx, rhl, 1, true);
+        } else {
+          var days = per && s.periods.week && s.periods.week.days, ld2 = days ? 199 : 250, lx2 = E + ld2 + 10;
+          o = head(name) + rings(E + ld2 / 2, days ? 166 : 74 + (ht - 74) / 2, ld2, days ? 15 : 18, list) + rowsAt(lx2, days ? 70 : 90, w - lx2, days ? 92 : 100, 2, true);
+          if (days) {
+            var ww7 = (w - 2 * E) / 7, L7 = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], S = window.hkStats;
+            days.forEach(function (/** @type {any} */ d, /** @type {number} */ i) {
+              var cx = E + ww7 * i + ww7 / 2, items = list.map(function (/** @type {any} */ r, /** @type {number} */ q) { return { key: r.key + i, c: r.c, f: d.f ? d.f[q] : 0, tick: null }; });
+              o += Kt.tx(cx - 20, 290, 40, 'kl', L7[S ? S.fields(d.t).weekday : new Date(d.t).getDay()], 'text-align:center;pointer-events:none' + (d.today ? ';color:' + ink : '')) +
+                rings(cx, 344, 64, 5, items, true) + (d.today ? Kt.box(cx - 37, 307, 74, 74, '', 'pointer-events:none;border-radius:50%;box-shadow:inset 0 0 0 2px ' +
+                  v('line-strong', 'rgba(255,255,255,.24)')) : '');
+            });
+          }
+        }
+        var label = 'Energy rings, ' + name + ': ' + per.rings.map(function (/** @type {any} */ r) { var q = parts(r, true); return r.name + ' ' + q.val + q.goal + ' ' + q.unit; }).join('; ');
+        var was = this._kitHtml;
+        var done = Kt.draw(this, Kt.plate(k, o, { label: label, cls: 'er' }), function (/** @type {any} */ root) {
+          root.querySelectorAll('button[data-p]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._pick(b.getAttribute('data-p')); }); });
+        });
+        // THE RINGS SWEEP IN as the page's do: from nothing on a new period, from where they were on an update (only when the drawing changed)
+        if (this._kitHtml !== was || this._ringFor !== p) { this._ringWas = sweepRings(this._root, this._ringWas, this._ringFor !== p); this._ringFor = p; }
+        return done;
       }
       // SMALL'S BOX of figures shown or taken away; shown, it goes by itself after eight seconds
       _show(on) {
