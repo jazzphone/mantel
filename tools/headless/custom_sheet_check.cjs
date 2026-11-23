@@ -12,12 +12,32 @@ const DEEP = `window.deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => 
 // the sheet's sizes: a tablet across and upright, a phone, the narrowest phone, a phone on its side, a short car-like window
 const SHEET_SIZES = [[1180, 820], [820, 1180], [390, 844], [320, 667], [844, 390], [1280, 480], [800, 800]];
 
-// every Security HomeView block: its size, its alarm area, its entries as drawn
+// every Security HomeView block: its size, its alarm area, its entries as drawn. Compact, Wide, Tall and Large are the kit's card (round 12, hk-kit.js):
+// a plate of absolutely placed parts -- the alarm's own `button.key[data-al]` (its words `.kd`, the line under them `.kb`) and one `button.row` per
+// lock, garage door and open window (data-id; "N more", data-more) with its glyph (`.fc`), name (`.kt`) and state (`.kb`) laid over it. Small is HomeView's tile.
 function security() {
   const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
   return deep(document, 'hk-grid-security-hv-card, hk-grid-security-key-card').map((c) => {
     const sr = c.shadowRoot, plate = sr.querySelector('hk-plate'), pb = box(plate);
     const k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
+    if (plate.classList.contains('kit') && sr.querySelector('.key[data-al]')) {
+      const al = sr.querySelector('.key[data-al]'), ab = box(al);
+      // a part laid over a row is the row's when its center is inside it
+      const over = (rb, sel) => [...plate.querySelectorAll(sel)].find((e) => { const b = box(e), x = (b.l + b.r) / 2, y = (b.t + b.b) / 2; return x > rb.l && x < rb.r && y > rb.t && y < rb.b; });
+      const rows = [...plate.querySelectorAll('.row')];
+      const ents = rows.map((e) => {
+        const rb = box(e), g = over(rb, '.fc'), n = over(rb, '.kt'), st = over(rb, '.kb'), ic = g && g.querySelector('hk-icon');
+        const stc = st && st.querySelector('span');
+        return Object.assign(rb, { name: n ? n.textContent : '', state: st ? st.textContent : '', more: e.hasAttribute('data-more'), id: e.getAttribute('data-id'), label: e.getAttribute('aria-label'),
+          // needs a look: the glyph and the state in Security's teal (secured: the glyph in the ink, the state's own); no disc under a glyph either way
+          teal: !!(ic && getComputedStyle(g.querySelector('.g')).color === 'rgb(64, 200, 224)' && stc && getComputedStyle(stc).color === 'rgb(64, 200, 224)'),
+          disc: g ? getComputedStyle(g).backgroundColor : '', glyph: g ? getComputedStyle(g.querySelector('.g')).color : '' });
+      });
+      const past = [...plate.children].filter((e) => e.tagName !== 'STYLE').filter((e) => { const b = box(e); return b.r > pb.r + 1 || b.b > pb.b + 1 || b.l < pb.l - 1 || b.t < pb.t - 1; }).length;
+      return { tag: c.localName, size: c.getAttribute('size'), tile: c.getAttribute('tile'), k, plate: pb, ents, past, kit: true,
+               line: (al.querySelector('.kb') || {}).textContent, big: (al.querySelector('.kd') || {}).textContent, alarm: Object.assign(ab, { label: al.getAttribute('aria-label') }),
+               more: ents.find((e) => e.more) || null };
+    }
     const shown = [...sr.querySelectorAll('.en')].filter((e) => getComputedStyle(e).display !== 'none');
     const ents = shown.map((e) => {
       const cs = getComputedStyle(e), n = e.querySelector('.n');
@@ -102,19 +122,22 @@ function sheetState() {
           check(label + ': every entry a finger\'s 44 px on screen', () => b.ents.forEach((e) => assert(e.h >= 44 && e.w >= 44, e.name + ' ' + Math.round(e.w) + 'x' + Math.round(e.h))));
           // (the line counts what needs a look since 2026-11-09, mockup 14b: "1 unlocked · 1 open" -- the hidden one counted, not named)
           check(label + ': the hidden unlocked Crawl Space still in the alarm\'s line', () => assert(/\b1 unlocked\b/.test(b.line), b.line));
-          const lit = b.ents.filter((e) => e.lit), rest = b.ents.filter((e) => !e.lit && !e.more);
-          // (one calm list since 2026-11-09; NO WELLS since 2026-11-11, DESIGN.md "No wells in HomeView": not secured is LIT -- a white
-          // tile under the row (its ::before), the glyph teal; secured rests -- the glyph bare and white, no tile; no disc either way)
-          check(label + ': not secured is lit, a white tile and a teal glyph; secured rests; no discs', () => {
-            lit.forEach((e) => { assert.equal(e.tile, 'rgb(255, 255, 255)', e.name + ' ' + e.tile); assert.equal(e.glyph, 'rgb(64, 200, 224)', e.name + ' ' + e.glyph); });
-            rest.forEach((e) => { assert.notEqual(e.tile, 'rgb(255, 255, 255)', e.name); assert.notEqual(e.glyph, 'rgb(64, 200, 224)', e.name); });
+          // (round 12, the kit's card; the owner's review, 2026-11-22: what needs a look is first, "so it is never behind 'N more'"; no wells in HomeView: no disc
+          // under a glyph, and no white tile under a row -- the kit's rows are a calm list. Not secured: the glyph and the state in Security's teal; secured rests,
+          // the glyph the look's ink. The one lit white tile is the alarm's own key, when it is armed.)
+          const rows = b.ents.filter((e) => !e.more);
+          check(label + ': not secured in teal and first; secured rests; no discs', () => {
+            rows.forEach((e) => assert.equal(e.teal, !/^(Locked|Closed)$/.test(e.state), e.name + ' ' + e.state + ' ' + e.glyph));
+            const firstSecured = rows.findIndex((e) => !e.teal);
+            rows.forEach((e, i) => assert(firstSecured < 0 || !e.teal === (i >= firstSecured), 'needs a look first: ' + rows.map((r) => r.name).join(', ')));
             b.ents.forEach((e) => assert(!e.disc || e.disc === 'rgba(0, 0, 0, 0)', e.name + ' disc ' + e.disc));
           });
+          // (the list is six: the five members and the open Office Window; Large holds all six on a square cell, the others end in "N more")
           const more = b.ents.find((e) => e.more);
           if (more) {
-            const showing = b.ents.filter((e) => !e.more).length, n = b.size === 'W' ? 0 : 5 - showing;
-            check(label + ': "N more" a slot like the rest, its count what is hidden', () => {
-              assert.equal(more.name, n + ' more'); const peer = b.ents[0]; assert(Math.abs(more.h - peer.h) < 1.5 && Math.abs(more.w - peer.w) < 1.5);
+            const showing = rows.length;
+            check(label + ': "N more" a row like the rest, its count what is hidden', () => {
+              assert.equal(more.name, (6 - showing) + ' more'); const peer = b.ents[0]; assert(Math.abs(more.h - peer.h) < 1.5 && Math.abs(more.w - peer.w) < 1.5);
             });
           }
           if (b.size === 'XL' && screen === 'cs-square') check(label + ': on square cells all five entries in sight', () => assert.equal(b.ents.filter((e) => !e.more).length, 5));
@@ -125,7 +148,7 @@ function sheetState() {
           });
         }
         if (want('taps') && screen === 'cs-square') {
-          // Large's alarm: the alarm's own sheet (its keypad -- 2026-11-08, the owner); its "+N more": the overview -- the six as
+          // Large's alarm: the alarm's own sheet (its keypad -- 2026-11-08, the owner); Wide's "N more": the overview -- the six as
           // HomeView's tiles; a lock from it, then Back
           const L = got.find((b) => b.size === 'L');
           let c = center(L.alarm);
@@ -135,13 +158,15 @@ function sheetState() {
           check(`${engine}: Large's alarm opens the alarm's own sheet`, () => assert.equal(s && s.kind, 'hk-detail-alarm'));
           await page.keyboard.press('Escape');
           await page.waitForTimeout(700);
-          check(`${engine}: Large has "+N more" in its heading`, () => assert(L.lm));
-          c = center(L.lm || L.alarm);
+          // (round 12: Large's heading has no "+N more" any more -- the kit's lists end in a row, "N more / In the overview", where the rows do not all fit: here Wide's)
+          const W = got.find((b) => b.size === 'W');
+          check(`${engine}: Wide ends in an "N more" row`, () => assert(W.more, JSON.stringify(W.ents.map((e) => e.name))));
+          c = center(W.more || L.alarm);
           await page.touchscreen.tap(c.x, c.y);
           await page.waitForTimeout(900);
           s = await page.evaluate(sheetState);
           await shot(page, `${engine}-${screen}-overview`);
-          check(`${engine}: its "+N more" opens the Security overview, the six as tiles`, () => {
+          check(`${engine}: its "N more" opens the Security overview, the six as tiles`, () => {
             assert(s && s.kind === 'group', JSON.stringify(s && s.kind)); assert.equal(s.title, 'Security'); assert.equal(s.tiles.length, 6);
             assert(s.tiles.every((t) => t.centred), 'HomeView tiles on a square-celled screen');
           });

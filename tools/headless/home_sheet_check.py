@@ -12,9 +12,9 @@ Three screens, each a Home Grid with the Home block at every size (Small, Wide, 
   home-bright  Bright Glass with every Home sheet look, Room sheets, and explicit Flat Light sheets
   home-flat    Flat Light with inherited and explicit Flat Dark sheets
 
-It checks, at each size of block: nothing past its plate, Tall up its lines a finger tall in a list that scrolls, Large's
-categories as standard pills; the plate opening the sheet at Home and a room at that room, a category going to its own
-page as its chip does. In the sheet, at the wall tablet's size, an iPad's and a phone's: the generated Home's own list
+It checks, at each size of block: nothing past its plate, the categories from Wide up the kit's glass buttons (round 12) and
+Extra Large's rooms down the right, each a finger tall (Large has no rooms); the plate opening the sheet at Home and a room
+at that room, a category going to its own page as its chip does. In the sheet, at the wall tablet's size, an iPad's and a phone's: the generated Home's own list
 (the chips, the camera mosaic, Scenes, Favorites, the rooms) less its clock, its pop-ups and the menu key; a room's
 heading opening the room inside the sheet with a "Home" key, an accessory opened there coming back to it, the key coming
 back; a chip and Cameras going to the screen's own page, the sheet with them; Escape at Home closing it; nothing past
