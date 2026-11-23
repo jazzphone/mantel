@@ -852,7 +852,11 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
 // ------------------------------------------------------------ the side pane (2026-10-30)
 (function () {
   ok('Side Pane: thirteen kinds, four sizes, eight at most', M.PANE_KINDS.length === 13 && M.PANE_SIZES.length === 4 && M.PANE_MAX === 8 &&
-     eq(M.PANE_GROUPS, ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'dim']));
+     eq(M.PANE_GROUPS, ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'saver_headings', 'dim']));
+  // SECTION HEADINGS, each pane its own (2026-11-23): the screensaver's a group of its own, on unless set
+  var hp = M.paneOf({ headings: false }, null);
+  ok('Section Headings: the Dashboard\'s and the screensaver\'s apart, the screensaver\'s on by default', hp.headings === false && hp.saver_headings === true &&
+     eq(M.paneSet(M.paneOf({}, {}), 'saver_headings', false, 'kitchen'), { side_pane: { saver_headings: false } }));
   // A STATUS (2026-11-06): any number, each its own id; Automatic or Nothing on a tap
   var g0 = { show: 'home', sections: [{ kind: 'weather' }] }, g1 = M.secsAdd(g0, 'status'), g2 = M.secsAdd(g1, 'status');
   ok('Status: added at Less with an id of its own, and again', g2.sections.length === 3 && g2.sections[1].kind === 'status' && g2.sections[1].size === 'less' &&

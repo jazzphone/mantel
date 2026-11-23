@@ -237,12 +237,12 @@
     // ...or 'glass' (2026-11-01, the default): Same as the Glass, Bright Glass's Dim (BRIGHT_DIM_MAX, look.bright_dim)
     var PANE_DIM_MAX = 60, PANE_DIM_WORDS = { none: 0, low: 16, medium: 30, high: 45 }, PANE_DIM_GLASS = 'glass', BRIGHT_DIM_MAX = 60;
     function paneDim(v) { return typeof v === 'string' ? (PANE_DIM_WORDS[v] || 0) : Math.max(0, Math.min(PANE_DIM_MAX, Math.round(Number(v) || 0))); }
-    var PANE_GROUPS = ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'dim'];
+    var PANE_GROUPS = ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'saver_headings', 'dim'];
     var PANE_MAX = 8;
     var PANE_DEFAULTS = { side: 'right', width: 'standard',
       dashboard: { show: 'off', sections: [{ kind: 'weather' }, { kind: 'calendar' }, { kind: 'now_playing', when: 'active' }] },
       saver: { show: 'off', sections: [{ kind: 'clock', size: 'tiny' }, { kind: 'calendar' }, { kind: 'now_playing', size: 'less', when: 'active' }] },
-      doorbell: true, headings: true, dim: 0 };
+      doorbell: true, headings: true, saver_headings: true, dim: 0 };
     function paneCopy(v) { return JSON.parse(JSON.stringify(v)); }
     function paneKind(k) { return PANE_KINDS.filter(function (x) { return x[0] === k; })[0] || null; }
     // a section as stored: More and Always are what absent means

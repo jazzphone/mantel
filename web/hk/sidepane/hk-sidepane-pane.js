@@ -64,11 +64,15 @@
 
     // A SECTION'S HEADING (2026-10-30): the small uppercase title -- text alone
     // since 2026-10-31 (the owner: "remove the glyph/icon... rather it just be
-    // text"), as the pane's Section Headings say (the screen's Side Pane `headings`, on
+    // text"), as the pane's Section Headings say (the screen's Side Pane `headings`, the screensaver's `saver_headings`, on
     // by default) -- never over the Clock or the Weather, which say what they
     // are, nor on a Pages-screen widget. A to-do list keeps its own name either
     // way (which list is content). HEAD_ON is the drawing pane's, set as it draws.
     var HEAD_ON = true;
+    // whether a pane draws them: a Pages-screen widget never; the screensaver's pane by its own switch (saver_headings,
+    // 2026-11-23, the owner: headings on the screensaver's pane but not the dashboard's), every other by `headings`
+    /** @param {string|null} mode @param {any} sp */
+    function headsOn(mode, sp) { return mode !== 'widget' && !(sp && sp[mode === 'saver' ? 'saver_headings' : 'headings'] === false); }
     function head(k) {
       if (!HEAD_ON || k === 'clock' || k === 'weather') return '';
       return '<div class="h2"><span>' + esc(KINDS[k][0]) + '</span></div>';
@@ -787,7 +791,7 @@
         list = list.concat(all.filter(function (x) { return x.place === 'bottom'; }));
         this._list = list;
         var sp = paneOf();
-        HEAD_ON = this.getAttribute('mode') !== 'widget' && !(sp && sp.headings === false);
+        HEAD_ON = headsOn(this.getAttribute('mode'), sp);
         var ctx = this._ctx(c);
         var door = o.doorbell ? this._door(o.doorbell, c) : '';
         var render = function (sizes, n) {
@@ -1217,6 +1221,6 @@
     }
 
     // what the shell and the later parts use of this one
-    K.HkSidePane = HkSidePane; K.SEC = SEC;
+    K.HkSidePane = HkSidePane; K.SEC = SEC; K.headsOn = headsOn;
   };
 })();

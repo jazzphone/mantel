@@ -110,7 +110,7 @@
     });
   }
   // ------------------------------------------------------------ end of the parts loader
-  var C, CAL, calLoad, clientNow, DRAWN_W, fit, has, HkSidePane, KINDS, LOST, MAX, met, musicFlag, NOTES, ORDER,
+  var C, CAL, calLoad, clientNow, DRAWN_W, fit, has, headsOn, HkSidePane, KINDS, LOST, MAX, met, musicFlag, NOTES, ORDER,
       place, saverList, SEC, setting, shown, SIZES, TODO, todoAdd, todoCheck, todoOf, wants, WIDTHS;
 
   // ------------------------------------------------------- the Dashboard's
@@ -565,7 +565,7 @@
     var K = kit();
     PARTS.forEach(function (file) { window.hkSidePaneParts[partKey(file)](K); });
     C = K.C; CAL = K.CAL; calLoad = K.calLoad; clientNow = K.clientNow; DRAWN_W = K.DRAWN_W; fit = K.fit; has = K.has;
-    HkSidePane = K.HkSidePane; KINDS = K.KINDS; LOST = K.LOST; MAX = K.MAX; met = K.met; musicFlag = K.musicFlag;
+    headsOn = K.headsOn; HkSidePane = K.HkSidePane; KINDS = K.KINDS; LOST = K.LOST; MAX = K.MAX; met = K.met; musicFlag = K.musicFlag;
     NOTES = K.NOTES; ORDER = K.ORDER; place = K.place; saverList = K.saverList; SEC = K.SEC; setting = K.setting;
     shown = K.shown; SIZES = K.SIZES; TODO = K.TODO; todoAdd = K.todoAdd; todoCheck = K.todoCheck; todoOf = K.todoOf;
     wants = K.wants; WIDTHS = K.WIDTHS;
@@ -614,7 +614,7 @@
       sync: sync,
       previewHouse: function (on) { if (HOUSE === !!on) return; HOUSE = !!on; sync(); },
       // tests
-      _: { shown: shown, fit: fit, place: place, wants: wants, saverList: saverList, has: has, ringing: ringing, SEC: SEC, met: met,
+      _: { shown: shown, fit: fit, place: place, wants: wants, saverList: saverList, has: has, ringing: ringing, SEC: SEC, met: met, headsOn: headsOn,
            publish: publish, musicFlag: musicFlag, NOTES: NOTES, TODO: TODO, CAL: CAL, calLoad: calLoad, todoOf: todoOf, LOST: LOST }
     };
   });

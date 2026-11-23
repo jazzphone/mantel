@@ -105,7 +105,7 @@ def pane_group(name: str, v: Any, strict: bool = False) -> Any:
         if isinstance(v, str):
             return PANE_DIM_WORDS.get(v)
         return _whole(v, 0, PANE_DIM_MAX)
-    if name in ("doorbell", "headings"):
+    if name in ("doorbell", "headings", "saver_headings"):
         return v if isinstance(v, bool) else None
     if name not in ("dashboard", "saver") or not isinstance(v, Mapping):
         return None

@@ -1146,17 +1146,24 @@
         // pop-up, its sections a page of their own
         var drows = [K.select({ label: 'Show', sk: 'pane:dashboard:show', sub: whose('dashboard'), value: dash.show, options: M.PANE_SHOWS,
                                 onChange: function (v) { put('dashboard', { show: v, sections: dash.sections }); } })];
-        if (dash.show !== 'off') drows.push(secs('dashboard', dash));
-        c.appendChild(K.group({ header: 'Dashboard', footer: dash.show === 'all'
-            ? 'On every page, each page narrowed by the pane.' : dash.show === 'home' ? 'Beside Home only.' : 'No pane beside the pages.' }, drows));
+        // SECTION HEADINGS, each pane its own (2026-11-23, the owner: headings on the screensaver's pane but not the dashboard's):
+        // the switch under the group it changes, so which pane it is says itself
+        var hd = function (g, on) {
+          return K.toggle({ label: 'Section Headings', sk: 'pane:' + g, sub: whose(g), on: on !== false, onChange: function (v) { put(g, v); } });
+        };
+        if (dash.show !== 'off') drows.push(secs('dashboard', dash), hd('headings', p.headings));
+        c.appendChild(K.group({ header: 'Dashboard', footer: (dash.show === 'all'
+            ? 'On every page, each page narrowed by the pane.' : dash.show === 'home' ? 'Beside Home only.' : 'No pane beside the pages.') +
+            (dash.show !== 'off' ? ' Section Headings: a small title over each section — not over the Clock or the Weather, which say what they are.' : '') }, drows));
         // THE SCREENSAVER ("In the Screensaver" until 2026-10-30)
         var srows = [K.select({ label: 'Show', sk: 'pane:saver:show', sub: whose('saver'), value: saver.show, options: M.PANE_SAVER_SHOWS,
                                 onChange: function (v) { put('saver', { show: v, sections: saver.sections }); } })];
         if (saver.show === 'own') srows.push(secs('saver', saver));
-        c.appendChild(K.group({ header: 'Screensaver', footer: 'Down the photos’ or the clock’s side, Home Status at its top.' }, srows));
-        // LOOK: SECTION HEADINGS (2026-10-30), a small title over each section
-        // but the Clock and the Weather -- and THE DOORBELL (one group since
-        // 2026-10-30)
+        if (saver.show !== 'off') srows.push(hd('saver_headings', p.saver_headings));
+        c.appendChild(K.group({ header: 'Screensaver', footer: 'Down the photos’ or the clock’s side, Home Status at its top.' +
+            (saver.show !== 'off' ? ' Its Section Headings are its own, whatever the Dashboard’s are.' : '') }, srows));
+        // LOOK: THE DOORBELL (one group since 2026-10-30; Section Headings were
+        // here until 2026-11-23, now under the Dashboard and the Screensaver)
         // DIM: Same as the Glass (2026-11-01, the default: Bright Glass's Dim), else the pane's own (a slider,
         // 2026-11-01, the owner: "why isn't this a slider?" -- the preview's pane follows it as it moves, and it is
         // saved once, let go)
@@ -1166,9 +1173,7 @@
         if (!dimLinked) dimRows.push(K.slider({ label: 'Dim', sk: 'pane:dim', value: M.paneDim(p.dim), min: 0, max: M.PANE_DIM_MAX, step: 5, unit: '%',
                                                 onInput: function (v) { self.pvPaneDim(v); }, onChange: function (v) { put('dim', v); } }));
         c.appendChild(K.group({ header: 'Look', footer: 'Dim: a shade over the pane’s glass, for its words over a light background — the same as Bright Glass’s Dim, or its own. ' +
-            'Section Headings: a small title, with its icon, over each section — not over the Clock or the Weather, which say what they are. ' +
             'The doorbell’s camera is live, for as long as its pop-up shows.' }, dimRows.concat([
-          K.toggle({ label: 'Section Headings', sk: 'pane:headings', sub: whose('headings'), on: p.headings !== false, onChange: function (on) { put('headings', on); } }),
           K.toggle({ label: 'Doorbell', sk: 'pane:doorbell', sub: whose('doorbell') || 'Its camera at the top of the pane while it rings.',
                      on: p.doorbell !== false, onChange: function (on) { put('doorbell', on); } })])));
         // A SCREEN'S ONE RESET: every group it owns back to All Screens'

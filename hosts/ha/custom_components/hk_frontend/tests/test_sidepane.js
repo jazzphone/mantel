@@ -257,6 +257,11 @@ ok('...Stacked: the hours over the minutes; Analog: the small face with the time
 ok('...Full: the face as today, or the digits stacked', /class="facebox"><svg class="face"/.test(X.SEC.clock('full', { kind: 'clock' }, client, ctx)) &&
    /class="facebox"><div class="big2 ck stk"/.test(X.SEC.clock('full', { kind: 'clock', face: 'stacked' }, client, ctx)));
 ok('...one over Security (headings on by default)', X.SEC.security('less', {}, client, ctx).indexOf('class="h2"') > 0);
+// each pane its own (2026-11-23, the owner: headings on the screensaver's pane but not the dashboard's)
+ok('Section Headings: the screensaver\'s pane by saver_headings, the Dashboard\'s by headings, a widget never',
+   X.headsOn('saver', { headings: false, saver_headings: true }) && !X.headsOn('dash', { headings: false, saver_headings: true }) &&
+   !X.headsOn('saver', { headings: true, saver_headings: false }) && X.headsOn('dash', { headings: true, saver_headings: false }) &&
+   X.headsOn('saver', null) && !X.headsOn('widget', {}));
 ok('...its words alone, no glyph (2026-10-31, the owner)', /<div class="h2"><span>Security<\/span><\/div>/.test(X.SEC.security('less', {}, client, ctx)));
 ok('Tiny is one line: its glyph, the fact and a value', /class="sec cmp"/.test(X.SEC.weather('tiny', {}, client, ctx)) &&
    X.SEC.weather('tiny', {}, client, ctx).indexOf('54° Sunny') > 0);

@@ -269,6 +269,20 @@ def test_section_headings_on_by_default_and_a_screen_can_turn_them_off():
     assert C.apply_board({}, {"side_pane": {"headings": "yes"}})[1] != {}
 
 
+def test_the_screensaver_s_pane_has_its_own_section_headings():
+    # (2026-11-23, the owner: headings on the screensaver's side pane but not the dashboard's) saver_headings, on by
+    # default, a group of its own: All Screens' or a screen's, apart from the Dashboard's `headings`
+    from hk_core.settings import changes as C
+    from hk_core.settings import model as M
+    assert M.SIDE_PANE_DEFAULTS["saver_headings"] is True and "saver_headings" in M.PANE_GROUPS
+    b, err = C.apply_board({}, {"side_pane": {"headings": False, "saver_headings": True}})
+    assert err == {} and M.board(b)["side_pane"] == {"headings": False, "saver_headings": True}
+    assert C.apply_board({}, {"side_pane": {"saver_headings": "yes"}})[1] != {}
+    read = M.pane_resolved({"headings": False}, {"saver_headings": False})
+    assert read["headings"] is False and read["saver_headings"] is False and read["own"] == ["saver_headings"]
+    assert M.pane_resolved({"headings": False}, None)["saver_headings"] is True
+
+
 def test_a_section_sits_at_the_top_or_the_foot_and_says_what_a_tap_does():
     # (2026-10-30) Top and Automatic are what absent means; Bottom, Its Page, Its Sheet and Nothing are kept
     assert M.pane_section({"kind": "now_playing", "place": "bottom", "tap": "sheet"}) == {"kind": "now_playing", "place": "bottom", "tap": "sheet"}

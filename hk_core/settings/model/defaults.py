@@ -665,8 +665,10 @@ PANE_SAVER_SHOWS = ("off", "same", "own")
 
 PANE_MAX = 8
 
-# headings (2026-10-30): a small title over each section but the Clock and the Weather (they say what they are)
-PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell", "headings", "dim")
+# headings (2026-10-30): a small title over each section but the Clock and the Weather (they say what they are) -- the
+# Dashboard's pane's; saver_headings (2026-11-23) the screensaver's, its own (the owner: headings on the screensaver's
+# pane but not the dashboard's)
+PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell", "headings", "saver_headings", "dim")
 
 # each kind's own options: the calendar's days (1-7), the camera's and the
 # to-do list's entity, the to-do list's Show Completed
@@ -682,6 +684,7 @@ SIDE_PANE_DEFAULTS: dict[str, Any] = {
                                           {"kind": "now_playing", "size": "less", "when": "active"}]},
     "doorbell": True,
     "headings": True,
+    "saver_headings": True,
     "dim": PANE_DIM_GLASS,
 }
 
