@@ -91,10 +91,13 @@
   // the scale. `o.pill`: the Home pill shows (the foot is taller).
   //   landscape tablet 6 x 3, upright 4 x 5, phone 4 x 6; a short landscape
   //   (a phone held sideways) 6 x 2
+  //   `o.homeView`: an Apple HomeView (web/shim/homeview.js), 4 x 2 (2026-11-23, the owner: "make the Apps page icons
+  //   bigger on the HomeView" -- its nearly square 720 x 622 page made six across 73 px icons, 55 px of its screen)
   function grid(W, H, o) {
     o = o || {};
     var phone = W < PHONE_W, cols, rows;
-    if (phone) { cols = 4; rows = 6; }
+    if (o.homeView) { cols = 4; rows = 2; }
+    else if (phone) { cols = 4; rows = 6; }
     else if (H > W) { cols = 4; rows = 5; }
     else if (H < 560) { cols = 6; rows = 2; }
     else { cols = 6; rows = 3; }
@@ -512,7 +515,7 @@
 
       _html(d, sz, now) {
         var W = sz.W, Ht = sz.H, pill = pillOn(d.ps.pill, d.tabBar);
-        var g = grid(W, Ht, { pill: pill }), s = g.s;
+        var g = grid(W, Ht, { pill: pill, homeView: !!window.hkHomeView }), s = g.s;
         g.now = now;                             // the calendar icon's day: the time this is drawn for
         var sc = place(d.list.length, d.widgets, g.cols, g.rows);
         var out = '<div class="bg"></div>';
