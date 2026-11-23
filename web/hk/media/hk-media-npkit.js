@@ -186,9 +186,11 @@
       var kt = KT(), has = d.song && d.dur > 0, total = Math.round(d.dur), el, rm;
       if (!has) { el = '<span class="kl num e">--:--</span>'; rm = '<span class="kl num r nm">--:--</span>'; }
       else if (d.live) {
-        // (counting by itself, from where the track began: the shared countdown's own clock, hk-timers.js)
-        el = '<hk-countdown class="kl num e" since="' + d.since + '" total="' + total + '">' + clock(d.pos) + '</hk-countdown>';
-        rm = '<hk-countdown class="kl num r" deadline="' + (d.since + total * 1000) + '" total="' + total + '">' + clock(total - d.pos) + '</hk-countdown>';
+        // (counting by itself, from where the track began: the shared countdown's own clock, hk-timers.js, which writes the text the moment
+        // it connects -- so what is drawn here is the same for the same track, and a speaker's push that moves only the position draws
+        // nothing: the cover is not built again under the eye, as the older drawing's was never)
+        el = '<hk-countdown class="kl num e" since="' + d.since + '" total="' + total + '">' + clock(0) + '</hk-countdown>';
+        rm = '<hk-countdown class="kl num r" deadline="' + (d.since + total * 1000) + '" total="' + total + '">' + clock(total) + '</hk-countdown>';
       } else {
         // (held: paused, or Motion and Animations off -- it moves when the speaker says so)
         el = '<span class="kl num e">' + clock(d.pos) + '</span>';
@@ -276,6 +278,9 @@
       var live = song && playing && dur > 0 && motionOk();
       // (where the track began, from what the speaker said: the same for the same state, so a quiet update draws nothing again)
       var since = posAt ? posAt - Math.round(pos * 1000) : Date.now() - Math.round(pos * 1000);
+      // (the same moment while the speaker's account of it moves by under a second: the rounding of a push's position and its time
+      // would otherwise draw the whole block again every time)
+      if (live) { var was = this._npSince; if (was && Math.abs(was - since) < 1000) since = was; else this._npSince = since; }
       if (dur > 0 && !live && playing && posAt) pos += Math.max(0, (Date.now() - posAt) / 1000);
       if (dur > 0) pos = Math.min(dur, Math.max(0, pos));
       // (a group's volume is its rooms': the slider shows their average and sets every one)
