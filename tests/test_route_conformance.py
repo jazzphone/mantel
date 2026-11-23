@@ -136,6 +136,7 @@ LIVE_TESTS = {
     "live:linked": ("test_live", "test_mantel_link_ends_at_once_when_its_credential_is_revoked"),
     "live:media_proxy": ("test_media_proxy", "test_a_revocation_ends_an_open_stream_at_once"),
     "live:intercom": ("test_intercom_relay", "test_a_revoked_session_ends_the_socket_at_once_and_drops_the_draft"),
+    "live:music_device": ("test_app_music_device", "test_a_revocation_ends_the_players_socket_at_once"),
 }
 
 

@@ -14,6 +14,10 @@ Run: .venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev [--
 * ``--music``: the house's Music page too (the screens' playmusic: browse, speakers, volume, queue). A fictional
   Music Assistant (tests/music_fakes.py's HouseMa) answers on another loopback port; its speakers join the house
   and Mantel's own music engine runs, so the page's commands go through the gateway (audit rows) to that fake.
+* ``--music --ma-url ws://<ma>:8095/ws --ma-token-file <file>``: a real Music Assistant in place of the fictional one,
+  for the CarPlay app in the Simulator (mantel-ios docs/CarPlay.md): its library and This Device (the app's own Sendspin
+  player, ws://<ma>:8927/sendspin) are that Music Assistant's. The rooms stay the fictional house's, whose players that
+  Music Assistant does not have, so nothing is ever sent to a real room's speaker.
 * ``--slow MS``: a slow connection: every script and stylesheet under /hk/ and /web/, and every message on the
   page's live socket, is MS milliseconds late (a page change that waits on the house shows what it does meanwhile).
 * ``--log-level info``: Mantel's own log lines, as a house's log has them (e.g. the photo faces backfill's
@@ -139,7 +143,7 @@ async def fictional_ma() -> tuple[object, str]:
 
 
 async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None, music: bool = False,
-                slow: int = 0, busy: bool = False) -> None:
+                slow: int = 0, busy: bool = False, real_ma: tuple[str, Path] | None = None) -> None:
     from mantel_server.apps import app_auth, app_crypto
     from mantel_server.config import Config
     from mantel_server.server import build_app
@@ -147,7 +151,9 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
 
     lan_ip = lan_address() if lan else None
     ma_fake, ma = None, {}
-    if music:
+    if music and real_ma is not None:
+        ma = {"ma_url": real_ma[0], "ma_token_file": real_ma[1]}
+    elif music:
         ma_fake, ma_url = await fictional_ma()
         from connector_fakes import MA_TOKEN
         token = data / "secrets" / "ma_token"
@@ -185,7 +191,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
     hub = app["hub"]
     hub.registry.load(AREAS, [], ENTITIES)
     hub.store.apply_event({"a": {k: {"s": v["s"], "a": dict(v["a"]), "lc": time.time() - 3600} for k, v in STATES.items()}})
-    if ma_fake is not None:
+    if music:
+        sys.path.insert(0, str(ROOT / "tests"))
         import music_fakes as MF
         from mantel_server import music as M
         from mantel_server.settings_store import Actor
@@ -196,7 +203,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
             "media_duration": 337.0, "media_position": 40.0, "volume_level": 0.25,
             "media_position_updated_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
             "entity_picture": f"http://{lan_ip or '127.0.0.1'}:{port}/app/fictional-cover.png"}})})
-        ma_fake.hub = hub
+        if ma_fake is not None:
+            ma_fake.hub = hub
         app["settings"].store.write([("house", M.MUSIC_DOC, json.loads(json.dumps(MF.DOC)))], actor=Actor(label="app_dev_server"))
         # Music added, as a house that imported HK Frontend's has it, so Mantel Settings' Music pages open
         from mantel_server.features.settings import FEATURES_DOC
@@ -358,6 +366,8 @@ def main() -> None:
     ap.add_argument("--lan", action="store_true")
     ap.add_argument("--relay")
     ap.add_argument("--music", action="store_true")
+    ap.add_argument("--ma-url", help="with --music: a real Music Assistant's WebSocket (its library, This Device)")
+    ap.add_argument("--ma-token-file", type=Path, help="with --ma-url: that Music Assistant's token (a file; never printed)")
     ap.add_argument("--slow", type=int, default=0)
     ap.add_argument("--busy", action="store_true")
     ap.add_argument("--log-level", default="warning", help="info shows what Mantel Server logs on a house")
@@ -372,7 +382,10 @@ def main() -> None:
     if a.send_push:
         asyncio.run(send_push(a.data_dir, a.send_push))
         return
-    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay, a.music, a.slow, a.busy))
+    if bool(a.ma_url) != bool(a.ma_token_file) or (a.ma_url and not a.music):
+        raise SystemExit("--ma-url and --ma-token-file go together, with --music")
+    real_ma = (a.ma_url, a.ma_token_file.expanduser()) if a.ma_url else None
+    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay, a.music, a.slow, a.busy, real_ma))
 
 
 if __name__ == "__main__":

@@ -277,6 +277,8 @@ class HouseMa(FakeMa):
             return await ok([{"item_id": "1", "provider": "library", "media_type": "playlist"}])
         e = ENT.get(args.get("player_id") or args.get("queue_id") or args.get("target_player") or
                     args.get("target_queue_id") or "")
+        if e is None and (cmd.startswith("players/cmd/") or cmd.startswith("player_queues/")):
+            return await ok(None)           # a player the house has no entity for (an app's own Sendspin player)
         if cmd == "players/cmd/ungroup":
             held = self.dynamic_group_of(args["player_id"])
             if held is not None:            # it leaves the group, which plays on in the rest; it stops

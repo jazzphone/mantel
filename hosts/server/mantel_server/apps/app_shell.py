@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from . import app_api, app_auth, app_music
+from . import app_api, app_auth, app_music, app_music_device
 from .. import push
 from ..identity.guards import WHY_STATIC, open_route
 
@@ -69,3 +69,4 @@ def register(app: web.Application, hub=None) -> None:
     app_auth.register(app, hub)     # 10.2: app sign-in (PKCE, device-bound tokens), pairing, the web view's session
     app_api.register(app, hub)      # 10.3: the REST door, the summary, favorites
     app_music.register(app, hub)    # the apps' music: the Mac's native player (state, commands, queue, library)
+    app_music_device.register(app, hub)   # the iPhone as a speaker (CarPlay, Apple HomeView): its Sendspin player
