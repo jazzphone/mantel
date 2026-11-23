@@ -51,6 +51,19 @@ function () {
   ok('...on the cover\'s own dark surface', /class="kit mu"/.test(h) && /data-hk-role="card"/.test(h));
 },
 function () {
+  // (the block's Background -- the owner: "Can you fix it so it works? Blurred Album or Card?")
+  H.section('Background: Blurred Album (the default) is the cover behind it all, blurred; Card is the look\'s own plate');
+  var al = html('L', null, { cover: '/art/blue.jpg', bg: 'album' }), cd = html('L', null, { cover: '/art/blue.jpg', bg: 'card' }), none = html('L', null, { cover: '', bg: 'album' });
+  ok('Blurred Album: the cover full-bleed behind the words, blurred, its own layer, on the cover\'s surface', /class="a npbg"><img[^>]*src="\/art\/blue.jpg"/.test(al) && /class="kit mu"/.test(al) &&
+    al.indexOf('npbg') < al.indexOf('data-np="cover"'));
+  ok('...with no cover yet, the cover\'s tone alone (no empty picture)', !/class="a npbg"/.test(none) && /class="kit mu"/.test(none));
+  ok('Flat: no blur, the cover sharp and very dim on near black (the owner: "Flat is just suppose to really dim the art work, no blur")',
+    /:host\(\[hk-flat\]\) \.kit \.npbg img\{[^}]*opacity:var\(--hk-flat-art,\.3\)/.test(al) && /:host\(\[hk-flat\]\) \.kit \.npbg\{background:#0b0c0f\}/.test(al));
+  ok('Card: no blurred cover, not the music surface -- the look\'s plate', !/class="a npbg"/.test(cd) && !/class="kit mu"/.test(cd) && /class="kit npcard"/.test(cd));
+  ok('the progress and volume fills take the look\'s ink (Card on Flat Light)', /\.npv \.t>i\{[^}]*background:var\(--hk-ink,rgba\(255,255,255,0\.94\)\)/.test(NP.CSS.join ? NP.CSS.join('') :
+    String(NP.CSS)));
+},
+function () {
   H.section('Wide: the room under the cover, the volume, and only Play / Pause and Next');
   var h = html('W'), c = box(h, 'data-np="cover"'), r = box(h, 'data-np="room"'), v = box(h, 'data-np="vol"');
   eq('the cover is 128 on the 13 edge', [c.w, c.x, c.y], [128, 13, 13]);

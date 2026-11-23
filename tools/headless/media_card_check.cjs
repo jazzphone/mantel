@@ -125,42 +125,45 @@ async function flicker(browser) {
   await ctx.close();
 }
 
-// ---- BACKGROUND: the kit's block is the cover's own dark surface in every look (round 12, the owner's mockup: "the plate is a deep tint of the
-// cover's color under white words"): no blurred copy of the cover behind it, white words and glyphs even on Flat Light, whatever the block's
-// Background says -- Card included, which the older drawing turned into the Music block's plate (the option is still saved; the docked bar keeps it)
+// ---- BACKGROUND (the block's option -- the owner, 2026-11-23: "Can you fix it so it works? Blurred Album or Card?"): Blurred Album, the
+// default, is the cover full-bleed behind it all, blurred, on the cover's own dark surface (white words); Card is the look's own plate -- no
+// blurred cover, the look's own ink (dark on Flat Light)
 async function background(browser) {
   const { p, ctx, errors } = await home(browser);
   // every element read below, drawn first (under a full run's load the blocks came in on their own, after the players, 2026-11-05)
   await p.waitForFunction(() => {
     try {
-      const sh = (id) => __mc.np(id).shadowRoot;
-      return !!(__mc.deep(__mc.cell('music'), 'hk-plate.mu')[0] && sh('album').querySelector('hk-plate.kit.mu') && sh('plain').querySelector('hk-plate.kit.mu') &&
-                sh('plain').querySelector('.a.kt') && sh('plain').querySelector('[data-np=pp] svg') && sh('plain').querySelector('.npc img'));
+      const sh = (id) => __mc.np(id).shadowRoot, img = sh('album').querySelector('.npbg img');
+      return !!(__mc.deep(__mc.cell('music'), 'hk-plate.mu')[0] && sh('album').querySelector('hk-plate.kit.mu') && img && img.complete && img.naturalWidth > 0 &&
+                sh('plain').querySelector('hk-plate.kit.npcard') && sh('plain').querySelector('.a.kt') && sh('plain').querySelector('[data-np=pp] svg') &&
+                sh('plain').querySelector('.npc img'));
     } catch (e) { return false; }
   }, null, { timeout: 20000 });
   const got = await p.evaluate(() => {
-    const plate = (id) => __mc.np(id).shadowRoot.querySelector('hk-plate.kit.mu');
-    const cs = (e) => getComputedStyle(e), P = plate('plain'), A = plate('album'), sh = (id) => __mc.np(id).shadowRoot;
-    return { albumBg: !!sh('album').querySelector('.bg'), plainBg: !!sh('plain').querySelector('.bg'), plainShade: !!sh('plain').querySelector('.shade'),
-             coverStill: !!sh('plain').querySelector('.npc img'),
-             surface: [cs(A).backgroundImage, cs(P).backgroundImage], plainSurface: cs(P).backgroundImage, plateClass: [A.className, P.className],
-             title: cs(sh('plain').querySelector('.a.kt')).color, glyph: cs(sh('plain').querySelector('[data-np=pp] svg')).fill,
+    const sh = (id) => __mc.np(id).shadowRoot, cs = (e) => getComputedStyle(e), bi = sh('album').querySelector('.npbg img');
+    return { albumBlur: cs(bi).filter, albumLayer: cs(bi).willChange, albumDim: +cs(bi).opacity, albumFlat: __mc.np('album').hasAttribute('hk-flat'), plainBg: !!sh('plain').querySelector('.npbg'),
+      plainMu: !!sh('plain').querySelector('hk-plate.kit.mu'),
+             coverStill: !!sh('plain').querySelector('.npc img') && !!sh('album').querySelector('.npc img'),
+             albumTitle: cs(sh('album').querySelector('.a.kt, .a.kd')).color, title: cs(sh('plain').querySelector('.a.kt')).color,
              glyphShadow: cs(sh('plain').querySelector('[data-np=pp] svg')).filter };
   });
-  assert.equal(got.albumBg || got.plainBg || got.plainShade, false, 'no blurred cover decoded behind the block');
-  assert.ok(got.coverStill, 'the cover itself stays');
-  assert.ok(/gradient/.test(got.plainSurface), 'the cover\'s own dark surface: ' + got.plainSurface);
+  // Flat draws no blur: the cover sharp and very dim instead (the owner, 2026-11-23: "Flat is just suppose to really dim the art work, no blur")
+  if (got.albumFlat) assert.ok(got.albumBlur === 'none' && got.albumDim <= 0.35, 'Blurred Album on Flat: the cover sharp and very dim: ' + got.albumBlur + ' ' + got.albumDim);
+  else assert.ok(/blur\(/.test(got.albumBlur) && got.albumLayer === 'transform', 'Blurred Album: the cover blurred behind it, on a layer of its own: ' + got.albumBlur + ' ' + got.albumLayer);
+  assert.equal(got.plainBg || got.plainMu, false, 'Card: no blurred cover, not the music surface');
+  assert.ok(got.coverStill, 'the cover itself stays on both');
   assert.equal(got.glyphShadow, 'none');
-  // white words and glyphs on it whatever the look: on Flat Light the page's own ink is dark, and this plate's is not
   const lum = (c) => { const m = c.match(/[\d.]+/g).map(Number); return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; };
-  assert.ok(lum(got.title) > 0.9 && lum(got.glyph) > 0.9, 'white words and glyphs' + (input.mode === 'light' ? ' on Flat Light' : '') + ': ' + got.title + ' ' + got.glyph);
+  assert.ok(lum(got.albumTitle) > 0.9, 'Blurred Album: white words: ' + got.albumTitle);
+  // Card's words are the look's: dark on Flat Light, light on glass
+  assert.ok(input.mode === 'light' ? lum(got.title) < 0.5 : lum(got.title) > 0.85, 'Card: the look\'s own ink' + (input.mode === 'light' ? ' on Flat Light' : '') + ': ' + got.title);
   assert.deepEqual(errors, [], 'page errors');
-  say('the kit\'s block is the cover\'s own dark surface, white words, no blurred cover' + (input.mode === 'light' ? ' (Flat Light, title ' + got.title + ')' : ''));
+  say('Blurred Album: the cover ' + (got.albumFlat ? 'sharp and dim (' + got.albumDim + ') on Flat' : 'blurred') + ' behind the block; Card: the look\'s plate and ink' +
+    (input.mode === 'light' ? ' (Flat Light, title ' + got.title + ')' : ''));
   if (input.shots) { fs.mkdirSync(input.shots, { recursive: true }); await p.screenshot({ path: input.shots + '/media-card-' + input.mode + '-' + input.engine + '-' + input.size + '.png' }); }
   await ctx.close();
 }
 
-// ---- THE PANE: a group's volume from the Side Pane, and the music panel's Browse and background
 async function pane(browser) {
   const t = await page(browser, '/media-pane/home'), p = t.p;
   await p.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
@@ -230,11 +233,11 @@ async function editor(browser) {
   assert.equal(await p.evaluate(() => head()), 'Now Playing');
   assert.equal(await p.evaluate(() => row('Settings For').querySelector('select').value), '0');
   assert.ok(await p.evaluate(() => !!row('Background')), 'Now Playing\'s Background is offered');
-  // Card: in the rule (what is stored), and the preview draws the block (the kit's plate is the cover's own surface whatever the Background says)
+  // Card: in the rule (what is stored), and the preview draws the block on the look's own plate
   await p.evaluate(() => [...row('Background').querySelectorAll('button')].find(x => x.textContent === 'Card').click());
   assert.deepEqual(await p.evaluate(() => { const i = ed.grid.items.find(x => x.id === 'cond'); return [i.rules[0].opts.background, (i.opts || {}).background || null]; }), ['card', null]);
   await p.waitForFunction(() => { const c = ed.previewView.cards.find(c => c.localName === 'hk-grid-conditional-card' && c._config.item.id === 'cond');
-    return c?._child?.shadowRoot?.querySelector('hk-plate.kit.mu'); }, null, { timeout: 15000 });
+    return c?._child?.shadowRoot?.querySelector('hk-plate.kit.npcard'); }, null, { timeout: 15000 });
   // Blurred Album takes the key away again, and back to Card
   await p.evaluate(() => [...row('Background').querySelectorAll('button')].find(x => x.textContent === 'Blurred Album').click());
   assert.equal(await p.evaluate(() => 'background' in (ed.grid.items.find(x => x.id === 'cond').rules[0].opts || {})), false, 'the default is saved as nothing');
@@ -281,7 +284,8 @@ async function editor(browser) {
   say('Settings For sets each card of a block with rules; ' + compare.length + ' cards offer the same rows as a rule; Save accepted');
   await ctx.close();
   const after = await home(browser);
-  await after.p.waitForFunction(() => __mc.np('cond').shadowRoot.querySelector('hk-plate.kit.mu'), null, { timeout: 15000 });
+  // the rule's Card, saved, is what the screen draws
+  await after.p.waitForFunction(() => __mc.np('cond').shadowRoot.querySelector('hk-plate.kit.npcard'), null, { timeout: 15000 });
   await after.ctx.close();
 }
 

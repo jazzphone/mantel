@@ -117,6 +117,17 @@
       '  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 10px 28px rgba(0,0,0,.18) !important;',
       '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.72);--hk-ink-3:rgba(255,255,255,.46);--hk-key:rgba(255,255,255,.14);--hk-key-strong:rgba(255,255,255,.24);',
       '  --hk-line:rgba(255,255,255,.14);--hk-line-strong:rgba(255,255,255,.24)}',
+      // BLURRED ALBUM (the block's Background, the default -- the owner: "Can you fix it so it works? Blurred Album or Card?"): the cover full-
+      // bleed behind everything, blurred and dimmed, as the older drawing had it, on a layer of its own so nothing over it blurs it again (that
+      // drawing's 2026-11-05 finding); the cover's tone stays the ground under it while it loads. Card: the look's own plate (no .mu).
+      '.kit .npbg{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit}',
+      '.kit .npbg img{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(34px);transform:scale(1.06);',
+      '  opacity:.62;will-change:transform}',
+      '.kit .npbg i{position:absolute;inset:0;background:linear-gradient(160deg,rgba(8,9,12,.62) 0%,rgba(8,9,12,.42) 50%,rgba(8,9,12,.7) 100%)}',
+      // FLAT DRAWS NO BLUR (flatCss takes every filter): the cover sharp and very dim on near black, as the older drawing had it (2026-11-10,
+      // the owner: "a very dim album art... since we don't blur anything in flat"; again 2026-11-23: "Flat is just suppose to really dim the art")
+      ':host([hk-flat]) .kit .npbg{background:#0b0c0f}',
+      ':host([hk-flat]) .kit .npbg img{inset:0;width:100%;height:100%;transform:none;will-change:auto;opacity:var(--hk-flat-art,.3)}',
       // the cover, a button: its own corner and shadow, the picture to its edge
       '.kit .npc{all:unset;position:absolute;box-sizing:border-box;display:block;overflow:hidden;cursor:pointer;background:var(--hk-key);touch-action:manipulation;',
       '  box-shadow:0 8px 22px rgba(0,0,0,.32),0 0 0 .5px rgba(0,0,0,.14)}',
@@ -133,14 +144,14 @@
       // the progress: the kit's track, the fill by the countdown the times are (hk-timers.js sets --hk-left, the fraction remaining)
       '.kit .npp{position:absolute}',
       '.kit .npp .trk{left:0;top:0;width:100%}',
-      '.kit .npp .trk>i{width:calc((1 - var(--hk-left,1)) * 100%);color:#fff}',
+      '.kit .npp .trk>i{width:calc((1 - var(--hk-left,1)) * 100%);color:var(--hk-ink,rgba(255,255,255,0.94))}',
       '.kit .npp .kl{position:absolute;top:12px;margin:0}',
       '.kit .npp .r.nm::before{content:none}',
       '.kit .npp .e{left:0}.kit .npp .r{right:0;text-align:right}.kit .npp .r::before{content:"\\2212"}',
       // the volume: bare -- a track the width it is given, a white knob; its whole row is the touch
       '.kit .npv{position:absolute;cursor:pointer;touch-action:pan-y;-webkit-tap-highlight-color:transparent;outline:none}',
       '.kit .npv .t{position:absolute;left:0;right:0;height:6px;border-radius:calc(6px / 2);background:var(--hk-line-strong);overflow:hidden}',
-      '.kit .npv .t>i{display:block;height:100%;border-radius:calc(6px / 2);background:#fff}',
+      '.kit .npv .t>i{display:block;height:100%;border-radius:calc(6px / 2);background:var(--hk-ink,rgba(255,255,255,0.94))}',
       '.kit .npv .k{position:absolute;width:26px;height:26px;border-radius:13px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}',
       '.kit .npv.off{opacity:.5}',
       // Up Next's covers and an idle block's playlists: pictures that play
@@ -266,7 +277,8 @@
           o += kt.key(rx, FY, rw, kt.KH, { g: tg('queue', 24), t: d.song ? 'Queue' : 'Browse', label: d.song ? 'Open the queue' : 'Browse music', data: { np: d.song ? 'queue' : 'browse' } });
         }
       }
-      return '<style>' + CSS + '</style>' + kt.plate(k, o, { cls: 'mu', label: d.title || 'Now Playing' });
+      var card = d.bg === 'card', back = !card && d.cover ? '<div class="a npbg"><img alt="" draggable="false" src="' + esc(d.cover) + '"><i></i></div>' : '';
+      return '<style>' + CSS + '</style>' + kt.plate(k, back + o, { cls: card ? 'npcard' : 'mu', label: d.title || 'Now Playing' });
     }
 
     // ------------------------------------------------------------ the card's methods
@@ -290,7 +302,8 @@
       var hold = this._npHold;
       if (hold && Date.now() < hold.until) vol = hold.v; else this._npHold = null;
       var d = { size: size, song: song, playing: playing, live: live, title: song ? this._title(p) : 'Nothing Playing', artist: song ? a.media_artist || '' : '',
-        album: song ? a.media_album_name || a.media_album || '' : '', cover: song ? this._art(p) : '', rooms: this._rooms(p), roomKey: p ? p.entity_id : res.player,
+        album: song ? a.media_album_name || a.media_album || '' : '', cover: song ? this._art(p) : '', bg: (this._config || {}).background === 'card' ? 'card' : 'album', rooms: this._rooms(p),
+          roomKey: p ? p.entity_id : res.player,
         pos: pos, dur: dur, since: since, vol: vol, queue: /** @type {any[]} */ ([]), lists: /** @type {any[]} */ ([]) };
       if (size === 'XL') {
         if (song) { this._npAsk(p); d.queue = (this._q || []).slice(0, 4); }
