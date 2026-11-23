@@ -650,6 +650,18 @@
           heading: { energy: so.energy + typ.energy * left, cost: M.hasCost && R.cur !== false ? so.cost + typ.cost * left : null }
         };
       });
+      // THE WEEK DAY BY DAY (the Energy Rings block, Extra Large, round 12: "the WEEK as seven small rings"): each day of the calendar week as
+      // each ring's share of a usual day -- from the daily history; today's from what is used so far; a day still to come has no figures (`f`
+      // null). { t: the day's start, today, f: [each ring's v / usual] } in the rings' order
+      if (periods.week && Wk && Wk.slots) {
+        periods.week.days = Wk.slots.map(function (i, k) {
+          var isToday = k === Wk.todayK;
+          if (i == null && !isToday) return { t: Wk.dates[k], today: false, f: null };
+          var val = isToday ? today : { energy: homeAt(M, D.d, i), cost: costAt(M, D.d, i), water: vs(D.d, M.src.water.ids, i),
+                                        gas: vs(D.d, M.src.gas.ids, i), solar: vs(D.d, M.src.solar, i) };
+          return { t: Wk.dates[k], today: isToday, f: keys.map(function (q) { return typ[q] > 0 ? val[q] / typ[q] : 0; }) };
+        });
+      }
       return {
         periods: periods,
         asOf: o.upTo, receivedAt: receivedAt, hasFives: !!F, contributor: cause, today0: T.today0, rings: rings, typ: typ, today: today, usualByNow: typ.energy * eBy[0],
