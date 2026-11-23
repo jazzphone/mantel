@@ -10,6 +10,10 @@ the server exactly as the screens' socket is:
   GET  /api/app/favorites        the person's favorites (user_data ``favorites``: entity ids, in order)
   PUT  /api/app/favorites        {favorites: [entity ids]} (at most FAVORITES_MAX)
   GET  /api/app/entities?q=      what the person may view, to choose favorites from (name, domain, area)
+  GET  /api/app/states?ids=a,b   chosen accessories' states (at most STATES_MAX), only those the person may view, in
+                                 the order asked: the widgets made for one thing (an accessory, a thermostat, the
+                                 house's doors and locks); ``?domain=timer`` instead: every timer the person may view
+                                 that counts (active or paused), soonest first
   GET  /api/app/art?entity=      a player's artwork (media_art.py's rule: view on the player)
   GET  /api/app/snap?id=         a notification's snapshot (notify_snaps.py's rule), for the notification extension
   POST /api/app/push/register    the app's APNs token and notification key (apns.py); refused (409 push_off) once
@@ -48,7 +52,11 @@ READINGS = frozenset({"sensor", "binary_sensor", "camera"})
 ATTRS = ("friendly_name", "unit_of_measurement", "device_class", "brightness", "color_mode", "current_position",
          "temperature", "current_temperature", "hvac_action", "target_temp_high", "target_temp_low", "media_title",
          "media_artist", "media_album_name", "volume_level", "is_volume_muted", "media_duration", "media_position",
-         "media_position_updated_at", "supported_features", "percentage", "icon")
+         "media_position_updated_at", "supported_features", "percentage", "icon",
+         # a timer's countdown and a thermostat's range (the widgets: a timer counts down on its own from finishes_at)
+         "finishes_at", "remaining", "duration", "min_temp", "max_temp", "target_temp_step", "hvac_modes")
+STATES_MAX = 24
+STATE_DOMAINS = frozenset({"timer"})
 STATUS = {"forbidden": 403, "commands_disabled": 503, "unavailable": 503, "unauthenticated": 401,
           "invalid_command": 400, "not_allowed": 400, "audit_unavailable": 503}
 
@@ -142,6 +150,27 @@ async def summary(request: web.Request) -> web.Response:
     ident = request["app_identity"]
     return ok({"favorites": shown, "now_playing": playing, "door": ident.door,
                "commands": request.app.get("gateway") is not None, "at": request.app["clock"]()})
+
+
+@open_route("app_dpop", reads="view", why=WHY_APP)
+@app_route
+async def states(request: web.Request) -> web.Response:
+    ids_q, domain = request.query.get("ids"), request.query.get("domain")
+    if (ids_q is None) == (domain is None):
+        return error(400, "invalid_query", message="ids or domain")
+    if domain is not None:
+        if domain not in STATE_DOMAINS:
+            return error(400, "invalid_query")
+        store = request.app["hub"].store.states
+        ids = sorted(e for e, st in store.items() if e.startswith(domain + ".") and st.get("s") in ("active", "paused"))
+    else:
+        ids = list(dict.fromkeys(i for i in ids_q.split(",") if i))
+        if not 0 < len(ids) <= STATES_MAX or not all(ENTITY.match(i) for i in ids):
+            return error(400, "invalid_query", message=f"1 to {STATES_MAX} entity ids")
+    shown = [e for e in (_entity_json(request.app, eid) for eid in _visible(request, ids)) if e is not None]
+    if domain is not None:
+        shown = sorted(shown, key=lambda e: str((e.get("attributes") or {}).get("finishes_at") or "~"))[:STATES_MAX]
+    return ok({"states": shown, "at": request.app["clock"]()})
 
 
 @open_route("app_dpop", reads="self", why=WHY_APP)
@@ -315,7 +344,9 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_get("/api/app/favorites", get_favorites)
     app.router.add_put("/api/app/favorites", put_favorites)
     app.router.add_get("/api/app/entities", entities)
+    app.router.add_get("/api/app/states", states)
     app.router.add_post("/api/app/command", command)
     app.setdefault("public_paths", set()).update({"/api/app/summary", "/api/app/favorites", "/api/app/entities",
+                                                  "/api/app/states",
                                                   "/api/app/command", "/api/app/push/register", "/api/app/snap",
                                                   "/api/app/art"})

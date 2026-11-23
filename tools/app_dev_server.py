@@ -54,7 +54,10 @@ AREAS = [{"area_id": "kitchen", "name": "Kitchen"}, {"area_id": "living_room", "
          {"area_id": "porch", "name": "Porch"}]
 ENTITIES = [{"entity_id": "light.kitchen", "area_id": "kitchen"}, {"entity_id": "light.living_room", "area_id": "living_room"},
             {"entity_id": "lock.front_door", "area_id": "porch"}, {"entity_id": "media_player.living_room", "area_id": "living_room"},
-            {"entity_id": "switch.porch_lights", "area_id": "porch"}, {"entity_id": "scene.movie_night", "area_id": "living_room"}]
+            {"entity_id": "switch.porch_lights", "area_id": "porch"}, {"entity_id": "scene.movie_night", "area_id": "living_room"},
+            # the HomeView widgets' (the app's Climate, House Status and Timers widgets)
+            {"entity_id": "climate.living_room", "area_id": "living_room"}, {"entity_id": "binary_sensor.back_door", "area_id": "porch"},
+            {"entity_id": "cover.garage_door", "area_id": "porch"}, {"entity_id": "timer.pasta", "area_id": "kitchen"}]
 STATES = {
     "light.kitchen": {"s": "on", "a": {"friendly_name": "Kitchen", "brightness": 180}},
     "light.living_room": {"s": "off", "a": {"friendly_name": "Living Room"}},
@@ -65,9 +68,16 @@ STATES = {
                                                          "media_artist": "Miles Davis", "volume_level": 0.3,
                                                          "media_album_name": "Kind of Blue", "media_duration": 562.0,
                                                          "media_position": 95.0}},
+    "climate.living_room": {"s": "heat", "a": {"friendly_name": "Living Room", "current_temperature": 68.0, "temperature": 70.0,
+                                               "hvac_action": "heating", "min_temp": 50.0, "max_temp": 90.0,
+                                               "target_temp_step": 1.0, "hvac_modes": ["off", "heat", "cool", "auto"]}},
+    "binary_sensor.back_door": {"s": "on", "a": {"friendly_name": "Back Door", "device_class": "door"}},
+    "cover.garage_door": {"s": "closed", "a": {"friendly_name": "Garage Door", "device_class": "garage"}},
+    "timer.pasta": {"s": "active", "a": {"friendly_name": "Pasta", "duration": "0:12:00"}},     # ends 12 minutes after the start
 }
 FLIP = {("light", "turn_on"): "on", ("light", "turn_off"): "off", ("switch", "turn_on"): "on", ("switch", "turn_off"): "off",
-        ("lock", "lock"): "locked", ("lock", "unlock"): "unlocked"}
+        ("lock", "lock"): "locked", ("lock", "unlock"): "unlocked", ("cover", "open_cover"): "open",
+        ("cover", "close_cover"): "closed"}
 
 
 class FictionalCommander:
@@ -94,6 +104,8 @@ class FictionalCommander:
                        "media_pause": "paused"}.get(service, st["s"])
                 if service == "volume_set":
                     self.hub.store.apply_event({"c": {eid: {"+": {"a": {"volume_level": data.get("volume_level")}}}}})
+            if domain == "climate" and service == "set_temperature":
+                self.hub.store.apply_event({"c": {eid: {"+": {"a": {"temperature": data.get("temperature")}}}}})
             if new and new != st["s"]:
                 self.hub.store.apply_event({"c": {eid: {"+": {"s": new, "lc": time.time()}}}})
             self.hub.on_change({eid})
@@ -191,6 +203,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
     hub = app["hub"]
     hub.registry.load(AREAS, [], ENTITIES)
     hub.store.apply_event({"a": {k: {"s": v["s"], "a": dict(v["a"]), "lc": time.time() - 3600} for k, v in STATES.items()}})
+    ends = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 12 * 60))
+    hub.store.apply_event({"c": {"timer.pasta": {"+": {"a": {"finishes_at": ends}}}}})
     if music:
         sys.path.insert(0, str(ROOT / "tests"))
         import music_fakes as MF
@@ -260,7 +274,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
         (data / "ann-password.txt").chmod(0o600)
         print("Created the fictional Owner 'ann' (password in ann-password.txt)")
         app["user_data"].set(f"u:{uid}", "favorites", ["light.kitchen", "light.living_room", "lock.front_door",
-                                                       "switch.porch_lights", "scene.movie_night"])
+                                                       "switch.porch_lights", "scene.movie_night", "cover.garage_door",
+                                                       "binary_sensor.back_door"])
         app["user_data"].set(f"u:{uid}", "hk_music_focus", {"key": "media_player.living_room"})
     else:
         uid = row["id"]
