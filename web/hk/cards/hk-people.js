@@ -15,9 +15,52 @@
     }, { once: true });
   }
 
+  // ======================================================================== pure (round 12, 2026-11-23)
+  // The owner: "There is no need for separate tiles in the larger cards..and the Small card ... would be create if it could dynamically
+  // create a cluster of the people that are home", then "it needs to overlap, not blend in where the circles cross. Would be cool if the
+  // person who just arrived at home last was fully visible / on top of the overlap". Who is home is a cluster of solid circles, stacked
+  // in the order they came home so the latest is drawn last, whole, on top. What decides it is here, plain data in and out (a person:
+  // {id, name, home, at (when their state last changed, ms), where}); tests/test_hk_people_lib.py runs it in node.
+  // where each circle sits, as fractions of the cluster's square, by how many circles (a fifth is the "+N" circle, drawn first, at the top)
+  var SPOTS = { 1: [[0.5, 0.5]], 2: [[0.32, 0.5], [0.68, 0.5]], 3: [[0.3, 0.62], [0.7, 0.62], [0.5, 0.34]], 4: [[0.26, 0.5], [0.74, 0.5], [0.5, 0.27], [0.5, 0.73]],
+                5: [[0.5, 0.25], [0.79, 0.46], [0.68, 0.79], [0.32, 0.79], [0.21, 0.46]] };
+  // a circle's radius as a fraction of the square, by how many
+  var RADII = { 1: 0.42, 2: 0.29, 3: 0.26, 4: 0.23, 5: 0.19 };
+  // those at home, the one who came home first to the one who came last (a tie by name: it never moves between draws)
+  function arrivals(people) {
+    return (people || []).filter(function (x) { return x.home; }).sort(function (a, b) {
+      return (a.at || 0) - (b.at || 0) || String(a.name).localeCompare(String(b.name));
+    });
+  }
+  // THE CLUSTER: [{person, x, y, r, more, last}] in drawing order (x, y, r as fractions of the square). One to four people are circles;
+  // more than four are the four latest and a "+N" circle (`more`: N, no person) under them, drawn first
+  function cluster(people) {
+    var home = arrivals(people), over = home.length > 4, shown = over ? home.slice(-4) : home, n = shown.length + (over ? 1 : 0), spots = SPOTS[Math.min(5, n)] || [];
+    var list = (over ? [{ person: null, more: home.length - 4 }] : []).concat(shown.map(function (x) { return { person: x, more: 0 }; }));
+    return list.map(function (c, i) { return { person: c.person, more: c.more, x: spots[i][0], y: spots[i][1], r: RADII[Math.min(5, n)], last: i === list.length - 1 }; });
+  }
+  // THE ROWS: those at home newest first, then those away (the one who left last first)
+  function rowOrder(people) {
+    var home = arrivals(people).reverse(), away = (people || []).filter(function (x) { return !x.home; }).sort(function (a, b) {
+      return (b.at || 0) - (a.at || 0) || String(a.name).localeCompare(String(b.name));
+    });
+    return home.concat(away);
+  }
+  // A ROW'S WORDS under the name: "Home · since 5:40 PM" (the time or weekday, as timeOf says it), or "Work · left 8:05 AM"
+  function rowWords(x, time) {
+    return x.home ? 'Home' + (time ? ' · since ' + time : '') : x.where + (time ? ' · left ' + time : '');
+  }
+  // THE COUNT AND WHO IS AWAY, for Small's two lines and the others' titles
+  function summary(people) {
+    var n = arrivals(people).length, total = (people || []).length, away = rowOrder(people).filter(function (x) { return !x.home; });
+    var names = away.slice(0, 2).map(function (x) { return x.first || x.name; }).join(', ') + (away.length > 2 ? ' +' + (away.length - 2) : '');
+    return { home: n, away: away.length, title: n ? n + ' Home' : 'Nobody Home', sub: !total ? 'Nobody added' : away.length ? names + ' away' : 'Everyone' };
+  }
+
+  window.hkPeople = { version: '1.0.0', lib: { SPOTS: SPOTS, RADII: RADII, arrivals: arrivals, cluster: cluster, rowOrder: rowOrder, rowWords: rowWords, summary: summary } };
+
   whenBase(function (C) {
   var HkBase = C.HkBase, register = C.register, esc = C.esc;
-  window.hkPeople = { version: '1.0.0' };
   // ============================================================ THE PEOPLE
   // hk-people-card: the household at a glance (the Home Grid's `people`
   // block, docs/phase11/HOME-GRID.md; at home anywhere else too) -- each
@@ -297,9 +340,97 @@
       return '<div class="xl"><div class="xm" style="flex:0 0 ' + W + 'px"><div class="xt">' + tiles + '</div>' + pins +
         '<span class="xcr">\u00a9 OpenStreetMap</span></div><div class="xc xa"><div class="xs xmap">' + list + '</div></div></div>';
     }
+    // THE KIT'S CARD (round 12; hk-kit.js, docs/phase34/PLAN.md): one plate, no tiles -- who is home as a cluster of solid, overlapping circles (each
+    // the person's own picture, else their initial in their color, the latest arrival on top), and rows: home newest first, then away. False
+    // for the page's row of faces (no size) and the Extra Large with the map (Show Map), which keep their own drawing.
+    _renderKit() {
+      var K = window.hkKit, sz = this._cellSize(), h = this.client, self = this;
+      if (!K || !sz || !h || (sz === 'XL' && this._config.map)) return false;
+      this._watchBlock();
+      var st = h.states || {}, ids = this._ids(), k = K.ctx(this), w = k.w, hh = k.h, E = k.E, X = k.X, esc2 = K.esc;
+      var people = ids.map(function (id, i) {
+        var s = st[id], a = (s && s.attributes) || {}, nm = String(a.friendly_name || id), at = Date.parse(s.last_changed);
+        return { id: id, name: nm, first: nm.split(/\s+/)[0], ini: (nm.trim()[0] || '').toUpperCase(),
+                 color: C.ACCENTS[FACE[i % FACE.length]], pic: a.entity_picture || '', home: s.state === 'home', at: isNaN(at) ? 0 : at, where: whereOf(s), time: timeOf(s) };
+      });
+      var sum = summary(people), rows = rowOrder(people), o = '';
+      // a person as a circle: their picture (cover-fit), else the initial centered on their color; `ring` the plate's color around it
+      var disc = function (x, d, ring, last, faded) {
+        var css = 'border-radius:50%;overflow:hidden;background:' + x.color + ';color:#fff;font-weight:700;font-size:' + Math.round(d * 0.4) + 'px;line-height:1;' +
+          (ring ? 'box-shadow:0 0 0 ' + ring + 'px var(--pr)' + (last ? ',0 6px 16px rgba(0,0,0,.3)' : '') : '') + (faded ? ';opacity:.45' : '');
+        return '<span class="fc pd" style="width:' + d + 'px;height:' + d + 'px;' + css + '" data-ini="' + esc2(x.ini) + '">' +
+          (x.pic ? '<img alt="" draggable="false" src="' + esc2(x.pic) + '" style="width:100%;height:100%;object-fit:cover;display:block">' : esc2(x.ini)) + '</span>';
+      };
+      var more = function (n, d, ring) {
+        return '<span class="fc" style="width:' + d + 'px;height:' + d + 'px;border-radius:50%;background:' + K.v('key-strong', 'rgba(255,255,255,.24)') + ';color:' + K.v('ink', '#fff') +
+          ';font-weight:700;font-size:' + Math.round(d * 0.34) + 'px;box-shadow:0 0 0 ' + ring + 'px var(--pr)">+' + n + '</span>';
+      };
+      // the cluster in a square of s px at (x, y)
+      var clusterAt = function (x, y, s) {
+        var cs = cluster(people), out = '';
+        cs.forEach(function (c) {
+          var r = c.r * s, d = Math.round(2 * r), ring = Math.max(3, Math.round(r * 0.07));
+          out += K.box(x + c.x * s - r, y + c.y * s - r, d, d, '', '', c.person ? disc(c.person, d, ring, c.last, false) : more(c.more, d, ring));
+        });
+        if (!cs.length) out += K.box(x + s * 0.14, y + s * 0.14, s * 0.72, s * 0.72, 'fc', 'border-radius:50%;background:' + K.v('key', 'rgba(255,255,255,.14)'),
+          K.glyph('mdi:home-outline', Math.round(s * 0.3), K.v('ink-2', 'rgba(255,255,255,.68)')));
+        return out;
+      };
+      var rowOf = function (x, wide) {
+        var t = x.home || x.time ? x.time : '';
+        var r = { lead: disc(x, 30, 0, false, !x.home), lw: 30, lh: 30, t: x.first, quiet: !x.home, label: x.name + ', ' + (x.home ? 'home' : x.where), data: { id: x.id } };
+        if (wide) r.trail = x.home ? 'Home' : x.where; else r.b = rowWords(x, t);
+        return r;
+      };
+      // rows in columns inside a box (a scroller: more than fit scroll, as House Status's do)
+      var list = function (x, y, ww, yMax, cols, rh, wide) {
+        var per = Math.ceil(rows.length / cols), cw = (ww + (cols - 1) * X) / cols, inner = '';
+        rows.forEach(function (r, i) {
+          var c = Math.floor(i / per), j = i % per;
+          inner += K.row(k, c * (cw - X), j * rh, cw, rowOf(r, wide), j === per - 1 || i === rows.length - 1, rh);
+        });
+        return '<div class="a sc" role="list" style="' + K.st(x, y, ww, yMax - y) + '">' + inner + '</div>';
+      };
+      var sqc = hh >= 180;
+      if (size() === 'S') {
+        var ny = sqc ? 120 : Math.round(hh * 0.55), cs0 = sqc ? 128 : Math.min(w - 24, ny - 12), cy = sqc ? 62 : (ny - 6) / 2;
+        o += clusterAt((w - cs0) / 2, cy - cs0 / 2, cs0) + K.tx(8, ny, w - 16, 'kt', esc2(sum.title), 'text-align:center') +
+          K.tx(8, ny + (sqc ? 26 : 24), w - 16, 'kb', esc2(sum.sub), 'text-align:center');
+      } else if (size() === 'W') {
+        var rhw = Math.max(40, Math.min(60, Math.floor((hh - 16) / Math.min(Math.max(rows.length, 1), 4))));
+        o += clusterAt(E, E, hh - 2 * E) + list(hh - 4, 8, w - hh + 4, hh - 8, 1, rhw, true);
+      } else if (size() === 'T') {
+        var st0 = Math.min(w - 2 * E - 20, 160);
+        o += clusterAt((w - st0) / 2, E, st0) + list(0, E + st0 + 12, w, hh - 6, 1, 60, false);
+      } else if (size() === 'L') {
+        var said = rows.filter(function (x) { return x.home; }).map(function (x) { return x.first; });
+        said = said.length <= 2 ? said.join(' and ') : said.length === 3 ? said.slice(0, -1).join(', ') + ' and ' + said[2] : said.slice(0, 2).join(', ') + ' and ' + (said.length - 2) + ' more';
+        if (!said) said = people.length ? 'Everyone is away' : '';
+        o += clusterAt(E + 20, E, 190) + K.tx(236, 70, w - 254, 'kd', esc2(sum.title)) + K.tx(236, 100, w - 254, 'kb', esc2(said), 'white-space:normal;height:44px;overflow:hidden') +
+          list(0, 214, w, hh - 6, 2, Math.ceil(rows.length / 2) <= 2 ? 88 : 60, false);
+      } else {
+        o += clusterAt(E + 10, E + 30, 300) + K.box(330, 18, 1, hh - 36, 'sep', '') + K.tx(326 + X, 18, w - 326 - 2 * X, 'kt', esc2(sum.title)) +
+          K.tx(326 + X, 42, w - 326 - 2 * X, 'kb', esc2(sum.away ? sum.away + ' away' : 'Everyone is home')) + list(326, K.Y0, w - 326, hh - 6, 1, rows.length <= 4 ? 78 : 60, false);
+      }
+      function size() { return sz; }
+      var css = '<style>.kit.ppl{--pr:rgba(34,40,52,.92)}.kit.ppl.light{--pr:#faf9f6}.kit .pd{position:relative}' +
+        '.kit .sc{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}.kit .sc::-webkit-scrollbar{display:none}' +
+          '</style>';
+      return K.draw(this, K.plate(k, css + o, { label: 'People: ' + sum.title, cls: 'ppl' }), function (/** @type {any} */ root) {
+        root.querySelectorAll('[data-id]').forEach(function (/** @type {any} */ b) {
+          b.addEventListener('click', function () { window.hkShell.moreInfo(b.getAttribute('data-id'), self); });
+        });
+        // (a picture that will not load leaves the initial in its place)
+        root.querySelectorAll('.pd img').forEach(function (/** @type {any} */ img) {
+          img.onerror = function () { img.onerror = null; if (img.parentNode) img.parentNode.textContent = img.parentNode.getAttribute('data-ini'); };
+          if (img.complete && !img.naturalWidth) img.onerror(/** @type {any} */ (null));
+        });
+      });
+    }
     _render() {
       var h = this.client;
       if (!h) return;
+      if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; } else if (this._kitHtml && window.hkKit) window.hkKit.forget(this);
       this._watchBlock();
       var b = this._block(), ids = this._ids(), sz = this._cellSize();
       var esc = C.esc, self = this, html;
