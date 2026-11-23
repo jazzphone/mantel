@@ -116,6 +116,9 @@ function () {
     /deadline="338000" total="337"/.test(live));
   ok('...held: the elapsed is text, what is left a held countdown', /<span class="kl num e">2:08<\/span>/.test(held) && /hold="209" total="337"/.test(held));
   eq('the same state draws the same markup (a quiet update draws nothing again)', html('L', null, { live: true }), live);
+  // (a push that moves only the position -- the speaker says it every few seconds while a song plays -- must draw the block as it was: the cover
+  // and the countdowns stay the same elements; the countdown writes its own text the moment it connects)
+  eq('...and a push that moves only the position draws the same markup', html('L', null, { live: true, pos: 129 }), live);
 },
 function () {
   H.section('the plate\'s color: a deep tint of the cover\'s');

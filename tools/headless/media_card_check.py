@@ -4,15 +4,16 @@ includes the progress bar moving and updating the card"), against a real Mantel 
 For as long as it runs this script pushes the speaker's state, as Music Assistant does: its position, then now and again a
 new title; between pushes the card moves its own bar and time. In WebKit and Chromium, at three sizes:
 
-  flicker     the time and the progress bar are seen to move and the card to draw again, and through all of it the blurred
-              cover stays one element, untouched, on a layer of its own (will-change: the docked bar's only in WebKit)
-  wells       the Speakers and Browse glyphs' ink centered in their buttons at every size, nothing behind them (bare
-              since 2026-11-07; an inline icon sat on a line of text, up to 1.7 px low)
-  background  Blurred Album is the default; Background: Card is the plate and the inks of the Music block beside it, its
-              bar and time still moving, no cover decoded behind it -- on the house's look, and again on Flat Light
-  pane        (Living Room leading Kitchen) the Side Pane's volume sets both rooms and shows their level; the music
-              panel's Browse has each playlist's cover and its whole name, and its background is blurred, not a small
-              copy of the cover stretched
+  flicker     the time and the progress bar are seen to move and the card to draw again, and through all of it the cover stays one element,
+              untouched (a push that moves only the position builds nothing again; a new title is a new song and draws the block afresh);
+              the docked bar's blurred cover on a layer of its own (will-change: only in WebKit, where it flickered). Round 12: a Home Grid
+              block is the kit's -- the cover a picture on a button over the plate's own dark surface, no blurred copy behind it
+  keys        the Play / Pause, Next and Previous glyphs' ink centered in their keys at every size (an inline icon sat on a line of text, up to
+              1.7 px low)
+  background  the kit's block is the cover's own dark surface in every look -- no blurred cover decoded behind it, white words and glyphs even on
+              Flat Light, whatever its Background says (Card included; the option is still saved, and the docked bar keeps it)
+  pane        (Living Room leading Kitchen) the Side Pane's volume sets both rooms and shows their level; the sheet the cover opens has
+              Browse, Queue and Speakers, and Browse has each playlist's cover and its whole name
   editor      on a block with rules (and every card in the catalog as a rule): Settings For, opening on the card on screen,
               offers the options that card has as a block; what is set goes in the rule, the preview follows, Save is
               accepted by hk_core, and the screen draws it
