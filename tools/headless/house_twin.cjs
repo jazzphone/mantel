@@ -3,7 +3,14 @@ const pw = require(process.env.PLAYWRIGHT_PATH);
 const spec = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 (async () => {
   const browser = await pw[spec.engine].launch();
-  const ctx = await browser.newContext({ viewport: { width: spec.w, height: spec.h }, deviceScaleFactor: 2 });
+  const opts = { viewport: { width: spec.w, height: spec.h }, deviceScaleFactor: 2 };
+  if (spec.screen) opts.screen = { width: spec.screen[0], height: spec.screen[1] };
+  if (spec.mobile) {                        // Safari on an iPhone (a HomeView's Safari says the same): its user agent, touch
+    Object.assign(opts, { hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 ' +
+      '(KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1' });
+    opts.isMobile = true;                   // the meta viewport honored, as Safari does
+  }
+  const ctx = await browser.newContext(opts);
   await ctx.addCookies([{ name: 'mantel_session', value: spec.cookie, url: spec.origin }]);
   if (spec.init) await ctx.addInitScript(spec.init);      // the features the house has, stood in on the page (home_grid_audit.feed_script)
   const page = await ctx.newPage();

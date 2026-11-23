@@ -15,7 +15,7 @@ no tablet draws them. This draws HIS screens instead, without his browser, a sig
 
     python tools/headless/house_twin.py pull
     python tools/headless/house_twin.py render kitchen-homeview [--size 1280x800] [--engine webkit] [--shots DIR] [--path home]
-        [--set kitchen-homeview:b2.height=full]
+        [--set kitchen-homeview:b2.height=full] [--board new-screen=FILE.json] [--mobile] [--screen 544x544]
     python tools/headless/house_twin.py screens          # the house's screens, by name
     python tools/headless/house_twin.py render kitchen-homeview --busy --sheets   # a busy house; every block's sheet too
     python tools/headless/house_twin.py render "settings#/screens/kitchen-homeview" --path home-grid --size 1440x900   # the editor
@@ -187,6 +187,17 @@ def grid_entities(docs: list[dict], screen: str) -> list[str]:
     return out
 
 
+def with_boards(docs: list[dict], boards: list[str]) -> list[dict]:
+    """`--board KEY=FILE.json`: a screen's whole settings (a board's body, as screen_get answers it) for this render only --
+    a screen not on the house yet, or a screen as it would be."""
+    for spec in boards:
+        key, _, file = spec.partition("=")
+        body = json.loads(Path(file).expanduser().read_text())
+        docs[:] = [d for d in docs if not (d["scope"] == "board" and d["key"] == key)]
+        docs.append({"scope": "board", "key": key, "body": body})
+    return docs
+
+
 def with_opts(docs: list[dict], sets: list[str]) -> list[dict]:
     """`--set SCREEN:ITEM.KEY=JSON`: one block's option changed for this render only (what would it look like Full?)."""
     for spec in sets:
@@ -212,8 +223,10 @@ def with_opts(docs: list[dict], sets: list[str]) -> list[dict]:
 
 
 async def render(screens: list[str], size: tuple[int, int], engine: str, shots: Path, path: str, sets: list[str] = (),
-                 js: str = "", tag: str = "", sheets: bool = False, is_busy: bool = False) -> int:
+                 js: str = "", tag: str = "", sheets: bool = False, is_busy: bool = False, boards: list[str] = (),
+                 mobile: bool = False, screen: tuple[int, int] | None = None) -> int:
     docs, ha = load()
+    docs = with_boards(docs, list(boards))
     if is_busy:
         ha = busy(ha)
         tag = tag or "busy"
@@ -240,7 +253,8 @@ async def render(screens: list[str], size: tuple[int, int], engine: str, shots: 
             origin = str(server.make_url("")).rstrip("/")
             script = Path(__file__).with_suffix(".cjs")
             spec = {"origin": origin, "cookie": cookie, "screens": screens, "path": path, "w": size[0], "h": size[1],
-                    "engine": engine, "shots": str(shots), "js": js, "tag": tag,
+                    "engine": engine, "shots": str(shots), "js": js, "tag": tag, "mobile": mobile,
+                    "screen": list(screen) if screen else None,
                     "init": A.feed_script(),
                     "sheets": {s: grid_entities(docs, s) for s in screens} if sheets else {}}
             proc = await asyncio.create_subprocess_exec(os.environ.get("NODE", "node"), str(script),
@@ -267,6 +281,10 @@ def main(argv=None) -> int:
     r.add_argument("--sheets", action="store_true", help="also open the sheet of every entity the screen's Home Grid names, a shot each")
     r.add_argument("--set", action="append", default=[], metavar="SCREEN:ITEM.KEY=VALUE",
                    help="change one block's option for this render (kitchen-homeview:b2.height=full)")
+    r.add_argument("--board", action="append", default=[], metavar="KEY=FILE.json",
+                   help="a screen's whole settings for this render (a screen not on the house yet)")
+    r.add_argument("--mobile", action="store_true", help="as Safari on an iPhone (its user agent, touch, a mobile viewport)")
+    r.add_argument("--screen", default="", help="the device's screen, WxH, when it isn't the window (a HomeView's 544x544)")
     a = ap.parse_args(argv)
     if a.cmd == "pull":
         return cmd_pull()
@@ -277,7 +295,9 @@ def main(argv=None) -> int:
     w, h = (int(x) for x in a.size.split("x"))
     if a.insets:
         a.js = (Path(__file__).parent / "house_twin_insets.js").read_text()
-    return asyncio.run(render(a.screens, (w, h), a.engine, a.shots, a.path, a.set, a.js, a.tag, a.sheets, a.busy))
+    sw = tuple(int(x) for x in a.screen.split("x")) if a.screen else None
+    return asyncio.run(render(a.screens, (w, h), a.engine, a.shots, a.path, a.set, a.js, a.tag, a.sheets, a.busy, a.board,
+                              a.mobile, sw))
 
 
 if __name__ == "__main__":
