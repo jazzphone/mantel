@@ -57,6 +57,16 @@
   function st(client, id) { return (id && client && client.states && client.states[id]) || null; }
   /** @param {any} s */
   function on(s) { return !!s && !OFF[String(s.state)]; }
+  // A PLAYER ASLEEP BEHIND A TV THAT IS OFF (2026-11-23, the owner: "the Apple TV has been asleep. I just turned it on and turned it
+  // off again and it still shows on"): Home Assistant's Apple TV integration can hold "paused" for hours after the Apple TV sleeps,
+  // while the TV beside it says off. An Apple TV shows nothing with its TV off, so a set whose TV reports off -- off or standby, not
+  // unavailable or unknown, which say nothing -- counts its player asleep too. A player with no TV in its set keeps its own word.
+  /** @param {any} t @param {any} p @param {any} set */
+  function playerAwake(t, p, set) {
+    if (!on(p)) return false;
+    if (!set || !set.tv || !t) return true;
+    return on(t) || t.state === 'unavailable' || t.state === 'unknown';
+  }
   /** @param {any} s */
   function feat(s) { return Number((s && s.attributes && s.attributes.supported_features) || 0); }
   /** @param {any} client @param {string} id */
@@ -158,7 +168,7 @@
   /** @param {any} client @param {any} set */
   function look(client, set) {
     var t = st(client, set && set.tv), p = st(client, set && set.player), ta = (t && t.attributes) || {}, pa = (p && p.attributes) || {};
-    var tvOn = on(t), playerOn = on(p), source = tvOn ? ta.source || null : null;
+    var tvOn = on(t), playerOn = playerAwake(t, p, set), source = tvOn ? ta.source || null : null;
     // the TV shows the player when it's on the player's input; with that input not yet known (learned as the player wakes the TV, or
     // set in Accessories -> TVs), whenever the player is awake. An input's label is no guide: the Master Bedroom's Apple TV shows
     // through its soundbar's input (LG S95TR), not the one named Apple TV (tested on the house, 2026-11-10).
@@ -311,7 +321,8 @@
   /** @param {any} client @param {any} key */
   function isOn(client, key) {
     var set = setFor(client, key);
-    return !!set && (on(st(client, set.tv)) || on(st(client, set.player)));
+    var t = !!set && st(client, set.tv);
+    return !!set && (on(t) || playerAwake(t, st(client, set.player), set));
   }
   // a media player that belongs to a set (its TV or its player): its sheet is the TV sheet
   /** @param {any} client @param {string} id */

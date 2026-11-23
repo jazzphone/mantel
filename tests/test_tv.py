@@ -285,6 +285,11 @@ const states = {
   'remote.den_tv': { state: 'on', attributes: {} },
   'media_player.kitchen_homepod': { state: 'playing', attributes: { friendly_name: 'Kitchen HomePod', app_id: 'music_assistant', mass_player_type: 'player', source_list: ['Music Assistant Queue'] } },
   'media_player.guest_apple_tv': { state: 'off', attributes: { friendly_name: 'Guest Apple TV', source_list: [] } },
+  // (the family room: its TV off, its Apple TV still saying "paused" hours after it slept -- 2026-11-23 on the house; the loft: an Apple TV
+  // with no TV beside it)
+  'media_player.fam_tv': { state: 'off', attributes: { friendly_name: 'Family TV', device_class: 'tv' } },
+  'media_player.fam_apple_tv': { state: 'paused', attributes: { friendly_name: 'Family Apple TV', app_name: 'YouTube', media_title: 'An Episode', source_list: ['YouTube'] } },
+  'media_player.loft_apple_tv': { state: 'paused', attributes: { friendly_name: 'Loft Apple TV', app_name: 'YouTube', source_list: ['YouTube'] } },
   'sensor.hk_tv': { state: '2', attributes: { apps: [{ id: 'com.google.ios.youtubeunplugged', name: 'YouTube TV', count: 9, src: '/api/tv/icon/com.google.ios.youtubeunplugged', icon: true }],
                                                inputs: {}, guesses: { 'Coax': { id: 'com.guess.coax', src: '/api/tv/icon/com.guess.coax' },
                                                                       'YouTube TV': { id: 'wrong.guess', src: '/api/tv/icon/wrong.guess' },
@@ -294,9 +299,11 @@ const entities = {
   'media_player.bed_tv': { area_id: 'bed', platform: 'webostv', device_id: 't1' }, 'media_player.bed_apple_tv': { area_id: 'bed', platform: 'apple_tv', device_id: 'a1' },
   'remote.bed_apple_tv': { device_id: 'a1', platform: 'apple_tv' }, 'media_player.den_tv': { area_id: 'den', platform: 'roku', device_id: 'r1' },
   'remote.den_tv': { device_id: 'r1', platform: 'roku' }, 'media_player.den_apple_tv': { area_id: 'den', platform: 'apple_tv' },
-  'media_player.kitchen_homepod': { area_id: 'kitchen', platform: 'music_assistant' }, 'media_player.guest_apple_tv': { area_id: 'guest', platform: 'apple_tv' }
+  'media_player.kitchen_homepod': { area_id: 'kitchen', platform: 'music_assistant' }, 'media_player.guest_apple_tv': { area_id: 'guest', platform: 'apple_tv' },
+  'media_player.fam_tv': { area_id: 'fam', platform: 'webostv' }, 'media_player.fam_apple_tv': { area_id: 'fam', platform: 'apple_tv' },
+  'media_player.loft_apple_tv': { area_id: 'loft', platform: 'apple_tv' }
 };
-const client = { states, entities, devices: {}, areas: { bed: { name: 'Bedroom' }, den: { name: 'Den' }, guest: { name: 'Guest' } } };
+const client = { states, entities, devices: {}, areas: { bed: { name: 'Bedroom' }, den: { name: 'Den' }, guest: { name: 'Guest' }, fam: { name: 'Family' }, loft: { name: 'Loft' } } };
 window.hkHostClient = { current: () => client };
 const out = {};
 out.sets = T.sets(client).map((s) => [s.tv, s.player, s.remotes.player, s.remotes.tv, s.remotes.tvKind]);
@@ -311,6 +318,9 @@ out.apps = T.apps(client, bed, 'recent', 4).map((a) => [a.name, !!a.icon, a.now]
 out.all = T.allApps(client, bed).map((a) => [a.name, a.icon, a.glyph]);
 out.on = { bed: T.isOn(client, 'media_player.bed_tv'), den: T.isOn(client, 'den'), any: G.matches({ kind: 'tv_on' }, states),
            tablet: G.matches({ kind: 'tv_on', entity: 'tablet_room' }, states), denRule: G.matches({ kind: 'tv_on', entity: 'media_player.den_tv' }, states) };
+const famLk = T.look(client, T.setFor(client, 'fam'));
+out.asleep = { famOn: T.isOn(client, 'fam'), famLook: famLk.on, famTitle: famLk.title, famRule: G.matches({ kind: 'tv_on', entity: 'media_player.fam_tv' }, states),
+               loftOn: T.isOn(client, 'media_player.loft_apple_tv') };
 console.log(JSON.stringify(out));
 """
 
@@ -330,7 +340,9 @@ def js(tmp_path_factory):
 def test_each_room_pairs_its_tv_with_its_player_and_a_homepod_is_neither(js):
     assert js["sets"] == [["media_player.bed_tv", "media_player.bed_apple_tv", "remote.bed_apple_tv", None, "webostv"],
                           ["media_player.den_tv", "media_player.den_apple_tv", None, "remote.den_tv", "roku"],
-                          [None, "media_player.guest_apple_tv", None, None, ""]]
+                          ["media_player.fam_tv", "media_player.fam_apple_tv", None, None, "webostv"],
+                          [None, "media_player.guest_apple_tv", None, None, ""],
+                          [None, "media_player.loft_apple_tv", None, None, ""]]
 
 
 def test_what_is_on_and_where_the_arrows_go(js):
@@ -365,3 +377,8 @@ def test_an_app_nobody_opened_shows_its_guessed_icon_and_an_opened_apps_own_icon
 
 def test_a_tv_is_on_by_a_tv_its_room_or_any(js):
     assert js["on"] == {"bed": True, "den": False, "any": True, "tablet": False, "denRule": False}
+
+
+def test_an_apple_tv_still_saying_paused_behind_a_tv_that_is_off_is_asleep(js):
+    # (2026-11-23, the owner: "the Apple TV has been asleep ... it still shows on": the TV said off, Home Assistant's Apple TV paused)
+    assert js["asleep"] == {"famOn": False, "famLook": False, "famTitle": "Off", "famRule": False, "loftOn": True}
