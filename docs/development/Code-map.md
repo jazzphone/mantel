@@ -306,6 +306,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `early-cards.js` — the card list is asked for, and the cards' files start downloading, with the page.
   - `ha-elements.js` — the few Home Assistant elements HK's cards draw, as plain stand-ins.
   - `ha-frame.js` — a Mantel screen shown INSIDE Home Assistant, two ways
+  - `homeview.js` — An Apple HomeView's page, laid out wider and kept clear of Safari's buttons (2026-11-23).
   - `hub.js` — the page's connection to Mantel Server
   - `mantel-client.js` — Mantel's client port for compatibility snapshots made by mantel-host.js.
   - `mantel-host.js` — mantel-host.js (was hass-shim.js) -- a `hass`-shaped snapshot for HK's cards, built from Mantel Server instead of Home Assistant.

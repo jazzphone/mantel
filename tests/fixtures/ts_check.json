@@ -159,6 +159,7 @@
   "web/hk/weather/hk-weather-strip.js",
   "web/shim/boot-retry.js",
   "web/shim/early-cards.js",
+  "web/shim/homeview.js",
   "web/shim/mantel-client.js",
   "web/shim/mantel-photos.js",
   "web/shim/mantel-settings.js",
