@@ -472,6 +472,14 @@
         } else {
           o = [a0, a1].map(function (m2, i) {
             var x0 = i * (hw + 1), aw2 = 104, tc2 = toneOf(m2), lw2 = hw - aw2 - X - 14 - X, fl2 = L.facts(self.client, m2).filter(function (/** @type {any} */ r) { return r.b !== 'Progress'; });
+            // (a half's room is narrow: the cycle's settings lose their tails first, "Cold · Extra High · Normal", then the last ones, never a word cut short)
+            var rw2 = Math.floor((hw - 2 * X) / 9.6);
+            fl2 = fl2.map(function (/** @type {any} */ r) {
+              if (r.b !== 'Cycle' || r.t.length <= rw2) return r;
+              var parts = r.t.split(' \u00B7 ').map(function (/** @type {string} */ x) { return x.replace(/ (Spin|Soil|Dry)$/, ''); });
+              while (parts.length > 1 && parts.join(' \u00B7 ').length > rw2) parts.pop();
+              return Object.assign({}, r, { t: parts.join(' \u00B7 ') });
+            });
             var sy = 180, part = hit(x0, 0, hw, h, m2) + art(m2, x0 + hw - X - 6 - aw2, 16, aw2, 150, true, true) + K.tx(x0 + X, 18, lw2, 'kl', esc2(m2.name), 'pointer-events:none') +
               K.tx(x0 + X, 42, lw2, 'kd', esc2(m2.title), 'pointer-events:none' + (tc2 ? ';color:' + tc2 : '')) + K.tx(x0 + X, 72, lw2, 'kb', esc2(m2.sub), 'pointer-events:none') +
               (m2.endsWords ? K.tx(x0 + X, 94, lw2, 'kb', esc2(m2.endsWords), 'pointer-events:none;color:' + ink3) : '') + steps(x0 + X, sy, hw - 2 * X, m2, true);

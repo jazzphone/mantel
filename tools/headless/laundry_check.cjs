@@ -10,23 +10,32 @@ const HOUSE = input.two ? 'two' : 'one';
 
 const DEEP = `window.deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);`;
 
-// every Laundry block on the page: its size, its words, and anything drawn past its plate's inset or cut short
+// every Laundry block on the page: its size, its words, and anything drawn past its plate's inset or cut short. The block is the KIT's card
+// (hk-kit.js, round 12: one plate of absolutely placed parts): the drawing in an `.a` holding svg.hkla, the words `.kd` (the state in display
+// type, Extra Large), `.kt` (a name, or a reading's value), `.kb` (what it is doing, the time, a reading's name), `.kl` (a machine's name,
+// a step's name), a step a 6 px bar (an `.a` holding an `<i>` filled to how far it is), a reading a button.row followed by its value and
+// name, a key a button.key, a machine's half a button.hit
 function blocks() {
   const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
   return deep(document, 'hk-grid-laundry-card').map((c) => {
     const sr = c.shadowRoot, plate = sr.querySelector('hk-plate'), pb = box(plate), k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
-    const cs = getComputedStyle(plate), pad = ['Left', 'Top', 'Right', 'Bottom'].map((s) => parseFloat(cs['padding' + s]) || 0);
-    const parts = [...sr.querySelectorAll('.art, .ti, .hero, .sb, .fn, .lbl, .trk, .rows, .pill, .nm, .st, .pw, .set')].filter((e) => e.getClientRects().length);
-    // (the drawing's heat lines and badge may reach past its own box, never past the plate's edge)
+    const words = '.kd, .kt, .kb, .kl';
+    // (a key keeps 8 design px from the plate's edge; the words and the drawing 4: a short cell's tile centers its drawing and words 5 or 6 px
+    // from the edge, a line's box having leading around its ink; the drawing's heat lines and badge are inside its own box)
+    const parts = [...sr.querySelectorAll(words + ', .key, .a:has(svg.hkla), .a:has(> i)')].filter((e) => e.getClientRects().length);
     const past = parts.filter((e) => {
-      const b = box(e), slack = e.classList.contains('art') ? 4 : 1;
-      return b.l < pb.l + pad[0] * k - slack || b.t < pb.t + pad[1] * k - slack || b.r > pb.r - pad[2] * k + slack || b.b > pb.b - pad[3] * k + slack;
+      const b = box(e), inset = (e.matches('.key') ? 8 : 4) * k - 1;
+      return b.l < pb.l + inset || b.t < pb.t + inset || b.r > pb.r - inset || b.b > pb.b - inset;
     }).map((e) => { const b = box(e); return e.className + ' ' + [b.l - pb.l, b.t - pb.t, pb.r - b.r, pb.b - b.b].map(Math.round).join(','); });
-    const cut = [...sr.querySelectorAll('.ti, .hero, .sb, .nm, .st, .lbl, .rows b')].filter((e) => e.getClientRects().length && e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent);
+    const cut = [...sr.querySelectorAll(words)].filter((e) => e.getClientRects().length && e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent);
     const text = (s) => [...sr.querySelectorAll(s)].filter((e) => e.getClientRects().length).map((e) => e.textContent);
-    return { size: c.getAttribute('size'), past, cut, titles: text('.ti, .hero'), subs: text('.sb, .st'), names: text('.nm, .lbl'),
-             steps: text('.trk .n'), pills: text('.pill'), arts: sr.querySelectorAll('.art svg.hkla').length, halves: sr.querySelectorAll('.half').length,
-             power: text('.pw .ph b'), graph: sr.querySelectorAll('.pw svg path').length, setLine: text('.set'),
+    // the steps: each bar's fill, and the name under it (where it has room for one)
+    const bars = [...sr.querySelectorAll('.a:has(> i)')].map((e) => ({ fill: e.firstElementChild.style.width, name: ((e.nextElementSibling || {}).className || '').includes('kl') ? e.nextElementSibling.textContent : '' }));
+    // the readings under the steps: a row's value, then its name
+    const rows = [...sr.querySelectorAll('button.row')].map((e) => [(e.nextElementSibling || e).textContent, ((e.nextElementSibling || e).nextElementSibling || e).textContent]);
+    return { size: c.getAttribute('size'), past, cut, titles: text('.kd'), lines: text('.kb'), names: text('.kt, .kl, .kd'),
+             steps: bars.map((x) => x.name).filter(Boolean), fills: bars.map((x) => x.fill), pills: text('.key'), arts: sr.querySelectorAll('svg.hkla').length, drawn: [...sr.querySelectorAll('svg.hkla')].map((e) => (e.getAttribute('class').match(/s-(\w+)/) || [])[1]),
+             halves: sr.querySelectorAll('button.hit').length, rows,
              foot: Math.round(pb.b - Math.max(...parts.map((e) => box(e).b))) };
   });
 }
@@ -86,25 +95,34 @@ function gaps(tag) {
         const { ctx, page, errors, commands } = await open(screen, 'hk-grid-laundry-card');
         const got = await page.evaluate(blocks);
         await shot(page, `${engine}-${HOUSE}-${screen}`);
-        console.log(engine, HOUSE, screen, JSON.stringify(got.map((b) => [b.size, b.titles, b.subs, b.steps.length, b.pills, b.foot])));
+        console.log(engine, HOUSE, screen, JSON.stringify(got.map((b) => [b.size, b.titles, b.lines, b.fills.length, b.pills, b.foot])));
         check(`${engine} ${HOUSE} ${screen}: five blocks`, () => assert.equal(got.length, 5));
         for (const b of got) {
           const label = `${engine} ${HOUSE} ${screen} ${b.size}`;
           check(label + ': drawn inside its plate', () => assert(!b.past.length, JSON.stringify(b.past)));
           check(label + ': no words cut short', () => assert(!b.cut.length, JSON.stringify(b.cut)));
           if (!input.two) {
-            check(label + ': the washer-dryer, drying', () => assert(b.arts === 1 && (b.titles.includes('Drying') || b.size === 'S'), JSON.stringify(b)));
-            check(label + ': how long', () => assert(b.subs.some((s) => /^(1[89]|2[0-4]) min left( · Done at .+)?$/.test(s)), JSON.stringify(b.subs)));
-            if (b.size !== 'S') check(label + ': its four steps, Dry now', () => assert.deepEqual(b.steps, ['Wash', 'Rinse', 'Spin', 'Dry']));
+            // (one machine: the plate is the machine, drawn by what it does -- the drawing's own state class -- and named. Where a line has no room
+            // for "Drying · 24 min left" (Tall) the card says the short "24 min left", the drawing still drying)
+            check(label + ': the washer-dryer, drying', () => assert(b.arts === 1 && b.names.includes('Washer') && b.drawn[0] === 'drying', JSON.stringify(b)));
+            check(label + ': how long', () => assert(b.lines.some((s) => /(^|\u00B7 )(1[89]|2[0-4]) min left$/.test(s)), JSON.stringify(b.lines)));
+            // Wash, Rinse and Spin done whole, Dry half (the one it is in); a name under each bar where the block has room (Large and Extra Large)
+            if (b.size !== 'S') check(label + ': its four steps, Dry now', () => {
+              assert.deepEqual(b.fills, ['100%', '100%', '100%', '50%']);
+              if (b.size === 'L' || b.size === 'XL') assert.deepEqual(b.steps, ['Wash', 'Rinse', 'Spin', 'Dry']);
+            });
             check(label + ': no keys while remote control is off', () => assert.deepEqual(b.pills, []));
-            // (THIS LOAD'S POWER, 2026-11-10: Large and Extra Large -- the circuit's watts, and the load's graph in its steps' colors)
-            if (b.size === 'L' || b.size === 'XL') check(label + ': this load\'s power, its watts and its graph',
-              () => assert(b.power[0] === '1,840 W' && b.graph >= 4, JSON.stringify([b.power, b.graph])));
-            if (b.size === 'XL') check(label + ': the cycle\'s settings under the finish', () => assert.deepEqual(b.setLine, ['Cold \u00B7 Extra High Spin \u00B7 Normal Soil']));
+            // (THIS LOAD'S POWER, 2026-11-10, now a reading of the kit's Extra Large (hkLaundry.facts: "Cycle", then "Power"): the circuit's watts
+            // in a row where the block has the room for it -- the square cell's. The kit's card has no graph of the load's watts, and Large
+            // has no readings: its words, steps and keys only.)
+            if (b.size === 'XL') check(label + ': this load\'s power, its watts, and the cycle\'s settings under the finish', () => {
+              assert.deepEqual(b.rows[0], ['Cold \u00B7 Extra High Spin \u00B7 Normal Soil', 'Cycle']);
+              if (screen === 'la-square') assert.deepEqual(b.rows[1], ['1,840 W', 'Power']);
+            });
           } else if (b.size === 'S') {
-            check(label + ': the one done soonest, and +1', () => assert(b.arts === 1 && b.names.includes('Washer') && b.subs.some((s) => /^[3-7] min left$/.test(s)), JSON.stringify(b)));
+            check(label + ': the one done soonest, and +1', () => assert(b.arts === 1 && b.names.includes('Washer') && b.lines.some((s) => /(^|\u00B7 )[3-7] min left$/.test(s)), JSON.stringify(b)));
           } else {
-            check(label + ': both machines, each its own half', () => assert(b.arts === 2 && b.halves === 2, JSON.stringify(b)));
+            check(label + ': both machines, each its own half', () => assert(b.arts === 2 && b.halves === 2 && b.names.includes('Washer') && b.names.includes('Dryer'), JSON.stringify(b)));
           }
         }
         check(`${engine} ${HOUSE} ${screen}: no page errors`, () => assert(!errors.length, errors.join(' | ')));
@@ -121,7 +139,7 @@ function gaps(tag) {
         const at = await page.evaluate((two) => {
           const c = deep(document, 'hk-grid-laundry-card').find((x) => x.getAttribute('size') === (two ? 'L' : 'L'));
           c.scrollIntoView({ block: 'center' });
-          const el = two ? c.shadowRoot.querySelectorAll('.half')[1] : c.shadowRoot.querySelector('.ti, .hero');
+          const el = two ? c.shadowRoot.querySelectorAll('button.hit')[1] : c.shadowRoot.querySelector('.kt, .kl, .kd');
           const r = el.getBoundingClientRect();
           return [r.left + r.width / 2, r.top + r.height / 2];
         }, input.two);
