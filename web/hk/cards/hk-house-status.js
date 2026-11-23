@@ -470,13 +470,16 @@
       if (!K || !m) return false;
       if (this._watchBlock) this._watchBlock();
       var k = K.ctx(this), w = k.w, h = k.h, E = k.E, X = k.X, size = this._size(), RH = K.RH, narrow = w < 300, list = m.sections, o = '';
+      // (A READING'S WORDS CHANGE WITH A COUNTDOWN: the plate's and the rows' aria-labels ("Timers, 8:32 left") would make every draw a new html, and a
+      // new html is a new DOM -- the focus lost, the sheet's opener gone. So the labels are marked in the html and set on the elements after, in place)
+      var labs = { plate: '', hit: '', rows: /** @type {string[]} */ ([]) };
       var sum = summary(list, size), sec = sum.sec, need = sum.need, marks = [], dim = K.v('ink-3', 'rgba(255,255,255,.42)');
-      // (a countdown the row or the headline carries is the element's own, which ticks; the text is marked and swapped in below)
+      // (a countdown the row or the headline carries is the element's own, which ticks and draws its own text as it connects: the html says no text of it,
+      // so a tick is never a new html -- the draw keeps its DOM and the focus on it; `words2` is only what a reading with no countdown says)
       var mark = function (/** @type {any} */ r, /** @type {string} */ words2) {
         if (!(r && r.countdown)) return words2;
         var cd = r.countdown, at = '@@cd' + marks.length + '@@';
-        marks.push([at, '<hk-countdown style="font:inherit" ' + (cd.hold != null ? 'hold="' + Number(cd.hold) + '"' : 'deadline="' + Number(cd.deadline) + '"') + '>' + esc(words2) +
-          '</hk-countdown>']);
+        marks.push([at, '<hk-countdown style="font:inherit" ' + (cd.hold != null ? 'hold="' + Number(cd.hold) + '"' : 'deadline="' + Number(cd.deadline) + '"') + '></hk-countdown>']);
         return at;
       };
       var title = need ? (sec.reading && sec.reading.countdown ? mark(sec.reading, fmtSecs(secsOf(sec.reading.countdown))) : plain(sec.reading)) +
@@ -492,6 +495,9 @@
       if (size === 'S') {
         var sq = h >= 180;
         o = K.tile(k, need ? kglyph(K, sec, sq ? 66 : 50, tint, true) : K.glyph('mdi:check-circle', sq ? 66 : 50, tint, true), title, sub);
+        // (Small is one key, as it was before the kit: a button over the tile, so the keyboard reaches it and Enter opens the sheet; the focus comes back to it)
+        labs.hit = label + (need && sum.others ? ', ' + sum.others + ' more to check' : '') + '. Opens House Status';
+        o += '<button type="button" class="hit" data-notap data-all aria-label="@@hit@@" style="inset:0"></button>';
       } else if (!list.length) {
         o = K.head(k, { title: 'Nothing to Report', sub: 'No status chips on this screen', y: K.headY(h, 46) });
       } else if (!rest.length && size === 'W') {
@@ -503,7 +509,8 @@
           // (White glyphs, as Current's rows: white unless the section is urgent (Smoke & CO, a leak, the alarm going off); the owner, 2026-11-23:
           // "the glyphs should be white right?")
           var keep = k.white ? !!x.urgent : isOn;
-          var r = { lead: kglyph(K, x, 28, K.tone(k, col, keep), keep), t: x.name, quiet: !isOn, label: ariaOf(x), data: goes(x) ? { i: i } : null };
+          var r = { lead: kglyph(K, x, 28, K.tone(k, col, keep), keep), t: x.name, quiet: !isOn, label: '@@row@@', data: goes(x) ? { i: i } : null };
+          labs.rows.push(ariaOf(x));
           var rd = mark(x.reading, say);
           if (narrow) r.b = rd; else r.trail = rd;
           return r;
@@ -527,11 +534,19 @@
       }
       marks.forEach(function (mk) { o = o.split(mk[0]).join(mk[1]); });
       this._shown = list;
-      var ok = K.draw(this, K.plate(k, o, { label: label }), function (/** @type {any} */ root) {
+      labs.plate = label;
+      var ok = K.draw(this, K.plate(k, o, { label: '@@plate@@' }), function (/** @type {any} */ root) {
+        root.querySelectorAll('[data-all]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._open(); }); });
         root.querySelectorAll('[data-i]').forEach(function (/** @type {any} */ b) {
           b.addEventListener('click', function () { var s2 = (self._shown || [])[Number(b.getAttribute('data-i'))]; if (s2) go(self, s2, false); });
         });
       });
+      if (ok) {
+        var root = this._root, pl = root.querySelector('hk-plate.kit'), hit = root.querySelector('.hit');
+        if (pl) pl.setAttribute('aria-label', labs.plate);
+        if (hit) hit.setAttribute('aria-label', labs.hit);
+        root.querySelectorAll('.row').forEach(function (/** @type {any} */ b, /** @type {number} */ i) { if (labs.rows[i] != null) b.setAttribute('aria-label', labs.rows[i]); });
+      }
       bindGlyphs(this._root, this.client);
       return ok;
     }
