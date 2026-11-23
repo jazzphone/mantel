@@ -494,7 +494,10 @@
         // the rows: each a section, the first in the chips' order
         var rowOf = function (/** @type {any} */ x, /** @type {number} */ i) {
           var isOn = !!litOf(x), say = plain(x.reading), col = isOn ? litOf(x) : dim;
-          var r = { lead: kglyph(K, x, 28, K.tone(k, col, isOn), isOn), t: x.name, quiet: !isOn, label: ariaOf(x), data: goes(x) ? { i: i } : null };
+          // (White glyphs, as Current's rows: white unless the section is urgent (Smoke & CO, a leak, the alarm going off); the owner, 2026-11-23:
+          // "the glyphs should be white right?")
+          var keep = k.white ? !!x.urgent : isOn;
+          var r = { lead: kglyph(K, x, 28, K.tone(k, col, keep), keep), t: x.name, quiet: !isOn, label: ariaOf(x), data: goes(x) ? { i: i } : null };
           var rd = mark(x.reading, say);
           if (narrow) r.b = rd; else r.trail = rd;
           return r;

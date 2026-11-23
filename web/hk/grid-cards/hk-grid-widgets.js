@@ -678,7 +678,7 @@
             var per = Math.ceil(every.length / cols), cw = (w + (cols - 1) * X) / cols, inner2 = '';
             every.forEach(function (x, i) {
               var on = x.ids.length, say = on ? on + (x.kind.key === 'speakers' ? ' playing' : ' on') : x.kind.rest, c = Math.floor(i / per), j = i % per;
-              var r = { lead: K.glyph(x.kind.icon, 28, K.tone(k, on ? x.kind.color : dim, !!on), !!on), t: cap(x.kind.many), quiet: !on,
+              var r = { lead: K.glyph(x.kind.icon, 28, K.tone(k, on ? x.kind.color : dim, !!on && !k.white), !!on && !k.white), t: cap(x.kind.many), quiet: !on,
                 label: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : cap(x.kind.many) + ', ' + x.kind.rest.toLowerCase()),
                 data: { 'open-kind': x.kind.key } };
               if (narrow) r.b = say; else r.trail = say;

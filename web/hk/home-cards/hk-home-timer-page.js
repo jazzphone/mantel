@@ -581,7 +581,7 @@
         var len = (/** @type {number} */ m, /** @type {boolean} */ shortW) => shortW ? (m < 60 ? m + 'm' : m % 60 ? Math.floor(m / 60) + 'h' + (m % 60) : m / 60 + 'h') :
           m < 60 ? m + ' min' : m % 60 ? Math.floor(m / 60) + ' hr ' + (m % 60) + ' min' : m / 60 + ' hr';
         var ink3 = K.v('ink-3', 'rgba(255,255,255,.42)'), ink2 = K.v('ink-2', 'rgba(255,255,255,.7)');
-        var startKey = K.key(w - E - KH, E, KH, KH, { g: K.svg('plus', 34, O), label: 'Start a timer', data: { new: '1' } });
+        var startKey = K.key(w - E - KH, E, KH, KH, { g: K.svg('plus', 34, K.tone(k, O, false)), label: 'Start a timer', data: { new: '1' } });
         var stopG = (/** @type {number} */ px) => '<span class="g" style="width:' + px + 'px;height:' + px + 'px;color:' + RD + '"><svg viewBox="0 0 24 24" width="' + px + '" height="' + px +
           '" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.6"/></svg></span>';
         var state = (/** @type {any} */ t) => t.paused ? 'Paused' : 'Ends ' + new Date(t.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -625,18 +625,19 @@
             'px;--hkr-w:40px;--hkr-uw:34px;--hkr-gap:14px;--hkr-band-x:0px', '<span data-roller></span>');
         };
         var goKey = (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ ww) => K.key(x, y, ww, KH,
-          { g: K.svg('plus', 26, O), t: 'Start Timer', label: 'Start a timer with the wheels', data: { go: '1' } });
+          { g: K.svg('plus', 26, K.tone(k, O, false)), t: 'Start Timer', label: 'Start a timer with the wheels', data: { go: '1' } });
         var label = n ? 'Timers, ' + count(0) : 'Timers, none running';
         if (!n) {
           // NOTHING RUNNING: Start a Timer and today's quick lengths, as keys
-          if (size === 'S') o = K.tile(k, K.glyph('mdi:timer-plus-outline', sq ? 66 : 50, O, true), 'Start a Timer', 'None running') +
+          if (size === 'S') o = K.tile(k, K.glyph('mdi:timer-plus-outline', sq ? 66 : 50, K.tone(k, O, false), !k.white), 'Start a Timer', 'None running') +
             '<button type="button" class="hit" data-notap data-new="1" aria-label="Start a timer" style="inset:0"></button>';
           else if (size === 'W') o = K.tx(X, K.headY(FY, 46), w - X - E - KH - 8, 'kt', 'Timers') + K.tx(X, K.headY(FY, 46) + 24, w - X - E - KH - 8, 'kb', 'None running') + startKey +
             K.keyRow(E, FY, w - 2 * E, qkeys(4, (w - 2 * E - 3 * G) / 4));
           else if (size === 'T') {
             var st = h - E - 3 * KH - 2 * G;
             o = K.tx(X, 18, w - 2 * X, 'kt', 'Timers') + K.tx(X, 42, w - 2 * X, 'kb', 'None running') +
-              K.stack(k, K.chunk(qkeys(4, 0), 2).concat([[{ g: K.svg('plus', 26, O), t: w - 2 * E >= 160 ? 'Start a Timer' : 'New Timer', label: 'Start a timer', data: { new: '1' } }]]));
+              K.stack(k, K.chunk(qkeys(4, 0), 2).concat([[{ g: K.svg('plus', 26, K.tone(k, O, false)), t: w - 2 * E >= 160 ? 'Start a Timer' : 'New Timer', label: 'Start a timer',
+                data: { new: '1' } }]]));
             if (st > 130) o += K.box((w - 56) / 2, 74 + (st - 74 - 56) / 2, 56, 56, 'fc', '', K.glyph('mdi:timer-outline', 56, ink3));
           } else if (size === 'L') {
             var wy = 74, qrow = sq;
@@ -661,7 +662,7 @@
           var t2 = list[0], stY = h - E - 2 * KH - G, ws = sq, av = stY - 8 - 74, d2 = Math.max(56, Math.min(136, w - 2 * E - 14, av - 8 - 24 - (ws ? 24 : 0)));
           o = K.tx(X, 18, w - 2 * X, 'kt', 'Timers') + K.tx(X, 42, w - 2 * X, 'kb', esc(count(0))) +
             unit(t2, 0, 74 + (av - (d2 + 8 + 24 + (ws ? 24 : 0))) / 2, w, d2, ws) +
-            K.stack(k, [pairKeys(t2, w - 2 * E), [{ g: K.svg('plus', 26, O), t: w - 2 * E >= 160 ? 'Start a Timer' : 'New Timer', label: 'Start a timer', data: { new: '1' } }]]);
+            K.stack(k, [pairKeys(t2, w - 2 * E), [{ g: K.svg('plus', 26, K.tone(k, O, false)), t: w - 2 * E >= 160 ? 'Start a Timer' : 'New Timer', label: 'Start a timer', data: { new: '1' } }]]);
         } else {
           // Large two across, Extra Large three: the timers as columns of the one plate, a hairline between
           var cols = Math.min(size === 'XL' ? 3 : 2, n), cw = (w - 2 * E - (cols - 1) * E) / cols, av2 = FY - 8 - 74, d3 = Math.max(56, Math.min(150, cw - 24, av2 - 8 - 24 - 24));
