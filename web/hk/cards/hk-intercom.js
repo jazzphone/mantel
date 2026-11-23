@@ -1339,8 +1339,21 @@
 
       // THE TALK SIDE
       '.talk{display:flex;flex-direction:column;align-items:center;gap:' + SPC.piece + 'px;min-width:0}',
-      '.mic{display:flex;flex-direction:column;align-items:center;gap:14px}',
-      '.mic[hidden]{display:none}',
+      // THE STAGE KEEPS ONE HEIGHT WHATEVER THE MESSAGE IS DOING (2026-11-23, the owner: "Intercom detail sheet has a pre-rendered
+      // blur error under the Message/Live tabs ... it's because the card shifts after a message is played"). The talk side is
+      // centered on the rooms panel, so a state taller than the last (Play and Send Again after a send, the time left while
+      // recording) or shorter (the review, with no microphone) moved the Message / Live tabs, and the tabs are a glass plate:
+      // hk-glass hears a plate change size, not one that only moves, so its cut-out stayed where the tabs had been until the
+      // backstop (30 s) -- a band of frost under them. So each part has its place and keeps it:
+      //   row 1  the microphone, its word and its hint (the hint's line is held while it says nothing); the review's Send, Play,
+      //          Re-record and Cancel take this row too, over the microphone, which stays and is not drawn
+      //   row 2  the status line
+      //   row 3  what follows a send: Play and Send Again (the row is held while they are away)
+      '.stage{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(44px,auto);justify-items:center;',
+      '  row-gap:' + SPC.piece + 'px;width:100%;min-width:0}',
+      '.stage > *{grid-column:1}',
+      '.mic{grid-row:1;display:flex;flex-direction:column;align-items:center;gap:14px}',
+      '.mic[hidden]{display:flex;visibility:hidden}',
       '.mb{all:unset;box-sizing:border-box;position:relative;width:264px;height:264px;border-radius:50%;display:grid;place-items:center;',
       '  cursor:pointer;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;',
       '  --c:' + TALK.idle + ';background:color-mix(in srgb,var(--c) 16%,transparent);transition:background-color .2s ease}',
@@ -1364,21 +1377,20 @@
       '.mic[data-kind="off"] .mb{--c:rgba(255,255,255,0.22);cursor:default}',
       '.wd{font-size:38px;font-weight:600;letter-spacing:-1px;line-height:44px;text-align:center;font-variant-numeric:tabular-nums;color:' + v('ink') + '}',
       '.mt{font-size:15px;font-weight:500;color:' + v('ink-2') + ';min-height:20px;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}',
-      '.mt:empty{display:none}',
-      '.line{min-height:20px;max-width:100%;font-size:15px;font-weight:600;letter-spacing:-0.15px;line-height:20px;text-align:center;color:' + v('ink-2') + ';',
+      '.line{grid-row:2;min-height:20px;max-width:100%;font-size:15px;font-weight:600;letter-spacing:-0.15px;line-height:20px;text-align:center;color:' + v('ink-2') + ';',
       '  overflow-wrap:anywhere;transition:color .18s ease}',
       '.line[data-kind="pending"]{color:' + v('ink-3') + '}',
       '.line[data-kind="live"],.line[data-kind="sent"]{color:' + v('ink') + '}',
       '.line[data-kind="warn"]{color:' + v('warn') + '}',
       '.line[data-kind="failed"]{color:' + v('fail') + '}',
       // after a send, small and under the line: Play, Send Again (and Send Anyway); in a review, Send large and the rest
-      '.rv{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:100%;max-width:420px}',
+      '.rv{grid-row:3;align-self:start;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:100%;max-width:420px}',
       '.rv[hidden]{display:none}',
       '.rv button{all:unset;box-sizing:border-box;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;padding:0 18px;cursor:pointer;',
       '  font-size:15px;font-weight:600;letter-spacing:-0.2px;white-space:nowrap;color:' + v('ink') + ';background:' + v('key') + ';touch-action:manipulation;',
       '  -webkit-tap-highlight-color:transparent;transition:background-color .2s ease,transform .12s ease,opacity .2s ease}',
       '.rv button:active{transform:scale(0.96)}',
-      '.rv.review{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}',
+      '.rv.review{grid-row:1;align-self:center;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}',
       '.rv.review[hidden]{display:none}',
       '.rv button.go{grid-column:1 / -1;height:48px;border-radius:24px;background:' + C.SELECTED_BG + ';color:' + C.SELECTED_TEXT + ';font-size:17px}',
       '.rv button[aria-disabled="true"]{opacity:.4;cursor:default}',
@@ -1458,10 +1470,11 @@
       // button stays beside them; everything fits the sheet's height
       '@media ' + SHORT_SHEET + '{.mb{width:100px;height:100px}.mb .core{width:74px;height:74px}.mb .core svg{width:32px;height:32px}',
       '  .mb .trk,.mb .prg{stroke-width:10}',
-      '  .wd{font-size:22px;line-height:26px;letter-spacing:-0.4px}.mt{font-size:13px;line-height:17px;min-height:17px}.line{font-size:13px;line-height:17px;min-height:0}',
-      '  .line:empty{display:none}.talk{gap:8px}.mic{gap:4px}.rv{gap:6px}.rv button{padding:0 14px}',
-      // (after a send the button and "Sent to 2 rooms" say it: the word steps aside for Play and Send Again)
-      '  .talk:has(.rv:not([hidden])) .wd{display:none}',
+      '  .wd{font-size:22px;line-height:26px;letter-spacing:-0.4px}.mt{font-size:13px;line-height:17px;min-height:17px}.line{font-size:13px;line-height:17px;min-height:17px}',
+      '  .talk{gap:8px}.stage{row-gap:8px}.mic{gap:4px}.rv{gap:6px}.rv button{padding:0 14px}',
+      // (after a send the button and "Sent to 2 rooms" say it: the word steps aside for Play and Send Again, and keeps its line,
+      // so nothing moves)
+      '  .talk:has(.rv:not([hidden])) .wd{visibility:hidden}',
       '  .pick{padding:12px 14px;gap:10px;max-height:calc(100dvh - 128px);overflow-y:auto;overscroll-behavior:contain}',
       '  .chips{margin:0 -14px -6px;padding:0 14px 6px}',
       '  :host([cols]) .cols{grid-template-columns:200px minmax(0,1fr);gap:16px}.rooms{gap:6px}}',
@@ -1500,6 +1513,7 @@
             var width = body.clientWidth, shortNow = short && short.matches;
             self.toggleAttribute('cols', width >= (shortNow ? SHORT_COLS_W : COLS_W));
             self.toggleAttribute('narrow', !shortNow && width < NARROW_W);
+            self._glassMoved();
           });
         };
         if (short && short.addEventListener) short.addEventListener('change', layout);
@@ -1529,12 +1543,12 @@
         if (this._built) return;
         this._built = true;
         this._root.innerHTML =
-          '<div class="sh"><div class="cols"><div class="talk foot"><div class="seg" role="tablist" aria-label="Mode" hidden></div>' +
+          '<div class="sh"><div class="cols"><div class="talk foot"><div class="seg" role="tablist" aria-label="Mode" hidden></div><div class="stage">' +
           '<div class="mic" data-kind="idle"><button class="mb" type="button" aria-label="Record">' +
           '<svg class="ring" viewBox="0 0 236 236" aria-hidden="true"><circle class="trk" cx="118" cy="118" r="112"/>' +
           '<circle class="prg" cx="118" cy="118" r="112" pathLength="1" transform="rotate(-90 118 118)"/></svg>' +
           '<span class="core">' + svg('mic') + '</span></button><div class="wd"></div><div class="mt"></div></div>' +
-          '<div class="line" role="status" aria-live="polite"></div><div class="rv" hidden></div></div>' +
+          '<div class="line" role="status" aria-live="polite"></div><div class="rv" hidden></div></div></div>' +
           '<div class="pick"><div class="ph"><span class="lab">To</span><span class="cnt"></span>' +
           '<button class="clr" type="button">Clear All</button></div><div class="lnote" hidden></div>' +
           '<div class="sec gsec" hidden><div class="grid chips"></div></div>' +
@@ -1663,7 +1677,13 @@
                 return '<button type="button" data-act="' + a.id + '" class="' + (a.primary ? 'go' : '') + '" aria-disabled="' + (a.disabled ? 'true' : 'false') + '">' + esc(a.label) + '</button>';
               }).join('') : '';
         }
+        // What can still move the talk side's glass plate (the tabs): a line that wraps, Send Anyway making a second row of
+        // buttons. The stage holds its places, so most of a message's states move nothing; where one does, hk-glass is told.
+        var lKey = JSON.stringify([segKey, view.status.text, m.hidden, m.time !== '', aKey]);
+        if (lKey !== this._lKey) { this._lKey = lKey; this._glassMoved(); }
       }
+      // (a plate's move with no change of size is heard by no observer: hk-glass.js moved)
+      _glassMoved() { if (window.hkGlass && window.hkGlass.moved) window.hkGlass.moved(this); }
     }
     C.register('hk-intercom-sheet-card', HkIntercomSheet, 'HK Intercom Sheet', 'The Intercom’s sheet: rooms, the microphone, review and send.', null, function () { return {}; });
     if (C.unlisted) C.unlisted('hk-intercom-sheet-card');

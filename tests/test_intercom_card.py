@@ -285,3 +285,29 @@ def test_the_sheet_keeps_the_one_height_the_rooms_one_grid_and_the_layout_follow
     assert "hkAutoHeight" not in group, "a cards sheet keeps the one height"
     assert "box.className = cfg.fill ? 'cards fill' : 'cards';" in group
     assert "fill: opts.cards.fill" in (ROOT / "web/hk/cards/hk-detail.js").read_text()
+
+
+def test_the_talk_side_keeps_every_part_in_its_place_whatever_the_message_is_doing_and_tells_the_glass_if_one_moves():
+    """2026-11-23, the owner: "Intercom detail sheet has a pre-rendered blur error under the Message/Live tabs ... it's because the
+    card shifts after a message is played". The talk side is centered on the rooms panel, and the Message / Live tabs are a glass
+    plate: a state that was taller or shorter than the last one (Play and Send Again after a send, the time left while recording,
+    the review with no microphone) moved the tabs, and hk-glass hears a plate change size, not one that only moves -- its cut-out
+    stayed where the tabs had been, a band of frost. So the stage holds each part's place, and a change that can still move the
+    tabs (a line that wraps) tells hk-glass (hk-glass.js `moved`, tested in HK Frontend's test_glass_behaviour.js)."""
+    card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
+    # the microphone, the status line and the row after a send are one grid under the tabs, in rows that are always there
+    assert "'.stage{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(44px,auto)" in card
+    assert '<div class="seg" role="tablist" aria-label="Mode" hidden></div><div class="stage">' in card
+    # the row after a send is held while Play and Send Again are away (the grid's third row stays; the buttons' box is gone)
+    assert "'.rv{grid-row:3;align-self:start;" in card and "'.rv[hidden]{display:none}'" in card
+    # the review's buttons take the microphone's place over it; the microphone stays, not drawn (never display:none)
+    assert "'.mic[hidden]{display:flex;visibility:hidden}'" in card
+    assert "'.rv.review{grid-row:1;align-self:center;" in card and "'.stage > *{grid-column:1}'" in card
+    # the hint's line and the status line are held while they say nothing
+    assert "'.mt:empty{display:none}'" not in card and "'  .line:empty{display:none}" not in card
+    assert ".line{grid-row:2;min-height:20px;" in card
+    # the short screen's word steps aside for Play and Send Again by its look, not its place
+    assert "'  .talk:has(.rv:not([hidden])) .wd{visibility:hidden}'" in card
+    # and what can still move the tabs says so, each time the sheet draws something that could
+    assert "window.hkGlass.moved(this)" in card and "this._glassMoved()" in card
+    assert "var lKey = JSON.stringify([segKey, view.status.text, m.hidden, m.time !== '', aKey])" in card

@@ -344,6 +344,21 @@ var upG = G.stats().updates;
 resized(plain[3]);
 advance(50);
 ok('a card growing above a plate: measured again at once', G.stats().updates - upG === 1, G.stats().updates - upG);
+// A PLATE THAT ONLY MOVES (2026-11-23, the owner: the Intercom sheet's Message / Live tabs in Pre-rendered, "the card shifts
+// after a message is played"): a line came in above it, so it is the same size in the same card -- no observer hears that.
+// Its cut-out stayed where it had been until the 30 s backstop; the card says it moved (G.moved) and it is cut again at once.
+var mvY = 40, mvCard = add(V8.grid, card(function () { return { x: 20, y: mvY, w: 192, h: 44 }; })), mvPath = function () { return pathOfLayer(V8.v); };
+advance(300);
+var mvBefore = mvPath();
+mvY = 12; advance(300);
+ok('a plate that moves with no change of size is not heard: its cut-out stays put (why the card says so)', mvPath() === mvBefore, mvPath().slice(0, 40));
+var upM = G.stats().updates;
+G.moved(mvCard); advance(50);
+ok('...a card that says it moved is measured again on the next frame, once', G.stats().updates - upM === 1, G.stats().updates - upM);
+ok('...and the cut-out is where the plate is now', mvPath() !== mvBefore && mvPath().indexOf('M42,12') >= 0, mvPath().slice(0, 40));
+var upN = G.stats().updates;
+G.moved(null); G.moved({}); drop(mvCard); G.moved(mvCard); advance(50);
+ok('...a card that is not on the page, or none, costs nothing', G.stats().updates - upN <= 1, G.stats().updates - upN);
 // BEHIND THE PHOTO SCREENSAVER (an overlay: document.hidden stays false) the
 // backstop has nobody to measure for: it pauses, and resumes with the screen.
 var up0 = G.stats().updates;
