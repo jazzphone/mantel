@@ -58,6 +58,10 @@ const MEASURE = () => {
     chipHeights: [...new Set(q('.chips .pill').map((p) => Math.round(p.getBoundingClientRect().height)))],
     cols: new Set(q('.rooms .rm').map((p) => Math.round(p.getBoundingClientRect().left))).size,
     // a big empty area under the content (the lower of the talk side and the rooms)
+    // where the microphone sits in the talk side: the same in every state (a Message / Live tab above it is a glass plate, and hk-glass
+    // does not hear one that only moves -- 2026-11-23, the owner, "the card shifts after a message is played")
+    mbAt: Math.round(root.querySelector('.mb').getBoundingClientRect().top - root.querySelector('.talk').getBoundingClientRect().top),
+    talkH: Math.round(root.querySelector('.talk').getBoundingClientRect().height),
     slack: sh ? Math.round(sh.getBoundingClientRect().bottom - Math.max(root.querySelector('.talk').getBoundingClientRect().bottom, root.querySelector('.pick').getBoundingClientRect().bottom)) : null,
     // the talk side and the rooms: beside each other, or one over the other
     // a room's name too long for its pill ends in "…", never cut off (2026-11-07)
@@ -205,6 +209,11 @@ const MEASURE = () => {
           'the room rows, picked ones marked; a group leader says who it plays with; quiet hours says so', m.pills);
         if (m.touchAction !== 'none') fail(name, 'touch-action:none on the microphone', m.touchAction);
         if (m.line !== 'Living Room, Kitchen') fail(name, 'the status line names the rooms', m.line);
+        const still = { mbAt: m.mbAt, talkH: m.talkH };
+        const stays = (when, got) => {
+          if (Math.abs(got.mbAt - still.mbAt) > 1 || Math.abs(got.talkH - still.talkH) > 1)
+            fail(name, 'the talk side keeps its place and height ' + when, [still, { mbAt: got.mbAt, talkH: got.talkH }]);
+        };
         await shot('picker');
         out(`ok ${name} sheet opened and picker (${m.sheet.join('x')})`);
 
@@ -238,6 +247,7 @@ const MEASURE = () => {
         m = await page.evaluate(MEASURE);
         if (!/^Tap to send · 0:\d\d left$/.test(m.time || '')) fail(name, 'the time left is counted', m.time);
         if (!/^0:\d\d$/.test(m.word || '')) fail(name, 'the big word is the time recorded', m.word);
+        stays('while recording', m);
         await shot('sheet-message');
         await page.evaluate(() => __intercomFake.mic().speak(7));
         await sheetTap('.mb');
@@ -245,6 +255,7 @@ const MEASURE = () => {
         m = await page.evaluate(MEASURE);
         if (m.micHidden || m.word !== 'Tap to Talk') fail(name, 'after a send: straight back to Tap to Talk', [m.micHidden, m.word]);
         if (m.buttons.join() !== 'Play,Send Again') fail(name, 'after a send: Play and Send Again under it', m.buttons);
+        stays('after a send', m);
         if (m.cut.length) fail(name, 'after a send: nothing on the talk side cut off', m.cut);
         if (m.small.length) fail(name, 'every button at least 44', m.small);
         await shot('sheet-sent');
@@ -267,6 +278,7 @@ const MEASURE = () => {
         await page.waitForFunction(() => deep(document, 'hk-intercom-sheet-card')[0].shadowRoot.querySelectorAll('.rv button').length > 0, null, { timeout: 5000 });
         m = await page.evaluate(MEASURE);
         if (m.buttons.join() !== 'Send,Play,Re-record,Cancel' || !m.micHidden) fail(name, 'with no room picked: the review', [m.buttons, m.micHidden]);
+        stays('in the review', m);
         await shot('sheet-review');
         await sheetTap('.rv button', 2);                                    // Re-record
         await micIs('rec');

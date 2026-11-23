@@ -1909,6 +1909,15 @@
       dirty.add(card);
       schedule(false);
     },
+    // A CARD'S PLATES MAY HAVE MOVED WITHOUT CHANGING SIZE: something above or beside them in the card came, went or grew
+    // (a status line, a row of buttons), and no observer hears a move -- the plate's own box and the card's are the same size,
+    // so the cut-out waited for the backstop and a band of frost stayed where the plate had been (2026-11-23, the owner: the
+    // Intercom sheet under its Message / Live tabs, in Pre-rendered). The card says so after the draw that did it, and every
+    // plate is measured again on the next frame (nothing is collected again).
+    moved: function (card) {
+      if (!active || !CARDS || !card || !card.isConnected || !cards.has(card)) return;
+      schedule(false);
+    },
     stats: function () {
       var live = 0, pictured = 0;
       eachLayer(function (L) { if (L._hkPre) pictured++; else live++; });
