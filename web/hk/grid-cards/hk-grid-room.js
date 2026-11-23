@@ -8,10 +8,10 @@
 (function () {
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-room'] = function (K) {
-    var areaOf = K.areaOf, C = K.C, COLS = K.COLS, dimCall = K.dimCall, dims = K.dims, dom = K.dom,
+    var areaOf = K.areaOf, attr = K.attr, C = K.C, COLS = K.COLS, dimCall = K.dimCall, dims = K.dims, dom = K.dom,
         dragged = K.dragged, friendly = K.friendly, GAP = K.GAP, HkBase = /** @type {HkLooseElementConstructor} */ (K.HkBase), HOLD_MS = K.HOLD_MS,
         layout = K.layout, percent = K.percent, pill = K.pill, roomLine = K.roomLine,
-        roomOf = K.roomOf, roomParts = K.roomParts, sceneSays = K.sceneSays, sizeOf = K.sizeOf, SLOP = K.SLOP,
+        roomHumidity = K.roomHumidity, roomOf = K.roomOf, roomParts = K.roomParts, roomTemp = K.roomTemp, sceneSays = K.sceneSays, sizeOf = K.sizeOf, SLOP = K.SLOP,
         speakerOf = K.speakerOf, TABLET_ROOM = K.TABLET_ROOM, twoOf = K.twoOf, type = K.type, v = K.v;
 
     // ===================================================== hk-grid-room-card
@@ -111,6 +111,104 @@
       C.centredTile({ host: ':host([tile=centred])', plate: '.room[size=S].rt', lit: '.room[size=S].rt.lit', well: '.rs .well', icon: '.rs .icon', name: '.rs .name', sub: ['.rs .state'] })
     ].join('');
 
+    // ===================================================== ROUND 12: the room's picture (2026-11-23)
+    // The owner: "the larger cards just look like something we could create on our own with the accessory card". From Wide up the Room card
+    // is the room's own picture -- the Home Assistant area's, else an illustrated interior -- dimmed at the top and the foot, its name and
+    // readings on it, what is on as small chips, and the room's scenes as glass keys; Extra Large adds the main accessories down the right.
+    var INTERIORS = { living: ['#c8a27a', '#e9d3b6', '#8a6a4c', '#3d3027'], kitchen: ['#b9c4c8', '#eef0ec', '#9a8f80', '#4a4038'],
+                      bedroom: ['#9aa6c4', '#d8dcea', '#7a6e86', '#35303e'], other: ['#a9b8b0', '#e4e9e2', '#8c8575', '#40382f'] };
+    // which interior a room gets, by its name and its icon
+    function interiorOf(name, icon) {
+      var t = (String(name || '') + ' ' + String(icon || '')).toLowerCase();
+      if (/bath|toilet|shower|laundry|garage|closet/.test(t)) return 'other';
+      if (/kitchen|silverware|stove|pot-steam|dining|food/.test(t)) return 'kitchen';
+      if (/bed|sleep|nursery|guest/.test(t)) return 'bedroom';
+      if (/living|sofa|family|great|lounge|den\b|loft|office|study|tv/.test(t)) return 'living';
+      return 'other';
+    }
+    var WINDOW =
+      '<rect x="118" y="34" width="54" height="78" rx="3" fill="#fffaeb" fill-opacity="0.8"/><path d="M118 34h54v78h-54z" fill="none" stroke="#6e5a46" stroke-opacity="0.5" stroke-width="2"/>' +
+      '<path d="M145 34v78M118 73h54" stroke="#6e5a46" stroke-opacity="0.45" stroke-width="2"/>';
+    var LAMP =
+      '<ellipse cx="62" cy="64" rx="18" ry="6" fill="#ffecbe" fill-opacity="0.9"/><path d="M62 58v-30" stroke="#3c3228" stroke-opacity="0.6" stroke-width="1.5"/><circle cx="62" cy="68" r="34" ' +
+      'fill="#ffdc96" fill-opacity="0.22"/>';
+    var SHAPES = {
+      living: WINDOW + LAMP +
+        '<rect x="18" y="104" width="96" height="30" rx="10" fill="#463a30" fill-opacity="0.92"/><rect x="24" y="92" width="84" height="20" rx="8" fill="#605042" fill-opacity="0.95"/>' +
+        '<rect x="128" y="118" width="40" height="18" rx="4" fill="#503c2c" fill-opacity="0.9"/>',
+      kitchen: WINDOW + '<rect x="6" y="22" width="30" height="42" rx="3" fill="#786450" fill-opacity="0.6"/><rect x="40" y="22" width="30" height="42" rx="3" fill="#786450" fill-opacity="0.6"/>' +
+        '<rect x="74" y="22" width="30" height="42" rx="3" fill="#786450" fill-opacity="0.6"/><rect x="0" y="112" width="200" height="8" fill="#463a30" fill-opacity="0.5"/>' +
+        '<rect x="0" y="120" width="200" height="44" fill="#6e5c4a" fill-opacity="0.85"/><path d="M50 120v44M100 120v44M150 120v44" stroke="#3c3028" stroke-opacity="0.5" stroke-width="1.5"/>' +
+        '<path d="M60 0v52M112 0v44" stroke="#3c3228" stroke-opacity="0.6" stroke-width="1.5"/><path d="M48 52a12 12 0 0 1 24 0zM100 44a12 12 0 0 1 24 0z" fill="#ffe8b0" fill-opacity="0.95"/>' +
+        '<circle cx="60" cy="58" r="30" fill="#ffdc96" fill-opacity="0.2"/><circle cx="112" cy="50" r="28" fill="#ffdc96" fill-opacity="0.2"/>',
+      bedroom: '<rect x="128" y="30" width="48" height="76" rx="3" fill="#fffaeb" fill-opacity="0.78"/><rect x="120" y="26" width="14" height="86" fill="#6e6082" fill-opacity="0.8"/>' +
+        '<rect x="170" y="26" width="14" height="86" fill="#6e6082" fill-opacity="0.8"/><rect x="20" y="62" width="104" height="38" rx="5" fill="#584660" fill-opacity="0.95"/>' +
+        '<rect x="14" y="98" width="116" height="34" rx="8" fill="#c4cae2" fill-opacity="0.96"/><rect x="26" y="88" width="40" height="16" rx="7" fill="#f2f2fa" fill-opacity="0.96"/>' +
+        '<rect x="72" y="88" width="40" height="16" rx="7" fill="#f2f2fa" fill-opacity="0.96"/><rect x="138" y="106" width="36" height="28" rx="3" fill="#503e36" fill-opacity="0.95"/>' +
+        '<ellipse cx="156" cy="100" rx="11" ry="6" fill="#ffecbe" fill-opacity="0.95"/><circle cx="156" cy="102" r="26" fill="#ffdc96" fill-opacity="0.22"/>',
+      other: WINDOW + '<rect x="20" y="70" width="76" height="5" rx="2" fill="#5a483a" fill-opacity="0.7"/><rect x="30" y="104" width="30" height="28" rx="4" fill="#78503c" fill-opacity="0.95"/>' +
+        '<ellipse cx="45" cy="92" rx="22" ry="14" fill="#4c7854" fill-opacity="0.95"/><ellipse cx="36" cy="84" rx="12" ry="16" fill="#5c8c62" fill-opacity="0.95"/><ellipse cx="56" cy="82" rx="11" ' +
+          'ry="17" fill="#466e4e" fill-opacity="0.95"/>' +
+        '<path d="M140 124V90" stroke="#3c3228" stroke-opacity="0.7" stroke-width="2"/><ellipse cx="140" cy="86" rx="14" ry="7" fill="#ffecbe" fill-opacity="0.9"/>'
+    };
+    // an illustrated interior filling w x h (cropped to fit, as a photograph is): the walls and floor in a gradient, the room's things over it
+    function interiorHtml(kind, w, h) {
+      var c = INTERIORS[kind] || INTERIORS.other;
+      return '<div style="position:absolute;inset:0;background:linear-gradient(180deg,' + c[1] + ' 0%,' + c[0] + ' 62%,' + c[2] + ' 63%,' + c[3] + ' 100%)"></div>' +
+        '<svg width="' + w + '" height="' + h + '" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" style="position:absolute;left:0;top:0;display:block" aria-hidden="true">' +
+        (SHAPES[kind] || SHAPES.other) + '<path d="M0 146 H200 V200 H0Z" fill="#000000" fill-opacity="0.08"/></svg>';
+    }
+    // THE ROOM'S PICTURE ADDRESS: the area's own, from Home Assistant's area registry (`picture`), when it is a path Home Assistant serves
+    function areaPicture(area) {
+      var u = area && area.picture;
+      return typeof u === 'string' && /^\/(api\/image\/serve|local)\//.test(u) && u.length < 2048 ? u : '';
+    }
+    // THE KEYS' WORDS FOR A THING: its name without the room's ("Ceiling Light"), and what it is doing
+    function accSay(client, id) {
+      var st = (client.states || {})[id], on = !!st && st.state === 'on', d = dom(id);
+      if (d === 'media_player') return st && st.state === 'playing' ? 'Playing' : st && !OFFISH[st.state] ? 'On' : 'Off';
+      if (d === 'light' && on && dims(id, st)) return percent(st) + '%';
+      return on ? 'On' : 'Off';
+    }
+    var OFFISH = { off: 1, unavailable: 1, unknown: 1, standby: 1 };
+    var SHADES = { shade: 1, blind: 1, curtain: 1, shutter: 1, awning: 1 };
+    // WHAT IS ON IN THE ROOM, as chips: {k, t (words), e (the entity its sheet opens), g (glyph)}; the lights, a TV, shades open, music
+    function roomChips(client, parts) {
+      var st = client.states || {}, all = parts.all || [], out = [];
+      var lit = all.filter(function (c) { return dom(c.entity) === 'light' && st[c.entity] && st[c.entity].state === 'on'; });
+      if (lit.length) out.push({ k: 'lights', t: lit.length + (lit.length === 1 ? ' Light' : ' Lights'), e: lit[0].entity, g: 'hk:lightbulb', c: '#ffcc00' });
+      var tv = all.filter(function (c) {
+        var s = st[c.entity], dc = attr(s, 'device_class');
+        return dom(c.entity) === 'media_player' && (dc === 'tv' || dc === 'receiver') && s && !OFFISH[s.state];
+      })[0];
+      if (tv) out.push({ k: 'tv', t: 'TV On', e: tv.entity, g: 'hk:television' });
+      var open = all.filter(function (c) {
+        var s = st[c.entity], dc = attr(s, 'device_class');
+        return dom(c.entity) === 'cover' && (!dc || SHADES[dc]) && s && (s.state === 'open' || s.state === 'opening');
+      });
+      if (open.length) out.push({ k: 'shades', t: open.length === 1 ? 'Shade Open' : 'Shades Open', e: open[0].entity, g: 'hk:roller-shade' });
+      var spk = (parts.speakers || []).filter(function (c) { return st[c.entity] && st[c.entity].state === 'playing'; })[0];
+      if (spk) out.push({ k: 'music', t: 'Playing', e: spk.entity, g: 'hk:music' });
+      return out;
+    }
+    // THE MAIN ACCESSORIES, for Extra Large's keys: the lights (those on first), a fan, then a TV or speaker -- {e, name, say, on, g}
+    function roomAccs(client, parts, roomName, n) {
+      var st = client.states || {}, all = parts.all || [], short = window.hkStrategy && window.hkStrategy.shortName;
+      var pick = function (list) {
+        return list.map(function (c) { return c.entity; }).filter(function (id, i, a) { return a.indexOf(id) === i && st[id]; });
+      };
+      var isOn = function (id) { return !!st[id] && st[id].state === 'on'; };
+      var lights = pick(all.filter(function (c) { return dom(c.entity) === 'light'; })).sort(function (x, y) { return (isOn(y) ? 1 : 0) - (isOn(x) ? 1 : 0); });
+      var fans = pick(all.filter(function (c) { return dom(c.entity) === 'fan'; }));
+      var media = pick(all.filter(function (c) { return dom(c.entity) === 'media_player'; }));
+      return lights.slice(0, Math.max(1, n - (fans.length ? 1 : 0) - (media.length ? 1 : 0))).concat(fans.slice(0, 1), media.slice(0, 1)).slice(0, n).map(function (id) {
+        var full = friendly(client, id), d = dom(id);
+        return { e: id, name: short && roomName ? short(full, roomName) : full, say: accSay(client, id),
+                 on: d === 'media_player' ? !!st[id] && !OFFISH[st[id].state] : isOn(id), g: d === 'fan' ? 'hk:fan' : d === 'media_player' ? 'hk:television' : 'hk:lightbulb' };
+      });
+    }
+    K.interiorOf = interiorOf; K.roomChips = roomChips; K.roomAccs = roomAccs; K.areaPicture = areaPicture;
+
     class HkGridRoomCard extends HkBase {
       static get CSS() { return ROOM_CSS; }
       setConfig(config) { super.setConfig(Object.assign({ area: TABLET_ROOM }, config || {})); }
@@ -189,8 +287,110 @@
       _sigOf() {
         var p = this._plan();
         this._p = p;
+        // (the picture card's own parts -- its chips, scenes, keys -- read when told, so the screen keeps those states)
+        this._kd = this._kitOn(p) ? this._kitData(p) : null;
         return JSON.stringify([p.area, p.size, p.name, p.status, p.icon, p.more, p.hmore, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
-                               p.geom, this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile')]);
+                               p.geom, this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile'), this._kd]);
+      }
+      // THE PICTURE CARD: a Room (not an Accessory Group) from Wide up
+      _kitOn(p) { return !!(window.hkKit && window.hkKit.on(this) && p.area && p.size !== 'S' && this.client && this.client.states); }
+      // what the picture card shows, in plain data (its signature, and its drawing's)
+      _kitData(p) {
+        var h = this.client, area = p.area, parts = roomParts(h, area), a = (h.areas || {})[area] || {}, st = h.states || {}, S = window.hkChip && window.hkChip.scenes;
+        var t = roomTemp(h, parts), hum = roomHumidity(h, area, parts), name = p.name || a.name || area, self = this;
+        var scenes = (parts.scenes || []).map(function (id) {
+          var pill = S && S.pill ? S.pill(h, id) : null;
+          return { id: id, name: (pill && pill.name) || friendly(h, id), icon: (pill && pill.icon) || 'hk:palette', color: pill && pill.icon_color && pill.icon_color !== 'white' ? pill.icon_color :
+            '',
+                   on: (st[id] && st[id].state === 'on') || self._lit === id };
+        });
+        var lights = (parts.all || []).filter(function (c) { return dom(c.entity) === 'light'; }).map(function (c) { return c.entity; });
+        return { name: name, line: [t === null ? '' : Math.round(t) + '°', hum === null ? '' : hum + '% humidity'].filter(Boolean).join(' · '), chips: roomChips(h, parts), scenes: scenes,
+                 accs: roomAccs(h, parts, name, 6), pic: areaPicture(a), kind: interiorOf(name, a.icon), lights: lights.length,
+                 lightsOn: lights.filter(function (id) { return st[id] && st[id].state === 'on'; }) };
+      }
+      _runScene(id) {
+        var tap = window.hkCards.sceneTap(id), self = this, svc = tap && tap.perform_action ? String(tap.perform_action).split('.') : null;
+        if (svc) this._call(svc[0], svc[1], { entity_id: id });
+        else if (window.hkShell && window.hkShell.moreInfo) window.hkShell.moreInfo(id, this);
+        // (the key it ran is white a moment, as a tapped scene's tile is)
+        this._lit = id;
+        this.redraw();
+        clearTimeout(this._litT);
+        this._litT = setTimeout(function () { self._lit = null; if (self.isConnected) self.redraw(); }, 4000);
+      }
+      // THE KIT'S CARD (hk-kit.js, docs/phase34/PLAN.md), Wide and up: false for Small and for an Accessory Group (the older drawing)
+      _renderKit(p) {
+        var K2 = window.hkKit;
+        if (!this._kitOn(p)) return false;
+        var kd = this._kd || this._kitData(p), self = this;
+        if (this._watchBlock) this._watchBlock();
+        var k = K2.ctx(this), w = k.w, hh = k.h, E = k.E, X = k.X, KH = K2.KH, G = K2.G, size = p.size, esc2 = K2.esc, xl = size === 'XL' || size === 'XXL', o = '';
+        // the picture: the area's own over the illustration (it leaves the page if it will not load), dimmed at the top and the foot
+        o += K2.box(0, 0, w, hh, '', 'overflow:hidden', interiorHtml(kd.kind, w, hh) + (kd.pic ? '<img class="rp" alt="" draggable="false" src="' + esc2(kd.pic) +
+          '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">' : '')) +
+          K2.box(0, 0, w, hh, 'pho', 'background:linear-gradient(180deg,rgba(0,0,0,.42) 0%,rgba(0,0,0,0) 40%,rgba(0,0,0,0) 55%,rgba(0,0,0,.45) 100%)');
+        o += K2.tx(X, 16, w - 2 * X, 'kd', esc2(kd.name)) + (kd.line ? K2.tx(X, 46, w - 2 * X, 'kb', esc2(kd.line)) : '');
+        // the keys: the scenes (the chosen one white), else one to turn the lights off or on
+        var keyW = 120, n = size === 'W' ? 3 : size === 'T' ? 2 : size === 'L' ? 3 : Math.max(3, Math.floor((w - 2 * E + G) / (keyW + G)));
+        var keys = kd.scenes.slice(0, n).map(function (sc) {
+          return { g: K2.glyph(sc.icon, 22, sc.on ? '#1c1c1e' : (sc.color || '#fff'), true), t: sc.name, on: sc.on, label: sc.name, data: { sc: sc.id } };
+        });
+        if (!keys.length && kd.lights) {
+          var allOff = !kd.lightsOn.length;
+          keys = [{ g: K2.glyph('hk:lightbulb', 22, '#ffcc00', true), t: allOff ? 'Lights On' : 'Lights Off', label: allOff ? 'Turn the lights on' : 'Turn the lights off',
+            data: { lt: allOff ? 'on' : 'off' } }];
+        }
+        var foot = hh - E - KH, top = foot;
+        if (size === 'T') { o += K2.stack(k, keys.map(function (x) { return [x]; })); top = hh - E - keys.length * KH - Math.max(0, keys.length - 1) * G; }
+        else if (keys.length) o += K2.foot(k, keys);
+        // the chips: what is on (not on Wide: its picture has the room for the words and the keys only)
+        var chips = size === 'W' ? [] : kd.chips.slice(0, size === 'T' ? 2 : 4);
+        if (chips.length) {
+          o += '<div class="a" style="' + K2.st(X, 80, w - 2 * X - (xl ? 232 : 0), 70) + 'display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start">' + chips.map(function (c) {
+            return '<button type="button" class="rc" data-notap data-e="' + esc2(c.e) + '" aria-label="' + esc2(c.t + ', open') + '">' + K2.glyph(c.g, 16, c.c || '#fff', true) + esc2(c.t) +
+              '</button>';
+          }).join('') + '</div>';
+        }
+        // Extra Large: the main accessories down the right, white when on
+        if (xl) {
+          var ax = w - E - 220, ay = 100, rows = Math.max(0, Math.floor((foot - G - ay + G) / (KH + G))), cols = w >= 900 ? 2 : 1, cap = Math.min(kd.accs.length, rows * cols);
+          if (cols === 2) ax = w - E - 2 * 220 - G;
+          kd.accs.slice(0, cap).forEach(function (a, i) {
+            o += K2.key(ax + (i % cols) * (220 + G), ay + Math.floor(i / cols) * (KH + G), 220, KH, { on: a.on, label: a.name + ', ' + a.say, data: { e: a.e },
+              g: K2.glyph(a.g, 24, a.on ? '#ffb800' : '#fff', true) + '<span class="hb"><b>' + esc2(a.name) + '</b><i>' + esc2(a.say) + '</i></span>' });
+          });
+        }
+        var css = '<style>.kit.room{color:#fff;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.82);--hk-ink-3:rgba(255,255,255,.6);--hk-glow:none;text-shadow:none}' +
+          '.kit.room .kd,.kit.room .kb{text-shadow:0 1px 4px rgba(0,0,0,.45)}' +
+          // (glass keys: a translucent white, never a blur of their own; the chosen one white with its glyph and words near-black)
+          '.kit.room .key{background:rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.25);justify-content:flex-start;padding:0 14px;text-shadow:none}' +
+          '.kit.room .key:active{background:rgba(255,255,255,.34)}.kit.room .key.on,.kit.room.light .key.on{background:#fff;color:#1c1c1e}' +
+          '.kit.room .key .kt{flex:0 1 auto;min-width:0}.kit.room .key.on .hb i{color:rgba(0,0,0,.55)}' +
+          '.kit.room .hb{display:flex;flex-direction:column;min-width:0;text-align:left}' +
+          '.kit.room .hb b{font-weight:600;font-size:17px;letter-spacing:-.3px;line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+          '.kit.room .hb i{font-style:normal;font-weight:400;font-size:15px;line-height:20px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+          '.kit.room .rc{all:unset;position:relative;box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;' +
+          'background:rgba(0,0,0,.34);color:#fff;font-size:15px;font-weight:600;white-space:nowrap;cursor:pointer}.kit.room .rc::after{content:"";position:absolute;inset:-7px -2px}' +
+          '.kit.room .rc:focus-visible{outline:2px solid rgba(255,255,255,.8)}</style>';
+        return K2.draw(this, K2.plate(k, css + o, { label: kd.name, cls: 'room' }), function (/** @type {any} */ root) {
+          root.querySelectorAll('[data-sc]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function () { self._runScene(b.getAttribute('data-sc')); }); });
+          root.querySelectorAll('[data-e]').forEach(function (/** @type {any} */ b) {
+            b.addEventListener('click', function () { if (window.hkShell && window.hkShell.moreInfo) window.hkShell.moreInfo(b.getAttribute('data-e'), self); });
+          });
+          root.querySelectorAll('[data-lt]').forEach(function (/** @type {any} */ b) {
+            b.addEventListener('click', function () {
+              var ids = (self._kd && self._kd.lightsOn) || [], on = b.getAttribute('data-lt') === 'on', all = (roomParts(self.client, self._area()).all || [])
+                .filter(function (c) { return dom(c.entity) === 'light'; }).map(function (c) { return c.entity; });
+              self._call('light', on ? 'turn_on' : 'turn_off', { entity_id: on ? all : ids });
+            });
+          });
+          // (a picture that will not load leaves the illustration)
+          root.querySelectorAll('img.rp').forEach(function (/** @type {any} */ img) {
+            img.onerror = function () { img.onerror = null; if (img.parentNode) img.parentNode.removeChild(img); };
+            if (img.complete && !img.naturalWidth) img.onerror(/** @type {any} */ (null));
+          });
+        });
       }
       // EACH NEW CLIENT: every pill gets it (they gate their own draws)
       _receiveClient() {
@@ -220,6 +420,8 @@
       _render() {
         var p = this._p || this._plan(), h = this.client, self = this;
         this._p = null;
+        // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none: Small, an Accessory Group)
+        if (window.hkKit && window.hkKit.on(this) && this._renderKit(p)) { this._built = false; return; } else if (this._kitHtml) { window.hkKit.forget(this); this._built = false; }
         if (!this._built) {
           this._root.innerHTML = '<div class="room"><div class="hd"><button class="nm" type="button"><span></span>' +
             '<i aria-hidden="true">›</i></button><span class="st"></span><button class="mo" type="button" hidden></button></div>' +

@@ -54,7 +54,7 @@
     // four page swipes)
     var partsMemo = { key: null, ents: null, devs: null, areas: null, by: {} };
     function roomParts(client, area) {
-      var S = window.hkStrategy, out = { lights: [], speakers: [], all: [], temps: [] };
+      var S = window.hkStrategy, out = { lights: [], speakers: [], all: [], temps: [], scenes: [] };
       if (!S || !S.roomCards || !client || !client.states) return out;
       var HS = window.hkSettings;
       var key = (HS ? HS.version : '') + '|' + nStates(client.states);
@@ -78,6 +78,8 @@
       (function walk(list) {
         (list || []).forEach(function (c) {
           if (!c || typeof c !== 'object') return;
+          // (the room's scenes, the row the room's page has: the Room block's keys at the foot -- round 12)
+          if (c.type === 'custom:hk-scenes-card' && Array.isArray(c.scenes)) out.scenes = c.scenes.filter(function (id) { return typeof id === 'string'; });
           var g = c.hk_place && c.hk_place.group;
           if (c.entity && g) { out.all.push(c); void client.states[c.entity]; }
           if (c.entity && (g === 'Lights' || (g === 'Climate' && dom(c.entity) === 'fan'))) out.lights.push(c);
@@ -109,16 +111,31 @@
     // never a setpoint: hkRoom.climateReading), the lights on, and at Extra
     // Large a speaker playing -- "71° · 2 lights on"; Wide, beside the name,
     // the short form "71° · 2 on"
-    function roomLine(client, area, parts, size) {
-      var st = client.states || {}, temp = null;
-      // (as the house reports it, the way the thermostat's tile says it -- no conversion)
-      var ids = parts.temps || [];
+    // the room's temperature as the house reports it, the way the thermostat's tile says it -- no conversion; null when it has none
+    function roomTemp(client, parts) {
+      var st = client.states || {}, temp = null, ids = parts.temps || [];
       for (var i = 0; i < ids.length && temp === null; i++) {
         var s = st[ids[i]], climate = dom(ids[i]) === 'climate';
         if (!s || OFF[s.state] || (!climate && attr(s, 'device_class') !== 'temperature')) continue;
         var raw = climate ? attr(s, 'current_temperature') : s.state;
         if (raw != null && raw !== '' && isFinite(Number(raw))) temp = Number(raw);
       }
+      return temp;
+    }
+    // THE ROOM'S HUMIDITY in percent (round 12: "71° · 45% humidity"): the area's own sensor (Settings -> Areas), else a humidity sensor among
+    // the room's own (parts.temps has the room's sensors, already found from the registries); null when it has none
+    function roomHumidity(client, area, parts) {
+      var st = client.states || {}, own = ((client.areas || {})[area] || {}).humidity_entity_id;
+      var ids = (own ? [own] : []).concat((parts.temps || []).filter(function (id) { return dom(id) === 'sensor' && id !== own; }));
+      for (var i = 0; i < ids.length; i++) {
+        var s = st[ids[i]];
+        if (!s || OFF[s.state] || (ids[i] !== own && attr(s, 'device_class') !== 'humidity')) continue;
+        if (s.state !== '' && isFinite(Number(s.state))) return Math.round(Number(s.state));
+      }
+      return null;
+    }
+    function roomLine(client, area, parts, size) {
+      var st = client.states || {}, temp = roomTemp(client, parts);
       var lit = parts.all.filter(function (c) { return dom(c.entity) === 'light' && st[c.entity] && st[c.entity].state === 'on'; }).length;
       var playing = parts.speakers.some(function (c) { return st[c.entity] && st[c.entity].state === 'playing'; });
       var out = [];
@@ -457,7 +474,7 @@
     K.HOLD_MS = HOLD_MS; K.holds = holds; K.houseMinutes = houseMinutes; K.isGroup = isGroup; K.kind = kind;
     K.layout = layout; K.menuCounts = menuCounts; K.minutes = minutes; K.OFF = OFF; K.own = own; K.percent = percent;
     K.pill = pill; K.PILL_H = PILL_H; K.plan = plan; K.plural = plural; K.roomLine = roomLine; K.roomOf = roomOf;
-    K.roomParts = roomParts; K.sceneSays = sceneSays; K.setting = setting; K.shape = shape; K.SLOP = SLOP; K.speakerOf = speakerOf;
+    K.roomParts = roomParts; K.roomTemp = roomTemp; K.roomHumidity = roomHumidity; K.sceneSays = sceneSays; K.setting = setting; K.shape = shape; K.SLOP = SLOP; K.speakerOf = speakerOf;
     K.twoOf = twoOf;
     K.suggestion = suggestion; K.laterScenes = laterScenes; K.TABLET_ROOM = TABLET_ROOM;
   };
