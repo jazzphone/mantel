@@ -1192,7 +1192,7 @@
       _turn(tab) {
         var P = window.hkSaverPanel, self = this, HC = window.hkCards, me = this._spk;
         if (me) { if (me.p.tab() !== tab) me.p.show(tab); else this._closeSpk(); return; }
-        var plate = this._root && this._root.querySelector('hk-plate.np');
+        var plate = this._root && (this._root.querySelector('hk-plate.np') || this._root.querySelector('hk-plate.kit'));
         if (!P || !plate || !this.client) return;
         var host = document.createElement('div');
         host.style.cssText = 'position:fixed;inset:0;z-index:12;' + (HC.FONT_ROOT || '');

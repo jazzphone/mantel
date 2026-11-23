@@ -21,6 +21,16 @@
       ]
     },
     {
+      "name": "hk-media-npkit",
+      "title": "the Now Playing block drawn from the kit (round 12)",
+      "members": []
+    },
+    {
+      "name": "hk-media-npsheet",
+      "title": "the sheet the Now Playing cover opens: Browse, Queue, Speakers",
+      "members": []
+    },
+    {
       "name": "hk-media-speakers",
       "title": "the speaker picker and the notification ids it shows",
       "members": [

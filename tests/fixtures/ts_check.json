@@ -52,6 +52,8 @@
   "web/hk/library/hk-library-items.js",
   "web/hk/library/hk-library-player.js",
   "web/hk/media/hk-media-now.js",
+  "web/hk/media/hk-media-npkit.js",
+  "web/hk/media/hk-media-npsheet.js",
   "web/hk/media/hk-media-recent.js",
   "web/hk/media/hk-media-saver.js",
   "web/hk/media/hk-media-speakers.js",

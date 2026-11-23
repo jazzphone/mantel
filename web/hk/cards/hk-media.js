@@ -31,7 +31,8 @@
   // them (the suites) starts at once, in the same turn.
   // READY: window.__hkSplitReady['cards/hk-media'] is a promise that resolves once the parts have run (and rejects if they
   // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
-  var PARTS = ['hk-media-now.js', 'hk-media-speakers.js', 'hk-media-saver.js', 'hk-media-recent.js', 'hk-media-tv.js'];
+  var PARTS = ['hk-media-now.js', 'hk-media-npkit.js', 'hk-media-npsheet.js', 'hk-media-speakers.js',
+               'hk-media-saver.js', 'hk-media-recent.js', 'hk-media-tv.js'];
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
   function partsSettle(err) {
@@ -132,7 +133,7 @@
   }
 
   var HkBrowseCard, HkMusicPlaylistsCard, HkNowPlayingCard, HkRecentMusicCard, HkScreensaverNowCard,
-      HkSpeakerPickerCard, HkTvChannelsCard, playlistTiles, RECENT, recentCovers, tintOf, TV_SLOTS, tvGrid, heroFirst, LASTPL;
+      HkSpeakerPickerCard, HkTvChannelsCard, HkMusicSheet, playlistTiles, RECENT, recentCovers, tintOf, TV_SLOTS, tvGrid, heroFirst, LASTPL;
   function kit() {
     return {
       button: button, C: C, create: create, drawNoMusic: drawNoMusic, esc: esc, feed: feed, HkBase: HkBase, M: M,
@@ -145,7 +146,7 @@
     HkBrowseCard = K.HkBrowseCard; HkMusicPlaylistsCard = K.HkMusicPlaylistsCard;
     HkNowPlayingCard = K.HkNowPlayingCard; HkRecentMusicCard = K.HkRecentMusicCard;
     HkScreensaverNowCard = K.HkScreensaverNowCard; HkSpeakerPickerCard = K.HkSpeakerPickerCard;
-    HkTvChannelsCard = K.HkTvChannelsCard; playlistTiles = K.playlistTiles; RECENT = K.RECENT;
+    HkTvChannelsCard = K.HkTvChannelsCard; HkMusicSheet = K.HkMusicSheet; playlistTiles = K.playlistTiles; RECENT = K.RECENT;
     recentCovers = K.recentCovers; tintOf = K.tintOf; TV_SLOTS = K.TV_SLOTS; tvGrid = K.tvGrid; heroFirst = K.heroFirst; LASTPL = K.LASTPL;
   }
 
@@ -274,6 +275,8 @@
       'What played last and covers to play again, sized to a Home Grid block.', null, function () { return {}; });
     // (the Home Grid's Music block's: not offered in the card picker)
     if (C.unlisted) C.unlisted('hk-recent-music-card');
+    // THE SHEET THE NOW PLAYING BLOCK'S COVER OPENS (hk-media-npsheet.js): a detail sheet's panel, in no card picker
+    if (!customElements.get('hk-music-sheet')) customElements.define('hk-music-sheet', /** @type {any} */ (HkMusicSheet));
     register('hk-music-playlists-card', HkMusicPlaylistsCard, 'HK Playlists',
       'Every playlist as covers, to play one where the Music block plays.', null, function () { return {}; });
     if (C.unlisted) C.unlisted('hk-music-playlists-card');
