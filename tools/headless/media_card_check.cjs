@@ -16,42 +16,44 @@ const HELP = () => {
   const rect = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
   window.__mc = {
     deep, cell, np, rect,
-    // the time and the bar's end, as drawn
+    // the time and the bar's end, as drawn (the kit's block, round 12: the progress `.npp` -- the elapsed time, the fill's end)
     now: (id) => {
-      const c = cell(id), t = deep(c, '.prog-times hk-countdown')[0] || deep(c, '.prog-times')[0], f = deep(c, '.prog-fill')[0];
+      const c = cell(id), t = deep(c, '.npp .e')[0], f = deep(c, '.npp .trk > i')[0];
       return { time: t ? t.textContent.trim() : null, bar: f ? f.getBoundingClientRect().right : null };
     },
-    // watches a block: its blurred cover, anything done to it, the card's draws
+    // watches a block: its cover (the one button and picture), anything done to it, the card's draws
     watch: (id) => {
-      const card = np(id), bg = card.shadowRoot.querySelector('.bg'), w = { img: bg.querySelector('img'), touched: 0, renders: 0, card };
-      new MutationObserver((m) => { w.touched += m.length; }).observe(bg, { subtree: true, childList: true, attributes: true, characterData: true });
+      const card = np(id), cv = card.shadowRoot.querySelector('.npc'), w = { img: cv.querySelector('img'), plate: card.shadowRoot.querySelector('hk-plate'), touched: 0, renders: 0, card };
+      new MutationObserver((m) => { w.touched += m.length; }).observe(cv, { subtree: true, childList: true, attributes: true, characterData: true });
       const draw = card._render;
-      card._render = function () { w.renders++; return draw.apply(this, arguments); };
+      const words = (c) => { const t = c._root.querySelector('hk-plate > .a.kt, hk-plate > .a.kd'); return t ? t.textContent : ''; };
+      w.html = 0; w.titles = 0; let last = words(card);
+      card._render = function () {
+        w.renders++; const b = this._kitHtml, r = draw.apply(this, arguments);
+        if (this._kitHtml !== b) w.html++;          // (the block's markup drawn again: the cover and the countdowns built afresh)
+        const t = words(this); if (t !== last) { w.titles++; last = t; }
+        return r;
+      };
       (window.__mcw = window.__mcw || {})[id] = w;
     },
     watched: (id) => {
-      const w = window.__mcw[id], img = np(id).shadowRoot.querySelector('.bg img');
-      return { same: w.img === img && np(id) === w.card, touched: w.touched, renders: w.renders };
+      const w = window.__mcw[id], r = np(id).shadowRoot, img = r.querySelector('.npc img');
+      return { html: w.html, titles: w.titles, same: w.img === img && w.plate === r.querySelector('hk-plate') && np(id) === w.card, touched: w.touched, renders: w.renders };
     },
-    title: (id) => np(id).shadowRoot.querySelector('.title').textContent,
-    // the Side Pane's volume slider; the music panel turned from a block
+    // the song's title, the first line of words of the plate (a key's label is a span, not a box)
+    title: (id) => { const t = np(id).shadowRoot.querySelector('hk-plate > .a.kt, hk-plate > .a.kd'); return t ? t.textContent : ''; },
+    // the Side Pane's volume slider
     slider: () => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return p && p.shadowRoot && p.shadowRoot.querySelector('input[data-act="vol"]'); },
-    panel: () => [...document.body.children].map(h => h.shadowRoot && h.shadowRoot.querySelector('.mpanel')).filter(Boolean)[0],
-    // Speakers' and Browse's glyphs: each ink's middle from its button's, in px, and nothing drawn behind it (bare
-    // since 2026-11-07, the owner: "do we need the wells (circles) behind the icons?")
-    // (the card's buttons are the controls strip's since 2026-11-09, hk-np-strip.js: found by their data-act)
-    // (the row's ends since the owner's mockup 12h, 2026-11-09: Browse and Up Next)
-    wells: () => deep(document, 'hk-now-playing-card').flatMap(c => ['[data-act=brw]', '[data-act=queue]'].map(k => {
-      const e = c.shadowRoot.querySelector('.np .hks ' + k);
-      if (!e || getComputedStyle(e).display === 'none') return null;
-      const r = e.getBoundingClientRect(), ic = e.querySelector('hk-icon');
-      const paths = ic ? [...ic.shadowRoot.querySelectorAll('path')].filter(x => x.getAttribute('d')) : [...e.querySelectorAll('svg path')];
+    // the music sheet the cover opens (a detail sheet: found through the shadow roots, wherever the sheet put it)
+    panel: () => deep(document, '.mpanel')[0],
+    // every key's glyph: its ink's middle from its button's, in px (the kit's keys are filled, so no "bare": the centering is what
+    // an inline icon on a line of text once got wrong, up to 1.7 px low)
+    wells: () => deep(document, 'hk-now-playing-card').flatMap(c => [...c.shadowRoot.querySelectorAll('button.key[data-np]')].map(e => {
+      const r = e.getBoundingClientRect(), paths = [...e.querySelectorAll('svg path')];
       let L = 1e9, T = 1e9, R = -1e9, B = -1e9;
       paths.forEach(x => { const q = x.getBoundingClientRect(); if (q.width) { L = Math.min(L, q.left); T = Math.min(T, q.top); R = Math.max(R, q.right); B = Math.max(B, q.bottom); } });
-      const bf = getComputedStyle(e, '::before'), bare = (bf.content === 'none' || bf.content === 'normal') && /rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(e).backgroundColor);
-      return { at: c.getAttribute('size') + ' ' + k, dx: (L + R) / 2 - (r.left + r.width / 2), dy: (T + B) / 2 - (r.top + r.height / 2), bare };
-    })).filter(Boolean),
-    layered: (id) => getComputedStyle(np(id).shadowRoot.querySelector('.bg img')).willChange
+      return paths.length && R > L ? { at: c.getAttribute('size') + ' ' + e.getAttribute('data-np'), dx: (L + R) / 2 - (r.left + r.width / 2), dy: (T + B) / 2 - (r.top + r.height / 2) } : null;
+    })).filter(Boolean)
   };
 };
 
@@ -68,17 +70,20 @@ async function home(browser) {
   const t = await page(browser, '/' + input.screen + '/home');
   await t.p.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
   await t.p.evaluate(HELP);
-  await t.p.waitForFunction(() => ['album', 'plain', 'wide', 'small', 'cond'].every(id => { try { return !!__mc.np(id).shadowRoot.querySelector('.title').textContent; } catch (e) { return false; } }),
+  await t.p.waitForFunction(() => ['album', 'plain', 'wide', 'small', 'cond'].every(id => { try { return !!__mc.title(id); } catch (e) { return false; } }),
     null, { timeout: 20000 });
   return t;
 }
 
-// ---- FLICKER: the bar and the time move and the card draws again; the blurred cover is never touched
+// ---- FLICKER: the bar and the time move and the card draws again; the cover is never touched (the Home Grid's block is the kit's since round 12:
+// the cover is a picture on a button over the plate's own dark surface, no blurred copy behind it; the docked bar keeps the blurred one)
 async function flicker(browser) {
   const { p, ctx, errors } = await home(browser);
-  await p.waitForFunction(() => ['album', 'wide', 'small', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.bg img'); return !!(i && i.complete && i.naturalWidth > 0); }), null,
+  await p.waitForFunction(() => ['album', 'wide', 'small', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.npc img'); return !!(i && i.complete && i.naturalWidth > 0); }), null,
     { timeout: 20000 });
-  for (const id of ['album', 'wide', 'small', 'cond']) assert.equal(await p.evaluate((i) => __mc.layered(i), id), 'transform', id + ': the blurred cover has its own layer');
+  for (const id of ['album', 'wide', 'small', 'cond']) {
+    assert.equal(await p.evaluate((i) => !!__mc.np(i).shadowRoot.querySelector('.bg'), id), false, id + ': the kit\'s block has no blurred cover behind it');
+  }
   // the docked bar's: only in WebKit, where it flickered (a page scrolls under it: a layer would blur every frame on Android)
   const bar = await p.evaluate(() => {
     const el = hkCards.createCard({ type: 'custom:hk-now-playing-card', bar: true, music: true, entity: 'media_player.living_room' }, hkCards.client());
@@ -87,8 +92,8 @@ async function flicker(browser) {
       if (i || n++ > 200) { const v = i ? getComputedStyle(i).willChange : null; el.remove(); done(v); } else setTimeout(look, 25); }; look(); });
   });
   assert.equal(bar, input.engine === 'webkit' ? 'transform' : 'auto', 'the docked bar\'s cover');
-  for (const id of ['album', 'plain', 'cond']) await p.evaluate((i) => __mc.np(i).shadowRoot.querySelector('.bg') && __mc.watch(i), id);
-  const box = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('.mpp')));
+  for (const id of ['album', 'plain', 'cond']) await p.evaluate((i) => __mc.watch(i), id);
+  const box = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('[data-np=pp]')));
   const seen = { album: [], plain: [], cond: [] }, titles = new Set();
   for (let i = 0; i < 26; i++) {
     for (const id of Object.keys(seen)) seen[id].push(await p.evaluate((b) => __mc.now(b), id));
@@ -104,60 +109,53 @@ async function flicker(browser) {
     bars.forEach((b, i) => assert.ok(i === 0 || b >= bars[i - 1] - 0.5, id + ': the progress bar never went back'));
     const w = await p.evaluate((b) => __mc.watched(b), id);
     assert.ok(w.renders >= 3, id + ': the card drew each push: ' + w.renders);
-    assert.ok(w.same, id + ': the same card and the same cover element all along');
-    assert.equal(w.touched, 0, id + ': nothing done to the blurred cover across ' + w.renders + ' draws');
+    // a push that moves only the position draws nothing again; a new title is a new song, and the block is drawn afresh for it
+    assert.ok(w.html <= w.titles, id + ': the block was built again by something other than a new song: ' + w.html + ' times, ' + w.titles + ' new titles');
+    if (!w.titles) assert.ok(w.same, id + ': the same card, plate and cover element all along');
+    assert.equal(w.touched, 0, id + ': nothing done to the cover across ' + w.renders + ' draws');
   }
   const wells = await p.evaluate(() => __mc.wells());
-  // (Speakers and Browse are on the Large and Extra Large blocks and the page's players only: Small, Wide and Tall have the keys alone, 2026-11-08)
-  assert.ok(wells.length >= 4, 'wells measured: ' + wells.length);
-  for (const w of wells) assert.ok(w.bare && Math.abs(w.dx) < 0.3 && Math.abs(w.dy) < 0.3, w.at + ': the glyph centered in its button, no well (' + w.dx.toFixed(2) + ', ' + w.dy.toFixed(2) +
-    ' px, bare ' + w.bare + ')');
+  // (the kit's keys: Play / Pause on every size, Next on all but Small, Previous on Large and Extra Large; Browse and Speakers are the sheet's)
+  assert.ok(wells.length >= 8, 'glyphs measured: ' + wells.length);
+  for (const w of wells) assert.ok(Math.abs(w.dx) < 0.3 && Math.abs(w.dy) < 0.3, w.at + ': the glyph centered in its key (' + w.dx.toFixed(2) + ', ' + w.dy.toFixed(2) + ' px)');
   assert.ok(titles.size >= 2, 'a new title reached the card: ' + [...titles].join(', '));
   assert.deepEqual(errors, [], 'page errors');
-  say('the time and bar move, the card draws each push, the blurred cover is untouched; ' + wells.length + ' glyphs bare and centered in their buttons');
+  say('the time and bar move, the card draws each push, the cover is untouched; ' + wells.length + ' key glyphs centered in their keys');
   if (input.shots) { fs.mkdirSync(input.shots, { recursive: true }); await p.screenshot({ path: input.shots + '/media-card-' + input.engine + '-' + input.size + '.png' }); }
   await ctx.close();
 }
 
-// ---- BACKGROUND: the album by default; Card is the plate and inks of the Music block beside it
+// ---- BACKGROUND: the kit's block is the cover's own dark surface in every look (round 12, the owner's mockup: "the plate is a deep tint of the
+// cover's color under white words"): no blurred copy of the cover behind it, white words and glyphs even on Flat Light, whatever the block's
+// Background says -- Card included, which the older drawing turned into the Music block's plate (the option is still saved; the docked bar keeps it)
 async function background(browser) {
   const { p, ctx, errors } = await home(browser);
-  // every element read below, drawn first: the Music block's card comes in on its own, after the players (under a full
-  // run's load it was not there yet, 2026-11-05)
+  // every element read below, drawn first (under a full run's load the blocks came in on their own, after the players, 2026-11-05)
   await p.waitForFunction(() => {
     try {
       const sh = (id) => __mc.np(id).shadowRoot;
-      return !!(__mc.deep(__mc.cell('music'), 'hk-plate.mu')[0] && sh('album').querySelector('hk-plate.np .bg') && sh('plain').querySelector('hk-plate.np .bg') &&
-                sh('plain').querySelector('.shade') && sh('plain').querySelector('.title') && sh('plain').querySelector('.mpp svg') &&
-                sh('plain').querySelector('.art img'));
+      return !!(__mc.deep(__mc.cell('music'), 'hk-plate.mu')[0] && sh('album').querySelector('hk-plate.kit.mu') && sh('plain').querySelector('hk-plate.kit.mu') &&
+                sh('plain').querySelector('.a.kt') && sh('plain').querySelector('[data-np=pp] svg') && sh('plain').querySelector('.npc img'));
     } catch (e) { return false; }
   }, null, { timeout: 20000 });
   const got = await p.evaluate(() => {
-    const plate = (id) => __mc.np(id).shadowRoot.querySelector('hk-plate.np');
-    const mu = __mc.deep(__mc.cell('music'), 'hk-plate.mu')[0], ink = __mc.deep(__mc.cell('music'), '.t1, .it .nm')[0];
-    const cs = (e) => getComputedStyle(e), P = plate('plain'), A = plate('album');
-    const sh = (id) => __mc.np(id).shadowRoot;
-    return { albumPlain: A.classList.contains('plain'), albumBg: cs(sh('album').querySelector('.bg')).display, albumImg: !!sh('album').querySelector('.bg img'),
-             plainClass: P.classList.contains('plain'), plainBg: cs(sh('plain').querySelector('.bg')).display, plainShade: cs(sh('plain').querySelector('.shade')).display,
-               plainImg: !!sh('plain').querySelector('.bg img'),
-             coverStill: !!sh('plain').querySelector('.art img'),
-             plate: [cs(P).backgroundColor, cs(P).borderTopColor, cs(P).boxShadow, cs(P).borderTopLeftRadius],
-               music: [cs(mu).backgroundColor, cs(mu).borderTopColor, cs(mu).boxShadow, cs(mu).borderTopLeftRadius],
-             title: cs(sh('plain').querySelector('.title')).color, ink: ink ? cs(ink).color : null, glyph: cs(sh('plain').querySelector('.mpp svg')).fill,
-               glyphShadow: cs(sh('plain').querySelector('.mpp svg')).filter };
+    const plate = (id) => __mc.np(id).shadowRoot.querySelector('hk-plate.kit.mu');
+    const cs = (e) => getComputedStyle(e), P = plate('plain'), A = plate('album'), sh = (id) => __mc.np(id).shadowRoot;
+    return { albumBg: !!sh('album').querySelector('.bg'), plainBg: !!sh('plain').querySelector('.bg'), plainShade: !!sh('plain').querySelector('.shade'),
+             coverStill: !!sh('plain').querySelector('.npc img'),
+             surface: [cs(A).backgroundImage, cs(P).backgroundImage], plainSurface: cs(P).backgroundImage, plateClass: [A.className, P.className],
+             title: cs(sh('plain').querySelector('.a.kt')).color, glyph: cs(sh('plain').querySelector('[data-np=pp] svg')).fill,
+             glyphShadow: cs(sh('plain').querySelector('[data-np=pp] svg')).filter };
   });
-  assert.equal(got.albumPlain, false, 'the album is the default');
-  assert.equal(got.albumBg, 'block'); assert.ok(got.albumImg);
-  assert.ok(got.plainClass); assert.equal(got.plainBg, 'none'); assert.equal(got.plainShade, 'none'); assert.equal(got.plainImg, false, 'no blurred cover decoded behind the card');
+  assert.equal(got.albumBg || got.plainBg || got.plainShade, false, 'no blurred cover decoded behind the block');
   assert.ok(got.coverStill, 'the cover itself stays');
-  assert.deepEqual(got.plate, got.music, 'the plate of the Music block beside it');
-  if (got.ink) { assert.equal(got.title, got.ink, 'its ink'); assert.equal(got.glyph, got.ink, 'its glyphs'); }
+  assert.ok(/gradient/.test(got.plainSurface), 'the cover\'s own dark surface: ' + got.plainSurface);
   assert.equal(got.glyphShadow, 'none');
-  // on a light look the ink is dark: the white of the album's player would be gone on the light plate
+  // white words and glyphs on it whatever the look: on Flat Light the page's own ink is dark, and this plate's is not
   const lum = (c) => { const m = c.match(/[\d.]+/g).map(Number); return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; };
-  if (input.mode === 'light') assert.ok(lum(got.title) < 0.3, 'dark text on Flat Light: ' + got.title);
+  assert.ok(lum(got.title) > 0.9 && lum(got.glyph) > 0.9, 'white words and glyphs' + (input.mode === 'light' ? ' on Flat Light' : '') + ': ' + got.title + ' ' + got.glyph);
   assert.deepEqual(errors, [], 'page errors');
-  say('Blurred Album is the default; Card is the block beside it' + (input.mode === 'light' ? ' (Flat Light, title ' + got.title + ')' : ''));
+  say('the kit\'s block is the cover\'s own dark surface, white words, no blurred cover' + (input.mode === 'light' ? ' (Flat Light, title ' + got.title + ')' : ''));
   if (input.shots) { fs.mkdirSync(input.shots, { recursive: true }); await p.screenshot({ path: input.shots + '/media-card-' + input.mode + '-' + input.engine + '-' + input.size + '.png' }); }
   await ctx.close();
 }
@@ -179,42 +177,33 @@ async function pane(browser) {
   await p.waitForFunction(() => ['media_player.living_room', 'media_player.kitchen'].every(k => Math.abs(hkCards.client().states[k].attributes.volume_level - 0.8) < 0.04), null, { timeout: 10000 })
     .catch(async () => assert.fail('the Side Pane\'s volume sets every room of the group: ' + JSON.stringify(await vols())));
   say('the Side Pane\'s volume on a group sets both rooms: ' + JSON.stringify(await vols()));
-  // THE MUSIC PANEL, turned from the block's Browse, with playlists that have covers (stood in) and one that hasn't
+  // THE MUSIC SHEET, opened by the block's cover (round 12: Browse / Queue / Speakers, the screensaver panel's own tabs), with playlists that have covers
+  // (stood in) and one that hasn't
   await p.evaluate(() => {
     const pic = (h) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = 'hsl(' + h + ',70%,50%)'; x.fillRect(0, 0, 64, 64);
       return c.toDataURL(); };
     hkMusic.playlists = () => [{ name: 'Favorites Mix', icon: 'hk:star-fill', key: 'a', image: pic(10) }, { name: 'Country', icon: 'hk:guitar-acoustic', key: 'b', image: null },
                                { name: 'Your Essentials', icon: 'mdi:playlist-music', key: 'c', image: pic(270) }];
   });
-  const brw = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('[data-act=brw]')));
-  await p.mouse.click(brw.x + brw.w / 2, brw.y + brw.h / 2);
+  const cvr = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('[data-np=cover]')));
+  await p.mouse.click(cvr.x + cvr.w / 2, cvr.y + cvr.h / 2);
+  // (it opens on Queue while a song plays; its three tabs at the top)
+  await p.waitForFunction(() => { const m = __mc.panel(); return !!m && [...m.querySelectorAll('.mptabs [data-tab]')].map(t => t.textContent).join() === 'Browse,Queue,Speakers' &&
+    m.querySelector('.mptabs .on').textContent === 'Queue'; }, null, { timeout: 15000 });
+  await p.evaluate(() => __mc.panel().querySelector('.mptabs [data-tab="browse"]').click());
   await p.waitForFunction(() => { const m = __mc.panel(); return !!m && m.querySelectorAll('.mppill').length === 3; }, null, { timeout: 15000 });
-  await p.waitForTimeout(600);
   const got = await p.evaluate(() => {
-    const m = __mc.panel(), pills = [...m.querySelectorAll('.mppill')], cv = m.querySelector('.mpbg'), cx = cv.getContext('2d');
-    // the biggest step between neighbors: the panel's picture, and the same cover drawn as small without the blur
-    const step = (c) => { let e = 0; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, w = c.width;
-      for (let i = 0; i < d.length - 4; i += 4) if ((i / 4) % w < w - 1) e = Math.max(e, Math.abs(d[i] - d[i + 4]) + Math.abs(d[i + 1] - d[i + 5]) + Math.abs(d[i + 2] - d[i + 6]));
-      return e; };
-    let edge = -1, raw = -1;
-    try {
-      edge = step(cv);
-      const plain = document.createElement('canvas'); plain.width = cv.width; plain.height = cv.height;
-      plain.getContext('2d').drawImage(__mc.np('album').shadowRoot.querySelector('.art img'), 0, 0, cv.width, cv.height);
-      raw = step(plain);
-    } catch (e) { /* a cover from elsewhere: the CSS blur (soft) */ }
+    const m = __mc.panel(), pills = [...m.querySelectorAll('.mppill')];
     return { pills: pills.map(x => ({ cover: !!(x.querySelector('.th') && x.querySelector('.th').style.backgroundImage), tile: !!x.querySelector('.th.gl hk-icon'),
                                       whole: x.querySelector('span').scrollHeight <= x.querySelector('span').clientHeight + 1,
-                                      left: Math.round(x.querySelector('span').getBoundingClientRect().left - x.getBoundingClientRect().left) })),
-             soft: cv.classList.contains('soft'), edge, raw };
+                                      left: Math.round(x.querySelector('span').getBoundingClientRect().left - x.getBoundingClientRect().left) })) };
   });
   assert.deepEqual(got.pills.map(x => [x.cover, x.tile]), [[true, false], [false, true], [true, false]], 'covers, and a glyph on a tile where there is none');
   got.pills.forEach((x, i) => assert.ok(x.whole, 'pill ' + i + ': its whole name'));
   assert.ok(new Set(got.pills.map(x => x.left)).size === 1, 'every name starts on one line: ' + got.pills.map(x => x.left));
-  // blurred: neighbors in the 32 px picture differ little (the cover stand-in is bands of flat color, hard-edged)
-  assert.ok(got.soft || (got.edge >= 0 && got.raw > 0 && got.edge < got.raw / 2), 'the background is blurred: biggest step between neighbors ' + got.edge + ', unblurred ' + got.raw);
+  // (the screensaver's own panel draws its background blurred, and that is the saver check's; the sheet takes none behind it -- hk-media-npsheet.js)
   assert.deepEqual(t.errors, [], 'page errors');
-  say('the music panel: covers and whole names in Browse, its background blurred (biggest step ' + got.edge + ', unblurred ' + got.raw + ')');
+  say('the music sheet from the cover: Browse, Queue and Speakers, covers and whole names in Browse');
   if (input.shots) { fs.mkdirSync(input.shots, { recursive: true }); await p.screenshot({ path: input.shots + '/media-card-pane-' + input.engine + '-' + input.size + '.png' }); }
   await t.ctx.close();
 }
@@ -241,11 +230,11 @@ async function editor(browser) {
   assert.equal(await p.evaluate(() => head()), 'Now Playing');
   assert.equal(await p.evaluate(() => row('Settings For').querySelector('select').value), '0');
   assert.ok(await p.evaluate(() => !!row('Background')), 'Now Playing\'s Background is offered');
-  // Card: in the rule, and the preview shows it
+  // Card: in the rule (what is stored), and the preview draws the block (the kit's plate is the cover's own surface whatever the Background says)
   await p.evaluate(() => [...row('Background').querySelectorAll('button')].find(x => x.textContent === 'Card').click());
   assert.deepEqual(await p.evaluate(() => { const i = ed.grid.items.find(x => x.id === 'cond'); return [i.rules[0].opts.background, (i.opts || {}).background || null]; }), ['card', null]);
   await p.waitForFunction(() => { const c = ed.previewView.cards.find(c => c.localName === 'hk-grid-conditional-card' && c._config.item.id === 'cond');
-    return c?._child?.shadowRoot?.querySelector('hk-plate.np.plain'); }, null, { timeout: 15000 });
+    return c?._child?.shadowRoot?.querySelector('hk-plate.kit.mu'); }, null, { timeout: 15000 });
   // Blurred Album takes the key away again, and back to Card
   await p.evaluate(() => [...row('Background').querySelectorAll('button')].find(x => x.textContent === 'Blurred Album').click());
   assert.equal(await p.evaluate(() => 'background' in (ed.grid.items.find(x => x.id === 'cond').rules[0].opts || {})), false, 'the default is saved as nothing');
@@ -292,20 +281,20 @@ async function editor(browser) {
   say('Settings For sets each card of a block with rules; ' + compare.length + ' cards offer the same rows as a rule; Save accepted');
   await ctx.close();
   const after = await home(browser);
-  await after.p.waitForFunction(() => __mc.np('cond').shadowRoot.querySelector('hk-plate.np.plain'), null, { timeout: 15000 });
+  await after.p.waitForFunction(() => __mc.np('cond').shadowRoot.querySelector('hk-plate.kit.mu'), null, { timeout: 15000 });
   await after.ctx.close();
 }
 
 // ---- --pixels: the page held for real frames; the script takes them (a window it can capture)
 async function hold(browser) {
   const { p } = await home(browser);
-  await p.waitForFunction(() => ['album', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.bg img'); return !!(i && i.complete && i.naturalWidth > 0); }), null,
+  await p.waitForFunction(() => ['album', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.npc img'); return !!(i && i.complete && i.naturalWidth > 0); }), null,
     { timeout: 20000 });
   await p.evaluate(() => { __mc.watch('album'); __mc.watch('cond'); });
   await p.waitForTimeout(1500);
   const now = () => p.evaluate(() => Object.fromEntries(['album', 'cond'].map(id => [id, { ...__mc.now(id), renders: window.__mcw[id].renders, same: __mc.watched(id).same }])));
-  const r = await p.evaluate(() => Object.fromEntries(['album', 'cond'].map(id => [id, { tile: __mc.rect(__mc.cell(id)), moving: __mc.rect(__mc.np(id).shadowRoot.querySelector('.mprog')) }])));
-  const play = await p.evaluate(() => __mc.rect(__mc.np('cond').shadowRoot.querySelector('.mpp')));
+  const r = await p.evaluate(() => Object.fromEntries(['album', 'cond'].map(id => [id, { tile: __mc.rect(__mc.cell(id)), moving: __mc.rect(__mc.np(id).shadowRoot.querySelector('.npp')) }])));
+  const play = await p.evaluate(() => __mc.rect(__mc.np('cond').shadowRoot.querySelector('[data-np=pp]')));
   console.log(JSON.stringify({ rects: r, now: await now() }));
   // a pointer going over the transport now and again (the second recording), until the script has its frames
   const end = Date.now() + (input.seconds - 12) * 1000; let k = 0;

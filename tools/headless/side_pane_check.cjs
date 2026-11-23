@@ -204,7 +204,9 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
                  rootShift: document.documentElement.style.getPropertyValue('--hk-pane-shift'),
                  hostShift: tb ? tb.style.getPropertyValue('--hk-pane-shift') : '', barShift: row ? row.style.getPropertyValue('translate') : '' };
       });
-      const s0 = await sw(), sy = 300;
+      // (a row clear of Now Playing's volume: the kit block's volume row is the finger's own -- data-hk-control, its whole row the touch,
+      // round 12 -- and at 300 px the Large block's row was under the press; 120 is its song, plain words)
+      const s0 = await sw(), sy = 120;
       await page.mouse.move(700, sy); await page.mouse.down();
       for (let k = 1; k <= 10; k++) { await page.mouse.move(700 - 36 * k, sy); await page.waitForTimeout(16); }
       const s1 = await sw();
@@ -410,8 +412,11 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         want('dragging the Music page\'s volume: the volume moves, the page does not', [v0, moving, v1],
              moving === 'its own' && v1 && v1.path === v0.path && v1.v > v0.v + 0.3);
       } else want('the Music page draws its volume', v0, false);
-      // ...and the thermostat's dial on Home (the owner: "Thermostats may need to be looked at too?")
-      await page.goto(input.origin + '/pane-swipe/home');
+      // ...and the thermostat's dial (the owner: "Thermostats may need to be looked at too?"). Round 12: a Home Grid thermostat is the kit's
+      // Big Number at every size -- bare chevron buttons, no dial, nothing that turns -- so the dial is the Climate page's own now (a
+      // thermostat with no block around it, the dial where the screen's look.thermostat_style is not Big Number): the same page load
+      // the Home one was
+      await page.goto(input.origin + '/pane-swipe/climate');
       await page.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(page);
       await settle.loaded(2000);
@@ -428,8 +433,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         await page.mouse.up();
         await page.waitForTimeout(600);
         const here = await page.evaluate(() => location.pathname);
-        want('turning the thermostat\'s dial sideways: the dial\'s, the page stays', [owner, here], owner === 'its own' && /\/home$/.test(here));
-      } else want('Home draws the thermostat\'s dial', dial, false);
+        want('turning the thermostat\'s dial sideways: the dial\'s, the page stays', [owner, here], owner === 'its own' && /\/climate$/.test(here));
+      } else want('the Climate page draws the thermostat\'s dial', dial, false);
       // A SHORT PAGE'S EMPTY SCREEN, AND THE BACKGROUND FADING (2026-11-01, the owner: "I get stuck on the Live TV
       // page"; "make the backgrounds fade between page swipes but ONLY for swipes"): a press under a page shorter than
       // the screen swipes; let go, the page's background is the next one's under a copy that fades; a tap cuts

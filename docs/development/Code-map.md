@@ -906,7 +906,7 @@ Build, release and check tools.
   - `grid_edit_check.py` — Edit mode on a Home Grid (2026-10-31, hk-edit-grid.js) in WebKit, with a finger and with a mouse, at a tablet held either way and a phone, on a fic...
   - `grid_editor_smoke.py` — Home Grid editor
   - `grid_editor_touch_check.py` — Home Grid editor with a finger (2026-10-24, the owner on an iPad
-  - `grid_music_turn_check.py` — Home Grid's Now Playing blocks turn over (2026-10-27) against the fictional home, never a household's
+  - `grid_music_turn_check.py` — Home Grid's Now Playing blocks, drawn from the kit (round 12, 2026-11-23), against the fictional home, never a household's
   - `grid_panels_check.py` — Home Grid's page panels as blocks (2026-10-24) against the fictional home, never a household's
   - `grid_ready.cjs`
   - `grid_review_check.py` — Round-two Home Grid interactions against the fictional home, never a household.

@@ -1,10 +1,13 @@
-"""Home Grid's Now Playing blocks turn over (2026-10-27) against the fictional home, never a household's: Large and
-Extra Large have Speakers and Browse beside their transport, inside the block, clear of the cover and each other; a
-tap turns the card over into the screensaver's panel (Speakers / Volume / Queue / Browse), bigger than the block,
-centred on it and on the screen; a tap outside, Escape or its X turns it back.
+"""Home Grid's Now Playing blocks, drawn from the kit (round 12, 2026-11-23), against the fictional home, never a household's: Large and
+Extra Large have the room, the cover, the progress, the volume and Previous / Play / Next inside the block, clear of each other (the volume as
+wide as the progress bar); a tap on the COVER or the room opens a sheet over the page -- Browse, Queue and Speakers as three tabs at its top
+(the owner: "Taping the artwork can open up browse or queue pop ups with the 3 tabs at the top"), on Queue while a song plays, Browse when
+nothing does -- and a tap outside, Escape or its X closes it. Extra Large's Up Next has the next four songs, each a cover that plays, and a
+Queue key at its foot.
 
-WHAT FITS (2026-11-08, the owner: what does not fit goes to the player's sheet): Wide and Tall have the three keys only
--- each a 44 px target with 8 px or more clear between -- and no Speakers, Browse or volume; Small has play / pause alone.
+WHAT FITS (as before 2026-11-08, with the kit's own measures): Small has the cover and the song alone; Wide and Tall have Play / Pause and Next
+(no Previous: "remove the back/rewind button and just have the next/skip") -- each a 44 px target with 8 px or more clear between -- and the volume
+where the block is tall enough for it as a full row.
 
     python tools/headless/grid_music_turn_check.py [--shots DIRECTORY]
 """
@@ -28,19 +31,20 @@ args = parser.parse_args()
 DEEP = "window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);" \
        "window.cell=(id)=>deep(document,'.cell[data-id=\"'+id+'\"]')[0];" \
        "window.np=(id)=>deep(cell(id),'hk-now-playing-card')[0];" \
-       "window.turned=()=>[...document.body.children].map(h=>h.shadowRoot&&h.shadowRoot.querySelector('.mpanel.turn')).filter(Boolean)[0]||null;"
+       "window.sheet=()=>document.querySelector('.hkd');" \
+       "window.panel=()=>deep(document,'.mpanel')[0]||null;" \
+       "window.tab=()=>{const m=panel(),t=m&&m.querySelector('.mptabs .on');return t?t.textContent:null};"
 GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
     {'id': 'w', 'card': 'now_playing', 'size': 'W', 'at': [0, 0]},
     {'id': 't', 'card': 'now_playing', 'size': 'T', 'at': [2, 0]},
     {'id': 'l', 'card': 'now_playing', 'size': 'L', 'at': [3, 0]},
     {'id': 'x', 'card': 'now_playing', 'size': 'XL', 'at': [3, 2]},
     {'id': 's', 'card': 'now_playing', 'size': 'S', 'at': [0, 2]}]}
-# the block's buttons, the cover and the transport, as rectangles
-LAYOUT = """(id)=>{let r=np(id).shadowRoot,R=e=>{let b=e.getBoundingClientRect();return [b.left,b.top,b.right,b.bottom]};
-  return {plate:R(r.querySelector('hk-plate')),art:R(r.querySelector('.art')),spk:R(r.querySelector('[data-act=queue]')),brw:R(r.querySelector('[data-act=brw]')),line:R(r.querySelector('.hksl')),
-          prev:R(r.querySelector('[data-act=prev]')),play:R(r.querySelector('[data-act=pp]')),next:R(r.querySelector('[data-act=next]')),
-          shown:getComputedStyle(r.querySelector('[data-act=queue]')).display!=='none'&&getComputedStyle(r.querySelector('[data-act=brw]')).display!=='none',
-          vol:getComputedStyle(r.querySelector('.mvol')).display!=='none'}}"""
+# the block's parts as rectangles (left, top, right, bottom), null where the size draws none
+LAYOUT = """(id)=>{let r=np(id).shadowRoot,R=e=>{if(!e)return null;let b=e.getBoundingClientRect();return [b.left,b.top,b.right,b.bottom]},q=s=>R(r.querySelector(s));
+  return {plate:q('hk-plate'),cover:q('[data-np=cover]'),room:q('[data-np=room]'),prog:q('.npp .trk'),vol:q('[data-np=vol]'),volTrack:q('[data-np=vol] .t'),
+          prev:q('[data-np=prev]'),play:q('[data-np=pp]'),next:q('[data-np=next]'),queue:q('[data-np=queue]'),
+          up:[...r.querySelectorAll('[data-np=upnext]')].map(R),upLabel:[...r.querySelectorAll('.a.kl')].some(e=>e.textContent==='Up Next')}}"""
 
 
 def inside(a, b):
@@ -74,147 +78,109 @@ async def main():
             assert await b.wait('window.__mantelReady===true', 30)
             await b.eval(DEEP)
             state('media_player.living_room', 'playing')
-            assert await b.wait("['w','t','l','x','s'].every(id=>np(id)&&np(id).shadowRoot.querySelector('[data-act=spk]'))", 20)
+            assert await b.wait("['w','t','l','x','s'].every(id=>np(id)&&np(id).shadowRoot.querySelector('[data-np=cover]'))", 20)
+            # (Extra Large's Up Next comes in once the queue has been asked for)
+            assert await b.wait("np('x').shadowRoot.querySelectorAll('[data-np=upnext]').length===4", 20)
             await asyncio.sleep(1.5)
-            # Large: Browse and Up Next shown at the row's ends (`spk` here is Up Next since the owner's mockup 12h,
-            # 2026-11-09: the Speakers key became the speaker line over the title), inside the block, apart (8 px) from the cover
-            # and the transport; the speaker line 56 px tall, 12 px clear of the keys
+            lay = {bid: await b.eval('(' + LAYOUT + ")('" + bid + "')") for bid in ('w', 't', 'l', 'x', 's')}
+            z = {bid: await b.eval("np('" + bid + "').getBoundingClientRect().width/np('" + bid + "').offsetWidth") for bid in lay}
+            # Large, and Extra Large's left 405: the room's capsule, the cover, the progress, the volume and Previous / Play / Next inside the block,
+            # the keys 44 px or more with 8 px clear; the volume's track exactly as wide as the progress bar's (the owner: "The volume slider
+            # doesn't match the width of the progress bar!"); the cover 8 px clear of the keys and the volume
             for bid in ('l', 'x'):
-                lay = await b.eval('(' + LAYOUT + ")('" + bid + "')")
-                z = await b.eval("np('" + bid + "').getBoundingClientRect().width/np('" + bid + "').offsetWidth")
-                if bid == 'x':
-                    # EXTRA LARGE (mockup 12i, option B, 2026-11-09): back / play / next alone, play centered under the player's
-                    # column; Browse a button in Up Next's heading, its touch 56 px (the owner: "it needs to be a larger touch
-                    # point"), inside the block and 8 px clear of the list under it and the player beside it
-                    assert not lay['shown'] and lay['vol'], (bid, lay)
-                    q = await b.eval("""(()=>{const r=np('x').shadowRoot,R=e=>{const b=e.getBoundingClientRect();return [b.left,b.top,b.right,b.bottom]},
-                      p=r.querySelector('.npqb'),a=getComputedStyle(p,'::after'),k=p.getBoundingClientRect().width/p.offsetWidth,o=R(p);
-                      return {hit:[o[0]+parseFloat(a.left)*k,o[1]+parseFloat(a.top)*k,o[2]-parseFloat(a.right)*k,o[3]-parseFloat(a.bottom)*k],
-                              list:R(r.querySelector('.npql')),strip:R(r.querySelector('.hks')),queue:R(r.querySelector('.npq'))}})()""")
-                    h = q['hit']
-                    assert h[3] - h[1] >= 56 * z - 0.5 and h[2] - h[0] >= 56 * z - 0.5 and inside(h, lay['plate']), (q, lay)
-                    assert apart(h, q['list'], 8 * z) and apart(q['queue'], q['strip'], 8 * z), (q, lay)
-                    assert abs((lay['play'][0] + lay['play'][2]) / 2 - (q['strip'][0] + q['strip'][2]) / 2) <= 1, (q, lay)
-                    for x, y in (('prev', 'play'), ('play', 'next')):
-                        assert apart(lay[x], lay[y], 8 * z), (bid, lay)
-                    tl = await b.eval("hkNpStrip.check(np('x').shadowRoot.querySelector('.hks'),{min:56,scale:" + str(z) + ",line:np('x').shadowRoot.querySelector('.hksl')})")
-                    assert not tl['breaks'] and tl['gapL'] >= 12, tl
-                    continue
-                assert lay['shown'] and lay['vol'], (bid, lay)
-                for k in ('spk', 'brw', 'prev', 'play', 'next'):
-                    assert inside(lay[k], lay['plate']), (bid, k, lay)
-                    assert lay[k][2] - lay[k][0] >= 44 * z - 0.5 and lay[k][3] - lay[k][1] >= 44 * z - 0.5, (bid, k, z, lay)
-                for k in ('spk', 'brw'):
-                    for o in ('art', 'prev', 'play', 'next'):
-                        assert apart(lay[k], lay[o], 8 * z), (bid, k, o, lay)
-                assert apart(lay['prev'], lay['play'], 8 * z) and apart(lay['play'], lay['next'], 8 * z), (bid, lay)
-                tl = await b.eval("hkNpStrip.check(np('" + bid + "').shadowRoot.querySelector('.hks'),{min:56,scale:" + str(z) + ",line:np('" + bid + "').shadowRoot.querySelector('.hksl')})")
-                assert not tl['breaks'] and tl['targets']['line'][1] >= 55.5 and tl['gapL'] >= 12, (bid, tl)
-            # Small, Wide and Tall: no Speakers or Browse (the sheet has them); the keys 44 px with 8 px clear; Wide and Tall
-            # the volume again (2026-11-09, the owner: "Looks like the tall and the wide cards lost their volume slider?") --
-            # but not on this grid's tile-sized Wide, 110 px inside, where the keys and the volume do not both fit as targets
-            for bid, keys in (('s', ('play',)), ('w', ('prev', 'play', 'next')), ('t', ('prev', 'play', 'next'))):
-                lay = await b.eval('(' + LAYOUT + ")('" + bid + "')")
-                z = await b.eval("np('" + bid + "').getBoundingClientRect().width/np('" + bid + "').offsetWidth")
-                short = lay['plate'][3] - lay['plate'][1] < 180 * z
-                assert not lay['shown'] and lay['vol'] == (bid != 's' and not short), (bid, lay)
-                for k in keys:
-                    assert inside(lay[k], lay['plate']), (bid, k, lay)
-                    assert lay[k][2] - lay[k][0] >= 44 * z - 0.5 and lay[k][3] - lay[k][1] >= 44 * z - 0.5, (bid, k, z, lay)
-                for x, y in zip(keys, keys[1:]):
-                    assert apart(lay[x], lay[y], 8 * z), (bid, x, y, lay)
-            # EVERY PLAYER'S LOOK (player_look.js): no wells behind the buttons; on Tall and Large the progress bar and
-            # the volume's track as far from the pause glyph's ink
-            await b.eval((ROOT / 'tools/headless/player_look.js').read_text())
-            for bid in ('w', 't', 'l', 'x'):
-                look = await b.eval("playerLook(np('" + bid + "').shadowRoot,{bar:'.prog-track',pp:'.mpp svg',vol:'.range-wrap input',buttons:'.hks .mbtn'})")
-                assert not look['wells'], (bid, look)
-                # (not where the progress is the thin read-only line -- a tile-sized Large, 2026-11-09, the owner: "Volume is
-                # more important than the progress bar": the line stays 12 px over the keys, the room it would take for the
-                # glyph's halfway is the cover's)
-                thin = await b.eval("deep(np('" + bid + "').shadowRoot,'.prog-track')[0].getBoundingClientRect().height < 4.5")
-                if bid in ('l', 'x') and not thin:
-                    assert 'above' in look and abs(look['above'] - look['below']) <= 3, (bid, look)
-                print(f"  {bid}: no wells" + (f", {look['above']} px above the pause, {look['below']} below" if 'above' in look else ''))
-            # music playing: Speakers can be tapped
-            assert not await b.eval("np('l').shadowRoot.querySelector('[data-act=spk]').classList.contains('dis')")
+                d = lay[bid]
+                for k in ('room', 'cover', 'prog', 'vol', 'prev', 'play', 'next'):
+                    assert d[k] and inside(d[k], d['plate']), (bid, k, d)
+                for k in ('prev', 'play', 'next'):
+                    assert d[k][2] - d[k][0] >= 44 * z[bid] - 0.5 and d[k][3] - d[k][1] >= 44 * z[bid] - 0.5, (bid, k, z[bid], d)
+                assert apart(d['prev'], d['play'], 8 * z[bid]) and apart(d['play'], d['next'], 8 * z[bid]), (bid, d)
+                for o in ('prev', 'play', 'next', 'vol'):
+                    assert apart(d['cover'], d[o], 8 * z[bid]), (bid, 'cover', o, d)
+                assert abs((d['volTrack'][2] - d['volTrack'][0]) - (d['prog'][2] - d['prog'][0])) <= 1, ('the volume as wide as the progress', bid, d)
+                assert abs(d['volTrack'][0] - d['prog'][0]) <= 1, ('...and from the same edge', bid, d)
+            # EXTRA LARGE: Up Next, the next four songs as covers (each plays), and a Queue key at the foot, inside the block and clear of the covers
+            d = lay['x']
+            assert d['upLabel'] and len(d['up']) == 4 and d['queue'], d
+            for u in d['up']:
+                assert inside(u, d['plate']) and u[2] - u[0] >= 44 * z['x'] and apart(u, d['queue'], 8 * z['x']), (u, d)
+            assert d['queue'][3] - d['queue'][1] >= 44 * z['x'] - 0.5 and inside(d['queue'], d['plate']), d
+            assert d['queue'][0] >= d['next'][2] - 1, ('Up Next is beside the player, not under it', d)
+            # Small: the cover and the song alone; Wide and Tall: Play / Pause and Next (no Previous), the volume only where it fits as a full row
+            d = lay['s']
+            assert d['cover'] and not d['vol'] and not d['prog'] and not d['prev'] and not d['next'], d
+            for bid in ('w', 't'):
+                d = lay[bid]
+                assert d['cover'] and not d['prev'] and d['play'] and d['next'] and not d['queue'], (bid, d)
+                for k in ('play', 'next'):
+                    assert inside(d[k], d['plate']), (bid, k, d)
+                    assert d[k][2] - d[k][0] >= 44 * z[bid] - 0.5 and d[k][3] - d[k][1] >= 44 * z[bid] - 0.5, (bid, k, z[bid], d)
+                assert apart(d['play'], d['next'], 8 * z[bid]), (bid, d)
+                if d['vol']:
+                    assert inside(d['vol'], d['plate']) and apart(d['vol'], d['play'], 0) and apart(d['vol'], d['next'], 0), (bid, d)
+            # (the Tall block has the progress under the song; its volume needs a block 342 px tall for a full row, and this grid's tile-sized
+            # Tall is 289: the Speakers tab has every room's volume, as the owner's "while still having good size touch areas" says)
+            assert lay['t']['prog'] and not lay['t']['vol'] and not lay['w']['vol'], (lay['t'], lay['w'])
+            print('  w, t, l, x, s: the keys 44 px or more with 8 clear; the volume as wide as the progress bar on L and XL')
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
                 await b.screenshot(args.shots / 'turn-front.png')
-            # Browse on the Large block: the card turns over into the panel, bigger than the block, on the screen
-            await b.eval("np('l').shadowRoot.querySelector('[data-act=brw]').click()")
-            assert await b.wait('!!turned()', 5)
-            await asyncio.sleep(1.2)
-            back = await b.eval("""(()=>{let p=turned(),r=p.getBoundingClientRect(),c=np('l').shadowRoot.querySelector('hk-plate'),cr=c.getBoundingClientRect();
-              return {box:[r.left,r.top,r.right,r.bottom],block:[cr.left,cr.top,cr.right,cr.bottom],hidden:getComputedStyle(c).visibility,
-                      tabs:[...p.querySelectorAll('.mptabs [data-tab]')].map(t=>t.textContent),on:p.querySelector('.mptabs .on').textContent,
-                      flat:getComputedStyle(p).transform}})()""")
-            box, block = back['box'], back['block']
-            assert back['tabs'] == ['Speakers', 'Queue', 'Browse'] and back['on'] == 'Browse', back   # (no Volume tab since 2026-11-12)
-            assert back['hidden'] == 'hidden', 'the card\'s front stays up under its back'
-            assert back['flat'] in ('none', 'matrix(1, 0, 0, 1, 0, 0)'), back
-            assert box[2] - box[0] >= 520 and box[3] - box[1] > block[3] - block[1], back
-            assert box[0] >= 0 and box[1] >= 0 and box[2] <= 1280 and box[3] <= 800, back
+            # THE COVER OPENS THE SHEET (Large): over the page, three tabs at its top -- Browse, Queue, Speakers -- on Queue while a song plays
+            await b.eval("np('l').shadowRoot.querySelector('[data-np=cover]').click()")
+            assert await b.wait("!!sheet() && !!panel() && tab()==='Queue'", 8), await b.eval("({sheet:!!sheet(),panel:!!panel(),tab:tab()})")
+            await asyncio.sleep(1.0)
+            back = await b.eval("""(()=>{let m=panel(),sh=sheet().querySelector('.sheet').getBoundingClientRect();
+              return {tabs:[...m.querySelectorAll('.mptabs [data-tab]')].map(t=>t.textContent),on:tab(),box:[sh.left,sh.top,sh.right,sh.bottom],
+                      title:sheet().querySelector('.tt').textContent}})()""")
+            assert back['tabs'] == ['Browse', 'Queue', 'Speakers'] and back['on'] == 'Queue' and back['title'] == 'Now Playing', back
+            box = back['box']
+            assert box[0] >= 0 and box[1] >= 0 and box[2] <= 1280 and box[3] <= 800 and box[2] - box[0] >= 400, back
+            if args.shots:
+                await b.screenshot(args.shots / 'turn-queue.png')
+            # its own tabs; a tap outside it (its scrim) closes it, the page as it was
+            await b.eval("panel().querySelector('[data-tab=\"browse\"]').click()")
+            assert await b.wait("tab()==='Browse'", 5)
             if args.shots:
                 await b.screenshot(args.shots / 'turn-browse.png')
-            # its own tabs; a tap outside turns it back, the card's front up again
-            await b.eval("turned().querySelector('[data-tab=\"queue\"]').click()")
-            assert await b.wait("turned().querySelector('.mptabs .on').textContent==='Queue'", 5)
-            await b.eval("[...document.body.children].find(h=>h.shadowRoot&&h.shadowRoot.querySelector('.mpanel.turn')).shadowRoot.querySelector('.scrim').click()")
-            assert await b.wait("!turned() && getComputedStyle(np('l').shadowRoot.querySelector('hk-plate')).visibility==='visible'", 5)
-            # Speakers on the Extra Large block (on Speakers); Escape turns it back
-            await b.eval("np('x').shadowRoot.querySelector('[data-act=spk]').click()")
-            assert await b.wait("!!turned() && turned().querySelector('.mptabs .on').textContent==='Speakers'", 5)
-            await asyncio.sleep(1.2)
+            await b.eval("sheet().querySelector('.bd').click()")
+            assert await b.wait("!sheet()", 5)
+            # the room's capsule opens it on Speakers (Extra Large's), and Escape closes it
+            await b.eval("np('x').shadowRoot.querySelector('[data-np=room]').click()")
+            assert await b.wait("!!panel() && tab()==='Speakers'", 8), await b.eval("tab()")
+            await asyncio.sleep(1.0)
             if args.shots:
                 await b.screenshot(args.shots / 'turn-speakers.png')
-            # (the Tall block's Browse, with the Wide's back up: one back at a time is the Wide's own business --
-            # a tap outside it closes it first, as a person's would)
             await b.send('Input.dispatchKeyEvent', type='keyDown', key='Escape', code='Escape', windowsVirtualKeyCode=27)
             await b.send('Input.dispatchKeyEvent', type='keyUp', key='Escape', code='Escape', windowsVirtualKeyCode=27)
-            assert await b.wait("!turned() && getComputedStyle(np('x').shadowRoot.querySelector('hk-plate')).visibility==='visible'", 5)
-            # EXTRA LARGE'S UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll as well"): a finger's drag moves the
-            # list and plays nothing, the fade at its foot gone at the end; a tap on a song plays it (hk_music/queue_play)
-            assert await b.wait("np('x').shadowRoot.querySelectorAll('.npqr').length===20", 10)
-            r = await b.eval(
-                "(()=>{const l=np('x').shadowRoot.querySelector('.npql'),b=l.getBoundingClientRect();return {x:(b.left+b.right)/2,y:b.top+b.height*.75,more:l.classList.contains('more')}})()")
-            assert r['more'], r
-            await b.send('Input.synthesizeScrollGesture', x=r['x'], y=r['y'], yDistance=-160, gestureSourceType='touch', speed=600)
-            await asyncio.sleep(0.6)
-            got = await b.eval("({top:np('x').shadowRoot.querySelector('.npql').scrollTop,busy:np('x')._qBusy||null})")
-            assert got['top'] > 50 and not got['busy'], got
-            await b.send('Input.synthesizeScrollGesture', x=r['x'], y=r['y'], yDistance=-4000, gestureSourceType='touch', speed=4000)
-            await asyncio.sleep(0.8)
-            assert await b.eval("!np('x').shadowRoot.querySelector('.npql').classList.contains('more')")
-            # (the fling at rest before the tap: a touch on a list still moving stops it and is no tap -- as on an iPad)
-            assert await b.wait("(()=>{const l=np('x').shadowRoot.querySelector('.npql'),t=l.scrollTop;"
-                                "return new Promise(r=>setTimeout(()=>r(l.scrollTop===t),250))})()", 5)
-            t = await b.eval("(()=>{const e=np('x').shadowRoot.querySelectorAll('.npqr')[16].getBoundingClientRect();return {x:e.left+40,y:(e.top+e.bottom)/2}})()")
-            # (what the tap asks for, recorded: the card's own "playing it" mark clears as soon as the server answers, which
-            # a loaded machine's check could miss -- 2026-11-09, the release run)
+            assert await b.wait("!sheet()", 5)
+            # EXTRA LARGE'S UP NEXT (round 12: the next four songs as covers, no list to scroll): a tap on a cover plays that song
+            # (hk_music/queue_play); the first of the queue is what plays now, so Up Next starts at the second
+            assert await b.eval("[...np('x').shadowRoot.querySelectorAll('[data-np=upnext]')].map(e=>e.getAttribute('data-qid')).join()") == '1,2,3,4'
+            t = await b.eval("(()=>{const e=np('x').shadowRoot.querySelectorAll('[data-np=upnext]')[2].getBoundingClientRect();return {x:(e.left+e.right)/2,y:(e.top+e.bottom)/2}})()")
+            # (what the tap asks for, recorded: the card's own "playing it" mark clears as soon as the server answers, which a loaded machine's
+            # check could miss -- 2026-11-09, the release run)
             await b.eval("window.__played=[];np('x')._playQueued=function(id){window.__played.push(id)}")
             for _ in range(2):
                 await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': t['x'], 'y': t['y']}])
                 await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
                 if await b.wait("window.__played.length>0", 3):
                     break
-            assert await b.eval("window.__played[0]==='17'"), ('a tap on the 17th song plays it', await b.eval("window.__played"))
-            print('  x: Up Next scrolls by finger, a tap plays the song')
-            # the Extra Large block: its Browse (the button in Up Next's heading since mockup 12i), then the X
-            await b.eval("np('x').shadowRoot.querySelector('.npqb').click()")
-            assert await b.wait('!!turned()', 5)
-            await asyncio.sleep(1.2)
-            await b.eval("turned().querySelector('[data-k=\"close\"]').click()")
-            assert await b.wait("!turned() && getComputedStyle(np('x').shadowRoot.querySelector('hk-plate')).visibility==='visible'", 5)
-            # nothing playing: Speakers dims, Browse still opens (it is how something starts)
+            assert await b.eval("window.__played[0]==='3'"), ('a tap on the third cover plays its song', await b.eval("window.__played"))
+            print('  x: Up Next is four covers, a tap plays the song')
+            # the Extra Large block's Queue key (in Up Next's place at the foot), then the sheet's X
+            await b.eval("np('x').shadowRoot.querySelector('[data-np=queue]').click()")
+            assert await b.wait("!!panel() && tab()==='Queue'", 8)
+            await asyncio.sleep(1.0)
+            await b.eval("sheet().querySelector('.x').click()")
+            assert await b.wait("!sheet()", 5)
+            # nothing playing: the block says so, and the cover still opens the sheet, on Browse (it is how something starts)
             state('media_player.living_room', 'idle')
-            assert await b.wait("np('l').shadowRoot.querySelector('[data-act=spk]').classList.contains('dis')", 10)
-            await b.eval("np('l').shadowRoot.querySelector('[data-act=brw]').click()")
-            assert await b.wait('!!turned()', 5)
+            assert await b.wait("np('l').shadowRoot.querySelector('.a.kd').textContent==='Nothing Playing'", 10)
+            await b.eval("np('l').shadowRoot.querySelector('[data-np=cover]').click()")
+            assert await b.wait("!!panel() && tab()==='Browse'", 8), await b.eval("tab()")
             await asyncio.sleep(1.5)
-            assert await b.eval('!!turned()'), 'the back stays with nothing playing'
+            assert await b.eval('!!sheet()'), 'the sheet stays with nothing playing'
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: Now Playing blocks: S, W and T keep their keys at 44 px with 8 clear; L and XL have Speakers and Browse, the card turning over into the panel and back')
+            print('PASS: Now Playing blocks: S the cover alone, W and T Play and Next at 44 px with 8 clear, L and XL the whole player; the cover opens Browse / Queue / Speakers in a sheet')
 
 asyncio.run(main())
