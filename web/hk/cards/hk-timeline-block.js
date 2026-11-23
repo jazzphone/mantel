@@ -120,6 +120,18 @@
       thumb: pics.length ? pics[0].url : '', thumbs: pics.length, family: ev.family, entity: ev.entity ? String(ev.entity) : ''
     };
   }
+  // A ROW'S ONE LINE (round 12): what happened, with no place when the place is the sheet's -- "Doorbell rang", not "Someone rang Front Door"
+  function lineOf(r) { return RANG.test(String(r.title || '')) ? 'Doorbell rang' : String(r.title || ''); }
+  // A PICTURE'S WORDS: a title that is short stays whole (its room under it), a long one is its thing (what it did, or where, under it)
+  function caption(r) {
+    if (RANG.test(String(r.title || ''))) return { title: 'Doorbell rang', sub: r.b || r.room };
+    if (r.title.length <= 20) return { title: r.title, sub: r.room };
+    return { title: r.a, sub: r.b || r.room };
+  }
+  // WHAT MATTERS KEEPS ITS COLOR (round 12, the owner: "Recent looks ok, but it's cluttered!"): a doorbell, an arrival, an alarm, a leak or smoke, and
+  // anything the house flagged; every other row's glyph is quiet
+  var MATTERS = { doorbell: 1, arrival: 1, alarm: 1, safety: 1 };
+  function matters(r) { return !!(r && (r.warn || MATTERS[r.family])); }
   // a row's time in a Wide block, which has no line for the day: "Yest. 10:28 PM"
   function wideTime(r) { return (r.day ? (r.day === 'Yesterday' ? 'Yest.' : r.day) + ' ' : '') + r.time; }
   // the rows to draw: newest first, the newest `n`
@@ -228,7 +240,7 @@
   var LIB = {
     LIMIT: LIMIT, READ: READ, ROW_H: ROW_H, KIND_TILE: KIND_TILE, HEAD: HEAD, STRIP_MAX: STRIP_MAX, MODES: MODES, EMPTY: EMPTY,
     NEW_HOUSE: NEW_HOUSE, showOf: showOf, viewNow: viewNow, limitOf: limitOf, rowsFit: rowsFit, dayWord: dayWord, ago: ago,
-    halves: halves, rowView: rowView, wideTime: wideTime, pick: pick, merge: merge, heroOf: heroOf, openOf: openOf,
+    halves: halves, rowView: rowView, wideTime: wideTime, matters: matters, lineOf: lineOf, caption: caption, pick: pick, merge: merge, heroOf: heroOf, openOf: openOf,
     digestView: digestView, digestParts: digestParts, fitGrid: fitGrid, errorWord: errorWord, shortTitle: shortTitle,
     stripView: stripView, stripPath: stripPath, stripMessage: stripMessage, blockPath: blockPath,
     TODAY_KEEP: TODAY_KEEP, todayStart: todayStart, todayPath: todayPath, todayRow: todayRow, todayFoot: todayFoot
@@ -567,17 +579,19 @@
       this._loadSummary();
     }
 
-    // THE KIT'S CARD (phase 34, docs/phase34/PLAN.md; hk-kit.js): a LIST PLATE -- the header (a history glyph, "Recent", what it shows under it,
-    // "N more" at its right end), then rows of 60: the event's glyph at 28 in its kind's color, what happened over where and when. Extra
-    // Large puts them in two columns; a narrow plate says the thing and what it did; Wide, with room for one row, centers the header and
-    // the row as one group; Small is HomeView's tile of the newest event. The morning summary is the same plate: its status, then the
-    // night's kinds with their counts at the right. A row opens what it stands for (`_open`), the plate the Timeline page.
+    // THE KIT'S CARD (phase 34; round 12, 2026-11-23, the owner: "Recent looks ok, but it's cluttered!"): a LIST PLATE of ONE LINE A ROW -- the
+    // event's glyph (quiet gray; an event that matters keeps its color: a doorbell, an arrival, an alarm, a leak), what happened, and how long
+    // ago at the right end ("3 min ago"). Who and where are the sheet's (a row opens it). Large is the header (a history glyph, "Recent", "Today",
+    // "N more" at its right end) over rows of 60; Tall puts the time under the title (two lines); Wide has no header, rows filling the card;
+    // Extra Large leads with the newest event's own picture when it kept one (on the shape inset, its title and time over a gradient at the
+    // foot), the rows beside it, and with none the rows run the full width. Small is HomeView's tile of the newest event. The morning summary is
+    // the same plate (its status, then the night's kinds and counts). A row opens what it stands for (`_open`), the plate the Timeline page.
     _renderKit() {
       var K = window.hkKit;
       if (!K) return false;
       this._watchBlock();
-      var self = this, size = this._size(), k = K.ctx(this), w = k.w, h = k.h, X = k.X, sq = h >= 180, esc2 = K.esc, narrow = w < 300;
-      var teal = K.tone(k, inkOf('teal'), false), hg = K.glyph('mdi:history', 28, teal);
+      var self = this, size = this._size(), k = K.ctx(this), w = k.w, h = k.h, X = k.X, E = k.E, sq = h >= 180, esc2 = K.esc, narrow = w < 300;
+      var hg = K.glyph('mdi:history', 28, K.v('ink', 'rgba(255,255,255,0.94)'));
       /** @param {any} root */
       var bind = function (root) {
         root.querySelectorAll('[data-ev]').forEach(function (/** @type {any} */ b) { b.addEventListener('click', function (/** @type {any} */ e) { self._open(b.getAttribute('data-ev'), e); }); });
@@ -588,13 +602,13 @@
       var big = function (/** @type {string} */ ic, /** @type {string} */ color, /** @type {boolean} */ on) { return K.glyph(ic, sq ? 66 : 50, K.tone(k, inkOf(color), on), on); };
       // nothing to list: the header and a line under it (Small: the tile)
       var calm = function (/** @type {string} */ sub, /** @type {string} */ line) {
-        if (size === 'S') return finish(K.tile(k, K.glyph('mdi:history', sq ? 66 : 50, teal), 'Recent', sub || line));
+        if (size === 'S') return finish(K.tile(k, K.glyph('mdi:history', sq ? 66 : 50, K.v('ink-2', 'rgba(255,255,255,0.68)')), 'Recent', sub || line));
         return finish(K.head(k, { g: hg, title: 'Recent', sub: sub }) + (line ? K.tx(X, K.Y0, w - 2 * X, 'kb', esc2(line)) : ''));
       };
       if (!this._lib || this._state === 'loading') return calm('Loading', '');
       if (this._state === 'error') return calm('', errorWord(this._err));
       /** @type {any[]} */
-      var items;
+      var items, rowsOnly = false, lead = null;
       var ctx = ctxNow(), now = Date.now(), title = 'Recent', sub = '', capped = false;
       if (viewNow(this._show(), now, ctx) === 'digest' && this._summary && !this._summaryErr) {
         var d = digestParts(this._summary), st = d.status;
@@ -610,21 +624,39 @@
         var all = pick(this._events, limitOf(size));
         if (!all.length) return calm(NEW_HOUSE[0], NEW_HOUSE[1]);
         var rows = all.map(function (ev) { return rowView(ev, now, ctx); });
-        if (size === 'S') return finish(K.tile(k, big(rows[0].icon, rows[0].color, rows[0].warn), rows[0].a, tileLine(rows[0])));
+        if (size === 'S') return finish(K.tile(k, big(rows[0].icon, matters(rows[0]) ? rows[0].color : 'gray', matters(rows[0])), rows[0].a, tileLine(rows[0])));
         sub = rows[0].day ? 'Latest events' : 'Today'; capped = !!this._capped;
+        // Extra Large: the newest event's own picture leads (the rows are the others)
+        if (size === 'XL' && rows[0].thumb) { lead = rows[0]; rows = rows.slice(1); }
+        rowsOnly = size === 'W';
         items = rows.map(function (r) {
-          var when = narrow ? (r.day ? wideTime(r) : r.ago) : (r.day ? wideTime(r) : r.agoLong);
-          return { lead: K.glyph(r.icon, 28, K.tone(k, inkOf(r.color), r.warn), r.warn), t: narrow ? r.a : r.title, b: [narrow ? r.b || r.room : r.sub, when].filter(Boolean).join(' · '),
-            label: r.title + ', ' + r.agoLong + (r.sub ? ', ' + r.sub : ''), data: { ev: r.id } };
+          var m = matters(r), when = r.day ? wideTime(r) : r.agoLong;
+          var it = { lead: K.glyph(r.icon, 28, K.tone(k, m ? inkOf(r.color) : inkOf('gray'), m), m), label: r.title + ', ' + r.agoLong + (r.sub ? ', ' + r.sub : ''), data: { ev: r.id } };
+          // (a narrow plate: the thing over what it did and when, two lines; else one line with the time at the right end, softer)
+          if (narrow) { it.t = lineOf(r); it.b = r.day ? wideTime(r) : r.agoLong; } else { it.t = lineOf(r); it.trail = when; it.trCss = 'color:' + K.v('ink-2', 'rgba(255,255,255,0.68)'); }
+          return it;
         });
       }
-      // the rows: as many whole ones as the plate holds from 74 down, sharing the room evenly (not past 68); one that fits alone is centered with the header
-      var cols = size === 'XL' ? 2 : 1, yMax = h - k.E, fit = Math.max(1, Math.floor((yMax - K.Y0 + 0.5) / K.RH)), one = fit === 1 && cols === 1;
-      var nShow = Math.min(fit, Math.ceil(items.length / cols)), rh = one || nShow < fit ? K.RH : Math.min(68, (yMax - K.Y0) / fit);
-      var hy = one ? K.headY(h, 46 + 10 + K.RH) : 18, y0 = one ? hy + 56 : K.Y0;
-      var list = K.rows(k, 0, w, y0, y0 + rh * (one ? 1 : nShow) + 0.5, cols, one ? items.slice(0, 1) : items, rh), left = items.length - (one ? 1 : nShow * cols);
-      var more = left > 0 ? left + (capped ? '+' : '') : 0;
-      return finish(K.head(k, { g: hg, title: title, sub: sub, more: more, y: hy }) + list.html);
+      // the rows: as many whole ones as the plate holds, sharing the room evenly (not past 68); Wide has no header and its rows fill the card; one that fits alone
+      // is centered with the header
+      var y0h = rowsOnly ? E : K.Y0, yMax = h - k.E, fit = Math.max(1, Math.floor((yMax - y0h + 0.5) / (rowsOnly ? 54 : K.RH))), one = fit === 1 && !rowsOnly && !lead;
+      var nShow = Math.min(fit, items.length), rh = one || (nShow < fit && !rowsOnly) ? K.RH : Math.min(68, (yMax - y0h) / (rowsOnly ? nShow : fit));
+      var hy = one ? K.headY(h, 46 + 10 + K.RH) : 18, y0 = one ? hy + 56 : y0h, left = items.length - (one ? 1 : nShow);
+      var more = left > 0 && !rowsOnly ? left + (capped ? '+' : '') : 0;
+      if (lead) {
+        // THE PICTURE LEADS (Extra Large): on the shape inset with the concentric corner, the title and time over a gradient at its foot; the rows beside it
+        var pw = Math.round(w * 0.37), ph = h - E - K.Y0, hit = '<button type="button" class="hit" data-notap data-ev="' + esc2(lead.id) + '" aria-label="' + esc2(lead.title + ', ' + lead.agoLong) +
+          '" style="' + K.st(E, K.Y0, pw, ph) + 'border-radius:' + k.r + 'px"></button>', white = 'color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);pointer-events:none';
+        var cap = caption(lead);
+        var pic = K.box(E, K.Y0, pw, ph, 'pic', 'border-radius:' + k.r + 'px', '<img src="' + esc2(lead.thumb) + '" alt="" decoding="async" draggable="false">') +
+          K.box(E, K.Y0, pw, ph, '', 'border-radius:' + k.r + 'px;pointer-events:none;background:linear-gradient(180deg,transparent 52%,rgba(0,0,0,.58))') + hit +
+          K.tx(E + 14, K.Y0 + ph - 62, pw - 28, 'kt', esc2(cap.title), white) + K.tx(E + 14, K.Y0 + ph - 36, pw - 28, 'kb', esc2([cap.sub, lead.agoLong].filter(Boolean).join(' · ')), white +
+            ';opacity:.85');
+        var side = K.rows(k, E + pw, w - E - pw, y0h - 4, yMax, 1, items, rh);
+        return finish(K.head(k, { g: hg, title: title, sub: sub, more: side.more > 0 ? side.more + (capped ? '+' : '') : 0 }) + pic + side.html);
+      }
+      var list = K.rows(k, 0, w, y0, y0 + rh * (one ? 1 : nShow) + 0.5, 1, one ? items.slice(0, 1) : items, rh);
+      return finish((rowsOnly ? '' : K.head(k, { g: hg, title: title, sub: sub, more: more, y: hy })) + list.html);
     }
     _render() {
       if (!this._built) {

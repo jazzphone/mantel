@@ -79,6 +79,14 @@ out.ago = ['2026-11-03T21:29:40Z', '2026-11-03T21:26:00Z', '2026-11-03T19:10:00Z
 out.halves = [['lock', 'Back Door unlocked'], ['detection', 'Person at Driveway Cam'], ['doorbell', 'Someone rang Front Door'], ['arrival', 'Mark arrived home'],
   ['lock', 'Front Door is jammed'], ['door', 'Front Door keeps changing (14 times)'], ['alarm', 'Home Alarm armed night'], ['system', 'Backup finished'],
   ['refused', 'Hallway tablet tried to unlock Back Door; refused'], ['safety', 'Leak at Kitchen Sink']].map(([f, t]) => { const h = B.halves({ family: f, title: t }); return [h.a, h.b]; });
+// ROUND 12, "Recent looks ok, but it's cluttered!": what keeps its color, a row's one line, a picture's words
+const rvf = (family, extra) => B.rowView(ev(1, '2026-11-03T20:47:00Z', Object.assign({ family }, extra || {})), NOW, ctx);
+out.matters = ['doorbell', 'arrival', 'alarm', 'safety', 'lock', 'door', 'garage', 'detection', 'motion', 'system'].map(f => B.matters(rvf(f)))
+  .concat([B.matters(rvf('lock', { level: 'warning' })), B.matters(null)]);
+out.lineOf = [B.lineOf({ title: 'Someone rang Front Door' }), B.lineOf({ title: 'Front Door unlocked' }), B.lineOf({ title: 'Alex arrived home' }), B.lineOf({})];
+const cp = (family, title, area) => B.caption(B.rowView(ev(1, '2026-11-03T20:47:00Z', { family, title, area_name: area }), NOW, ctx));
+out.caption = [cp('doorbell', 'Someone rang Front Door', 'Porch'), cp('lock', 'Back Door locked', 'Kitchen'), cp('detection', 'Person at Driveway Cam', 'Garage'),
+  cp('arrival', 'Alex arrived home', null)];
 // what a row's tap opens: its camera (the device's, for a sensor that heard it), its thing, else the Timeline's sheet
 const states = { 'camera.front_door': {}, 'lock.back_door': {}, 'person.mark': {} };
 const ents = { 'binary_sensor.fd_person': { device_id: 'd1' }, 'camera.front_door': { device_id: 'd1' }, 'lock.side': {} };
@@ -222,6 +230,17 @@ def test_a_row_says_how_long_ago_and_splits_its_title(got):
     assert got["halves"] == [["Back Door", "Unlocked"], ["Person", "Driveway Cam"], ["Doorbell", "Front Door"], ["Mark", "Arrived home"],
                              ["Front Door", "Jammed"], ["Front Door", "Keeps changing"], ["Home Alarm", "Armed night"], ["Backup finished", ""],
                              ["Hallway tablet tried to unlock Back Door; refused", ""], ["Leak", "Kitchen Sink"]]
+
+
+@needs_node
+def test_recent_is_quiet_except_for_what_matters_and_each_row_is_one_line(got):
+    # a doorbell, an arrival, an alarm, a leak or smoke, and anything flagged keep their color; every other row's glyph is quiet
+    assert got["matters"] == [True, True, True, True, False, False, False, False, False, False, True, False]
+    # the line says what happened; where it happened is the sheet's
+    assert got["lineOf"] == ["Doorbell rang", "Front Door unlocked", "Alex arrived home", ""]
+    # a picture's words: a short title whole (its room under it), a long one its thing (what it did or where under it)
+    assert got["caption"] == [{"title": "Doorbell rang", "sub": "Front Door"}, {"title": "Back Door locked", "sub": "Kitchen"},
+                              {"title": "Person", "sub": "Driveway Cam"}, {"title": "Alex arrived home", "sub": ""}]
 
 
 @needs_node
