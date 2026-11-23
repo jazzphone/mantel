@@ -152,10 +152,11 @@ H.run('CLIMATE BLOCKS', [
       /\.big \.tg\{flex:1 1 auto;[^}]*align-items:center;justify-content:center/.test(css));
   },
   function () {
-    H.section('the catalog: Big Number at every size, the dial\'s Extra Large the sheet');
+    H.section('the catalog: Big Number at every size, the dial\'s Extra Large the same card');
     var C = window.hkGridCatalog;
     H.eq('Extra Large in Big Number', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big', entity: 'climate.den' } }, {}).type, 'custom:hk-control-card');
-    H.eq('...the dial\'s, the sheet', C.config({ card: 'thermostat', size: 'XL', opts: { entity: 'climate.den' } }, {}).type, 'custom:hk-grid-panel-card');
+    H.eq('...the dial\'s too (round 12): the same card, the Large face with its readings beside it', C.config({ card: 'thermostat', size: 'XL', opts: { entity: 'climate.den' } }, {}).type,
+      'custom:hk-control-card');
   },
   function () {
     H.section('the weather, Small: the place, the temperature, the symbol, the condition, high and low');

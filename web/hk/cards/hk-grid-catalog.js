@@ -137,14 +137,16 @@
       var extra = s === 'S' ? {} : { sub_card: ctl(['progress']), meta_card: ctl(['volume']) };
       // (background, 2026-11-05, the owner: the blurred album unless the block asks for the card every other block has)
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { music_at: sp } : {}, o.background === 'card' ? { background: 'card' } : {}, extra); } },
-    // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes
-    // beside it (hk-control.js _big, 2026-10-31)
+    // Extra Large: the Large face and the readings, Mode and Fan beside it in one plate (round 12; before it was the thermostat's
+    // sheet's panel (2026-10-24) -- in Big Number, its face with the modes beside it (hk-control.js _big, 2026-10-31))
     thermostat: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
-      if (s === 'XL' && o.style !== 'big') return panel('climate', id ? { entity: id } : {});
       // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
       // (Wide, 2026-11-07, the review: always Big Number, as Small is -- the ring has no room across a short cell)
-      return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' || s === 'W' ? { style: 'big' } : {})
+      // (round 12, the owner: "For XL, i'd rather have the Large version of the thermostat for the XL card and then to the right, have the
+      // additional data...probably built in to the same card, not detached.": Extra Large is the kit's card whatever the style, its
+      // Outside reading from the weather entity the screen has -- hk-control.js _kitSide)
+      return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' || s === 'W' ? { style: 'big' } : {}, s === 'XL' && ctx.weather ? { weather: ctx.weather } : {})
                 : stand('Thermostat', 'hk:thermostat', 'No thermostat yet.'); } },
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     // ROUND 12 (2026-11-23, the owner: "I like your camera card from the mock up...we need to include the option to have it live or snapshots"):
