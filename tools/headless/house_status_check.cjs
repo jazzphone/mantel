@@ -13,43 +13,33 @@ const DEEP = `window.deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => 
 const SHEET_SIZES = [[1180, 820], [1280, 800], [1366, 1024], [800, 1280], [820, 1180], [320, 667], [375, 667], [390, 844],
                      [667, 375], [844, 390], [640, 900], [641, 900], [900, 500], [900, 501], [1280, 720]].filter(([w, h]) => !(input.sizes || []).length || input.sizes.includes(w + 'x' + h));
 
-// every block on the page: its size, what it draws, how its parts sit
+// every block on the page: its size, what it draws, how its parts sit. The card is the kit's (phase 34, hk-kit.js): a plate of absolutely placed
+// parts -- the headline (.kt over .kb, with the section's glyph in .fc), one `button.row` per section in a list (.sc, role=list) that scrolls, and
+// on Small HomeView's tile (.ctn the headline, .cts the line under it); a row's name is its aria-label
 function blocks() {
   const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
   return deep(document, 'hk-house-status-card').map((c) => {
     const sr = c.shadowRoot, plate = sr.querySelector('hk-plate'), pb = box(plate);
     // (the view scales its grid to the window: a block's px in its own measure)
     const k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
-    const secs = [...sr.querySelectorAll('.ln')].map((s) => {
-      const v = s.querySelector('.v'), nm = s.querySelector('.nm');
-      return Object.assign(box(s), { tag: s.tagName, name: nm ? nm.textContent : '', value: v ? v.textContent.replace(/\s+/g, ' ').trim() : '',
-        detail: s.querySelector('.dt') ? s.querySelector('.dt').textContent : null,
-        cut: !!(v && v.scrollWidth > v.clientWidth + 1), label: s.getAttribute('aria-label') });
-    });
-    const more = sr.querySelector('.sm-k'), all = sr.querySelector('.sm-s');
-    const reach = more ? parseFloat(getComputedStyle(more, '::after').height) * k : 0;
-    // the parts' ink: nothing drawn past the plate's inside
-    const pad = parseFloat(getComputedStyle(plate).paddingLeft) || 0;
-    // (2026-11-09: the lines are in one list that scrolls, so the list's box is what must lie inside, not a line scrolled out of it)
-    const past = [...sr.querySelectorAll('.ls, .sm-h, .sm-k, .sm-s, .hl')].filter((e) => {
-      const b = box(e), p = pad * k; return b.r > pb.r - p + 1 || b.b > pb.b - p + 1 || b.l < pb.l + p - 1 || b.t < pb.t + p - 1;
+    const secs = [...sr.querySelectorAll('.row')].map((s) => Object.assign(box(s), { tag: s.tagName, name: s.getAttribute('aria-label'), label: s.getAttribute('aria-label') }));
+    const head = sr.querySelector('.kit > .kt, .kit > .ctn'), under = sr.querySelector('.kit > .kb, .kit > .cts');
+    // the parts' ink: nothing drawn past the plate's inside (the list is one box that scrolls, so it is what must lie inside, not a row scrolled out of it)
+    const past = [...plate.children].filter((e) => e.tagName !== 'STYLE').filter((e) => {
+      const b = box(e); return b.r > pb.r + 1 || b.b > pb.b + 1 || b.l < pb.l - 1 || b.t < pb.t - 1;
     }).map((e) => { const b = box(e); return e.className + ' ' + [b.l - pb.l, b.t - pb.t, pb.r - b.r, pb.b - b.b].map(Math.round).join(','); });
-    // THE LIST (2026-11-09, the owner: "maybe have a vertical scroll within the card"): it scrolls where its lines do not fit, and its last line is
-    // reachable; the fade (`more`) wears while there is more below
-    const ls = sr.querySelector('.ls.sc');
+    // THE LIST (2026-11-09, the owner: "maybe have a vertical scroll within the card"): it scrolls where its rows do not fit, and its last row is
+    // reachable. (Round 12: the kit's lists have clean scroll edges, no fade at the foot.)
+    const ls = sr.querySelector('.sc');
     let sc = null;
     if (ls) {
-      const before = { sh: ls.scrollHeight, ch: ls.clientHeight, more: ls.classList.contains('more'), role: ls.getAttribute('role'), oy: getComputedStyle(ls).overflowY,
-        ta: getComputedStyle(ls).touchAction };
+      const before = { sh: ls.scrollHeight, ch: ls.clientHeight, role: ls.getAttribute('role'), oy: getComputedStyle(ls).overflowY, ta: getComputedStyle(ls).touchAction };
       ls.scrollTop = ls.scrollHeight;
-      ls.dispatchEvent(new Event('scroll'));
-      const rows = ls.querySelectorAll('.ln'), last = rows[rows.length - 1], lb = last ? last.getBoundingClientRect() : null, lr = ls.getBoundingClientRect();
-      sc = Object.assign(before, { endMore: ls.classList.contains('more'), lastIn: !last || (lb.bottom <= lr.bottom + 1 && lb.top >= lr.top - 1), rows: rows.length });
-      ls.scrollTop = 0; ls.dispatchEvent(new Event('scroll'));
+      const rows = ls.querySelectorAll('.row'), last = rows[rows.length - 1], lb = last ? last.getBoundingClientRect() : null, lr = ls.getBoundingClientRect();
+      sc = Object.assign(before, { lastIn: !last || (lb.bottom <= lr.bottom + 1 && lb.top >= lr.top - 1), rows: rows.length });
+      ls.scrollTop = 0;
     }
-    return { size: c.getAttribute('size'), k, plate: pb, secs, sc, more: more ? Object.assign(box(more), { text: more.textContent.trim(), reach }) : null,
-             small: all ? Object.assign(box(all), { text: all.textContent.replace(/\s+/g, ' ').trim() }) : null, past,
-             density: (sr.querySelector('.hl') || { textContent: '' }).textContent.trim() };
+    return { size: c.getAttribute('size'), k, plate: pb, secs, sc, past, head: head ? head.textContent.trim() : '', under: under ? under.textContent.replace(/\s+/g, ' ').trim() : '' };
   });
 }
 
@@ -96,7 +86,7 @@ function sheetState() {
       await ready(page);
       await page.evaluate(DEEP);
       await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6 &&
-        deep(document, 'hk-house-status-card').every((c) => c.shadowRoot && c.shadowRoot.querySelector('.ln, .sm-s, .none')), null, { timeout: 30000 });
+        deep(document, 'hk-house-status-card').every((c) => c.shadowRoot && c.shadowRoot.querySelector('hk-plate.kit')), null, { timeout: 30000 });
       await page.waitForTimeout(1200);
       return { ctx, page, errors, commands };
     }
@@ -106,7 +96,7 @@ function sheetState() {
         const { ctx, page, errors, commands } = await open(screen, 1180, 820);
         const got = await page.evaluate(blocks);
         await shot(page, `${engine}-${screen}-blocks`);
-        console.log(engine, screen, JSON.stringify(got.map((b) => [b.size, b.density, b.secs.map((s) => s.name + ':' + s.value), b.more && b.more.text, b.small && b.small.text])));
+        console.log(engine, screen, JSON.stringify(got.map((b) => [b.size, b.head, b.under, b.secs.map((s) => s.name)])));
         for (const b of got) {
           const label = `${engine} ${screen} ${b.size}`;
           check(label + ': drawn inside its plate', () => assert(!b.past.length, JSON.stringify(b.past)));
@@ -114,10 +104,8 @@ function sheetState() {
           if (b.sc) {
             check(label + ': a list of rows, contained, by finger (role=list, overflow-y, pan-y)',
               () => assert(b.sc.role === 'list' && /auto|scroll/.test(b.sc.oy) && b.sc.ta === 'pan-y', JSON.stringify(b.sc)));
-            check(label + ': it scrolls where its rows do not fit, to the last row, and the fade goes at the foot', () => {
-              assert(b.sc.lastIn, JSON.stringify(b.sc));
-              assert(b.sc.sh > b.sc.ch + 4 ? b.sc.more && !b.sc.endMore : !b.sc.more, JSON.stringify(b.sc));
-            });
+            // (the kit's lists have clean scroll edges, no fade at the foot: what is left to guard is that the last row is reachable)
+            check(label + ': it scrolls where its rows do not fit, to the last row', () => assert(b.sc.lastIn, JSON.stringify(b.sc)));
           }
         }
         if (screen === 'hs-six') {
@@ -128,13 +116,14 @@ function sheetState() {
             const sh = window.hkShell, nav = sh.navigate.bind(sh);
             sh.navigate = (p) => { window.__went.push(p); return nav(p); };
           });
-          const tapIn = async (size, sel, nth) => page.evaluate(([size, sel, nth]) => {
+          // (a row by its name: the headline's own section leaves the list, so no row's place is fixed)
+          const tapIn = async (size, sel, name) => page.evaluate(([size, sel, name]) => {
             const c = deep(document, 'hk-house-status-card').find((x) => x.getAttribute('size') === size);
-            const el = [...c.shadowRoot.querySelectorAll(sel)][nth || 0], r = el.getBoundingClientRect();
+            const el = [...c.shadowRoot.querySelectorAll(sel)].find((e) => !name || new RegExp('^' + name).test(e.getAttribute('aria-label') || '')), r = el.getBoundingClientRect();
             return { x: r.left + r.width / 2, y: r.top + r.height / 2, name: el.getAttribute('aria-label') };
-          }, [size, sel, nth]);
+          }, [size, sel, name]);
           const sheetUp = () => page.evaluate(() => deep(document, 'hk-house-status-sheet').length > 0);
-          let t = await tapIn('XL', '.ln', 4);                    // Lights
+          let t = await tapIn('XL', '.row', 'Lights');
           await page.touchscreen.tap(t.x, t.y);
           await page.waitForTimeout(800);
           let went = await page.evaluate(() => window.__went.slice());
@@ -145,7 +134,7 @@ function sheetState() {
           await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6, null, { timeout: 15000 });
           await page.waitForTimeout(800);
           await page.evaluate(() => { window.__went.length = 0; });
-          t = await tapIn('W', '.hl');
+          t = await tapIn('W', '.kit > .kt');
           await page.touchscreen.tap(t.x, t.y);
           await page.waitForTimeout(800);
           up = await sheetUp();
@@ -174,7 +163,7 @@ function sheetState() {
           await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6, null, { timeout: 15000 });
           await page.waitForTimeout(800);
           // Small, by the keyboard: focus it, Enter, Escape -> the focus is back on it
-          await page.evaluate(() => { const c = deep(document, 'hk-house-status-card').find((x) => x.getAttribute('size') === 'S'); c.shadowRoot.querySelector('.sm-s').focus(); });
+          await page.evaluate(() => { const c = deep(document, 'hk-house-status-card').find((x) => x.getAttribute('size') === 'S'); c.shadowRoot.querySelector('.hit').focus(); });
           await page.keyboard.press('Enter');
           await page.waitForTimeout(800);
           up = await sheetUp();
@@ -187,7 +176,7 @@ function sheetState() {
           const back = await page.evaluate(() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a ? a.className :
             null; });
           up = await sheetUp();
-          check(`${engine} ${screen}: Escape closes it, the focus back on Small`, () => { assert(!up); assert(/(^| )sm-s( |$)/.test(back || ''), 'got ' + back); });
+          check(`${engine} ${screen}: Escape closes it, the focus back on Small`, () => { assert(!up); assert(/(^| )hit( |$)/.test(back || ''), 'got ' + back); });
         }
         check(`${engine} ${screen}: no page errors`, () => assert.deepEqual(errors, []));
         check(`${engine} ${screen}: no commands sent`, () => assert.deepEqual(commands, []));

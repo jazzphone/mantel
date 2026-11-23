@@ -19,17 +19,21 @@ function blocks() {
     const k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
     const pad = parseFloat(getComputedStyle(plate).paddingLeft) || 0;
     // nothing drawn past the plate's inside (a list's box, not a line scrolled out of it)
-    const past = [...sr.querySelectorAll('.ls, .sm-h, .hl, .snt, .cp, .hw, .hh, .hs')].filter((e) => {
+    // (Wide and up are the kit's picture card, round 12 (hk-kit.js): a plate of absolutely placed parts -- the house's picture over the whole plate, "Home" and
+    // its line, the categories as glass `button.key`s [data-i], and on Extra Large the rooms' panel, its list `.sc` of `button.row`s [data-r]. Small is the glyph alone.)
+    const kit = plate.classList.contains('kit');
+    const past = (kit ? [...plate.children].filter((e) => e.tagName !== 'STYLE') : [...sr.querySelectorAll('.ls, .sm-h, .hl, .snt, .cp, .hw, .hh, .hs')]).filter((e) => {
       if (!e.getClientRects().length) return false;
-      const b = box(e), p = pad * k; return b.r > pb.r - p + 1 || b.b > pb.b - p + 1 || b.l < pb.l + p - 1 || b.t < pb.t + p - 1;
+      const b = box(e), p = kit ? 0 : pad * k; return b.r > pb.r - p + 1 || b.b > pb.b - p + 1 || b.l < pb.l + p - 1 || b.t < pb.t + p - 1;
     }).map((e) => { const b = box(e); return e.className + ' ' + [b.l - pb.l, b.t - pb.t, pb.r - b.r, pb.b - b.b].map(Math.round).join(','); });
-    const lines = [...sr.querySelectorAll('.ln')].map((s) => Object.assign(box(s), { name: (s.querySelector('.nm') || {}).textContent,
-      i: s.getAttribute('data-i'), r: s.getAttribute('data-r'), label: s.getAttribute('aria-label') }));
-    const pills = [...sr.querySelectorAll('.cp .sm-k')].map((s) => Object.assign(box(s), { text: s.textContent.trim() }));
+    // the lines a finger taps: a category's key (data-i) or a room's row (data-r), each by its aria-label
+    const lines = [...sr.querySelectorAll('.key, .row')].map((s) => Object.assign(box(s), { name: s.getAttribute('aria-label'),
+      i: s.getAttribute('data-i'), r: s.getAttribute('data-r'), label: s.getAttribute('aria-label'), key: s.classList.contains('key') }));
+    const pills = lines.filter((l) => l.key);
     const shown = (sel) => { const e = sr.querySelector(sel); return !!(e && e.getClientRects().length); };
-    return { size: c.getAttribute('size'), tile: c.getAttribute('tile'), k, plate: pb, past, lines, pills,
+    return { size: c.getAttribute('size'), tile: c.getAttribute('tile'), k, plate: pb, past, lines, pills, KH: window.hkKit ? window.hkKit.KH : 64,
              glyph: shown('.hs .g') ? 'bare' : shown('.well .g') ? 'well' : shown('.hw .g') ? 'wide' : null,
-             text: plate.textContent.replace(/\s+/g, ' ').trim().slice(0, 160) };
+             text: [...plate.children].filter((e) => e.tagName !== 'STYLE').map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim().slice(0, 160) };
   });
 }
 
@@ -130,16 +134,19 @@ function sheetState() {
         const { ctx, page, errors, commands } = await open(screen, 1280, 800);
         const got = await page.evaluate(blocks);
         await shot(page, `${engine}-${screen}-blocks`);
-        console.log(engine, screen, JSON.stringify(got.map((b) => [b.size, b.glyph, b.text.slice(0, 80), b.lines.length, b.pills.map((p) => p.text)])));
+        console.log(engine, screen, JSON.stringify(got.map((b) => [b.size, b.glyph, b.text.slice(0, 80), b.lines.length, b.pills.map((p) => p.name)])));
         for (const b of got) {
           const label = `${engine} ${screen} ${b.size}`;
           check(label + ': drawn inside its plate', () => assert(!b.past.length, JSON.stringify(b.past)));
           check(label + ': every line a finger tall', () => b.lines.forEach((s) => assert(s.h / b.k >= 55.5, s.name + ' ' + s.h / b.k)));
           if (b.size === 'S') check(label + ': the glyph, bare in Centered, in its well in Home', () => assert.equal(b.glyph, screen === 'home-sq' ? 'bare' : 'well'));
-          if (b.size === 'T' || b.size === 'XL') check(label + ': the categories as lines', () => assert(b.lines.some((l) => l.i != null), JSON.stringify(b.lines)));
-          if (b.size === 'L' || b.size === 'XL') check(label + ': the rooms as lines', () => assert(b.lines.filter((l) => l.r).length >= 5, JSON.stringify(b.lines.map((l) => l.name))));
-          if (b.size === 'L') check(label + ': the categories as standard pills, 40 px',
-            () => assert(b.pills.length >= 3 && b.pills.every((p) => Math.abs(p.h / b.k - 40) < 1), JSON.stringify(b.pills)));
+          // THE CATEGORIES from Wide up are the kit's glass buttons, Apple's Home app's own (Climate, Lights, Doors, Security): three on Wide and Tall, four on Large and
+          // Extra Large, each the kit's key height
+          if (b.size !== 'S') check(label + ': the categories as glass buttons, the kit\'s height',
+            () => assert(b.pills.length >= 3 && b.pills.every((p) => p.i != null && Math.abs(p.h / b.k - b.KH) < 1), JSON.stringify(b.pills)));
+          // THE ROOMS are Extra Large's panel down the right; Large has none by design (round 12: "Extra Large adds the rooms down the right")
+          if (b.size === 'XL') check(label + ': the rooms as lines', () => assert(b.lines.filter((l) => l.r).length >= 5, JSON.stringify(b.lines.map((l) => l.name))));
+          if (b.size === 'L') check(label + ': no rooms (Extra Large has them)', () => assert.equal(b.lines.filter((l) => l.r).length, 0, JSON.stringify(b.lines.map((l) => l.name))));
         }
         if (screen === 'home-sq') {
           // TAPS: the plate opens the sheet, a room the sheet at that room, a category its own page (its chip's tap, as House
@@ -164,11 +171,11 @@ function sheetState() {
           check(`${engine} Small opens the sheet at Home`, () => assert(s && s.panel && !s.back, JSON.stringify(s)));
           await page.keyboard.press('Escape');
           await settle(page);
-          t = await tapIn(page, 'L', '.ln[data-r]', 'Kitchen');
+          t = await tapIn(page, 'XL', '.row[data-r]', 'Kitchen');
           await page.touchscreen.tap(t.x, t.y);
           await settle(page);
           s = await st(page);
-          check(`${engine} Large's Kitchen opens the sheet at the Kitchen (${t.name})`, () => assert(s && s.title === 'Kitchen' && s.back, JSON.stringify(s)));
+          check(`${engine} Extra Large's Kitchen opens the sheet at the Kitchen (${t.name})`, () => assert(s && s.title === 'Kitchen' && s.back, JSON.stringify(s)));
           await page.keyboard.press('Escape');
           await settle(page);
           s = await st(page);
@@ -179,7 +186,7 @@ function sheetState() {
           check(`${engine} ...and Escape at Home closes it`, () => assert.equal(gone, null));
           let w = await went(page);
           check(`${engine} ...the screen still where it was`, () => assert.deepEqual(w, []));
-          t = await tapIn(page, 'XL', '.ln[data-i]', 'Lights');
+          t = await tapIn(page, 'XL', '.key[data-i]', 'Lights');
           await page.touchscreen.tap(t.x, t.y);
           await settle(page);
           s = await st(page);
@@ -190,7 +197,7 @@ function sheetState() {
           await page.waitForFunction(() => deep(document, 'hk-home-block-card').length >= 6, null, { timeout: 15000 });
           await settle(page);
           await page.evaluate(() => { window.__went.length = 0; });
-          t = await tapIn(page, 'L', '.cp .sm-k', 'Security');
+          t = await tapIn(page, 'L', '.key[data-i]', 'Security');
           await page.touchscreen.tap(t.x, t.y);
           await settle(page);
           s = await st(page);

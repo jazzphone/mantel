@@ -12,9 +12,10 @@ Screens, each a Home Grid:
   cs-tiles   the same on tile cells (196 x 150): Extra Large's entries overflow into "N more"
   cs-mixed   a Clock whose sheet mixes Home pills and HomeView tiles, twelve entries
 
-It checks: each Security size drawn, its entries 44 px or more on screen, inside its plate, an entry not secured on the
-white plate with dark words; "N more" a slot as big as the rest whose count adds up, and the alarm's line still naming
-the hidden unlocked entry; a tap on Large's alarm opening the overview (the six as tiles, HomeView's on square cells),
+It checks: each Security size drawn, its entries 44 px or more on screen, inside its plate, what is not secured first in
+Security's teal and the rest at rest; "N more" a row as big as the rest whose count adds up, and the alarm's line still
+counting the unlocked entry however far down the list it would be; a tap on Large's alarm opening the alarm's sheet and
+one on Wide's "N more" the overview (the six as tiles, HomeView's on square cells),
 a tile opening its accessory's sheet and Back coming to the overview; the light's tap opening its sheet and not
 toggling it; Weather's corner button; the mixed sheet at a tablet's, a phone's, a phone on its side's and a short
 window's size: inside the window, every entry reachable by scrolling, no sideways scroll; Escape closing it.
