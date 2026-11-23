@@ -508,6 +508,7 @@ Mantel Server.
   - `app_auth.py` — Signing in the iPhone, iPad and Mac apps (docs/phase10/APPLE-APPS.md §2-§4, slice 10.2).
   - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).
   - `app_music.py` — The apps' music, over REST (docs/phase10/APPLE-APPS.md §12
+  - `app_music_device.py` — The phone as a speaker
   - `app_shell.py` — Phase 10
   - `tablet_app.py` — Mantel for Android, managed from Mantel Settings on the home network (docs/phase26/ANDROID-APP.md "Managing a tablet").
 - **hosts/server/mantel_server/cameras/**
