@@ -117,9 +117,8 @@
     _looks() {
       var L = window.hkLaundry;
       if (!L || !this.client) return [];
-      var list = L.lookAll(this.client), first = L.first(list);
-      // two at most, the one most worth a look first where only one fits; otherwise in the house's own order
-      return list.length > 2 ? [first].concat(list.filter(function (o) { return o !== first; }).sort(function (a, b) { return L.rank(a) - L.rank(b); }).slice(0, 1)) : list;
+      // two at most, the one most worth a look first where only one fits; otherwise in the house's own order (hk-laundry.js shown)
+      return L.shown(L.lookAll(this.client), 'W');
     }
     _tapTarget() {
       var self = this, o = (this._last || [])[0];
@@ -329,7 +328,179 @@
           self._artC(o, xa, 21) + '</div>' + self._track(o, cw) + rows + (p ? '<div class="foot">' + p + '</div>' : '') + '</div>');
       }).join('');
     }
+    // THE KIT'S CARD (round 12, phase 34; hk-kit.js): today's card in the kit's parts, the owner: "I'd like to use the animations we have
+    // created - i'm a pretty big fan of the card we have now for laundry, but wanted to just make it more in line with the new style",
+    // "I don't want separate little tiles", "we have one machine that does both Washing and Drying. Is the card setup to support that? The
+    // existing one does this." Kept: the front-loader drawn and animated by what it does (hkLaundry.art), the name, what it is doing, the
+    // time, the cycle's steps and its keys (Clear on a held Done; Pause or Resume and Stop where the machine offers them). New: ONE plate,
+    // a hairline between two machines, the words in the kit's type on the 18 inset, the steps as 6 px bars in their colors with their names
+    // under (the one it is in, in ink), keys as the kit's 64 keys on the 13 edge.
+    //   S   the machine that needs you (a leak or an error, then a Done, then the one running), its drawing and words centered
+    //   W   two halves: the drawing, the name, "Rinsing . 24 min left"      T   the same, one above the other
+    //   L   two columns: the drawing, the words, the steps named, a key foot       XL  each column flipped as today's one machine is: its name
+    //       over what it is doing in display type, the time left and the end, the drawing cropped at its upper right, steps, readings, keys
+    // ONE MACHINE (a washer-dryer, or a house with one) is the plate itself, the drawing large: W drawing left with the words, the steps and
+    // its key at the right; T drawing, words, steps, key; L the drawing big, the steps named (Wash Rinse Spin Dry Cool for a combo); XL the
+    // words left, the cropped drawing right, steps, readings, the key at the foot.
+    _renderKit() {
+      var K = window.hkKit, L = window.hkLaundry, self = this;
+      if (!K || !L || !this.client) return false;
+      this._watchBlock();
+      var size = this._size(), k = K.ctx(this), w = k.w, h = k.h, E = k.E, X = k.X, KH = K.KH, G = K.G, sq = h >= 180, esc2 = K.esc;
+      var all = L.lookAll(this.client), list = L.shown(all, size), o = '';
+      this._last = list;
+      var ink = K.v('ink', 'rgba(255,255,255,0.94)'), ink3 = K.v('ink-3', 'rgba(255,255,255,0.40)');
+      /** @param {any} m */
+      var toneOf = function (m) { return m.state === 'leak' || m.state === 'error' ? RED : (m.state === 'done' || m.state === 'wrinkle') ? MINT : ''; };
+      // WHAT IT IS DOING in one line, "Rinsing . 24 min left", the state's word in its color (Done mint, a leak or an error red); where the
+      // line is too long for its room, the short one ("24 min left", "Done"), then the state alone
+      /** @param {any} m @param {number} ww */
+      var said = function (m, ww) {
+        var room = Math.floor(ww / 8.4), t = toneOf(m), full = m.title + (m.sub ? ' · ' + m.sub : '');
+        var one = function (/** @type {string} */ a, /** @type {string} */ b) { return (t ? '<span style="color:' + t + '">' + esc2(a) + '</span>' : esc2(a)) + (b ? ' · ' + esc2(b) : ''); };
+        if (full.length <= room) return one(m.title, m.sub);
+        if (m.short && m.short !== m.title && m.short.length <= room) return t ? '<span style="color:' + t + '">' + esc2(m.short) + '</span>' : esc2(m.short);
+        return one(m.title, '');
+      };
+      /** @param {number} x @param {number} y @param {number} ww @param {any} m @param {string} [al] */
+      var words = function (x, y, ww, m, al) {
+        var cs = 'pointer-events:none' + (al ? ';text-align:' + al : '');
+        return K.tx(x, y, ww, 'kt', esc2(m.name), cs) + K.tx(x, y + 24, ww, 'kb', said(m, ww), cs);
+      };
+      // the machine drawn in a room of aw x ah: its own 140 : 150 (cropped to its ink, 94 : 132, for the flipped blocks), centered or at the right
+      /** @param {any} m @param {number} x @param {number} y @param {number} aw @param {number} ah @param {boolean} [crop] @param {boolean} [right] */
+      var art = function (m, x, y, aw, ah, crop, right) {
+        var dw = Math.max(30, crop ? Math.min(aw, ah * 94 / 132) : Math.min(aw, ah * 140 / 150)), dh = crop ? dw * 132 / 94 : dw * 150 / 140;
+        var shown = L.display(m);
+        return K.box(right ? x + aw - dw : x + (aw - dw) / 2, y, dw, dh, '', 'pointer-events:none',
+          L.art(m.state, m.kind, { crop: !!crop, display: dw >= (crop ? 70 : 90) ? shown : '', label: m.name + ', ' + m.title }));
+      };
+      var artH = function (/** @type {number} */ aw, /** @type {number} */ ah, /** @type {boolean} */ crop) {
+        var dw = crop ? Math.min(aw, ah * 94 / 132) : Math.min(aw, ah * 140 / 150); return crop ? dw * 132 / 94 : dw * 150 / 140; };
+      // THE STEPS: a 6 px bar each in its color (done whole, the one it is in half), its name under (the one it is in, in ink); a name that
+      // has no room is left off the others
+      /** @param {number} x @param {number} y @param {number} ww @param {any} m @param {boolean} named */
+      var steps = function (x, y, ww, m, named) {
+        if (!m.steps) return '';
+        var n = m.steps.length, sw = (ww - (n - 1) * 6) / n, out = '';
+        m.steps.forEach(function (/** @type {any} */ s, /** @type {number} */ i) {
+          var f = s.done ? 100 : s.now ? 50 : 0, sx = x + i * (sw + 6);
+          out += K.box(sx, y, sw, 6, '', 'border-radius:3px;overflow:hidden;pointer-events:none;background:' + K.v('line-strong', 'rgba(255,255,255,.24)'),
+            '<i style="display:block;height:100%;width:' + f + '%;border-radius:3px;background:' + (s.color || MINT) + '"></i>');
+          if (named && (sw >= 46 || s.now)) out += K.tx(sx, y + 12, sw, 'kl', esc2(s.name), 'pointer-events:none' + (s.now ? ';color:' + ink : ''));
+        });
+        return out;
+      };
+      // THE KEYS (what a tap asks of the machine is the card's, bound below): the first takes the room; a second (Stop) is a 64 key of its own
+      // unless both have room for their words
+      /** @param {any} m */
+      var keyList = function (m) {
+        return L.keys(self.client, m).map(function (/** @type {any} */ c) {
+          var g = c.k === 'clear' ? K.svg('check', 22) : c.k === 'pause' ? K.svg('pause', 22) : c.k === 'resume' ? K.svg('play', 22) :
+            '<span class="g" style="width:22px;height:22px"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" ' +
+              'rx="3"/></svg></span>';
+          return { g: g, t: c.name, label: c.name + ' the ' + String(m.name).toLowerCase(), data: { k: c.k, m: m.id }, tint: c.k === 'stop' ? RED : '' };
+        });
+      };
+      /** @param {number} x @param {number} y @param {number} ww @param {any} m */
+      var keys = function (x, y, ww, m) {
+        var ks = keyList(m);
+        if (!ks.length) return '';
+        if (ks.length === 1) return K.key(x, y, ww, KH, ks[0]);
+        if ((ww - G) / 2 >= 100) return K.keyRow(x, y, ww, ks.slice(0, 2));
+        var b = Object.assign({}, ks[1]); delete b.t;
+        return K.key(x, y, ww - G - KH, KH, ks[0]) + K.key(x + ww - KH, y, KH, KH, b);
+      };
+      // a machine's half (or the whole plate's touch where one machine is drawn): its sheet
+      /** @param {number} x @param {number} y @param {number} ww @param {number} hh @param {any} m */
+      var hit = function (x, y, ww, hh, m) {
+        return '<button type="button" class="hit" data-notap data-open data-m="' + esc2(m.id) + '" aria-label="' + esc2(m.name + ', ' + m.title) + '" style="' + K.st(x, y, ww, hh) + '"></button>';
+      };
+      // a machine centered in its tile (Small, and each of two on Wide and Tall): the drawing over the name and what it is doing
+      /** @param {any} m @param {number} x0 @param {number} y0 @param {number} tw @param {number} th @param {number} maxA */
+      var tileOf = function (m, x0, y0, tw, th, maxA) {
+        var p = th >= 180 ? 9 : 5, ah = Math.min(maxA, th - p - 7 - 46 - (th >= 180 ? 18 : 6));
+        return art(m, x0 + 4, y0 + p, tw - 8, ah) + words(x0 + 10, y0 + p + artH(tw - 8, ah, false) + 7, tw - 20, m, 'center');
+      };
+      var more = all.length > 2 && size !== 'S' ? K.tx(w - E - 44, 6, 44, 'kl', '+' + (all.length - 2), 'text-align:right;pointer-events:none') : '';
+      var cl = list.length;
+      if (!cl) {
+        var where = window.hkShell && window.hkShell.settingsPlace ? window.hkShell.settingsPlace('Accessories → Laundry') : 'Accessories → Laundry';
+        var none = 'No washer or dryer yet. Add one in ' + esc2(where) + '.';
+        o = size === 'S' ? K.tx(X, 18, w - 2 * X, 'kt', 'Laundry') + K.tx(X, 44, w - 2 * X, 'kb', none, 'white-space:normal') :
+          K.head(k, { title: 'Laundry' }) + K.tx(X, 74, w - 2 * X, 'kb', none, 'white-space:normal');
+      } else if (size === 'S') {
+        o = tileOf(list[0], 0, 0, w, h, sq ? 107 : 84);
+      } else if (cl === 1) {
+        // ONE MACHINE: the plate is the machine
+        var m = list[0], ks = keyList(m).length, fy = K.FY(k);
+        if (size === 'W') {
+          var wa = sq ? 172 : h - 20, wd = Math.min(160, wa * 140 / 150), wx = E + 6 + wd + 11, ww1 = w - wx - X;
+          o = art(m, E + 6, sq ? 10 : 10, 160, wa) + words(wx, sq ? 22 : 16, ww1, m) +
+            ((sq || !ks) ? steps(wx, sq ? 82 : 70, ww1, m, false) : '') + keys(wx - 6, fy, w - wx + 6 - E, m);
+        } else if (size === 'T') {
+          var ta = Math.max(70, Math.min(160, h - 12 - 12 - 46 - (m.steps ? 22 : 0) - (ks ? 85 : 20))), ty = 12 + artH(150, ta, false) + 12;
+          o = art(m, (w - 150) / 2, 12, 150, ta) + words(X, ty, w - 2 * X, m, 'center') + steps(X, ty + 64, w - 2 * X, m, false) + keys(E, fy, w - 2 * E, m);
+        } else if (size === 'L') {
+          var la = Math.max(90, Math.min(203, h - 8 - 3 - 46 - 16 - 32 - (ks ? 85 : 20))), ly = 8 + artH(190, la, false) + 3;
+          o = art(m, (w - 190) / 2, 8, 190, la) + words(X, ly, w - 2 * X, m, 'center') + steps(X, ly + 62, w - 2 * X, m, true) + keys(E, fy, w - 2 * E, m);
+        } else {
+          var xa = 176, ax = w - X - 6 - xa, lw1 = ax - X - 14, fl = L.facts(this.client, m), tc = toneOf(m);
+          o = art(m, ax, 14, xa, h - 14 - 90, true, true) + K.tx(X, 18, lw1, 'kl', esc2(m.name), 'pointer-events:none') +
+            K.tx(X, 42, lw1, 'kd', esc2(m.title), 'pointer-events:none' + (tc ? ';color:' + tc : '')) + K.tx(X, 72, lw1, 'kb', esc2(m.sub), 'pointer-events:none') +
+            (m.endsWords ? K.tx(X, 94, lw1, 'kb', esc2(m.endsWords), 'pointer-events:none;color:' + ink3) : '') + steps(X, 150, ax - X - 24, m, true);
+          var xr = K.rows(k, 0, ax - 6, m.steps ? 196 : 130, fy - 4, 1, fl.map(function (/** @type {any} */ r) {
+            return { t: r.t, b: r.b, tCss: r.red ? 'color:' + RED : '' }; }));
+          o += xr.html + keys(E, fy, w - 2 * E, m);
+        }
+      } else {
+        // TWO: two halves of one plate with a hairline between
+        var hw = (w - 1) / 2, hh = (h - 1) / 2, a0 = list[0], a1 = list[1];
+        if (size === 'W') {
+          o = [a0, a1].map(function (m2, i) { var x0 = i * (hw + 1); return hit(x0, 0, hw, h, m2) + tileOf(m2, x0, 0, hw, h, sq ? 103 : 84); }).join('') +
+            K.box(hw, 22, 1, h - 44, 'sep', 'pointer-events:none');
+        } else if (size === 'T') {
+          o = [a0, a1].map(function (m2, i) { var y0 = i * (hh + 1); return hit(0, y0, w, hh, m2) + tileOf(m2, 0, y0, w, hh, 118); }).join('') +
+            K.box(X, hh, w - 2 * X, 1, 'sep', 'pointer-events:none');
+        } else if (size === 'L') {
+          o = [a0, a1].map(function (m2, i) {
+            var x0 = i * (hw + 1), ls = !!m2.steps, la2 = Math.max(80, Math.min(144, h - 10 - 7 - 46 - (ls ? 54 : 10) - 85)), ay = 10, wy = ay + artH(hw - 8, la2, false) + 9;
+            return hit(x0, 0, hw, h, m2) + art(m2, x0 + 4, ay, hw - 8, la2) + words(x0 + 12, wy, hw - 24, m2, 'center') + steps(x0 + X, wy + 62, hw - 2 * X, m2, true) +
+              keys(x0 + E, K.FY(k), hw - 2 * E, m2);
+          }).join('') + K.box(hw, 22, 1, h - 44, 'sep', 'pointer-events:none');
+        } else {
+          o = [a0, a1].map(function (m2, i) {
+            var x0 = i * (hw + 1), aw2 = 104, tc2 = toneOf(m2), lw2 = hw - aw2 - X - 14 - X, fl2 = L.facts(self.client, m2).filter(function (/** @type {any} */ r) { return r.b !== 'Progress'; });
+            var sy = 180, part = hit(x0, 0, hw, h, m2) + art(m2, x0 + hw - X - 6 - aw2, 16, aw2, 150, true, true) + K.tx(x0 + X, 18, lw2, 'kl', esc2(m2.name), 'pointer-events:none') +
+              K.tx(x0 + X, 42, lw2, 'kd', esc2(m2.title), 'pointer-events:none' + (tc2 ? ';color:' + tc2 : '')) + K.tx(x0 + X, 72, lw2, 'kb', esc2(m2.sub), 'pointer-events:none') +
+              (m2.endsWords ? K.tx(x0 + X, 94, lw2, 'kb', esc2(m2.endsWords), 'pointer-events:none;color:' + ink3) : '') + steps(x0 + X, sy, hw - 2 * X, m2, true);
+            part += K.rows(k, x0, hw, m2.steps ? sy + 42 : 130, K.FY(k) - 4, 1, fl2.map(function (/** @type {any} */ r) {
+              return { t: r.t, b: r.b, tCss: r.red ? 'color:' + RED : '', data: { open: '1', m: m2.id } }; })).html;
+            return part + keys(x0 + E, K.FY(k), hw - 2 * E, m2);
+          }).join('') + K.box(hw, 22, 1, h - 44, 'sep', 'pointer-events:none');
+        }
+      }
+      var label = list.map(function (m3) { return m3.name + ', ' + m3.title + (m3.sub ? ', ' + m3.sub : ''); }).join('; ') || 'Laundry';
+      return K.draw(this, K.plate(k, o + more, { label: label, cls: 'la' }), function (/** @type {any} */ root) { self._bindKit(root); });
+    }
+    /** @param {any} root */
+    _bindKit(root) {
+      var self = this, L = window.hkLaundry;
+      root.querySelectorAll('[data-open]').forEach(function (/** @type {any} */ el) {
+        el.addEventListener('click', function () { L.open(el.getAttribute('data-m'), self.client); });
+      });
+      root.querySelectorAll('button[data-k]').forEach(function (/** @type {any} */ b) {
+        b.addEventListener('click', function () {
+          var id = b.getAttribute('data-m'), kind = b.getAttribute('data-k');
+          if (kind === 'clear') { self._call('script', L.CLEAR, { machine: id }); return; }
+          var m = L.byId(self.client, id), c = m ? L.controls(self.client, m)[kind] : null;
+          if (c) self._call(c[0], c[1], c[2]);
+        });
+      });
+    }
     _render() {
+      // (the kit's card, hk-kit.js; the older drawing below only where the kit draws none)
+      if (window.hkKit && window.hkKit.on(this)) { if (this._renderKit()) return; } else if (window.hkKit) window.hkKit.forget(this);
       var self = this, size = this._size(), box = this._box(size), list = this._looks(), L = window.hkLaundry;
       this._last = list;
       var all = L && this.client ? L.machines(this.client).length : 0;

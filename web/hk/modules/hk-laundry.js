@@ -622,7 +622,48 @@
     }
     return { start: start, end: Math.max(o.ends || now, now), now: now, bins: bins, kwh: kwh, peak: peak, watts: live };
   }
+  // WHAT A BLOCK DRAWS OF THE HOUSE'S MACHINES (the kit's Laundry card, round 12, the owner: "I don't want separate little tiles"): Small the
+  // one that needs you (a leak or an error, then a Done, then the one running, the soonest done first); the rest two at most, the one most
+  // worth a look first where only one fits, otherwise in the house's own order. ONE machine (a combo washer-dryer, or a house with one) is
+  // a plate of its own; two are two halves of one plate
+  function shown(list, size) {
+    if (!list || !list.length) return [];
+    var top = first(list);
+    if (size === 'S') return [top];
+    return list.length > 2 ? [top].concat(list.filter(function (o) { return o !== top; }).sort(function (a, b) { return rank(a) - rank(b); }).slice(0, 1)) : list.slice();
+  }
+  // THE KEYS A MACHINE OFFERS NOW, as words: Clear on a Done the house's server holds; else Pause (or Resume) and Stop where the machine takes
+  // them and allows remote control -- [{k: 'clear' | 'pause' | 'resume' | 'stop', name}], what a key's tap asks of the machine is the card's
+  function keys(client, o) {
+    var out = [];
+    if (!o) return out;
+    if (o.held && (o.machine === 'done' || o.machine === 'wrinkle')) return [{ k: 'clear', name: 'Clear' }];
+    if (!o.runs || o.machine === 'delayed') return out;
+    var m = byId(client, o.id), c = m ? controls(client, m) : null;
+    if (c && !c.why) {
+      if (o.machine === 'paused' && c.resume) out.push({ k: 'resume', name: 'Resume' });
+      else if (o.machine !== 'paused' && c.pause) out.push({ k: 'pause', name: 'Pause' });
+      if (c.stop) out.push({ k: 'stop', name: 'Stop' });
+    }
+    return out;
+  }
+  // THE READINGS UNDER A MACHINE'S STEPS (Extra Large): a leak first, then the cycle's settings, its power, the door and how far along it is
+  // -- [{t, b, red}], the figure over its name; the block takes as many as it has room for
+  function facts(client, o) {
+    var out = [], m = o ? byId(client, o.id) : null;
+    if (!o || !m) return out;
+    if (m.leak && o.leak) out.push({ t: 'Wet', b: 'Leak Sensor', red: true });
+    var set = settingsOf(client, m);
+    if (set) out.push({ t: set, b: 'Cycle' });
+    // (the power sensor's own reading, in watts: a circuit that reports kW is turned into W; shown while it runs or where it is all the card has)
+    var pst = stOf(client, m.power), pu = pst && pst.attributes ? String(pst.attributes.unit_of_measurement || '') : '';
+    if (o.watts != null && (o.src === 'power' || o.runs)) out.push({ t: Math.round(o.watts * (/^kw$/i.test(pu) ? 1000 : 1)).toLocaleString('en-US') + ' W', b: 'Power' });
+    if (o.door) out.push({ t: o.door, b: 'Door' });
+    if (o.pct != null) out.push({ t: Math.round(o.pct) + '%', b: 'Progress' });
+    return out;
+  }
   global.hkLaundry = {
+    shown: shown, keys: keys, facts: facts,
     settingsOf: settingsOf, trace: trace,
     STATES: STATES, RUNNING: RUNNING, ROLES: ROLES, WORDS: WORDS, STEPS: STEPS, STEP_OF: STEP_OF, STEP_COLORS: STEP_COLORS, NAMES: NAMES, KIND_NAMES: KIND_NAMES,
     HELD: HELD, CLEAR: 'laundry_done_clear', tidy: tidy, word: word, found: found, machines: machines, byId: byId, areaOf: areaOf, stateOf: stateOf,
