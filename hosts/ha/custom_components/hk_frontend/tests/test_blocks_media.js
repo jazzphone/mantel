@@ -505,6 +505,39 @@ function () {
     one._render();
     ok('Small: HomeView\'s centered tile with the art where the glyph was, the whole tile the tap', /class="ctn"/.test(one._kitHtml) && /class="hit"/.test(one._kitHtml) &&
       /data-ch="4\.1"/.test(one._kitHtml));
+    // THE CHANNEL'S MARK (2026-11-23, the owner: "Live TV card looks funny with the art: maybe add the channel logo in the upper left corner of
+    // the artwork"): a show's picture and a logo both there, the logo is a small white plate at the picture's upper left, at every size
+    var logoHouse = H.house({
+      'camera.channel_4_1': ['idle', { friendly_name: 'Channel 4' }],
+      'sensor.channel_4_1_now': ['Evening News', { image: '/api/art/news.jpg', logo: '/api/art/c4.png', start: new Date(Date.now() - 30 * 60000).toISOString(), end: new Date(Date.now() + 30 * 60000).toISOString() }],
+      'camera.channel_7_1': ['idle', { friendly_name: 'Food' }],
+      'sensor.channel_7_1_now': ['Coastal Kitchens', { image: '/api/art/food.jpg' }],
+      'camera.channel_9_1': ['idle', { friendly_name: 'Comedy' }],
+      'sensor.channel_9_1_now': ['Late Laughs', { logo: '/api/art/c9.png' }]
+    });
+    var withNow = CHANNELS.channels.map(function (c) { return { number: c.number, name: c.name, camera: c.camera, now: c.now || 'sensor.channel_9_1_now' }; });
+    var drawn = function (size, w, h, chosen) {
+      var el = sized('hk-tv-channels-card', size);
+      el.client = window.hkHostClient.from(logoHouse.hass()); el._channels = withNow; el._configured = true; el._block = function () { return { w: w, h: h }; };
+      if (chosen) el._config = { channel: chosen };
+      el._render();
+      return el._kitHtml || '';
+    };
+    var mark = function (html) { var m = /<span class="tvm" data-mark="(\d+)" style="left:(\d+)px;top:(\d+)px;height:(\d+)px;max-width:(\d+)px/.exec(html); return m && m.slice(1).map(Number); };
+    [['S', 196, 196], ['W', 405, 196], ['T', 196, 405], ['L', 405, 405], ['XL', 614, 405]].forEach(function (z) {
+      var html = drawn(z[0], z[1], z[2]), m = mark(html);
+      ok(z[0] + ': the first channel (picture and logo) has the mark at the picture\'s upper left, a corner\'s radius in', m && m[1] === 14 && m[2] === 14 && m[3] >= 16 && m[3] <= 44, html.slice(0, 200));
+      eq(z[0] + ': ...only that one (the picture alone and the logo alone have none)', (html.match(/class="tvm"/g) || []).length, 1);
+    });
+    var big = mark(drawn('XL', 614, 405, '4.1'));
+    ok('a chosen channel\'s big picture: the mark grows, to a limit', big && big[3] > mark(drawn('S', 196, 196))[3] && big[3] <= 44 && big[4] <= 130, big);
+    ok('the logo alone is still the guide\'s centered logo on the generated tile, not a corner mark', /class="tvg" data-logo="\d+"/.test(drawn('L', 405, 405)) &&
+      (drawn('L', 405, 405).match(/class="tvg"/g) || []).length === 1);
+    ok('the mark stays hidden until its logo loads (a logo that fails shows nothing)', /\.kit \.tvm\{[^}]*visibility:hidden/.test(drawn('L', 405, 405)) && /\.kit \.tvm\.on\{visibility:visible/.test(drawn('L', 405, 405)));
+    ok('the mark stays clear of the progress bar (the picture\'s foot)', (function () {
+      var m = mark(drawn('L', 405, 405)), lay = L('L', 405, 405, 72, 3, 13, 13);
+      return m && m[2] + m[3] < lay.ah - 14 - 4;
+    })());
   } finally { delete window.hkKit; }
 },
 function () {
