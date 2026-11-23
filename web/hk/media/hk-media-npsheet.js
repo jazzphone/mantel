@@ -105,7 +105,7 @@
           this._fit(this.clientWidth);
           if (typeof ResizeObserver === 'function' && !this._ro) {
             this._ro = new ResizeObserver(function (/** @type {any} */ es) { var e = es && es[0]; if (e) self._fit(e.contentRect.width); });
-            this._ro.observe(this);
+            this._ro.observe(/** @type {any} */ (this));
           }
         }
         this._p.update();

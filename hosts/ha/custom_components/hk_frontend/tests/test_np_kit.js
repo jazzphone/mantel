@@ -180,7 +180,8 @@ function () {
   H.section('the cover\'s sheet: the screensaver\'s own panel in a roomy sheet -- wider and taller than the 520 x 680 it was');
   // (the panel's own drawing is test_saverpanel's and the browser check's; here a stand-in with its element, to see what the sheet does with it)
   var made = [], realCreate = window.hkSaverPanel.create;
-  window.hkSaverPanel.create = function (o) { var p = { el: document.createElement('div'), o: o, show: function (t) { p.tab = t; }, update: function () {}, destroy: function () {} }; p.el.className = 'mpanel'; p.el.toggleAttribute = HTMLElement.prototype.toggleAttribute; made.push(p); return p; };
+  window.hkSaverPanel.create = function (o) { var p = { el: document.createElement('div'), o: o, show: function (t) { p.tab = t; }, update: function () {}, destroy: function () {} };
+    p.el.className = 'mpanel'; p.el.toggleAttribute = HTMLElement.prototype.toggleAttribute; made.push(p); return p; };
   var S = H.make('hk-music-sheet');
   ok('a tablet\'s sheet is 740 wide (hk-detail takes a number as the panel\'s own) and asks for 820 of height (the frame caps it at the screen less 32)',
     S.hkWidthKind() === 740 && S.hkHeightKind() === 820);
