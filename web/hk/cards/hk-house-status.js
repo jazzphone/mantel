@@ -481,8 +481,12 @@
       };
       var title = need ? (sec.reading && sec.reading.countdown ? mark(sec.reading, fmtSecs(secsOf(sec.reading.countdown))) : plain(sec.reading)) +
         (OPEN_WORD[sec.kind] ? ' ' + OPEN_WORD[sec.kind] : '') : 'All Good';
-      // (a block under 300 has room for the name alone: the rows say the rest)
-      var sub = need ? sec.name + (sum.others && !narrow ? ' · ' + sum.others + ' more to check' : '') : 'Nothing needs a look';
+      // THE LINE UNDER THE HEADLINE SAYS SOMETHING NEW (round 12, the owner: "the home status card...is showing kind of double weather alerts right now,
+      // since it is at the top and the first one in the list"): the headline's own section leaves the list below it, and the line never repeats its
+      // name -- when it ends ("Until 6 PM"), else what the house says of it, then "N more to check"; Small, which has no list, keeps the name
+      var rest = need ? list.filter(function (x) { return x !== sec; }) : list;
+      var under = need && size !== 'S' ? underOf(sec, title) : '', more = need && sum.others ? sum.others + (narrow ? ' more' : ' more to check') : '';
+      var sub = !need ? 'Nothing needs a look' : size === 'S' ? sec.name : narrow ? under || more : [under, more].filter(Boolean).join(' · ');
       var green = K.v('green', sum.green), tint = need ? (litOf(sec) || (C.ACCENTS && C.ACCENTS.orange) || '#ff9f0a') : green;
       var lead = need ? kglyph(K, sec, 28, tint, true) : K.glyph('hk:shield-home', 28, tint, true), label = 'House Status: ' + (need ? words(sec.reading) + ', ' + sec.name : 'all good');
       if (size === 'S') {
@@ -490,6 +494,8 @@
         o = K.tile(k, need ? kglyph(K, sec, sq ? 66 : 50, tint, true) : K.glyph('mdi:check-circle', sq ? 66 : 50, tint, true), title, sub);
       } else if (!list.length) {
         o = K.head(k, { title: 'Nothing to Report', sub: 'No status chips on this screen', y: K.headY(h, 46) });
+      } else if (!rest.length && size === 'W') {
+        o = K.head(k, { g: lead, title: title, sub: sub, y: K.headY(h, sub ? 46 : 24) });
       } else {
         // the rows: each a section, the first in the chips' order
         var rowOf = function (/** @type {any} */ x, /** @type {number} */ i) {
@@ -508,8 +514,8 @@
           o = K.head(k, { g: lead, title: title, sub: sub, y: 18 + dy });
           y0 = 74 + dy; yMax = fits ? y0 + RH : y0;
         } else { o = K.head(k, { g: lead, title: title, sub: sub }); y0 = 74; yMax = h - E; }
-        var n = yMax > y0 ? Math.max(1, Math.floor((yMax - y0) / RH)) : 0, items = list.slice(0, size === 'W' ? n : list.length);
-        if (n) {
+        var n = yMax > y0 ? Math.max(1, Math.floor((yMax - y0) / RH)) : 0, items = rest.slice(0, size === 'W' ? n : rest.length);
+        if (n && items.length) {
           var per = Math.ceil(items.length / cols), cw = (w + (cols - 1) * X) / cols, inner2 = '';
           items.forEach(function (x, i) {
             var c = Math.floor(i / per), j = i % per, r = rowOf(x, list.indexOf(x));
@@ -575,6 +581,14 @@
     if (sec.icon) return K.glyph(sec.icon, px, color, isOn);
     return '<span class="g' + (isOn ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;color:' + color + '"><hk-state-icon data-e="' + esc(sec.entity || '') +
       '" style="width:' + px + 'px;height:' + px + 'px;--mdc-icon-size:' + px + 'px" aria-hidden="true"></hk-state-icon></span>';
+  }
+  // what a headline's line says of its own section: when it ends, else its detail, never its name or the headline's own words ('' when it has nothing new)
+  /** @param {any} sec @param {string} title */
+  function underOf(sec, title) {
+    var skip = [String(sec.name || ''), String(title || '')].map(function (t) { return t.toLowerCase(); });
+    var pick = [sec.until, sec.detail, sec.extra].filter(function (t) { return t && skip.indexOf(String(t).toLowerCase()) < 0 && String(title).toLowerCase().indexOf(String(t).toLowerCase()) < 0; })[
+      0];
+    return pick ? String(pick) : '';
   }
   // a reading as plain words (a countdown without its "left", which the headline's word or the row's own says)
   function plain(r) {

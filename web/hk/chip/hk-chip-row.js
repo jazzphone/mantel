@@ -153,8 +153,8 @@
     //   plan(board, client) -> {items, unsupported, ids, key}   what can be shown, rebuilt only when settings move
     //   read(plan, client)  -> {sections, unsupported, total}   each section now: visible ones only, alerts first
     //
-    // A section: {key, kind, name, icon, entity, color, reading, label, detail, extra, active, urgent, attention, tap,
-    // readonly}. reading is {num, unit} ("3", "On"), {text} ("Armed Home"), {countdown: {deadline} | {hold}} (a timer),
+    // A section: {key, kind, name, icon, entity, color, reading, label, detail, extra, until (a weather alert's "Until 6 PM"), active, urgent,
+    // attention, tap, readonly}. reading is {num, unit} ("3", "On"), {text} ("Armed Home"), {countdown: {deadline} | {hold}} (a timer),
     // or {none: true} for no reading ("--": a sensor that has not reported is not zero). detail and extra are lines
     // read from the house (who, where), never stand-ins; null when there is nothing true to say.
     //
@@ -405,6 +405,13 @@
           var w = cfg.entity && st(cfg.entity), al0 = w && w.attributes && Array.isArray(w.attributes.Alerts) ? w.attributes.Alerts[0] : null;
           if (al0 && al0.Headline && al0.Headline !== al0.Event) out.detail = String(al0.Headline);
           if (al0 && al0.Severity) out.extra = String(al0.Severity);
+          // WHEN IT ENDS ("Until 6 PM", "Until Tue 6 PM"; round 12): what House Status's headline says under itself, not its category again
+          var endMs = al0 ? Date.parse(String(al0.Ends || al0.Expires || '')) : NaN, HL = window.hkLocale;
+          if (isFinite(endMs) && HL && HL.time && HL.date) {
+            var dayKey = function (t) { return HL.date(t, { year: 'numeric', month: 'numeric', day: 'numeric' }); };
+            var clock = HL.time(endMs, { hour: 'numeric', minute: '2-digit' }).replace(/:00(\s?[AP]M)/i, '$1');
+            out.until = 'Until ' + (dayKey(endMs) === dayKey(Date.now()) ? '' : HL.date(endMs, { weekday: 'short' }) + ' ') + clock;
+          }
           return;
         }
         case 'smoke': {
