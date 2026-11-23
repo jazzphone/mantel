@@ -33,7 +33,9 @@ var EXCEPT = {
   // banners stacked behind the newest, and their controls
   '48,48,54,0.78': 'banner behind', '62,62,68,0.82': 'banner behind', '50,52,60,0.6': 'banner controls',
   // the Person sheet's label over its map
-  '30,30,34,0.62': 'map label'
+  '30,30,34,0.62': 'map label',
+  // the Home and Room blocks' glass buttons over their wallpaper, and pressed (round 13, hk-home-block.js / hk-grid-room.js)
+  '28,30,40,0.62': 'wallpaper button', '28,30,40,0.82': 'wallpaper button pressed'
 };
 var FILES = ['cards/hk-base', 'cards/hk-calendar', 'cards/hk-cameras', 'cards/hk-chip', 'cards/hk-control', 'cards/hk-detail',
   'cards/hk-energy', 'cards/hk-home', 'cards/hk-layout', 'cards/hk-library', 'cards/hk-media', 'cards/hk-music', 'cards/hk-person',

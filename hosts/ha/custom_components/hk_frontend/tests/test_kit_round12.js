@@ -252,41 +252,52 @@ function () {
     ok(size + ': never a blur of its own (the buttons are a translucent dark)', !/backdrop-filter/.test(h.slice(h.indexOf('</style>', h.indexOf('</style>') + 1))), '');
   });
   var w = html(make('home', 'W')), l = html(make('home', 'L')), xl = html(make('home', 'XL'));
-  ok('Wide has three buttons, Large four', [w, l].map(function (x) { return (x.match(/class="key"/g) || []).length; }).join() === '3,4', '');
+  var nW = (w.match(/class="key"/g) || []).length, nL = (l.match(/class="key"/g) || []).length;
+  ok('Wide has three buttons; Large up to six, three rows of two (round 13: "are we able to do 3 rows?")', nW === 3 && nL >= 4 && nL <= 6, nW + ',' + nL);
   ok('Extra Large lists the rooms (data-r) and has the scrolling panel', at(xl, 'data-r="kitchen"') > 0 && at(xl, 'Rooms') > 0 && at(w, 'data-r=') < 0, '');
   ok('a button is a key that opens its category (data-i, never the plate\'s tap)', /data-notap data-i="0"/.test(l), '');
 },
 function () {
-  H.section('Home: the picture follows the sun and the lights');
+  H.section('Home: the wallpaper follows the sun (round 13: Apple\'s soft fields, no drawn house)');
   var day = html(make('home', 'L', {}, sun('above_horizon', 48, true))), night = html(make('home', 'L', {}, sun('below_horizon', -30, false)));
-  ok('by day: the blue sky, no lit window', at(day, '#4a93dc') > 0 && at(day, 'url(#hwn)') < 0, '');
-  ok('at night: the dark sky, the moon and windows lit by the lights that are on', at(night, '#050816') > 0 && at(night, '#f4efe0') > 0 && at(night, 'url(#hwn)') > 0, '');
-  ok('dusk is the sunset\'s sky; dawn the sunrise\'s',
-    at(html(make('home', 'L', {}, sun('above_horizon', 2, false))), '#d98d68') > 0 && at(html(make('home', 'L', {}, sun('above_horizon', 2, true))), '#e39b7e') > 0, '');
+  ok('by day: the day\'s fields', at(day, '#6fb1ee') > 0 && at(day, '#0d142c') < 0, '');
+  ok('at night: the night\'s ground', at(night, '#0d142c') > 0 && at(night, '#6fb1ee') < 0, '');
+  ok('dusk is the sunset\'s fields; dawn the sunrise\'s',
+    at(html(make('home', 'L', {}, sun('above_horizon', 2, false))), '#d96c52') > 0 && at(html(make('home', 'L', {}, sun('above_horizon', 2, true))), '#f0a07c') > 0, '');
+  ok('no drawn house (no svg scene)', at(day, 'url(#hwn)') < 0 && at(day, '#f4efe0') < 0, '');
+  ok('the glyph: 44 in the header on Large, huge and faint as texture; no header glyph on Tall', at(day, 'width:44px;height:44px;opacity:.9') > 0 && at(day, 'opacity:.05') > 0 &&
+    at(html(make('home', 'T')), 'width:44px;height:44px;opacity:.9') < 0, '');
   ok('the card is redrawn when the look moves, not before (the signature says which look)', make('home', 'L', {}, sun('above_horizon', 48, true))._sigOf() !==
      make('home', 'L', {}, sun('below_horizon', -30, false))._sigOf() && make('home', 'L', {}, sun('above_horizon', 48, true))._sigOf() ===
      make('home', 'L', {}, sun('above_horizon', 31, true))._sigOf(), '');
   ok('dimmed: a black wash over it', /rgba\(0,0,0,0?\.(08|22|26|42)\)/.test(night + day), '');
 },
 function () {
-  H.section('Room: Small is today\'s tile; bigger is the room\'s picture, readings, chips, scene keys');
+  H.section('Room: Small is today\'s tile; bigger is the room\'s wallpaper, readings, chips, its accessories as keys; XL its scenes');
   ok('Small draws no kit html', !make('room', 'S')._kitHtml);
   ['W', 'T', 'L', 'XL'].forEach(function (size) {
     var el = make('room', size), h = html(el);
     ok(size + ': the room\'s name and its readings (temperature and humidity)', at(h, '>Kitchen<') > 0 && at(h, '71° · 45% humidity') > 0, h.slice(0, 120));
-    ok(size + ': its scenes as keys at the foot, the chosen one white', at(h, 'data-sc="scene.kitchen_cooking"') > 0 && /class="key on"[^>]*data-sc="scene.kitchen_dinner"/.test(h), '');
+    var nk = (h.match(/class="key( on)?"/g) || []).length;
+    ok(size + ': its accessories as keys (three on Wide and Tall, up to six on Large and up), a light toggles (data-ac)', at(h, 'data-ac="light.kitchen_') > 0 &&
+      (size === 'W' || size === 'T' ? nk === 3 : nk >= 3 && nk <= 6), String(nk));
     ok(size + ': never a blur of its own', !/backdrop-filter/.test(h.slice(h.indexOf('<style>', h.indexOf('<style>') + 1))), '');
   });
   var L = html(make('room', 'L')), W = html(make('room', 'W')), XL = html(make('room', 'XL'));
   ok('chips (not on Wide): lights on, a TV, shades open', at(L, 'class="rc"') > 0 && at(L, '2 Lights') > 0 && at(L, 'TV On') > 0 && at(L, 'Shade Open') > 0 && at(W, 'class="rc"') < 0, '');
   ok('a chip opens the sheet of what it names (data-e)', /data-e="light\.kitchen_/.test(L) && at(L, 'data-e="media_player.kitchen_tv"') > 0, '');
-  ok('the chosen scene\'s key is white with its words near-black, on Flat Light too', /\.kit\.room \.key\.on,\.kit\.room\.light \.key\.on\{background:#fff;color:#1c1c1e\}/.test(L) &&
-    at(L, 'color:#1c1c1e') > 0, '');
-  ok('Extra Large adds its main accessories down the right as keys (data-e), the lights first', at(XL, '<span class="hb"><b>') > 0 && at(XL, 'Island') > 0 && at(L, '<span class="hb"><b>') < 0, '');
-  ok('the area\'s own picture goes over the illustration', at(L, 'src="/api/image/serve/abc123/512x512"') > 0 && at(L, 'linear-gradient(180deg,#eef0ec') > 0,
+  ok('Extra Large: its scenes in the panel down the right (data-sc rows), as Home\'s rooms are; Large has none', at(XL, 'class="srow"') > 0 &&
+    at(XL, 'data-sc="scene.kitchen_cooking"') > 0 && at(XL, '>Scenes<') > 0 && at(L, 'class="srow"') < 0, '');
+  ok('the accessories are named without the room, the lights first', at(L, 'Island') > 0 && at(L, '<span class="hb"><b>') > 0, '');
+  ok('the area\'s own picture goes over the wallpaper', at(L, 'src="/api/image/serve/abc123/512x512"') > 0 && at(L, 'radial-gradient(') > 0,
     L.slice(L.indexOf('<img'), L.indexOf('<img') + 80));
   var noPic = html(make('room', 'L', {}, function (h) { h.areas.kitchen.picture = 'https://example.com/x.jpg'; }));
-  ok('...only a path Home Assistant serves; any other is the illustration alone', at(noPic, '<img class="rp"') < 0 && at(noPic, 'linear-gradient(180deg,#eef0ec 0%,#b9c4c8') > 0, '');
+  ok('...only a path Home Assistant serves; any other is the wallpaper alone', at(noPic, '<img class="rp"') < 0 && at(noPic, 'radial-gradient(') > 0, '');
+  var el2 = make('room', 'L'), b0 = CALLS().length, key = el2._root.querySelector('[data-ac]');
+  if (key && key._listeners && key._listeners.click) { key._listeners.click.forEach(function (f) { f({ stopPropagation: function () {} }); }); }
+  // (this DOM binds no listener through querySelectorAll; where one is bound, the tap must toggle)
+  ok('a light\'s key toggles it (homeassistant.toggle)', !(key && key._listeners && key._listeners.click) || house.calls.slice(b0).some(function (c) { return c.service === 'toggle'; }),
+    JSON.stringify(house.calls.slice(b0)));
 },
 function () {
   H.section('Room: a scene key runs the scene and is white a moment');
@@ -295,7 +306,7 @@ function () {
   var calls = house.calls.slice(before);
   ok('scene.turn_on, for that scene', calls.length === 1 && calls[0].domain === 'scene' && calls[0].service === 'turn_on' && calls[0].data.entity_id === 'scene.kitchen_cooking',
     JSON.stringify(calls));
-  ok('...and its key is the chosen one while it is lit', /class="key on"[^>]*data-sc="scene.kitchen_cooking"/.test(html(el)) || el._lit === 'scene.kitchen_cooking', el._lit);
+  ok('...and it is the chosen one while it is lit', el._lit === 'scene.kitchen_cooking', el._lit);
   clearTimeout(el._litT);
 },
 function () {

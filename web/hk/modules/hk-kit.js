@@ -266,7 +266,39 @@
   // a card that drew New and now draws Current again starts from nothing
   function forget(card) { if (card && card._kitHtml) { card._kitHtml = null; card._html = null; } }
 
+
+  // ---------------------------------------------------------------- THE WALLPAPER (round 13, 2026-11-23; Home and Room from Wide up)
+  // The owner: "i'm not a huge fan of the cartoony look of the house or room ... The Cartoon nature just doesn't work here." Apple's Home
+  // app gives a home and its rooms wallpapers -- soft, blurred fields of related colors -- so these cards do too: three soft fields over a
+  // deep ground (`c`: [ground, upper left, upper right, foot]), dimmed at the top and the foot for the words and the keys. Static.
+  /** @param {number} w @param {number} h @param {string[]} c */
+  function wallpaper(w, h, c) {
+    return box(0, 0, w, h, 'wp', 'background:radial-gradient(70% 80% at 18% 22%,' + c[1] + ' 0%,transparent 72%),radial-gradient(75% 70% at 88% 30%,' + c[2] +
+      ' 0%,transparent 70%),radial-gradient(90% 80% at 55% 105%,' + c[3] + ' 0%,transparent 72%),' + c[0]) +
+      box(0, 0, w, h, 'wp', 'background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.08) 45%,rgba(0,0,0,.3))');
+  }
+  // a wallpaper's four colors from one color (a room's): its hue, kept soft -- the ground deep, the fields lighter and a little turned
+  /** @param {string} hex */
+  function wallFrom(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')), n = m ? parseInt(m[1], 16) : 0xc58a5c;
+    var r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+    var hh = d === 0 ? 30 : mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4), s = d === 0 ? 0.3 : d / (1 - Math.abs(2 * l - 1));
+    s = Math.max(0.3, Math.min(0.6, s));
+    /** @param {number} h2 @param {number} s2 @param {number} l2 */
+    var hsl = function (h2, s2, l2) { return 'hsl(' + Math.round((h2 + 360) % 360) + ',' + Math.round(s2 * 100) + '%,' + Math.round(l2 * 100) + '%)'; };
+    return [hsl(hh, s * 0.55, 0.17), hsl(hh, Math.min(0.72, s + 0.15), 0.5), hsl(hh + 18, s, 0.68), hsl(hh - 24, s * 0.85, 0.36)];
+  }
+  // THE HEADER'S GLYPH (the owner: "what is determining the placement and size of the glyph ... It seems just thrown onto the card"): 44 px,
+  // the height of the title and its line, its right edge on the words' inset, centered on the title block; on blocks 300 px and wider only
+  /** @param {any} k @param {number} w @param {string} icon */
+  function headGlyph(k, w, icon) { return w < 300 ? '' : box(w - k.X - 44, 20, 44, 44, 'fc', 'opacity:.9;pointer-events:none', glyph(icon, 44, '#fff', true)); }
+  // THE TEXTURE: the same glyph huge and faint ("even larger ... maybe even more faint", "from the lower right"): 1.4 x the block's height
+  // (at most 560), off the lower right corner, cut by the block's edges, white at 5%
+  /** @param {number} w @param {number} h @param {string} icon */
+  function texture(w, h, icon) { var px = Math.min(Math.round(h * 1.4), 560); return box(w - px * 0.62, h - px * 0.66, px, px, 'fc', 'opacity:.05;pointer-events:none', glyph(icon, px, '#fff', true));
+    }
   global.hkKit = { version: '1.0.0', CSS: CSS, KH: KH, G: G, RH: RH, Y0: Y0, esc: esc, v: v, on: on, ctx: ctx, tone: tone, draw: draw, forget: forget,
     plate: plate, head: head, headY: headY, key: key, keyRow: keyRow, keyGrid: keyGrid, foot: foot, FY: FY, stack: stack, chunk: chunk, row: row, rows: rows,
-    tx: tx, box: box, st: st, hero: hero, tile: tile, dots: dots, pad: pad, svg: svg, glyph: glyph };
+    tx: tx, box: box, st: st, hero: hero, tile: tile, dots: dots, pad: pad, svg: svg, glyph: glyph,
+    wallpaper: wallpaper, wallFrom: wallFrom, headGlyph: headGlyph, texture: texture };
 })(window);
