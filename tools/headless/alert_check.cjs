@@ -8,23 +8,26 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const want = (part) => !input.only.length || input.only.includes(part);
 
 const DEEP = `window.deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);`;
-const PILL = { W: 40, T: 44, L: 48, XL: 48 };
+// (the kit's key, the only control shape: 64 tall at every size, hk-kit.js KH)
+const KEY = 64;
 
-// every Alert on the page: its size, its words, its parts, and anything drawn past its plate's inset
+// every Alert on the page: its size, its words, its parts, and anything drawn past its plate's inset. The block is the KIT's card (hk-kit.js,
+// hk-alert.js _renderKit): one lit plate of absolutely placed parts -- the headline `.kt` over its line `.kb` (Small: the tile's `.ctn` over
+// `.cts`), the camera's still in `.pic`, and the action the plate's foot key `button.key` ("Close It"), whose words are its own `.kt`
 function alerts() {
   const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
   return deep(document, 'hk-grid-alert-card').map((c) => {
     const sr = c.shadowRoot, plate = sr.querySelector('hk-plate'), pb = box(plate), k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
-    const cs = getComputedStyle(plate), pad = ['Left', 'Top', 'Right', 'Bottom'].map((s) => parseFloat(cs['padding' + s]) || 0);
-    const parts = [...sr.querySelectorAll('.hl, .sb, .go, .pic, .dk')].filter((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none');
+    const hl = sr.querySelector('.ctn, .kt'), sb = sr.querySelector('.cts, .kb'), go = sr.querySelector('button.key'), pic = sr.querySelector('.pic');
+    const parts = [hl, sb, go, pic].filter((e) => e && e.getClientRects().length);
+    // (a key and the picture keep 8 design px from the plate's edge; the words 4, a line's box having leading around its ink)
     const past = parts.filter((e) => {
-      const b = box(e);
-      return b.l < pb.l + pad[0] * k - 1 || b.t < pb.t + pad[1] * k - 1 || b.r > pb.r - pad[2] * k + 1 || b.b > pb.b - pad[3] * k + 1;
+      const b = box(e), inset = (e === hl || e === sb ? 4 : 8) * k - 1;
+      return b.l < pb.l + inset || b.t < pb.t + inset || b.r > pb.r - inset || b.b > pb.b - inset;
     }).map((e) => { const b = box(e); return e.className + ' ' + [b.l - pb.l, b.t - pb.t, pb.r - b.r, pb.b - b.b].map(Math.round).join(','); });
-    const hl = sr.querySelector('.hl'), sb = sr.querySelector('.sb'), go = sr.querySelector('.go'), pic = sr.querySelector('.pic');
     const still = pic ? deep(pic, 'img, canvas').some((i) => i.getBoundingClientRect().width > 10) : false;
     return { size: c.getAttribute('size'), k, title: hl ? hl.textContent : '', sub: sb ? sb.textContent : '', past,
-             cut: !!(hl && hl.scrollHeight > hl.clientHeight + 2),
+             cut: !!(hl && hl.scrollWidth > hl.clientWidth + 1),
              go: go ? Object.assign(box(go), { text: go.textContent.trim(), label: go.getAttribute('aria-label') }) : null,
              pic: pic ? Object.assign(box(pic), { still }) : null, plate: pb };
   });
@@ -78,13 +81,15 @@ function alerts() {
           check(label + ': the headline whole', () => assert(!b.cut, b.title));
           if (garage) {
             check(label + ': the line counts from when the door opened', () => assert(/^Open for 2[34] min$/.test(b.sub), b.sub));
-            if (b.size === 'S') check(label + ': Small has no pill (its plate is the action)', () => assert.equal(b.go, null));
-            else check(label + ': one action, a finger tall, saying Close', () => {
-              assert(b.go && /^Close( Garage Door)?$/.test(b.go.text), JSON.stringify(b.go));
-              assert(Math.abs(b.go.h / b.k - PILL[b.size]) < 1, b.go.h / b.k);
+            if (b.size === 'S') check(label + ': Small has no key (its plate is the action)', () => assert.equal(b.go, null));
+            else check(label + ': one action, a key tall, saying Close It', () => {
+              assert(b.go && /^Close It$/.test(b.go.text), JSON.stringify(b.go));
+              assert(Math.abs(b.go.h / b.k - KEY) < 1, b.go.h / b.k);
               assert(/opens its controls/.test(b.go.label), b.go.label);
             });
-            if (cam) check(label + ': its picture, with a still', () => assert(b.pic && b.pic.still, JSON.stringify(b.pic)));
+            // (the kit's Small is the lit tile and its Wide a header over its key: neither has room for the camera's still)
+            if (cam && b.size !== 'S' && b.size !== 'W') check(label + ': its picture, with a still', () => assert(b.pic && b.pic.still, JSON.stringify(b.pic)));
+            else if (cam) check(label + ': no room for the picture (Small is the tile, Wide a header over its key)', () => assert.equal(b.pic, null));
             else check(label + ': no camera, no picture, the words and the action stay', () => assert(!b.pic && b.title && (b.size === 'S' || b.go), JSON.stringify(b)));
           } else {
             check(label + ': an unavailable camera is no picture', () => assert.equal(b.pic, null));
@@ -102,7 +107,7 @@ function alerts() {
       const { ctx, page, errors, commands } = await open('al-square', 'hk-grid-alert-card');
       await page.waitForTimeout(1500);
       const center = (size, sel, title) => page.evaluate(([size, sel, title]) => {
-        const c = deep(document, 'hk-grid-alert-card').find((x) => x.getAttribute('size') === size && x.shadowRoot.querySelector('.hl').textContent === title);
+        const c = deep(document, 'hk-grid-alert-card').find((x) => x.getAttribute('size') === size && x.shadowRoot.querySelector('.ctn, .kt').textContent === title);
         const r = c.shadowRoot.querySelector(sel).getBoundingClientRect();
         return [r.left + r.width / 2, r.top + r.height / 2];
       }, [size, sel, title]);
@@ -114,16 +119,19 @@ function alerts() {
         return page.evaluate(() => window.__info.slice());
       };
       for (const size of ['W', 'T', 'L', 'XL']) {
-        const went = await tap(size, '.go');
+        const went = await tap(size, 'button.key');
         check(`${engine} ${size}: the action opens the garage door's own controls, once`, () => assert.deepEqual(went, ['cover.garage_door']));
-        const pic = await tap(size, '.pic');
-        check(`${engine} ${size}: the picture opens the camera, once`, () => assert.deepEqual(pic, ['camera.garage']));
-        const plate = await tap(size, '.hl');
+        // (Wide, the kit's header over its key, has no room for the still)
+        if (size !== 'W') {
+          const pic = await tap(size, '.pic');
+          check(`${engine} ${size}: the picture opens the camera, once`, () => assert.deepEqual(pic, ['camera.garage']));
+        }
+        const plate = await tap(size, '.kt');
         check(`${engine} ${size}: the plate opens the door's sheet`, () => assert.deepEqual(plate, ['cover.garage_door']));
       }
-      const small = await tap('S', '.hl');
+      const small = await tap('S', '.ctn');
       check(`${engine} S: Small's plate is the action`, () => assert.deepEqual(small, ['cover.garage_door']));
-      const lp = await tap('L', '.hl', 'Laundry Ready');
+      const lp = await tap('L', '.kt', 'Laundry Ready');
       check(`${engine} laundry L: without an action or a still, the plate opens the washer's sheet`, () => assert.deepEqual(lp, ['sensor.washer_job_state']));
       check(`${engine} taps: no page errors`, () => assert(!errors.length, errors.join(' | ')));
       check(`${engine} taps: not one command`, () => assert(!commands.length, commands.join(' | ')));
@@ -135,12 +143,12 @@ function alerts() {
       // what each House Status block shows now: 'status', or an alert's headline, or another card
       const shown = () => page.evaluate(() => deep(document, 'hk-grid-conditional-card').map((c) => {
         const a = deep(c.shadowRoot || c, 'hk-grid-alert-card')[0], h = deep(c.shadowRoot || c, 'hk-house-status-card')[0];
-        return a ? a.shadowRoot.querySelector('.hl').textContent : h ? 'status' : 'other';
+        return a ? a.shadowRoot.querySelector('.ctn, .kt').textContent : h ? 'status' : 'other';
       }));
       const until = async (want, what) => {
         try { await page.waitForFunction((w) => JSON.stringify(deep(document, 'hk-grid-conditional-card').map((c) => {
           const a = deep(c.shadowRoot || c, 'hk-grid-alert-card')[0], h = deep(c.shadowRoot || c, 'hk-house-status-card')[0];
-          return a && a.shadowRoot && a.shadowRoot.querySelector('.hl') ? a.shadowRoot.querySelector('.hl').textContent : h ? 'status' : 'other';
+          return a && a.shadowRoot && a.shadowRoot.querySelector('.ctn, .kt') ? a.shadowRoot.querySelector('.ctn, .kt').textContent : h ? 'status' : 'other';
         })) === JSON.stringify(w), want, { timeout: 10000 }); } catch (e) { /* said below */ }
         const got = await shown();
         check(`${engine} rules: ${what}`, () => assert.deepEqual(got, want));
