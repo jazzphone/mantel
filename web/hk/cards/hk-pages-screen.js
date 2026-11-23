@@ -263,7 +263,9 @@
 
     var CSS = [
       ':host{display:block;position:relative;z-index:0;box-sizing:border-box;overflow:hidden;',
-      '  height:calc(100dvh - var(--hk-bar-room, var(--hk-tabbar-h, 0px)));',
+      // (less the view's top room where the page keeps one: an Apple HomeView's, under Safari's buttons --
+      // web/shim/homeview.js; unset everywhere else. Without it the Home pill hung half off the HomeView's foot)
+      '  height:calc(100dvh - var(--hk-bar-room, var(--hk-tabbar-h, 0px)) - var(--hk-view-top, 0px));',
       '  color:' + v('ink') + ';-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}',
       // the screen's background, blurred (fixed: the whole window, under the
       // bar too); not in Flat, where there is nothing to blur

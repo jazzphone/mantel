@@ -187,12 +187,16 @@
       }
       // THE SCREEN'S OWN NAVIGATION, never a second menu: with the tab bar
       // showing, its More sheet (what the bar's menu opens); else the side
-      // menu, as the menu button opens it
+      // menu, as the menu button opens it; and on a screen with neither (its Menu
+      // off: the owner's Apple HomeView, 2026-11-23, where the tap did nothing)
+      // the Pages screen, where the screen has one
       _tap() {
         // (When Tapped, 2026-11-07: Nothing leaves even the key still)
         if ((this._config || {}).tap === 'none') return;
         var M = C.menu, B = window.hkTabBar;
         if (M && M.tabBar && M.tabBar() && B && typeof B.open === 'function') { B.open('more'); return; }
+        var p = M && M.on && !M.on() ? this._items().pagesPath : null;
+        if (p) { C.navigate(p, this); return; }
         if (M && M.open) M.open();
       }
       // "+N" (`more: page`, the default): the page of every place -- the Pages screen, where the screen has it -- else
