@@ -126,6 +126,7 @@ declare global {
     hkWxReadings: any;
     hkX: any;
     mantelNative: any;
+    mantelCarScreen: any;
     [key: string]: any;
   }
 }

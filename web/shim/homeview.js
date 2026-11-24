@@ -23,15 +23,23 @@
 // corners are rounded CORNER pt, the page's own bottom corners. A Square Home Grid on it sits on the bottom edge and
 // rounds its bottom corner blocks to follow them (hk-layout-grid.js cellRadius, hk-layout-home-grid.js _measure); its
 // top corners are under Safari's bar, not the display's, so they keep a block's own radius. window.hkHomeView says so.
+//
+// THE APP'S CAR SCREEN (mantel-ios CarScreen.swift, 2026-11-23): the iOS app may draw this page on a CarPlay window --
+// a HomeView shows the paired iPhone's CarPlay apps -- and says the window's size first (window.mantelCarScreen; the
+// web view's own screen is the phone's). A square one is a HomeView, laid out the same, with no Safari to keep clear of.
 (function () {
   var LAYOUT = 720;   // the page's width in CSS px (544 px of screen: 0.76 of it, about the Square grid's own fit)
   var TOP = 24;       // clear of Safari's floating buttons, in the page's px (measured off the owner's photos: ~15 of 544)
   var CORNER = 70;    // the display's corner radius in pt of its 544 (measured off the owner's photo)
-  var s = window.screen, ua = navigator.userAgent || '';
-  if (!(s && /\biPhone\b/.test(ua) && s.width > 0 && s.width === s.height)) return;
+  var s = window.screen, ua = navigator.userAgent || '', car = window.mantelCarScreen;
+  var width = car ? car.width : s && s.width, height = car ? car.height : s && s.height;
+  if (car) {
+    if (!(width > 0 && Math.abs(width - height) <= width * 0.02)) return;
+    TOP = 0;
+  } else if (!(s && /\biPhone\b/.test(ua) && width > 0 && width === height)) return;
   var root = document.documentElement;
   root.setAttribute('hk-homeview', '');
-  window.hkHomeView = { layout: LAYOUT, top: TOP, corner: CORNER * LAYOUT / s.width };   // (the corner in the page's px)
+  window.hkHomeView = { layout: LAYOUT, top: TOP, corner: CORNER * LAYOUT / width };   // (the corner in the page's px)
   root.style.setProperty('--hk-safe-top', 'max(env(safe-area-inset-top, 0px), ' + TOP + 'px)');
   root.style.setProperty('--hk-view-top', 'var(--hk-safe-top)');
   var m = document.querySelector('meta[name="viewport"]');
