@@ -50,7 +50,7 @@ PUBLIC_ROUTES = frozenset({"/healthz", "/api/version", "/api/proxy-check/basics"
 # app["public_prefixes"]): R8 refuses one that isn't here, so a route made public is a reviewed line in this file
 SIGNED_OUT = frozenset({
     "/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource",
-    "/.well-known/oauth-protected-resource/mcp", "/admin", "/api/app/art", "/api/app/command", "/api/app/entities",
+    "/.well-known/oauth-protected-resource/mcp", "/admin", "/api/app/art", "/api/app/command", "/api/app/energy", "/api/app/entities",
     "/api/app/favorites", "/api/app/hello", "/api/app/me", "/api/app/music", "/api/app/music/command",
     "/api/app/history", "/api/app/music/device/play", "/api/app/music/device/socket",
     "/api/app/music/focus", "/api/app/music/image", "/api/app/music/library", "/api/app/music/queue",

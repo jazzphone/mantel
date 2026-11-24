@@ -384,6 +384,68 @@ async def test_favorites_and_summary_show_only_what_one_may_see(mantel):
     assert any(reading) and reading == sorted(reading)      # what one switches before the readings (the cap's 500)
 
 
+async def test_a_widget_chooses_from_a_kind_never_a_devices_settings(mantel):
+    """/api/app/entities: never what Home Assistant files as a device's settings or health, or hides; ``domains``
+    keeps the kinds a widget's Type asks for (2026-11-24, the owner: everything by room, a way to narrow it)."""
+    m = mantel
+    st = m.app["hub"].store.states
+    st.update(STATES)
+    st.update({e: {"s": "on", "a": {"friendly_name": n}, "lc": 1.0, "lu": 1.0} for e, n in (
+        ("button.plug_restart", "Plug Restart"), ("sensor.plug_signal", "Plug Signal"), ("light.stray", "Stray"),
+        ("switch.fountain", "Fountain"))})
+    m.app["hub"].registry.entries.update({"button.plug_restart": {"entity_category": "config"},
+                                          "sensor.plug_signal": {"entity_category": "diagnostic"},
+                                          "light.stray": {"hidden_by": "user"}})
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    r, got = await phone.call("GET", "/api/app/entities")
+    ids = {e["entity_id"] for e in got["entities"]}
+    assert {"light.kitchen", "switch.fountain"} <= ids
+    assert not ids & {"button.plug_restart", "sensor.plug_signal", "light.stray"}
+    r, got = await phone.call("GET", "/api/app/entities?domains=light,switch,nonsense")
+    assert {e["domain"] for e in got["entities"]} == {"light", "switch"}
+    r, got = await phone.call("GET", "/api/app/entities?domains=nonsense")      # nothing it knows: every kind
+    assert "lock.front_door" in {e["entity_id"] for e in got["entities"]}
+
+
+async def test_the_power_and_energy_widgets_read_the_energy_plan(mantel, monkeypatch):
+    """/api/app/energy: the Power page's readings now and today's energy and cost so far (from local midnight), from
+    the Energy feature's plan; 409 energy_off while the feature is off."""
+    m = mantel
+    st = m.app["hub"].store.states
+    st.update(STATES)
+    st.update({"sensor.house_power": {"s": "1520", "a": {"unit_of_measurement": "W"}, "lc": 1.0, "lu": 1.0},
+               "sensor.solar_power": {"s": "unavailable", "a": {"unit_of_measurement": "W"}, "lc": 1.0, "lu": 1.0},
+               "sensor.wall_charge": {"s": "82", "a": {"unit_of_measurement": "%"}, "lc": 1.0, "lu": 1.0}})
+    host = m.app["features"]
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    monkeypatch.setattr(host, "on", lambda k: False)
+    r, got = await phone.call("GET", "/api/app/energy")
+    assert r.status == 409 and got["error"] == "energy_off"
+    monkeypatch.setattr(host, "on", lambda k: k == "energy")
+    host.energy_cache = {"total": {"stat": "sensor.grid_energy", "cost": "sensor.grid_cost"},
+                         "power": {"home": "sensor.house_power", "solar": "sensor.solar_power",
+                                   "grid": "sensor.house_power", "battery": {"level": "sensor.wall_charge"}}}
+    asked = []
+
+    class Proxy:
+        async def request(self, msg):
+            asked.append(msg)
+            return {"sensor.grid_energy": [{"change": 1.5}, {"change": 2.25}], "sensor.grid_cost": [{"change": 0.504}]}
+
+        async def close(self):
+            pass
+    monkeypatch.setattr(m.app["hub"], "readproxy", Proxy(), raising=False)
+    r, got = await phone.call("GET", "/api/app/energy")
+    assert r.status == 200
+    # the solar reads no number and the grid is the house's own meter again: neither shown twice or as nothing
+    assert [(p["key"], p["value"], p["unit"]) for p in got["power"]] == [("home", 1520.0, "W"), ("battery", 82.0, "%")]
+    assert got["today"] == {"energy": 3.75, "unit": "kWh", "cost": 0.5}
+    assert asked[0]["type"] == "recorder/statistics_during_period" and asked[0]["types"] == ["change"]
+    assert asked[0]["statistic_ids"] == ["sensor.grid_energy", "sensor.grid_cost"]
+
+
 async def test_the_widgets_read_chosen_states_and_the_timers_only_as_one_may_see(mantel):
     """/api/app/states: the HomeView widgets made for one thing (an accessory, a thermostat, the doors and locks, the
     timers) read just those states, the Summary's way: view on each, the order asked."""

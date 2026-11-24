@@ -1145,6 +1145,17 @@
   "stream": "none",
   "who": "person"
  },
+ "GET /api/app/energy": {
+  "csrf": "-",
+  "handler": "app_route.<locals>.wrapped",
+  "kind": "app_dpop",
+  "mcp": [],
+  "module": "mantel_server.apps.app_auth",
+  "preview": false,
+  "reads": "feature:energy",
+  "stream": "none",
+  "why": "the iPhone app's own routes: a DPoP-bound app credential (app_auth.app_route), not a session"
+ },
  "GET /api/app/entities": {
   "csrf": "-",
   "handler": "app_route.<locals>.wrapped",

@@ -9,7 +9,10 @@ the server exactly as the screens' socket is:
                                  Widgets cache it in the App Group for their timelines.
   GET  /api/app/favorites        the person's favorites (user_data ``favorites``: entity ids, in order)
   PUT  /api/app/favorites        {favorites: [entity ids]} (at most FAVORITES_MAX)
-  GET  /api/app/entities?q=      what the person may view, to choose favorites from (name, domain, area)
+  GET  /api/app/entities?q=&domains=a,b  what the person may view, to choose favorites and a widget's accessory from
+                                 (name, domain, area): ``domains`` keeps those kinds (and lifts the cap to
+                                 ENTITIES_KIND_MAX); never what Home Assistant hides or files as a device's
+                                 configuration or diagnostics (a plug's Restart button, its signal strength)
   GET  /api/app/states?ids=a,b   chosen accessories' states (at most STATES_MAX), only those the person may view, in
                                  the order asked: the widgets made for one thing (an accessory, a thermostat, the
                                  house's doors and locks); ``?domain=timer`` instead: every timer the person may view
@@ -18,6 +21,10 @@ the server exactly as the screens' socket is:
                                  HISTORY_POINTS averaged points [epoch seconds, value], for the Sensor widget's
                                  graph; only with ``history`` on it (a Child or a guest may see a reading and not
                                  its past). A reading that is not a number answers no points.
+  GET  /api/app/energy          the Power and Energy widgets: the Power page's readings now (the whole house, solar,
+                                 the grid, the house battery) and today's energy and cost so far, from the Energy
+                                 feature's plan; only with ``view`` on ``feature:energy`` (403 forbidden; 409
+                                 energy_off when the feature is off), each reading only if the person may view it
   GET  /api/app/art?entity=      a player's artwork (media_art.py's rule: view on the player)
   GET  /api/app/snap?id=         a notification's snapshot (notify_snaps.py's rule), for the notification extension
   POST /api/app/push/register    the app's APNs token and notification key (apns.py); refused (409 push_off) once
@@ -60,6 +67,10 @@ ATTRS = ("friendly_name", "unit_of_measurement", "device_class", "brightness", "
          # a timer's countdown and a thermostat's range (the widgets: a timer counts down on its own from finishes_at)
          "finishes_at", "remaining", "duration", "min_temp", "max_temp", "target_temp_step", "hvac_modes")
 STATES_MAX = 24
+ENTITIES_MAX = 500          # every kind: the things one switches first, the readings after
+ENTITIES_KIND_MAX = 2000    # the kinds asked (a widget's Type): a house's 690 switches fit
+# what Home Assistant files as a device's own settings or health, never chosen for a widget or a favorite
+HIDDEN_CATEGORIES = frozenset({"config", "diagnostic"})
 STATE_DOMAINS = frozenset({"timer"})
 HISTORY_DOMAINS = frozenset({"sensor", "binary_sensor", "number", "input_number", "counter"})
 HISTORY_HOURS_MAX = 168
@@ -253,6 +264,81 @@ async def history(request: web.Request) -> web.Response:
                "points": history_points(rows or [], start, end), "at": end})
 
 
+# the Power widget's readings, the Power page's (hk_core.energy.power build): the whole house, the sun, the grid
+ENERGY_READINGS = (("home", "Home"), ("solar", "Solar"), ("grid", "Grid"))
+
+
+def energy_now(plan: dict, states: dict, may: set) -> list[dict]:
+    """The Power widget's readings from the Energy feature's plan: [{key, name, entity, value, unit}], only those the
+    plan names, the person may view and that read a number (a battery's charge in %)."""
+    power = plan.get("power") if isinstance(plan.get("power"), dict) else {}
+    named = [(k, n, power.get(k)) for k, n in ENERGY_READINGS]
+    named.append(("battery", "Battery", (power.get("battery") or {}).get("level")))
+    out, seen = [], set()
+    for key, name, eid in named:
+        if not isinstance(eid, str) or eid in seen or eid not in may:
+            continue
+        seen.add(eid)
+        st = states.get(eid) or {}
+        value = _number(st.get("s"))
+        if value is None:
+            continue
+        out.append({"key": key, "name": name, "entity": eid, "value": value,
+                    "unit": (st.get("a") or {}).get("unit_of_measurement")})
+    return out
+
+
+def change_of(rows) -> float | None:
+    """A statistic's change summed over its rows (recorder/statistics_during_period, types change); None: no rows."""
+    vals = [r.get("change") for r in rows or [] if isinstance(r, dict) and isinstance(r.get("change"), (int, float))]
+    return round(sum(vals), 3) if vals else None
+
+
+@open_route("app_dpop", reads="feature:energy", why=WHY_APP)
+@app_route
+async def energy(request: web.Request) -> web.Response:
+    authz, host = request.app.get("authz"), request.app.get("features")
+    principal = _principal(request)
+    if authz is None or "feature:energy" not in authz.may_read(principal, "view", ["feature:energy"]):
+        return error(403, "forbidden")
+    plan = host.energy_cache if host is not None and host.on("energy") else None
+    if not isinstance(plan, dict):
+        return error(409, "energy_off", message="The Energy feature is off on this Mantel.")
+    hub = request.app["hub"]
+    total = plan.get("total") if isinstance(plan.get("total"), dict) else {}
+    power = plan.get("power") if isinstance(plan.get("power"), dict) else {}
+    names = [x for x in (power.get("home"), power.get("solar"), power.get("grid"),
+                         (power.get("battery") or {}).get("level")) if isinstance(x, str)]
+    readings = energy_now(plan, hub.store.states, set(_visible(request, names)))
+    # today so far: the whole home's meter and its cost, from local midnight (the house's time zone)
+    today: dict | None = None
+    stats = [x for x in (total.get("stat"), total.get("cost")) if isinstance(x, str) and x]
+    proxy = getattr(hub, "readproxy", None)
+    if stats and proxy is not None:
+        from datetime import datetime, timezone
+        from zoneinfo import ZoneInfo
+        try:
+            tz = ZoneInfo(getattr(authz, "tz", None) or "UTC")
+        except (KeyError, ValueError):
+            tz = timezone.utc
+        now = datetime.fromtimestamp(float(request.app["clock"]()), tz)
+        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        try:
+            res = await proxy.request({"type": "recorder/statistics_during_period",
+                                       "start_time": midnight.astimezone(timezone.utc).isoformat(),
+                                       "end_time": now.astimezone(timezone.utc).isoformat(),
+                                       "statistic_ids": stats, "period": "hour", "types": ["change"],
+                                       "units": {"energy": "kWh"}})
+        except (ConnectionError, asyncio.TimeoutError, OSError):
+            res = None
+        if isinstance(res, dict):
+            used = change_of(res.get(total.get("stat")))
+            cost = change_of(res.get(total.get("cost"))) if total.get("cost") else None
+            if used is not None:
+                today = {"energy": used, "unit": "kWh", "cost": None if cost is None else round(cost, 2)}
+    return ok({"power": readings, "today": today, "at": float(request.app["clock"]())})
+
+
 @open_route("app_dpop", reads="self", why=WHY_APP)
 @app_route
 async def get_favorites(request: web.Request) -> web.Response:
@@ -281,16 +367,26 @@ async def put_favorites(request: web.Request) -> web.Response:
 async def entities(request: web.Request) -> web.Response:
     hub = request.app["hub"]
     q = (request.query.get("q") or "").strip().lower()[:64]
-    ids = [e for e in hub.store.states if e.split(".", 1)[0] in FAVORITE_DOMAINS]
+    asked = {d for d in (request.query.get("domains") or "").split(",") if d in FAVORITE_DOMAINS}
+    kinds = asked or FAVORITE_DOMAINS
+    entries = getattr(hub.registry, "entries", None) or {}
+
+    def offered(eid: str) -> bool:
+        if eid.split(".", 1)[0] not in kinds:
+            return False
+        reg = entries.get(eid) or {}
+        return reg.get("entity_category") not in HIDDEN_CATEGORIES and not reg.get("hidden_by")
+    ids = [e for e in hub.store.states if offered(e)]
     # the things one switches first, the readings after: a house's hundreds of sensors would fill the 500 otherwise
     ids.sort(key=lambda e: (e.split(".", 1)[0] in READINGS, e))
+    cap = ENTITIES_KIND_MAX if asked else ENTITIES_MAX
     out = []
     for eid in _visible(request, ids):
         e = _entity_json(request.app, eid)
         if e is None or (q and q not in e["name"].lower() and q not in eid):
             continue
         out.append({k: e[k] for k in ("entity_id", "domain", "name", "area", "state")})
-        if len(out) >= 500:
+        if len(out) >= cap:
             break
     return ok({"entities": out})
 
@@ -426,8 +522,9 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_get("/api/app/entities", entities)
     app.router.add_get("/api/app/states", states)
     app.router.add_get("/api/app/history", history)
+    app.router.add_get("/api/app/energy", energy)
     app.router.add_post("/api/app/command", command)
     app.setdefault("public_paths", set()).update({"/api/app/summary", "/api/app/favorites", "/api/app/entities",
-                                                  "/api/app/states", "/api/app/history",
+                                                  "/api/app/states", "/api/app/history", "/api/app/energy",
                                                   "/api/app/command", "/api/app/push/register", "/api/app/snap",
                                                   "/api/app/art"})
