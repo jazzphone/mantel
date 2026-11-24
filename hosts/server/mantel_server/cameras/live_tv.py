@@ -150,8 +150,20 @@ def go2rtc_source(url: str, quality: str = "720", hardware: str = "") -> str:
     """go2rtc's ffmpeg source with Mantel's templates (packaging/compose/go2rtc/go2rtc.yaml)."""
     q = quality if quality in QUALITIES else "720"
     hw = "_vaapi" if hardware == "vaapi" else ""
-    # two sound tracks: Opus for WebRTC, AAC for HLS (Apple's player, hk_tv/hls); go2rtc gives each player its own
-    return f"ffmpeg:{url}#input=mantel_tv_in{hw}#video=mantel_tv_{q}{hw}#audio=opus#audio=aac"
+    # Opus only: a second #audio (AAC for HLS) made go2rtc drop the picture (the house's LXC, 2026-11-24); HLS has
+    # a stream of its own made from this one (hls_source)
+    return f"ffmpeg:{url}#input=mantel_tv_in{hw}#video=mantel_tv_{q}{hw}#audio=opus"
+
+
+def hls_name(name: str) -> str:
+    """The HLS stream made from a channel's stream (hk_tv/hls): its own name, under STREAM_PREFIX."""
+    return name + "_hls"
+
+
+def hls_source(name: str) -> str:
+    """go2rtc's source for a channel's HLS stream: the channel's own stream, the picture as it is and the sound as AAC
+    (Apple's player wants AAC; WebRTC's Opus stays as it was). No second tuner: it reads go2rtc's own stream."""
+    return f"ffmpeg:{name}#video=copy#audio=aac"
 
 
 def gpu_reason(detail: str) -> str:
@@ -753,31 +765,39 @@ class MantelLiveTv:
             raise ConnectionError("unavailable")          # Live TV not Mantel's here: the page plays WebRTC
         ch = await self._gate(ctx, msg["entity_id"])
         name = stream_name(ch["number"])
+        hname = hls_name(name)
         if msg.get("stop"):
-            self.hls_leases.pop(name, None)
-            if not any(s.stream == name for s in self.sessions.values()):
-                self._schedule_stop(name)
+            for n in (hname, name):
+                self.hls_leases.pop(n, None)
+                if not any(s.stream == n for s in self.sessions.values()):
+                    self._schedule_stop(n)
             return {"stopped": True}
         assert self.go2rtc is not None
-        if name not in self.streams:
+        if hname not in self.streams:
             if len(set(self.streams)) >= MAX_SESSIONS:
                 raise Forbidden("too many Live TV streams at once")
-            self._cancel_stop(name)
             try:
-                await self._put_checked(name, ch)
+                if name not in self.streams:          # the channel's own stream (WebRTC's), which HLS's reads
+                    self._cancel_stop(name)
+                    await self._put_checked(name, ch)
+                    self.streams[name] = ch["number"]
+                    self._proxy_gate(name, True, ch["camera"])
+                await self.go2rtc.put_stream(hname, hls_source(name))
             except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
                 self.error = f"{type(exc).__name__}: {exc}"[:200]
                 raise ConnectionError("Live TV's transcoder is unavailable") from exc
-            self.streams[name] = ch["number"]
-            self._proxy_gate(name, True, ch["camera"])
-        self._cancel_stop(name)
-        self.hls_leases[name] = self.monotonic() + HLS_LEASE_S
-        old = self._lease_timers.pop(name, None)
-        if old is not None:
-            old.cancel()
-        self._lease_timers[name] = asyncio.get_running_loop().call_later(
-            HLS_LEASE_S + 1, lambda: self.spawn(self._drop_if_idle(name)))
-        return {"path": f"api/stream.m3u8?src={name}&mp4", "lease": HLS_LEASE_S}
+            self.streams[hname] = ch["number"]
+            self._proxy_gate(hname, True, ch["camera"])
+        until = self.monotonic() + HLS_LEASE_S
+        for n in (name, hname):                         # both held: the HLS stream reads the channel's
+            self._cancel_stop(n)
+            self.hls_leases[n] = until
+            old = self._lease_timers.pop(n, None)
+            if old is not None:
+                old.cancel()
+            self._lease_timers[n] = asyncio.get_running_loop().call_later(
+                HLS_LEASE_S + 1, lambda n=n: self.spawn(self._drop_if_idle(n)))
+        return {"path": f"api/stream.m3u8?src={hname}&mp4", "lease": HLS_LEASE_S}
 
     def _leased(self, name: str) -> bool:
         return self.hls_leases.get(name, float("-inf")) > self.monotonic()
