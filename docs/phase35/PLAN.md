@@ -1,8 +1,6 @@
 # Phase 35: Live TV on an Apple HomeView, sent by Mantel (plan, 2026-11-24)
 
-**Status: steps 1-5 built (2026-11-24): the sender (`cameras/airplay_out/`), paired screens and Settings → Live TV → AirPlay Screens, play/stop (socket and app routes, audited), the widget's Play On (mantel-ios 2a53936) and the player's cast button. Step 6 (a hotfix and the owner's run on a HomeView) waits for the owner's OK.** Checked by hand so far: pair-verify, the remote-control session and its event channel from inside `mantel-server` on the house. The owner, on the Live TV widget on Apple HomeView: "there is no way for me to tap the
-widget from the HomeView and have the mantel server feed the homeview the AirPlay stream of the channel?", then "Would be
-great if we could work out number 1" (Mantel speaking AirPlay itself, not a helper Mac), then "Write the plan".
+**Status: built and working on the house (2026-11-24, hotfix 0.1.169-main.7b021be83, TestFlight 0.1.169 (2067)).** The owner paired a HomeView by its address, and its own Live TV widget, set to Play On that HomeView, played the channel on its own screen ("It Works!!"): the widget's POST /api/app/tv/play, then the HomeView fetching the keyed stream. Left open: discovery. `mantel-announce` mounts the data volume read-only, so its `airplay.json` can't be written and On This Network stays empty; pairing by address works meanwhile. Apple TVs untried.
 
 - Line numbers are left out on purpose: search for the names.
 - The protocol below was worked out on one of the house's HomeViews on 2026-11-24, with the owner watching its screen. The
