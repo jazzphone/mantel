@@ -1,6 +1,6 @@
 # Phase 35: Live TV on an Apple HomeView, sent by Mantel (plan, 2026-11-24)
 
-**Status: planned, nothing built.** The owner, on the Live TV widget on Apple HomeView: "there is no way for me to tap the
+**Status: steps 1-5 built (2026-11-24): the sender (`cameras/airplay_out/`), paired screens and Settings → Live TV → AirPlay Screens, play/stop (socket and app routes, audited), the widget's Play On (mantel-ios 2a53936) and the player's cast button. Step 6 (a hotfix and the owner's run on a HomeView) waits for the owner's OK.** Checked by hand so far: pair-verify, the remote-control session and its event channel from inside `mantel-server` on the house. The owner, on the Live TV widget on Apple HomeView: "there is no way for me to tap the
 widget from the HomeView and have the mantel server feed the homeview the AirPlay stream of the channel?", then "Would be
 great if we could work out number 1" (Mantel speaking AirPlay itself, not a helper Mac), then "Write the plan".
 

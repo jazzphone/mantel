@@ -685,8 +685,8 @@ async def test_an_apple_screen_plays_a_channel_as_hls_in_apples_player(rig):
     assert "error" in await r.ask(ws, 4, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc", "url": "x"})
     # Stop: the lease is gone and the stream goes after the grace
     assert (await r.ask(ws, 5, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc", "stop": True}))["result"] == {"stopped": True}
-    for _ in range(100):
-        if not r.tv.streams:
+    for _ in range(200):          # (a stream leaves the list before go2rtc's DELETE goes out: wait for both)
+        if not r.tv.streams and {("DELETE", "mantel_tv_4_1"), ("DELETE", "mantel_tv_4_1_hls")} <= set(r.go2rtc.calls):
             break
         await asyncio.sleep(0.02)
     assert r.tv.streams == {} and ("DELETE", "mantel_tv_4_1") in r.go2rtc.calls and ("DELETE", "mantel_tv_4_1_hls") in r.go2rtc.calls
