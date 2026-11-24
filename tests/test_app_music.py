@@ -191,3 +191,16 @@ def test_one_airplay_session_is_one_context():
     got = app_music.contexts(cfg, states)
     assert [(c["key"], c["kind"], c["members"], c.get("airplay")) for c in got] == [
         (K, "group", [K, D], True), (C, "room", [C], None)]
+
+
+def test_a_playlists_cover_is_one_the_app_can_load():
+    """The Music widget draws each playlist's cover: Music Assistant's proxy through the app's own door, a web picture as
+    it is, anything else dropped -- the pill's and each choice's."""
+    from mantel_server.apps.app_music import _app_covers
+    pid = "a" * 64
+    got = _app_covers({"name": "Decades", "image": f"/ma/imageproxy/{pid}?size=512",
+                       "options": [{"name": "2020s", "key": "k", "image": "https://cdn.example/x.jpg"},
+                                   {"name": "1990s", "key": "j", "image": "/local/x.png"}, {"name": "1980s", "key": "i"}]})
+    assert got["image"] == f"/api/app/music/image?id={pid}"
+    assert [o.get("image") for o in got["options"]] == ["https://cdn.example/x.jpg", None, None]
+    assert "image" not in _app_covers({"name": "Jazz", "image": "/local/x.png"})

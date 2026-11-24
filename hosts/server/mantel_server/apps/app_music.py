@@ -66,6 +66,17 @@ def _host(request: web.Request):
     return host if host is not None and host.active else None
 
 
+def _app_covers(pill: dict) -> dict:
+    """A playlist pill with its picture (and its choices') as the app loads it (``_app_image``); one it can't, dropped."""
+    out = dict(pill)
+    if "image" in out:
+        out["image"] = _app_image(out["image"])
+    if isinstance(out.get("options"), list):
+        out["options"] = [dict(o, image=_app_image(o.get("image"))) if isinstance(o, dict) and "image" in o else o
+                          for o in out["options"]]
+    return {k: v for k, v in out.items() if not (k == "image" and v is None)}
+
+
 def _app_image(img: Any) -> str | None:
     """A picture the app can load: a web address as it is; Music Assistant's proxy through this door."""
     if not isinstance(img, str) or not img:
@@ -175,6 +186,8 @@ async def music(request: web.Request) -> web.Response:
     data: UD.UserData = request.app["user_data"]
     focus = data.get(f"u:{principal.user.id}", "hk_music_focus") if principal and principal.user else None
     out = dict(cfg)
+    # each playlist's cover (and its choices'), on a road the app can take (the Music widget draws them, 2026-11-24)
+    out["playlists"] = [_app_covers(p) for p in cfg.get("playlists") or [] if isinstance(p, dict)]
     out.update({"players": players, "contexts": contexts(cfg, states),
                 "focus": focus.get("key") if isinstance(focus, dict) else None,
                 "commands": request.app.get("gateway") is not None, "at": request.app["clock"]()})
