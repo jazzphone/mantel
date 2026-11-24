@@ -31,6 +31,7 @@
     var TV_HEARTBEAT_MS = 60000;
     var TV_CONTROLS_MS = 4000;
     var TV_RETRY_MS = [5000, 15000, 60000, 300000];   // an empty channel list: look again
+    var tvLinkDone = false;                            // the address's channel (_fromLink) is played once per page load
 
     function tvTime(iso) {
       try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
@@ -135,7 +136,26 @@
           self._loading = false;
           if (good) self._chanTries = 0; else self._retryChannels();
           self.redraw();
+          self._fromLink();
         });
+      }
+
+      // A CHANNEL FROM THE ADDRESS (2026-11-24, the owner: a Live TV widget that opens "the mantel page to have that
+      // channel play"): .../live-tv?channel=4.1 plays that channel once the list is in, and leaves the address without
+      // it, so Back or a reload does not start it again. Once per page load.
+      _fromLink() {
+        if (tvLinkDone || !this._channels || !this._channels.length) return;
+        var want = null;
+        try { want = new URLSearchParams(location.search).get('channel'); } catch (e) { want = null; }
+        if (!want) return;
+        tvLinkDone = true;
+        try {
+          var u = new URL(location.href);
+          u.searchParams.delete('channel');
+          history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+        } catch (e) { /* an address it can't change: the channel still plays */ }
+        var ch = this._channels.filter(function (c) { return String(c.number) === want; })[0];
+        if (ch) this._open(ch);
       }
 
       _retryChannels() {

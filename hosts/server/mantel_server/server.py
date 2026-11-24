@@ -600,7 +600,9 @@ async def home_redirect(request: web.Request) -> web.StreamResponse:
     view = request.match_info.get("view")                # /home/timeline: that page of the same screen (a push's link)
     start = default_screens.start_for(request.app, ident) if ident.authenticated else None
     if start is not None:
-        raise web.HTTPFound(_view_of(start, view))
+        # the link's own query goes along (a widget's /home/live-tv?channel=4.1: that channel, 2026-11-24)
+        qs = request.query_string
+        raise web.HTTPFound(_view_of(start + (("&" if "?" in start else "?") + qs if qs else ""), view))
     screen = default_screens.house(request.app)
     if screen is None:                                   # no screen yet: Mantel Settings, where screens are added
         raise web.HTTPFound("/settings")

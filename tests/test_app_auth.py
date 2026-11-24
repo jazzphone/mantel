@@ -483,6 +483,26 @@ async def test_the_laundry_widget_reads_each_machine_and_its_held_done(mantel, m
     assert d["state"] == "done" and d["ends"] is None and d["done_since"] == now - 600
 
 
+async def test_the_live_tv_widget_reads_the_channels_live_tv_lists(mantel, monkeypatch):
+    """/api/app/tv: Live TV's own channel list (its rule decides who sees which), each with its logo and what is on."""
+    m = mantel
+    m.app["hub"].store.states["sensor.tv_nbc_now"] = {"s": "The News", "lc": 1.0, "lu": 1.0, "a": {
+        "logo": "https://img.example/nbc.png", "start": "2026-11-24T18:00:00+00:00", "end": "2026-11-24T18:30:00+00:00"}}
+
+    class Live:
+        async def channel_list(self, ctx, msg):
+            assert msg == {"type": "hk_tv/channels"} and ctx.identity is not None
+            return {"configured": True, "channels": [{"number": "4.1", "name": "NBC", "camera": "camera.tv_nbc",
+                                                      "now": "sensor.tv_nbc_now"}]}
+    monkeypatch.setitem(m.app, "live_tv", Live())
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    r, got = await phone.call("GET", "/api/app/tv")
+    assert r.status == 200 and got["configured"]
+    c = got["channels"][0]
+    assert (c["number"], c["name"], c["title"], c["logo"]) == ("4.1", "NBC", "The News", "https://img.example/nbc.png")
+
+
 async def test_the_widgets_read_chosen_states_and_the_timers_only_as_one_may_see(mantel):
     """/api/app/states: the HomeView widgets made for one thing (an accessory, a thermostat, the doors and locks, the
     timers) read just those states, the Summary's way: view on each, the order asked."""

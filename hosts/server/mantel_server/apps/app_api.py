@@ -28,6 +28,8 @@ the server exactly as the screens' socket is:
   GET  /api/app/laundry         the Laundry widget: each washer and dryer (Accessories -> Laundry's, else those found) the
                                  person may view by what says it runs: its state (hk_core.laundry STATES), when it
                                  finishes, its progress, and Done held until someone unloads (features/laundry.py)
+  GET  /api/app/tv              the Live TV widget: the channels the person may watch (Live TV's own list, its rule:
+                                 feature:live_tv, view on each channel's camera), each with its logo and what is on
   GET  /api/app/art?entity=      a player's artwork (media_art.py's rule: view on the player)
   GET  /api/app/snap?id=         a notification's snapshot (notify_snaps.py's rule), for the notification extension
   POST /api/app/push/register    the app's APNs token and notification key (apns.py); refused (409 push_off) once
@@ -437,6 +439,31 @@ async def energy_rings(request: web.Request, plan: dict, proxy) -> list[dict]:
     return RG.rings(stats, res, midnight.timestamp(), now.timestamp(), _start, units)
 
 
+@open_route("app_dpop", reads="feature:live_tv", why=WHY_APP)
+@app_route
+async def tv(request: web.Request) -> web.Response:
+    host = request.app.get("live_tv")
+    if host is None:
+        return ok({"configured": False, "channels": []})
+    from ..connectors import Ctx
+
+    async def _quiet(_msg: dict) -> None:
+        return None
+    try:
+        got = await host.channel_list(Ctx(send=_quiet, identity=_principal(request)), {"type": "hk_tv/channels"})
+    except (ConnectionError, asyncio.TimeoutError, OSError):
+        return error(503, "unavailable")
+    states = request.app["hub"].store.states
+    out = []
+    for c in (got or {}).get("channels") or []:
+        now = states.get(c.get("now") or "") or {}
+        a = now.get("a") or {}
+        out.append({"number": c.get("number"), "name": c.get("name"), "logo": a.get("logo"),
+                    "title": now.get("s") if c.get("now") else None, "subtitle": a.get("subtitle"),
+                    "start": a.get("start"), "end": a.get("end"), "image": a.get("image")})
+    return ok({"configured": bool((got or {}).get("configured")), "channels": out})
+
+
 @open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def laundry(request: web.Request) -> web.Response:
@@ -650,8 +677,9 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_get("/api/app/history", history)
     app.router.add_get("/api/app/energy", energy)
     app.router.add_get("/api/app/laundry", laundry)
+    app.router.add_get("/api/app/tv", tv)
     app.router.add_post("/api/app/command", command)
     app.setdefault("public_paths", set()).update({"/api/app/summary", "/api/app/favorites", "/api/app/entities",
-                                                  "/api/app/states", "/api/app/history", "/api/app/energy", "/api/app/laundry",
+                                                  "/api/app/states", "/api/app/history", "/api/app/energy", "/api/app/laundry", "/api/app/tv",
                                                   "/api/app/command", "/api/app/push/register", "/api/app/snap",
                                                   "/api/app/art"})

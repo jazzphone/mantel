@@ -71,6 +71,8 @@ async def test_a_page_of_the_default_screen_opens_by_its_name(mantel):
     assert (await put(m, "/api/default-screen", "dashboard-loft")).status == 200
     assert await open_("/home/timeline") == (302, "/dashboard-loft/timeline")             # then her own
     assert await open_("/home") == (302, "/dashboard-loft/home")                           # /home itself is as it was
+    # a widget's link keeps its query (the Live TV widget's channel, 2026-11-24)
+    assert await open_("/home/live-tv?channel=4.1") == (302, "/dashboard-loft/live-tv?channel=4.1")
     assert (await open_("/home/room-living_room"))[1] == "/dashboard-loft/room-living_room"
     assert (await open_("/home/a.b"))[0] == 404 and (await open_("/home/" + "x" * 41))[0] == 404
     assert (await open_("/home/..%2Fsettings"))[0] in (404, 400)
