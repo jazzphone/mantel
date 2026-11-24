@@ -218,6 +218,8 @@ class Show:
                 d = plistlib.loads(body)
                 if isinstance(d, dict):
                     kind = str(d.get("type") or kind)
+        if kind not in self.seen:                    # what a screen says on pause or close, learned from the log
+            log.info("airplay show on %s: the screen says %s", self.host, kind)
         self.seen = (self.seen + [kind])[-EVENTS_KEPT:]
 
     def _lost(self) -> None:

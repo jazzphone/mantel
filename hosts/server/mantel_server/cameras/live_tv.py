@@ -464,6 +464,7 @@ class MantelLiveTv:
         self.streams: dict[str, str] = {}                     # stream name -> channel, set up in go2rtc
         self._stop_timers: dict[str, asyncio.TimerHandle] = {}
         self.hls_leases: dict[str, float] = {}               # stream name -> when its HLS players' hold runs out
+        self.on_drop: list[Callable[[str], None]] = []       # told each stream Live TV lets go (airplay_out ends its show)
         self._lease_timers: dict[str, asyncio.TimerHandle] = {}
         self._linked_sig: tuple | None = None
         self._guide_tried = float("-inf")
@@ -1022,6 +1023,8 @@ class MantelLiveTv:
         keys = self.app.get("stream_keys")
         if keys is not None:
             keys.forget(name)
+        for told in list(self.on_drop):
+            told(name)
         if self.go2rtc is not None:
             await self.go2rtc.drop_stream(name)
 

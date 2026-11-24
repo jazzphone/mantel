@@ -37,10 +37,6 @@ class Sender:
         self.app, self.screens = app, screens
         self.shows: dict[str, tuple[Show, dict]] = {}          # screen id -> (its show, {channel, name, by})
 
-    def playing(self, sid: str) -> dict | None:
-        got = self.shows.get(sid)
-        return dict(got[1]) if got and not got[0].ended.is_set() else None
-
     def _base(self) -> str:
         url = getattr(self.app.get("cfg"), "public_url", "") or ""
         if not url.startswith("https://"):
@@ -69,7 +65,8 @@ class Sender:
         creds = hap.Credentials.loads(screen["creds"])
         show = Show(screen["host"], creds, int(screen.get("port") or 7000), psi=screen.get("psi") or None,
                     on_end=lambda s, sid=sid: self._ended(sid, s))
-        self.shows[sid] = (show, {"channel": number, "name": ch.get("name"), "by": getattr(user, "id", None)})
+        self.shows[sid] = (show, {"channel": number, "name": ch.get("name"), "by": getattr(user, "id", None),
+                                  "stream": got["shared"].split("src=", 1)[-1].split("&", 1)[0]})
         try:
             await asyncio.wait_for(show.start(url), START_TIMEOUT)
         except (AirPlayError, hap.PairingError, OSError, asyncio.TimeoutError) as exc:
@@ -87,6 +84,19 @@ class Sender:
                      app=self.app)
         await got[0].stop()
         return {"playing": None, "screen": sid}
+
+    def stream_dropped(self, name: str) -> None:
+        """Live TV let a stream go (live_tv.on_drop): nobody fetched it for its lease (HLS_LEASE_S), so a screen that
+        played it has paused or stopped it. Its show ends: the screen leaves AirPlay instead of sitting paused on a
+        stream that is gone (2026-11-24, the owner: "there doesn't look like there is a way to stop it")."""
+        for sid, (show, info) in list(self.shows.items()):
+            if info.get("stream") == name and not show.ended.is_set():
+                log.info("airplay show on %s: its stream went unwatched; ending it", info.get("name"))
+                asyncio.ensure_future(show.stop())
+
+    def playing(self, sid: str) -> dict | None:
+        got = self.shows.get(sid)
+        return {k: v for k, v in got[1].items() if k != "stream"} if got and not got[0].ended.is_set() else None
 
     def _ended(self, sid: str, show: Show) -> None:
         cur = self.shows.get(sid)
@@ -132,6 +142,9 @@ def register(app: Any) -> Sender | None:
                       clock=app.get("clock") or time.time)
     sender = Sender(app, screens)
     app["airplay_screens"], app["airplay_sender"] = screens, sender
+    tv = app.get("live_tv")
+    if tv is not None and hasattr(tv, "on_drop"):
+        tv.on_drop.append(sender.stream_dropped)
     if hasattr(app, "on_cleanup"):
         app.on_cleanup.append(sender.close)
 

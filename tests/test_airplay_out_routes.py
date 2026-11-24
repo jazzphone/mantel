@@ -141,3 +141,26 @@ def test_the_announcer_lists_only_receivers_that_play_video():
     speaker = announce.airplay_screen("Den HomePod._airplay._tcp.local.", {b"features": b"0x4A7FCA00,0x3C356BD0"},
                                       ["192.0.2.8"], 7000)
     assert speaker is None
+
+
+async def test_a_paused_screen_leaves_airplay_once_its_stream_goes_unwatched(rig, monkeypatch):  # noqa: F811
+    """Paused on the screen, nobody fetches the stream; Live TV lets it go after its lease and the show ends with it
+    (2026-11-24, the owner: "there doesn't look like there is a way to stop it")."""
+    r = await rig()
+    screen = await FakeScreen().start()
+    try:
+        sender = r.app["airplay_sender"]
+        monkeypatch.setattr(sender, "_base", lambda: "https://house.example")
+        ws = await r.socket("owner1", "owner")
+        sid = await _paired(r, ws, screen)
+        await r.ask(ws, 41, {"type": "hk_tv/play_on", "channel": "4.1", "screen": sid})
+        assert sender.playing(sid) == {"channel": "4.1", "name": "NBC", "by": sender.playing(sid)["by"]}  # no stream name
+        await r.tv._drop("mantel_tv_4_1_hls")           # what the lease's end does
+        for _ in range(100):
+            if sender.playing(sid) is None and any(w.startswith("TEARDOWN") for w, h, d in screen.requests):
+                break
+            await asyncio.sleep(0.02)
+        assert sender.playing(sid) is None and any(w.startswith("TEARDOWN") for w, h, d in screen.requests)
+        await ws.close()
+    finally:
+        await screen.close()
