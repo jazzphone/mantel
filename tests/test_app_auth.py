@@ -402,6 +402,8 @@ async def test_a_widget_chooses_from_a_kind_never_a_devices_settings(mantel):
     ids = {e["entity_id"] for e in got["entities"]}
     assert {"light.kitchen", "switch.fountain"} <= ids
     assert not ids & {"button.plug_restart", "sensor.plug_signal", "light.stray"}
+    # each with the glyph the screens draw for it (hk_core.glyphs)
+    assert {e["entity_id"]: e["glyph"] for e in got["entities"]}["lock.front_door"] == "hk:lock"
     r, got = await phone.call("GET", "/api/app/entities?domains=light,switch,nonsense")
     assert {e["domain"] for e in got["entities"]} == {"light", "switch"}
     r, got = await phone.call("GET", "/api/app/entities?domains=nonsense")      # nothing it knows: every kind

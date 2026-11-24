@@ -356,6 +356,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
 
 - **hk_core/**
   - `clean_areas.py` — CLEAN THESE AREAS -- one action, every vacuum, the house's own mapping.
+  - `glyphs.py` — AN ACCESSORY'S GLYPH, as the screens draw it, for what draws it elsewhere (2026-11-24, the owner
   - `house.py` — THE HOUSE PORT
   - `laundry.py` — Laundry
   - `live_tv_guide.py` — THE LIVE TV GUIDE, as plain functions, shared by every host (hk_core; was features/live_tv/guide.py).

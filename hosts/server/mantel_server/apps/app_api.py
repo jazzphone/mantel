@@ -45,7 +45,11 @@ from __future__ import annotations
 
 import asyncio
 import re
+from typing import Any
+
 from aiohttp import web
+
+from hk_core import glyphs as G
 
 from .. import apns
 from . import app_crypto
@@ -102,6 +106,32 @@ def _visible(request: web.Request, ids: list[str]) -> list[str]:
     return [i for i in ids if i in allowed]
 
 
+_MODELS: dict[str, Any] = {"loads": None, "by": {}}
+
+
+def _model(reg, device_id) -> str | None:
+    """A device's model, from the registry (an index kept per registry load)."""
+    if not device_id:
+        return None
+    if _MODELS["loads"] != getattr(reg, "loads", None):
+        _MODELS["by"] = {d.get("id"): d.get("model") for d in (getattr(reg, "device_entries", None) or [])
+                         if isinstance(d, dict)}
+        _MODELS["loads"] = getattr(reg, "loads", None)
+    m = _MODELS["by"].get(device_id)
+    return m if isinstance(m, str) else None
+
+
+def _accessory(app, eid: str) -> dict | None:
+    """The house's own settings for an accessory (Accessories: its gear), if any."""
+    settings = app.get("settings")
+    try:
+        body = settings.store.body("house", "accessories") if settings is not None else None
+    except Exception:  # noqa: BLE001 -- no settings yet: none chosen
+        return None
+    acc = ((body or {}).get("entities") or {}).get(eid) if isinstance(body, dict) else None
+    return acc if isinstance(acc, dict) else None
+
+
 def _entity_json(app, eid: str) -> dict | None:
     hub = app.get("hub")
     st = hub.store.states.get(eid) if hub is not None else None
@@ -113,6 +143,11 @@ def _entity_json(app, eid: str) -> dict | None:
     out = {"entity_id": eid, "domain": eid.split(".", 1)[0], "state": st.get("s"),
            "name": attrs.get("friendly_name") or eid, "area": reg.areas.get(area) if area else None,
            "attributes": {k: attrs[k] for k in ATTRS if k in attrs}, "last_changed": st.get("lc")}
+    # the glyph the screens draw for it (hk_core.glyphs: the house's own choice, then what it is), so a widget draws
+    # the same (2026-11-24, the owner: "I'd like our glyphs to come through ... regardless of where they are drawn")
+    entry = (getattr(reg, "entries", None) or {}).get(eid) or {}
+    out["glyph"] = G.glyph(eid, st.get("s"), attrs, out["name"], entry, _accessory(app, eid),
+                           _model(reg, entry.get("device_id")))
     if out["domain"] == "media_player":
         out["art"] = _art(eid, attrs)
     return out
@@ -476,7 +511,7 @@ async def entities(request: web.Request) -> web.Response:
         e = _entity_json(request.app, eid)
         if e is None or (q and q not in e["name"].lower() and q not in eid):
             continue
-        out.append({k: e[k] for k in ("entity_id", "domain", "name", "area", "state")})
+        out.append({k: e[k] for k in ("entity_id", "domain", "name", "area", "state", "glyph")})
         if len(out) >= cap:
             break
     return ok({"entities": out})
