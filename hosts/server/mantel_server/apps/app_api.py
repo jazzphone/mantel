@@ -461,7 +461,9 @@ async def tv(request: web.Request) -> web.Response:
         out.append({"number": c.get("number"), "name": c.get("name"), "logo": a.get("logo"),
                     "title": now.get("s") if c.get("now") else None, "subtitle": a.get("subtitle"),
                     "start": a.get("start"), "end": a.get("end"), "image": a.get("image")})
-    return ok({"configured": bool((got or {}).get("configured")), "channels": out})
+    sender = request.app.get("airplay_sender")          # phase 35: the screens Play On may send to (app_tv.py)
+    return ok({"configured": bool((got or {}).get("configured")), "channels": out,
+               "screens": sender.visible() if sender is not None else []})
 
 
 @open_route("app_dpop", reads="view", why=WHY_APP)

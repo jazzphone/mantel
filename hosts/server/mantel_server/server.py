@@ -1014,6 +1014,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     tv_alerts_host.register(app, hub)
     # Live TV served by Mantel where it has its own go2rtc (--go2rtc-url); otherwise HA's stays the interim
     live_tv.register(app, hub, hooks)
+    # phase 35: a Live TV channel played on a paired AirPlay screen (a HomeView) by Mantel itself (cameras/airplay_out)
+    from .cameras.airplay_out import routes as airplay_out
+    airplay_out.register(app)
     # direct camera sources (docs/phase13/CAMERAS-DIRECT.md phase 3): camera.mantel_* through Mantel's own go2rtc;
     # after Live TV, so its signaling wraps Live TV's wrapper. Without --go2rtc-url (the HA App) nothing is installed
     cameras_direct.register(app, hub, hooks)

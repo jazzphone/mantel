@@ -18,6 +18,10 @@ home network:
   with no name, DNS or proxy in between; linked_pairing.py protocol v3). It follows the file.
 
 The instance id is Mantel Link's config entry's unique id, so a second announcement never makes a second entry.
+
+**It also looks** (phase 35): the AirPlay receivers on the network that play video (``_airplay._tcp``, features bit 0:
+a HomeView, an Apple TV) go to ``airplay.json`` beside the announcement file, for HK Settings' AirPlay Screens
+(cameras/airplay_out/screens.py). A name and an address only: pairing proves a screen.
 Needs the ``zeroconf`` library (Home Assistant's own); without it the announcer says so and stops.
 """
 from __future__ import annotations
@@ -109,6 +113,7 @@ async def run(path: Path, every: float = 30.0, zc: Any = None, interfaces: list[
     azc = zc or (AsyncZeroconf(interfaces=interfaces) if interfaces else AsyncZeroconf())
     current = None
     info = None
+    looking = asyncio.create_task(_looking(azc, path.with_name(FOUND_FILE), every))
     try:
         while True:
             body = read(path)
@@ -124,10 +129,72 @@ async def run(path: Path, every: float = 30.0, zc: Any = None, interfaces: list[
                 current = body
             await asyncio.sleep(every)
     finally:
+        looking.cancel()
         if info is not None:
             await azc.async_unregister_service(info)
         if zc is None:
             await azc.async_close()
+
+
+AIRPLAY = "_airplay._tcp.local."
+FOUND_FILE = "airplay.json"
+
+
+def airplay_screen(service: str, props: dict, addresses: list[str], port: int) -> dict | None:
+    """One ``_airplay._tcp`` receiver as airplay.json lists it, or None when it doesn't play video (features bit 0)."""
+    def text(k: str) -> str:
+        v = props.get(k.encode(), props.get(k))
+        return v.decode("utf-8", "replace") if isinstance(v, bytes) else str(v or "")
+    try:
+        video = int(text("features").split(",")[0] or "0", 16) & 1
+    except ValueError:
+        video = 0
+    v4 = [a for a in addresses if a.count(".") == 3]
+    if not video or not v4:
+        return None
+    name = service[:-len("." + AIRPLAY)] if service.endswith("." + AIRPLAY) else service
+    return {"name": name[:64], "host": v4[0], "port": port, "model": text("model")[:40],
+            "psi": (text("psi") or text("pi"))[:64]}
+
+
+async def watch_airplay(azc: Any, out: Path, every: float = 30.0) -> None:
+    """Keep ``out`` listing the video receivers seen, until cancelled."""
+    from zeroconf import ServiceStateChange
+    from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
+    names: set[str] = set()
+
+    def changed(zeroconf, service_type, name, state_change) -> None:
+        (names.add if state_change != ServiceStateChange.Removed else names.discard)(name)
+
+    browser = AsyncServiceBrowser(azc.zeroconf, AIRPLAY, handlers=[changed])
+    try:
+        while True:
+            await asyncio.sleep(min(every, 10.0) if not names else every)
+            found = []
+            for name in sorted(names)[:64]:
+                info = AsyncServiceInfo(AIRPLAY, name)
+                if await info.async_request(azc.zeroconf, 3000):
+                    got = airplay_screen(name, info.properties or {}, info.parsed_addresses(), info.port or 7000)
+                    if got is not None:
+                        found.append(got)
+            tmp = out.with_name(f".{out.name}.tmp")
+            try:
+                tmp.write_text(json.dumps({"screens": found}, sort_keys=True))
+                tmp.replace(out)
+            except OSError as exc:
+                log.warning("announce: could not write %s (%s)", out, exc)
+    finally:
+        await browser.async_cancel()
+
+
+async def _looking(azc: Any, out: Path, every: float) -> None:
+    """watch_airplay, never taking the announcement down with it."""
+    try:
+        await watch_airplay(azc, out, every)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 -- the announcement matters more than the list
+        log.warning("announce: not looking for AirPlay screens (%s: %s)", type(exc).__name__, exc)
 
 
 def avahi_service(body: dict[str, str]) -> str:

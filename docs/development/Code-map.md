@@ -512,6 +512,7 @@ Mantel Server.
   - `app_music.py` — The apps' music, over REST (docs/phase10/APPLE-APPS.md §12
   - `app_music_device.py` — The phone as a speaker
   - `app_shell.py` — Phase 10
+  - `app_tv.py` — THE LIVE TV WIDGET'S PLAY ON (phase 35, docs/phase35/PLAN.md)
   - `tablet_app.py` — Mantel for Android, managed from Mantel Settings on the home network (docs/phase26/ANDROID-APP.md "Managing a tablet").
 - **hosts/server/mantel_server/cameras/**
   - `camera_setup.py` — RTSP CAMERAS
@@ -530,7 +531,9 @@ Mantel Server.
   - `tv_card.py` — THE APPLE TV CARD (phase 31, docs/phase31/PLAN.md "How Mantel draws the picture")
 - **hosts/server/mantel_server/cameras/airplay_out/**
   - `hap.py` — HOMEKIT PAIRING (HAP) for an AirPlay screen
+  - `routes.py` — AIRPLAY OUT'S DOORS (phase 35)
   - `rtsp.py` — ONE AIRPLAY CONTROL CONNECTION to a screen (its port 7000)
+  - `screens.py` — THE PAIRED AIRPLAY SCREENS (phase 35)
   - `session.py` — PAIRING A SCREEN, and A SHOW on it
 - **hosts/server/mantel_server/connectors/**
   - `camera.py` — Camera WebRTC signaling, proxied to Home Assistant (PLAN §7 "Remote cameras

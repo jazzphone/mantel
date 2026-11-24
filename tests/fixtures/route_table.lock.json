@@ -3705,6 +3705,28 @@
   "stream": "none",
   "why": "the app's sign-in: a one-time code with its PKCE verifier and a DPoP proof, or a refresh token with the device's own key (no session yet)"
  },
+ "POST /api/app/tv/play": {
+  "csrf": "own",
+  "handler": "app_route.<locals>.wrapped",
+  "kind": "app_dpop",
+  "mcp": [],
+  "module": "mantel_server.apps.app_auth",
+  "preview": false,
+  "reads": "feature:live_tv",
+  "stream": "none",
+  "why": "the iPhone app's own routes: a DPoP-bound app credential (app_auth.app_route), not a session"
+ },
+ "POST /api/app/tv/stop": {
+  "csrf": "own",
+  "handler": "app_route.<locals>.wrapped",
+  "kind": "app_dpop",
+  "mcp": [],
+  "module": "mantel_server.apps.app_auth",
+  "preview": false,
+  "reads": "feature:live_tv",
+  "stream": "none",
+  "why": "the iPhone app's own routes: a DPoP-bound app credential (app_auth.app_route), not a session"
+ },
  "POST /api/app/web-session": {
   "csrf": "own",
   "handler": "app_route.<locals>.wrapped",
@@ -6116,6 +6138,83 @@
   "reads": "feature:live_tv",
   "stream": "none",
   "why": "a Live TV channel as HLS (Apple's player): starts its stream"
+ },
+ "READ hk_tv/play_off": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "feature:live_tv",
+  "stream": "none",
+  "why": "stops what a paired AirPlay screen plays (audited)"
+ },
+ "READ hk_tv/play_on": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "feature:live_tv",
+  "stream": "none",
+  "why": "plays a channel on a paired AirPlay screen (audited)"
+ },
+ "READ hk_tv/screen_pair": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ hk_tv/screen_remove": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ hk_tv/screen_rename": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ hk_tv/screens": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "feature:live_tv",
+  "stream": "none",
+  "why": "the AirPlay screens Play On may send to, and what each plays"
+ },
+ "READ hk_tv/screens/manage": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
  },
  "READ hk_tv/settings/get": {
   "csrf": "-",

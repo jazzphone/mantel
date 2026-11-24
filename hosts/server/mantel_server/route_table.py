@@ -55,7 +55,7 @@ SIGNED_OUT = frozenset({
     "/api/app/history", "/api/app/music/device/play", "/api/app/music/device/socket",
     "/api/app/music/focus", "/api/app/music/image", "/api/app/music/library", "/api/app/music/queue",
     "/api/app/music/queue/play", "/api/app/music/volume", "/api/app/push/register", "/api/app/sign-out",
-    "/api/app/snap", "/api/app/states", "/api/app/summary", "/api/app/token", "/api/app/tv", "/api/app/web-session", "/api/auth/passkey/options",
+    "/api/app/snap", "/api/app/states", "/api/app/summary", "/api/app/token", "/api/app/tv", "/api/app/tv/play", "/api/app/tv/stop", "/api/app/web-session", "/api/auth/passkey/options",
     "/api/auth/passkey/verify", "/api/auth/password", "/api/auth/totp/verify", "/api/bootstrap",
     "/api/bootstrap/restore", "/api/devices/claim", "/api/proxy-check/basics", "/api/version", "/app/art/apple-touch-icon.png",
     "/app/art/badge-96.png", "/app/art/mantel-192.png", "/app/art/mantel-512.png", "/app/art/mantel-maskable-512.png",
