@@ -353,8 +353,14 @@
         '.hktv .x{width:44px;height:44px;border-radius:22px;flex:none;display:flex;' +
         '  align-items:center;justify-content:center;background:rgba(28,28,30,.66);color:#fff;' +
         '  cursor:pointer;--mdc-icon-size:24px}' +
-        '</style><div class="top"><div class="cap"></div>' +
-        '<div class="x" role="button" aria-label="Close" tabindex="0"><hk-icon icon="mdi:close"></hk-icon></div></div>';
+        '.hktv .ends{display:flex;gap:10px;flex:none}' +
+        '.hktv .on{display:none}.hktv .on.has{display:flex}' +
+        '.hktv .menu{position:absolute;right:0;top:52px;min-width:220px;border-radius:14px;overflow:hidden;' +
+        '  background:rgba(28,28,30,.92);color:#fff;font-size:17px}' +
+        '.hktv .menu>div{padding:12px 16px;cursor:pointer}.hktv .menu>div+div{border-top:1px solid rgba(255,255,255,.12)}' +
+        '</style><div class="top"><div class="cap"></div><div class="ends">' +
+        '<div class="x on" role="button" aria-label="Play On" tabindex="0"><hk-icon icon="mdi:cast"></hk-icon></div>' +
+        '<div class="x" role="button" aria-label="Close" tabindex="0"><hk-icon icon="mdi:close"></hk-icon></div></div></div>';
       var cam = null, video = null, hlsT = null;
       function webrtc() {
         cam = C.create({ type: 'custom:hk-doorbell-card', entity: ch.camera, fill: true,
@@ -446,7 +452,8 @@
       // A reload or navigation away never reaches close(): say so on the way
       // out (best effort -- the 150 s heartbeat expiry is the backstop).
       function onHide() { player.close(); }
-      el.querySelector('.x').addEventListener('click', function (e) { e.stopPropagation(); player.close(); });
+      el.querySelector('.x:not(.on)').addEventListener('click', function (e) { e.stopPropagation(); player.close(); });
+      playOn(owner, ch, el, player);
       el.addEventListener('pointerdown', wake, true);
       window.addEventListener('keydown', onKey, true);
       window.addEventListener('pagehide', onHide);
@@ -457,6 +464,39 @@
       beatT = setInterval(function () { watching(true); }, TV_HEARTBEAT_MS);
       if (window.hkIdle && window.hkIdle.hold) window.hkIdle.hold('hk-tv', true);
       return player;
+    }
+
+    // PLAY ON (phase 35): where the host has paired AirPlay screens (hk_tv/screens; a host without them says no and
+    // the button stays hidden), the player's cast button lists them; one tapped plays the channel there (the host
+    // sends it, hk_tv/play_on) and this player closes. Asked once when the player opens: nothing waits on it.
+    function playOn(owner, ch, el, player) {
+      var h = owner.client, btn = el.querySelector('.x.on'), top = el.querySelector('.top'), menu = null;
+      if (!h || !h.callWS || !btn) return;
+      Promise.resolve(h.callWS({ type: 'hk_tv/screens' })).then(function (r) {
+        var screens = (r && r.screens) || [];
+        if (!screens.length) return;
+        btn.classList.add('has');
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (menu) { menu.remove(); menu = null; return; }
+          menu = document.createElement('div');
+          menu.className = 'menu';
+          screens.forEach(function (s) {
+            var row = document.createElement('div');
+            row.textContent = 'Play on ' + s.name;
+            row.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              row.textContent = 'Starting on ' + s.name + '…';
+              Promise.resolve(h.callWS({ type: 'hk_tv/play_on', channel: ch.number, screen: s.id })).then(function (got) {
+                if (got && got.error) { row.textContent = (got.message || 'Couldn’t play there') + ''; return; }
+                player.close();
+              }, function () { row.textContent = 'Couldn’t play on ' + s.name; });
+            });
+            menu.appendChild(row);
+          });
+          top.appendChild(menu);
+        });
+      }, function () { /* no paired screens here: no button */ });
     }
 
     // what the shell and the later parts use of this one

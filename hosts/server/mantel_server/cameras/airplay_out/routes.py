@@ -161,7 +161,7 @@ def register(app: Any) -> Sender | None:
                                                        getattr(user, "id", None))}
             if step == "cancel":
                 screens.cancel(msg.get("pairing"))
-                return {"cancelled": True}
+                return {"canceled": True}
         except hap.PairingError as exc:
             return {"error": "wrong_code" if exc.code == 2 else "refused", "message": str(exc)}
         except (AirPlayError, OSError, asyncio.TimeoutError) as exc:

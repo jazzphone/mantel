@@ -86,8 +86,93 @@
                  error: P.err('f:hk_tv:host'), onCommit: function (v) { set({ host: v }); } }),
         K.text({ label: 'Guide Address', sk: 'f:hk_tv:guide_url', value: d.guide_url, placeholder: 'None',
                  error: P.err('f:hk_tv:guide_url'), onCommit: function (v) { set({ guide_url: v }); } })]));
+      // AIRPLAY SCREENS (phase 35): where Mantel itself can play a channel (a HomeView's own widget, a wall tablet's guide)
+      if (d.ha_link === false) {
+        var nScreens = P._airplay && P._airplay.screens ? P._airplay.screens.length : null;
+        c.appendChild(K.group({ header: 'AirPlay Screens', footer: 'Screens this server plays a channel on by itself: an Apple HomeView, with no phone in between.' }, [
+          K.nav({ label: 'AirPlay Screens', value: nScreens === null ? '' : String(nScreens), href: '#/features/tv/screens',
+                  fk: 'tv:screens' })]));
+      }
       // (a page served from outside Home Assistant says its Live TV has no integration there to open)
       if (d.ha_link !== false) openIn(c, 'Live TV', 'hk_tv');
+    }
+
+    // AIRPLAY SCREENS (phase 35, cameras/airplay_out): pair a screen with the code it shows, rename or remove one. The
+    // page's state is its own (P._airplay): what the server lists, the pairing under way, the last error.
+    function airplayAsk(P, msg) {
+      var h = P.client;
+      return h && h.callWS ? Promise.resolve(h.callWS(msg)) : Promise.reject(new Error('not connected'));
+    }
+    function airplayLoad(P) {
+      var A = P._airplay = P._airplay || /** @type {any} */ ({});
+      if (A.loading) return;
+      A.loading = true;
+      airplayAsk(P, { type: 'hk_tv/screens/manage' }).then(function (r) {
+        A.screens = (r && r.screens) || []; A.found = (r && r.found) || []; A.error = null;
+      }, function (e) { A.error = String((e && e.message) || e); }).then(function () { A.loading = false; A.at = Date.now(); P.render(); });
+    }
+    function airplayError(r) {
+      var why = { wrong_code: 'That isn’t the code on the screen. Pair again for a new one.',
+                  unreachable: 'The screen didn’t answer. Check it’s on and on this network.',
+                  refused: 'The screen refused to pair.' };
+      return r && r.error ? (why[r.error] || r.message || 'Couldn’t pair.') : null;
+    }
+    function tvScreens(P, c) {
+      var A = P._airplay = P._airplay || /** @type {any} */ ({});
+      if (!A.at || Date.now() - A.at > 30000) airplayLoad(P);
+      if (!A.screens) { c.appendChild(K.group({ footer: A.error || '' }, [K.info({ label: A.error ? 'Couldn’t load' : 'Loading…' })])); return; }
+      var begin = function (host, port, name, model, psi) {
+        A.error = null;
+        P.announce('Asking ' + (name || host) + ' for its code');
+        airplayAsk(P, { type: 'hk_tv/screen_pair', step: 'begin', host: host, port: port || 7000, name: name || '', model: model || '', psi: psi || '' })
+          .then(function (r) {
+            if (r && r.pairing) A.pairing = { id: r.pairing, name: name || host };
+            else A.error = airplayError(r) || 'Couldn’t pair.';
+          }, function (e) { A.error = String((e && e.message) || e); }).then(function () { P.render(); });
+      };
+      if (A.pairing) {
+        c.appendChild(K.group({ header: 'Pair ' + A.pairing.name, footer: (A.error ? A.error + ' ' : '') + 'Type the code showing on ' + A.pairing.name + '.' }, [
+          K.text({ label: 'Code', placeholder: 'The digits on the screen', inputmode: 'numeric', maxlength: 8, fk: 'tv:screen:code',
+                   onCommit: function (v) {
+                     var pid = A.pairing.id;
+                     airplayAsk(P, { type: 'hk_tv/screen_pair', step: 'finish', pairing: pid, code: String(v || '').trim() })
+                       .then(function (r) {
+                         if (r && r.screen) { A.pairing = null; A.error = null; A.at = 0; P.announce(r.screen.name + ' paired'); }
+                         else { A.pairing = null; A.error = airplayError(r); }
+                       }, function (e) { A.pairing = null; A.error = String((e && e.message) || e); }).then(function () { P.render(); });
+                   } }),
+          K.button({ label: 'Cancel', fk: 'tv:screen:cancel', onClick: function () {
+            airplayAsk(P, { type: 'hk_tv/screen_pair', step: 'cancel', pairing: A.pairing.id }).catch(function () {});
+            A.pairing = null; P.render();
+          } })]));
+        return;
+      }
+      var paired = A.screens || [];
+      if (paired.length) {
+        paired.forEach(function (s) {
+          c.appendChild(K.group({ header: s.name, footer: s.playing ? 'Playing ' + s.playing.name + '.' : (s.model || '') }, [
+            K.text({ label: 'Name', value: s.name, maxlength: 64, fk: 'tv:screen:name:' + s.id, onCommit: function (v) {
+              airplayAsk(P, { type: 'hk_tv/screen_rename', screen: s.id, name: v }).then(function () { A.at = 0; P.render(); });
+            } }),
+            K.button({ label: 'Remove', destructive: true, fk: 'tv:screen:remove:' + s.id, onClick: function () {
+              K.confirm(P.shadowRoot, { title: 'Remove ' + s.name + '?', message: 'Its pairing is forgotten. To use it again, pair it with a new code.',
+                                        destructive: true, ok: 'Remove' }).then(function (yes) {
+                if (yes) airplayAsk(P, { type: 'hk_tv/screen_remove', screen: s.id }).then(function () { A.at = 0; P.render(); });
+              });
+            } })]));
+        });
+      }
+      var fresh = (A.found || []).filter(function (f) { return !f.paired; });
+      c.appendChild(K.group({ header: 'On This Network', footer: (A.error && !A.pairing ? A.error + ' ' : '') +
+          (fresh.length ? 'Tap a screen: it shows a code to type here.' : 'No AirPlay screen that plays video was found. Add one by its address below.') },
+        fresh.map(function (f) {
+          return K.button({ label: 'Pair ' + f.name, fk: 'tv:screen:pair:' + f.host, onClick: function () { begin(f.host, f.port, f.name, f.model, f.psi); } });
+        })));
+      c.appendChild(K.group({ header: 'Add by Address', footer: 'The screen’s IP address on the home network.' }, [
+        K.text({ label: 'Address', placeholder: 'IP address', fk: 'tv:screen:host', onCommit: function (v) {
+          v = String(v || '').trim();
+          if (v) begin(v, 7000, '', '', '');
+        } })]));
     }
     function tvChannels(P, c, d) {
       var L = tvLists(d);
@@ -590,7 +675,7 @@
     KIT.musicPlaylist = musicPlaylist; KIT.musicPlaylists = musicPlaylists; KIT.musicPreset = musicPreset;
     KIT.musicPresets = musicPresets; KIT.musicSpeakers = musicSpeakers; KIT.musicTop = musicTop;
     KIT.notAdded = notAdded; KIT.openIn = openIn; KIT.own = own; KIT.playlistSub = playlistSub;
-    KIT.removeRow = removeRow; KIT.setFeature = setFeature; KIT.tvChannel = tvChannel; KIT.tvChannels = tvChannels;
+    KIT.removeRow = removeRow; KIT.setFeature = setFeature; KIT.tvChannel = tvChannel; KIT.tvChannels = tvChannels; KIT.tvScreens = tvScreens;
     KIT.tvMain = tvMain; KIT.waiting = waiting;
   };
 })();

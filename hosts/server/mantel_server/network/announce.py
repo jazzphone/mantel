@@ -158,7 +158,7 @@ def airplay_screen(service: str, props: dict, addresses: list[str], port: int) -
 
 
 async def watch_airplay(azc: Any, out: Path, every: float = 30.0) -> None:
-    """Keep ``out`` listing the video receivers seen, until cancelled."""
+    """Keep ``out`` listing the video receivers seen, until canceled."""
     from zeroconf import ServiceStateChange
     from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
     names: set[str] = set()
