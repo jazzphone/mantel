@@ -6095,6 +6095,17 @@
   "stream": "none",
   "why": "a page's read over its signed-in socket (/ws)"
  },
+ "READ hk_tv/hls": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": "feature:live_tv",
+  "stream": "none",
+  "why": "a Live TV channel as HLS (Apple's player): starts its stream"
+ },
  "READ hk_tv/settings/get": {
   "csrf": "-",
   "handler": "/ws read",

@@ -100,6 +100,8 @@ HARDWARE_PROBE_S = 15.0                     # the GPU check's probe (QuickSync a
 ICE_SERVERS = [{"urls": ["stun:stun.home-assistant.io:3478", "stun:stun.home-assistant.io:80"]}]
 CONFIG, OFFER, CANDIDATE = "camera/webrtc/get_client_config", "camera/webrtc/offer", "camera/webrtc/candidate"
 CHANNELS_TYPE = "hk_tv/channels"
+HLS_TYPE = "hk_tv/hls"
+HLS_LEASE_S = 90.0                          # an HLS player's hold on its channel, renewed while it plays (hls)
 VIEWERS_ID = "sensor.tv_viewers"
 _CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
 _HOSTNAME = re.compile(r"^[A-Za-z0-9.\-]{1,253}$")
@@ -148,7 +150,8 @@ def go2rtc_source(url: str, quality: str = "720", hardware: str = "") -> str:
     """go2rtc's ffmpeg source with Mantel's templates (packaging/compose/go2rtc/go2rtc.yaml)."""
     q = quality if quality in QUALITIES else "720"
     hw = "_vaapi" if hardware == "vaapi" else ""
-    return f"ffmpeg:{url}#input=mantel_tv_in{hw}#video=mantel_tv_{q}{hw}#audio=opus"
+    # two sound tracks: Opus for WebRTC, AAC for HLS (Apple's player, hk_tv/hls); go2rtc gives each player its own
+    return f"ffmpeg:{url}#input=mantel_tv_in{hw}#video=mantel_tv_{q}{hw}#audio=opus#audio=aac"
 
 
 def gpu_reason(detail: str) -> str:
@@ -448,6 +451,8 @@ class MantelLiveTv:
         self.starting = 0                          # offers past the caps' check, not yet sessions (offer)
         self.streams: dict[str, str] = {}                     # stream name -> channel, set up in go2rtc
         self._stop_timers: dict[str, asyncio.TimerHandle] = {}
+        self.hls_leases: dict[str, float] = {}               # stream name -> when its HLS players' hold runs out
+        self._lease_timers: dict[str, asyncio.TimerHandle] = {}
         self._linked_sig: tuple | None = None
         self._guide_tried = float("-inf")
         self._tasks: set[asyncio.Task] = set()
@@ -732,6 +737,51 @@ class MantelLiveTv:
             {"number": c["number"], "name": c["name"], "camera": c["camera"], "now": c["now"] if c["now"] in ok else None}
             for c in chans if c["camera"] in ok]}
 
+    # -- HLS: Apple's own player ------------------------------------------------------------------------
+    async def hls(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
+        """APPLE'S OWN PLAYER (2026-11-24, the owner, on Apple HomeView: "the live tv doesn't use the native player").
+        Safari plays HLS in Apple's player (full screen, the system volume, Picture in Picture, AirPlay), so on an
+        Apple screen the page asks for the channel as HLS instead of WebRTC: the channel's stream is set up as for
+        an offer (the same gate: feature:live_tv and view on its camera) and held for HLS_LEASE_S, renewed by the
+        page while it plays (``stop``: let it go now). The page fetches go2rtc's playlist through Mantel's own
+        /go2rtc/ door, whose per-stream gate (media_proxy) asks the same question on every request."""
+        from ..ha.readproxy import ReadBlocked
+        if set(msg) - {"type", "id", "entity_id", "stop"} or not isinstance(msg.get("entity_id"), str) \
+                or not isinstance(msg.get("stop", False), bool):
+            raise ReadBlocked("hk_tv/hls carries entity_id and stop only")
+        if not self.ours(msg):
+            raise ConnectionError("unavailable")          # Live TV not Mantel's here: the page plays WebRTC
+        ch = await self._gate(ctx, msg["entity_id"])
+        name = stream_name(ch["number"])
+        if msg.get("stop"):
+            self.hls_leases.pop(name, None)
+            if not any(s.stream == name for s in self.sessions.values()):
+                self._schedule_stop(name)
+            return {"stopped": True}
+        assert self.go2rtc is not None
+        if name not in self.streams:
+            if len(set(self.streams)) >= MAX_SESSIONS:
+                raise Forbidden("too many Live TV streams at once")
+            self._cancel_stop(name)
+            try:
+                await self._put_checked(name, ch)
+            except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
+                self.error = f"{type(exc).__name__}: {exc}"[:200]
+                raise ConnectionError("Live TV's transcoder is unavailable") from exc
+            self.streams[name] = ch["number"]
+            self._proxy_gate(name, True, ch["camera"])
+        self._cancel_stop(name)
+        self.hls_leases[name] = self.monotonic() + HLS_LEASE_S
+        old = self._lease_timers.pop(name, None)
+        if old is not None:
+            old.cancel()
+        self._lease_timers[name] = asyncio.get_running_loop().call_later(
+            HLS_LEASE_S + 1, lambda: self.spawn(self._drop_if_idle(name)))
+        return {"path": f"api/stream.m3u8?src={name}&mp4", "lease": HLS_LEASE_S}
+
+    def _leased(self, name: str) -> bool:
+        return self.hls_leases.get(name, float("-inf")) > self.monotonic()
+
     # -- signaling ----------------------------------------------------------------------------------------
     async def _gate(self, ctx: Ctx, entity_id: str) -> dict[str, Any]:
         ch = self.by_camera().get(entity_id)
@@ -878,7 +928,7 @@ class MantelLiveTv:
         if sess.reader is not None:
             sess.reader.cancel()
         self._log("end", sess)
-        if not any(s.stream == sess.stream for s in self.sessions.values()):
+        if not any(s.stream == sess.stream for s in self.sessions.values()) and not self._leased(sess.stream):
             self._schedule_stop(sess.stream)
         if sess.ws is not None:
             self.spawn(self._close_ws(sess.ws))
@@ -909,7 +959,7 @@ class MantelLiveTv:
 
     async def _drop_if_idle(self, name: str) -> None:
         self._stop_timers.pop(name, None)
-        if not any(s.stream == name for s in self.sessions.values()):
+        if not any(s.stream == name for s in self.sessions.values()) and not self._leased(name):
             await self._drop(name)
 
     def _proxy_gate(self, name: str, on: bool, camera: str | None = None) -> None:
@@ -925,6 +975,10 @@ class MantelLiveTv:
 
     async def _drop(self, name: str) -> None:
         self._cancel_stop(name)
+        self.hls_leases.pop(name, None)
+        lease = self._lease_timers.pop(name, None)
+        if lease is not None:
+            lease.cancel()
         self.streams.pop(name, None)
         self._proxy_gate(name, False)
         if self.go2rtc is not None:
@@ -939,7 +993,7 @@ class MantelLiveTv:
         except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
             self.error = f"{type(exc).__name__}: {exc}"[:200]
             return
-        busy = {s.stream for s in self.sessions.values()} | set(self._stop_timers)
+        busy = {s.stream for s in self.sessions.values()} | set(self._stop_timers) | {n for n in self.hls_leases if self._leased(n)}
         for name in got:
             if name.startswith(STREAM_PREFIX) and name not in busy:
                 await self._drop(name)
@@ -1033,6 +1087,8 @@ ROUTE_RULES: dict[str, str] = {
     CONFIG: "a channel camera Mantel serves: feature:live_tv + camera.live; any other camera: the camera connector",
     OFFER: "a channel camera Mantel serves: feature:live_tv + camera.live, then go2rtc; any other camera: the camera connector",
     CANDIDATE: "a channel camera Mantel serves: only into a session of this connection; any other: the camera connector",
+    HLS_TYPE: "a channel camera Mantel serves: feature:live_tv + view on its camera, then go2rtc holds it for HLS_LEASE_S; "
+              "its playlist and segments come through /go2rtc/, gated per stream",
 }
 
 
@@ -1068,6 +1124,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, tv_hooks: LiveTv
 
     routes.update({
         CHANNELS_TYPE: Route(request=tv.channel_list),
+        HLS_TYPE: Route(request=tv.hls),
         CONFIG: Route(request=request_route(CONFIG, tv.client_config)),
         CANDIDATE: Route(request=request_route(CANDIDATE, tv.candidate)),
         OFFER: Route(subscribe=offer),

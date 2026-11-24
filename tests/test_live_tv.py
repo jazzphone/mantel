@@ -147,10 +147,10 @@ def test_the_stream_url_can_only_name_the_tuner():
         assert L.stream_url("192.0.2.40", "4.1", bad) == "http://192.0.2.40:5004/auto/v4.1"
     assert L.stream_url("", "4.1") is None and L.stream_url("192.0.2.40", "../x") is None
     assert L.go2rtc_source("http://t:5004/auto/v4.1") == \
-        "ffmpeg:http://t:5004/auto/v4.1#input=mantel_tv_in#video=mantel_tv_720#audio=opus"
+        "ffmpeg:http://t:5004/auto/v4.1#input=mantel_tv_in#video=mantel_tv_720#audio=opus#audio=aac"
     assert L.go2rtc_source("http://t:5004/auto/v4.1", "1080", "vaapi") == \
-        "ffmpeg:http://t:5004/auto/v4.1#input=mantel_tv_in_vaapi#video=mantel_tv_1080_vaapi#audio=opus"
-    assert L.go2rtc_source("u", "4k", "cuda").endswith("#video=mantel_tv_720#audio=opus")
+        "ffmpeg:http://t:5004/auto/v4.1#input=mantel_tv_in_vaapi#video=mantel_tv_1080_vaapi#audio=opus#audio=aac"
+    assert L.go2rtc_source("u", "4k", "cuda").endswith("#video=mantel_tv_720#audio=opus#audio=aac")
 
 
 def test_the_go2rtc_templates_mantel_names_exist():
@@ -170,7 +170,9 @@ def test_live_tv_s_sound_is_mixed_to_stereo_for_the_browser():
     yaml = (Path(__file__).resolve().parent.parent / "packaging/compose/go2rtc/go2rtc.yaml").read_text()
     m = re.search(r'^  opus: "([^"]+)"$', yaml, re.M)
     assert m and "-c:a libopus" in m.group(1) and "-ac:a 2" in m.group(1) and "-ar:a 48000" in m.group(1)
-    assert L.go2rtc_source("http://tuner.example/auto/v4.1").endswith("#audio=opus")
+    assert L.go2rtc_source("http://tuner.example/auto/v4.1").endswith("#audio=opus#audio=aac")
+    m = re.search(r'^  aac: "([^"]+)"$', yaml, re.M)                    # HLS's sound (Apple's player), stereo too
+    assert m and "-c:a aac" in m.group(1) and "-ac:a 2" in m.group(1)
 
 
 def test_live_tv_s_sound_and_picture_start_together():
@@ -316,7 +318,7 @@ async def test_a_channel_plays_through_go2rtc_and_stops_when_nobody_watches(rig)
     # the channel was set up in go2rtc on demand, from the tuner's lineup URL, with Mantel's templates
     assert r.go2rtc.calls == [("PATCH", "mantel_tv_4_1")]
     assert r.go2rtc.streams["mantel_tv_4_1"] == \
-        f"ffmpeg:http://{r.tuner_addr}/auto/v4.1#input=mantel_tv_in#video=mantel_tv_720#audio=opus"
+        f"ffmpeg:http://{r.tuner_addr}/auto/v4.1#input=mantel_tv_in#video=mantel_tv_720#audio=opus#audio=aac"
     assert r.go2rtc.offers == [("mantel_tv_4_1", OFFER_SDP)]
     # registered with media_proxy's /go2rtc/ gate while it is set up (as a Live TV stream of its camera)
     gate = r.tv.app["go2rtc_streams"]
@@ -562,7 +564,7 @@ async def test_the_gpu_is_checked_once_on_the_first_play(rig):
     ws = await r.socket("owner1", "owner")
     assert "error" not in await _play(r, ws, 1)
     assert [q["src"] for q in r.go2rtc.probes] == ["mantel_tv_4_1"], "go2rtc opened it once before the page did"
-    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#input=mantel_tv_in_vaapi#video=mantel_tv_720_vaapi#audio=opus")
+    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#input=mantel_tv_in_vaapi#video=mantel_tv_720_vaapi#audio=opus#audio=aac")
     assert "error" not in await _play(r, ws, 2)
     assert len(r.go2rtc.probes) == 1, "checked once a start, not on every play"
     st = r.tv.status()
@@ -580,7 +582,7 @@ async def test_a_gpu_that_fails_falls_back_to_the_cpu_and_says_why(rig):
     ws = await r.socket("owner1", "owner")
     got = await _play(r, ws, 1)
     assert "error" not in got, "the page plays, on the CPU"
-    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#input=mantel_tv_in#video=mantel_tv_720#audio=opus")
+    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#input=mantel_tv_in#video=mantel_tv_720#audio=opus#audio=aac")
     st = r.tv.status()
     assert st["hardware"] == "cpu" and "Invalid frame dimensions 0x0" in st["gpu_failed"]
     assert r.tuner_addr not in json.dumps(st) and "0x62eb" not in st["gpu_failed"]
@@ -599,7 +601,7 @@ async def test_when_the_cpu_fails_too_it_was_not_the_gpu(rig):
     await _play(r, ws, 1)
     st = r.tv.status()
     assert (st["hardware"], st["gpu_failed"]) == ("vaapi", None), "a busy tuner is no reason to leave the GPU"
-    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#video=mantel_tv_720_vaapi#audio=opus")
+    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#video=mantel_tv_720_vaapi#audio=opus#audio=aac")
     assert r.tv.hardware_checked is False, "the next play checks again"
     await ws.close()
 
@@ -647,6 +649,41 @@ async def _start_nbc(r):
         await asyncio.sleep(0.02)
     assert r.tv.streams == {"mantel_tv_4_1": "4.1"}
     return ws
+
+
+async def test_an_apple_screen_plays_a_channel_as_hls_in_apples_player(rig):
+    """hk_tv/hls (2026-11-24, the owner: Apple HomeView's Safari played Live TV "in the browser", not Apple's player):
+    the channel's stream is set up as for WebRTC, behind the same gate, and held while the page renews its lease; the
+    playlist comes through /go2rtc/'s per-stream gate; Stop lets it go."""
+    r = await rig()
+    m = r.env.m
+    ws = await r.socket("owner1", "owner")
+    got = await r.ask(ws, 1, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc"})
+    assert got["result"] == {"path": "api/stream.m3u8?src=mantel_tv_4_1&mp4", "lease": L.HLS_LEASE_S}
+    assert r.go2rtc.calls == [("PATCH", "mantel_tv_4_1")] and r.tv.streams == {"mantel_tv_4_1": "4.1"}
+    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#audio=opus#audio=aac")          # AAC: HLS's sound
+    assert r.tv.app["go2rtc_streams"].kind_of("mantel_tv_4_1") == ("live_tv", "camera.tv_nbc")
+    assert (await m.client.get("/go2rtc/api/stream.m3u8?src=mantel_tv_4_1&mp4")).status != 403
+    # held while leased: nobody's WebRTC session, yet the idle check keeps it
+    await r.tv._drop_if_idle("mantel_tv_4_1")
+    assert r.tv.streams == {"mantel_tv_4_1": "4.1"}
+    # renewing sets nothing up again
+    await r.ask(ws, 2, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc"})
+    assert r.go2rtc.calls == [("PATCH", "mantel_tv_4_1")]
+    # a child may not (no Live TV), and nothing but a channel camera is asked
+    kid = await r.socket("kid1", "child")
+    assert "error" in await r.ask(kid, 3, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc"})
+    assert "error" in await r.ask(ws, 4, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc", "url": "x"})
+    # Stop: the lease is gone and the stream goes after the grace
+    assert (await r.ask(ws, 5, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc", "stop": True}))["result"] == {"stopped": True}
+    for _ in range(100):
+        if not r.tv.streams:
+            break
+        await asyncio.sleep(0.02)
+    assert r.tv.streams == {} and ("DELETE", "mantel_tv_4_1") in r.go2rtc.calls
+    assert (await m.client.get("/go2rtc/api/stream.m3u8?src=mantel_tv_4_1&mp4")).status == 403
+    await ws.close()
+    await kid.close()
 
 
 async def test_live_tv_streams_under_go2rtc_follow_the_live_tv_gate(rig):

@@ -42,6 +42,9 @@ ffmpeg:
   # 5.1 AC-3, so on the owner's LXC every channel's ffmpeg stopped at once and the player retried every two seconds
   # with no picture. WebRTC carries stereo Opus at most: everything is mixed down to two channels (mono goes up).
   opus: "-c:a libopus -application:a lowdelay -min_comp 0 -frame_duration 20 -page_duration 20 -ar:a 48000 -ac:a 2"
+  # AAC IN STEREO TOO (2026-11-24): Live TV's second sound track, for HLS (Apple's own player on Safari: hk_tv/hls).
+  # go2rtc's own `aac` would keep 5.1; the TV's speakers and AirPlay get the same two channels as WebRTC's Opus.
+  aac: "-c:a aac -b:a 160k -ar:a 48000 -ac:a 2"
 streams: {}
 log:
   level: info

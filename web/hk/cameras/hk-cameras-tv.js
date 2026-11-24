@@ -304,6 +304,25 @@
       getCardSize() { return 6; }
     }
 
+    // APPLE'S OWN PLAYER (2026-11-24, the owner, on Apple HomeView: Live TV "doesn't use the native player").
+    // Safari plays HLS in Apple's player -- full screen, the system volume, Picture in Picture, AirPlay -- so where
+    // the page is Safari's (an Apple vendor: Safari, a HomeView, the iOS app's web view) and its host serves Live TV
+    // with a go2rtc door, the channel plays as HLS (hk_tv/hls: the host sets its stream up and holds it while the
+    // page renews, the playlist through that door). Anywhere else, or when the host says no, the WebRTC player.
+    var HLS_RENEW_MS = 45000;
+    // the host's own go2rtc door on this origin ('/go2rtc/', hkShell.serviceUrl), or null (no host serves one)
+    function go2rtcBase() {
+      var S = window.hkShell;
+      var u = S && typeof S.serviceUrl === 'function' ? S.serviceUrl('go2rtc') : null;
+      return typeof u === 'string' && u.charAt(0) === '/' && u.charAt(1) !== '/' ? u : null;
+    }
+    function appleHls() {
+      try {
+        var v = document.createElement('video');
+        return /Apple/.test(navigator.vendor || '') && !!v.canPlayType('application/vnd.apple.mpegurl') && !!go2rtcBase();
+      } catch (e) { return false; }
+    }
+
     // The full-screen player. Mounted in home-assistant's shadow root, like
     // hk-popup's sheets (position:fixed under a transformed view would be
     // placed against the view, not the screen).
@@ -316,6 +335,7 @@
         '.hktv{position:fixed;inset:0;z-index:8;background:#000;display:flex;' +
         '  -webkit-tap-highlight-color:transparent}' +
         '.hktv>hk-doorbell-card{flex:1;height:100%;display:block}' +
+        '.hktv>video{flex:1;width:100%;height:100%;object-fit:contain;background:#000}' +
         // CLEAR OF THE SCREEN'S EDGES (2026-10-30, the owner's iPhone Duo): the picture fills the screen, the
         // caption and the X keep out of its safe areas -- the Duo's strip of system controls down the side
         // covered the X; an iPhone on its side has its Dynamic Island there (--hk-safe-*: hk-base.js SAFE)
@@ -335,13 +355,47 @@
         '  cursor:pointer;--mdc-icon-size:24px}' +
         '</style><div class="top"><div class="cap"></div>' +
         '<div class="x" role="button" aria-label="Close" tabindex="0"><hk-icon icon="mdi:close"></hk-icon></div></div>';
-      var cam = C.create({ type: 'custom:hk-doorbell-card', entity: ch.camera, fill: true,
-                           tuning: ch.name, volume: true, aspect_ratio: '16x9', glass: false });
-      el.insertBefore(cam, el.firstChild);
+      var cam = null, video = null, hlsT = null;
+      function webrtc() {
+        cam = C.create({ type: 'custom:hk-doorbell-card', entity: ch.camera, fill: true,
+                         tuning: ch.name, volume: true, aspect_ratio: '16x9', glass: false });
+        el.insertBefore(cam, el.firstChild);
+        if (h) cam.hkSetClient(h);
+      }
+      if (appleHls() && h && h.callWS) {
+        // Apple's player, with its own controls; play() now, inside the tap, so Safari lets the sound play once the
+        // playlist is set (a play() after the reply would start muted, or not at all)
+        video = document.createElement('video');
+        video.controls = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('x-webkit-airplay', 'allow');
+        el.insertBefore(video, el.firstChild);
+        try { Promise.resolve(video.play()).catch(function () {}); } catch (e) { /* nothing to play yet */ }
+        var ask = function (stop) { return h.callWS(stop ? { type: 'hk_tv/hls', entity_id: ch.camera, stop: true }
+                                                         : { type: 'hk_tv/hls', entity_id: ch.camera }); };
+        Promise.resolve(ask(false)).then(function (r) {
+          if (closed) { ask(true); return; }
+          if (!r || typeof r.path !== 'string' || !/^api\/stream\.m3u8\?src=[a-z0-9_]+&mp4$/.test(r.path)) throw new Error('no path');
+          video.src = go2rtcBase() + r.path;
+          Promise.resolve(video.play()).catch(function () { video.muted = true; Promise.resolve(video.play()).catch(function () {}); });
+          hlsT = setInterval(function () { Promise.resolve(ask(false)).catch(function () {}); }, HLS_RENEW_MS);
+        }).catch(function (e) {
+          // Mantel doesn't serve Live TV here, or said no: the WebRTC player, as everywhere else
+          console.warn('[hk-tv] HLS unavailable, WebRTC instead', e && e.message);
+          if (closed) return;
+          if (video.parentNode) video.parentNode.removeChild(video);
+          video = null;
+          webrtc();
+        });
+      } else {
+        webrtc();
+      }
       var cap = el.querySelector('.cap');
       var quietT = null, beatT = null, closed = false;
       function quiet(on) {
         el.classList.toggle('quiet', on);
+        if (!cam) return;
         cam.style.setProperty('--hk-db-bar-opacity', on ? '0' : '1');
         cam.style.setProperty('--hk-db-bar-events', on ? 'none' : 'auto');
       }
@@ -367,11 +421,15 @@
           .catch(function (e) { console.warn('[hk-tv] watching', e); });
       }
       var player = {
-        update: function (hh) { if (!closed) { cam.hkSetClient(hh); caption(hh); } },
+        update: function (hh) { if (!closed) { if (cam) cam.hkSetClient(hh); caption(hh); } },
         close: function () {
           if (closed) return;
           closed = true;
-          clearTimeout(quietT); clearInterval(beatT);
+          clearTimeout(quietT); clearInterval(beatT); clearInterval(hlsT);
+          if (video) {
+            try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) { /* gone */ }
+            if (video.src !== undefined && h && h.callWS) Promise.resolve(h.callWS({ type: 'hk_tv/hls', entity_id: ch.camera, stop: true })).catch(function () {});
+          }
           window.removeEventListener('keydown', onKey, true);
           window.removeEventListener('pagehide', onHide);
           releaseMedia(el);

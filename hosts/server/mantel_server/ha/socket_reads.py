@@ -53,6 +53,7 @@ READS_BY_TYPE: dict[str, Read] = {
     "hk_frontend/snooze/subscribe": Read("view", True), "hk_frontend/todo/items": Read("view", True),
     "hk_music/queue": Read("view", True), "hk_music/subscribe": Read("feature:music", True),
     "hk_notify/snap/sign": Read("view", True), "hk_tv/channels": Read("view", True),
+    "hk_tv/hls": Read("feature:live_tv", False, "a Live TV channel as HLS (Apple's player): starts its stream"),
     "mantel/energy/plan": Read("feature:energy", True), "mantel/live_tv/guide": Read("feature:live_tv", True),
     "media_player/browse_media": Read("view", True), "media_player/search_media": Read("view", True),
     "media_source/browse_media": Read("feature:media", True), "media_source/resolve_media": Read("feature:media", True),
