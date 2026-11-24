@@ -51,7 +51,7 @@ PUBLIC_ROUTES = frozenset({"/healthz", "/api/version", "/api/proxy-check/basics"
 SIGNED_OUT = frozenset({
     "/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource",
     "/.well-known/oauth-protected-resource/mcp", "/admin", "/api/app/art", "/api/app/command", "/api/app/energy", "/api/app/entities",
-    "/api/app/favorites", "/api/app/hello", "/api/app/me", "/api/app/music", "/api/app/music/command",
+    "/api/app/favorites", "/api/app/hello", "/api/app/laundry", "/api/app/me", "/api/app/music", "/api/app/music/command",
     "/api/app/history", "/api/app/music/device/play", "/api/app/music/device/socket",
     "/api/app/music/focus", "/api/app/music/image", "/api/app/music/library", "/api/app/music/queue",
     "/api/app/music/queue/play", "/api/app/music/volume", "/api/app/push/register", "/api/app/sign-out",

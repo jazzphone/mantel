@@ -233,6 +233,35 @@ def runs(state: str) -> bool:
     return state in RUNNING
 
 
+_CLOCK = re.compile(r"^\d+:\d\d(:\d\d)?$")
+
+
+def ends_at(m: Mapping[str, Any], states: Mapping[str, Any], now: float) -> float | None:
+    """When a running machine finishes (epoch seconds), from its `time` sensor: a finish time (a timestamp; one past is no time)
+    or the time left (a duration in s, min or h, or "1:24:00"). hk-laundry.js `timeOf`, the same rule (the iPhone's Laundry widget)."""
+    st = _s(states, m.get("time"))
+    if st is None:
+        return None
+    a, v = st.get("a") or {}, st.get("s")
+    if a.get("device_class") == "timestamp" or (isinstance(v, str) and re.match(r"^\d{4}-\d\d-\d\dT", v)):
+        from datetime import datetime
+        try:
+            t = datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return None
+        return t if t > now else None
+    if isinstance(v, str) and _CLOCK.match(v):
+        p = [int(x) for x in v.split(":")]
+        sec = p[0] * 3600 + p[1] * 60 + (p[2] if len(p) == 3 else 0)
+        return now + sec if sec > 0 else None
+    n = _num(v)
+    if n is None or n <= 0:
+        return None
+    u = str(a.get("unit_of_measurement") or "min").lower()
+    sec = n if re.match(r"^(s|sec|seconds?)$", u) else n * 3600 if re.match(r"^(h|hr|hours?)$", u) else n * 60
+    return now + sec
+
+
 # ------------------------------------------------------------ Done, held
 def settled(was_running: bool, state: str) -> bool:
     """Running before and not now: it finished (a machine that stopped while no one watched isn't guessed at)."""

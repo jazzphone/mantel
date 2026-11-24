@@ -320,3 +320,20 @@ def test_time_left_in_hours_and_minutes(tmp_path):
                   "process.stdout.write(JSON.stringify([20, 1440, 3599, 3600, 5040, 7200, 7230].map(hkLaundry.dur)));")
     got = subprocess.run([NODE, str(js), str(JS)], capture_output=True, text=True, timeout=30)
     assert json.loads(got.stdout) == ["1 min", "24 min", "1 hr", "1 hr", "1 hr 24 min", "2 hr", "2 hr 1 min"]
+
+
+def test_when_a_machine_finishes():
+    """ends_at (the iPhone's Laundry widget): hk-laundry.js timeOf's rule -- a finish time, or the time left in s, min, h or h:mm:ss."""
+    now = 1_800_000_000.0
+    m = {"time": "sensor.t"}
+
+    def at(s, **a):
+        return LA.ends_at(m, {"sensor.t": {"s": s, "a": a}}, now)
+    assert at("84", unit_of_measurement="min") == now + 84 * 60
+    assert at("1.5", unit_of_measurement="h") == now + 5400
+    assert at("90", unit_of_measurement="s") == now + 90
+    assert at("1:24:00") == now + 5040
+    assert at("2027-02-01T08:00:00+00:00", device_class="timestamp") > now
+    assert at("2020-01-01T00:00:00+00:00", device_class="timestamp") is None      # past: no time
+    assert at("0", unit_of_measurement="min") is None and at("unknown") is None
+    assert LA.ends_at({"time": None}, {}, now) is None

@@ -25,6 +25,9 @@ the server exactly as the screens' socket is:
                                  the grid, the house battery) and today's energy and cost so far, from the Energy
                                  feature's plan; only with ``view`` on ``feature:energy`` (403 forbidden; 409
                                  energy_off when the feature is off), each reading only if the person may view it
+  GET  /api/app/laundry         the Laundry widget: each washer and dryer (Accessories -> Laundry's, else those found) the
+                                 person may view by what says it runs: its state (hk_core.laundry STATES), when it
+                                 finishes, its progress, and Done held until someone unloads (features/laundry.py)
   GET  /api/app/art?entity=      a player's artwork (media_art.py's rule: view on the player)
   GET  /api/app/snap?id=         a notification's snapshot (notify_snaps.py's rule), for the notification extension
   POST /api/app/push/register    the app's APNs token and notification key (apns.py); refused (409 push_off) once
@@ -288,6 +291,27 @@ def energy_now(plan: dict, states: dict, may: set) -> list[dict]:
     return out
 
 
+def _start(row: dict) -> float | None:
+    """A statistics row's start in epoch seconds (Home Assistant sends milliseconds, older ones an ISO time)."""
+    v = row.get("start")
+    if isinstance(v, (int, float)):
+        return float(v) / 1000.0 if v > 1e11 else float(v)
+    if isinstance(v, str):
+        from datetime import datetime
+        try:
+            return datetime.fromisoformat(v.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return None
+    return None
+
+
+def hours_of(rows) -> list[list[float]]:
+    """Today's hours for the Energy widget's bars: [[the hour's start, its energy]], in order."""
+    out = [[t, round(float(r["change"]), 3)] for r in rows or [] if isinstance(r, dict)
+           and isinstance(r.get("change"), (int, float)) and (t := _start(r)) is not None]
+    return sorted(out)
+
+
 def change_of(rows) -> float | None:
     """A statistic's change summed over its rows (recorder/statistics_during_period, types change); None: no rows."""
     vals = [r.get("change") for r in rows or [] if isinstance(r, dict) and isinstance(r.get("change"), (int, float))]
@@ -335,8 +359,37 @@ async def energy(request: web.Request) -> web.Response:
             used = change_of(res.get(total.get("stat")))
             cost = change_of(res.get(total.get("cost"))) if total.get("cost") else None
             if used is not None:
-                today = {"energy": used, "unit": "kWh", "cost": None if cost is None else round(cost, 2)}
+                today = {"energy": used, "unit": "kWh", "cost": None if cost is None else round(cost, 2),
+                         "hours": hours_of(res.get(total.get("stat")))}
     return ok({"power": readings, "today": today, "at": float(request.app["clock"]())})
+
+
+@open_route("app_dpop", reads="view", why=WHY_APP)
+@app_route
+async def laundry(request: web.Request) -> web.Response:
+    from hk_core import laundry as R
+    host, states = request.app.get("laundry"), request.app["hub"].store.states
+    now = float(request.app["clock"]())
+    machines = list(getattr(host, "machines", None) or [])
+    # a machine is the person's to see when they may view what says it runs (its status, else its running or power sensor)
+    says = {m["id"]: next((m.get(r) for r in ("status", "running", "power") if m.get(r)), None) for m in machines}
+    may = set(_visible(request, [e for e in says.values() if e]))
+    latches = getattr(host, "latches", None) or {}
+    out = []
+    for m in machines:
+        if says.get(m["id"]) not in may:
+            continue
+        state = R.state_of(m, states)
+        held = latches.get(m["id"])
+        if held and not R.runs(state) and state != "error":
+            state = "wrinkle" if state == "wrinkle" else "done"
+        running = R.runs(state) and state != "delayed"
+        progress = _number((states.get(m.get("progress") or "") or {}).get("s")) if running else None
+        out.append({"id": m["id"], "name": m.get("name") or m["id"], "kind": m.get("kind") or "washer", "state": state,
+                    "ends": R.ends_at(m, states, now) if running else None,
+                    "progress": None if progress is None else max(0.0, min(100.0, progress)),
+                    "done_since": held.get("since") if held else None})
+    return ok({"machines": out, "at": now})
 
 
 @open_route("app_dpop", reads="self", why=WHY_APP)
@@ -523,8 +576,9 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_get("/api/app/states", states)
     app.router.add_get("/api/app/history", history)
     app.router.add_get("/api/app/energy", energy)
+    app.router.add_get("/api/app/laundry", laundry)
     app.router.add_post("/api/app/command", command)
     app.setdefault("public_paths", set()).update({"/api/app/summary", "/api/app/favorites", "/api/app/entities",
-                                                  "/api/app/states", "/api/app/history", "/api/app/energy",
+                                                  "/api/app/states", "/api/app/history", "/api/app/energy", "/api/app/laundry",
                                                   "/api/app/command", "/api/app/push/register", "/api/app/snap",
                                                   "/api/app/art"})

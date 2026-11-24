@@ -432,7 +432,9 @@ async def test_the_power_and_energy_widgets_read_the_energy_plan(mantel, monkeyp
     class Proxy:
         async def request(self, msg):
             asked.append(msg)
-            return {"sensor.grid_energy": [{"change": 1.5}, {"change": 2.25}], "sensor.grid_cost": [{"change": 0.504}]}
+            return {"sensor.grid_energy": [{"start": 1795496400000.0, "change": 1.5},
+                                           {"start": "2026-11-24T06:00:00+00:00", "change": 2.25}],
+                    "sensor.grid_cost": [{"change": 0.504}]}
 
         async def close(self):
             pass
@@ -441,9 +443,35 @@ async def test_the_power_and_energy_widgets_read_the_energy_plan(mantel, monkeyp
     assert r.status == 200
     # the solar reads no number and the grid is the house's own meter again: neither shown twice or as nothing
     assert [(p["key"], p["value"], p["unit"]) for p in got["power"]] == [("home", 1520.0, "W"), ("battery", 82.0, "%")]
-    assert got["today"] == {"energy": 3.75, "unit": "kWh", "cost": 0.5}
+    assert got["today"] == {"energy": 3.75, "unit": "kWh", "cost": 0.5,      # today's hours, the bars (ms or an ISO time)
+                            "hours": [[1795496400.0, 1.5], [1795500000.0, 2.25]]}
     assert asked[0]["type"] == "recorder/statistics_during_period" and asked[0]["types"] == ["change"]
     assert asked[0]["statistic_ids"] == ["sensor.grid_energy", "sensor.grid_cost"]
+
+
+async def test_the_laundry_widget_reads_each_machine_and_its_held_done(mantel, monkeypatch):
+    """/api/app/laundry: each machine the person may view by what says it runs, its state, when it ends, and Done held."""
+    m = mantel
+    st = m.app["hub"].store.states
+    now = float(m.app["clock"]())
+    st.update({"sensor.washer_status": {"s": "run", "a": {}, "lc": 1.0, "lu": 1.0},
+               "sensor.washer_left": {"s": "84", "a": {"unit_of_measurement": "min"}, "lc": 1.0, "lu": 1.0},
+               "sensor.washer_progress": {"s": "40", "a": {}, "lc": 1.0, "lu": 1.0},
+               "sensor.dryer_power": {"s": "2", "a": {"unit_of_measurement": "W"}, "lc": 1.0, "lu": 1.0}})
+    host = m.app["laundry"]
+    base = {"area": None, "watts": 10, "phase": None, "door": None, "remote": None, "leak": None, "running": None}
+    monkeypatch.setattr(host, "machines", [
+        dict(base, id="washer", name="Washer", kind="washer", status="sensor.washer_status", time="sensor.washer_left",
+             progress="sensor.washer_progress", power=None),
+        dict(base, id="dryer", name="Dryer", kind="dryer", status=None, time=None, progress=None, power="sensor.dryer_power")])
+    monkeypatch.setattr(host, "latches", {"dryer": {"since": now - 600, "words": "Done"}})
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    r, got = await phone.call("GET", "/api/app/laundry")
+    assert r.status == 200
+    w, d = got["machines"]
+    assert w["state"] == "running" and abs(w["ends"] - (now + 84 * 60)) < 2 and w["progress"] == 40 and w["done_since"] is None
+    assert d["state"] == "done" and d["ends"] is None and d["done_since"] == now - 600
 
 
 async def test_the_widgets_read_chosen_states_and_the_timers_only_as_one_may_see(mantel):
