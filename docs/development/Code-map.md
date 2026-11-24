@@ -528,6 +528,10 @@ Mantel Server.
   - `protect_connector.py` — THE UNIFI PROTECT CONNECTOR (docs/phase13/CAMERAS-DIRECT.md, phase 4, and phase 5's wiring of direct talk).
   - `stream_keys.py` — A LIVE TV STREAM'S OWN KEY, for a screen that plays it without Mantel's sign-in (2026-11-24, the owner
   - `tv_card.py` — THE APPLE TV CARD (phase 31, docs/phase31/PLAN.md "How Mantel draws the picture")
+- **hosts/server/mantel_server/cameras/airplay_out/**
+  - `hap.py` — HOMEKIT PAIRING (HAP) for an AirPlay screen
+  - `rtsp.py` — ONE AIRPLAY CONTROL CONNECTION to a screen (its port 7000)
+  - `session.py` — PAIRING A SCREEN, and A SHOW on it
 - **hosts/server/mantel_server/connectors/**
   - `camera.py` — Camera WebRTC signaling, proxied to Home Assistant (PLAN §7 "Remote cameras
   - `camera_still.py` — Camera stills through Mantel (PLAN §4 "proxies, not copies", §5 cameras, §7 doors).
