@@ -526,6 +526,7 @@ Mantel Server.
   - `photos.py` — MANTEL PHOTOS
   - `protect_api.py` — UNIFI PROTECT'S PUBLIC API, AS MANTEL'S OWN CLIENT (docs/phase13/CAMERAS-DIRECT.md, phase 4
   - `protect_connector.py` — THE UNIFI PROTECT CONNECTOR (docs/phase13/CAMERAS-DIRECT.md, phase 4, and phase 5's wiring of direct talk).
+  - `stream_keys.py` — A LIVE TV STREAM'S OWN KEY, for a screen that plays it without Mantel's sign-in (2026-11-24, the owner
   - `tv_card.py` — THE APPLE TV CARD (phase 31, docs/phase31/PLAN.md "How Mantel draws the picture")
 - **hosts/server/mantel_server/connectors/**
   - `camera.py` — Camera WebRTC signaling, proxied to Home Assistant (PLAN §7 "Remote cameras

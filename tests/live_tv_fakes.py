@@ -52,7 +52,20 @@ class FakeGo2rtc:
         app.router.add_get("/api/streams", self.list)
         app.router.add_get("/api/ws", self.ws)
         app.router.add_get("/api/frame.jpeg", self.frame)
+        app.router.add_get("/api/stream.m3u8", self.hls_master)
+        app.router.add_get("/api/hls/playlist.m3u8", self.hls_playlist)
         return app
+
+    async def hls_master(self, request: web.Request) -> web.Response:
+        """go2rtc's HLS master playlist: one session id per ask (``hls<n>``), the playlist under it relative."""
+        if request.query.get("src", "") not in self.streams:
+            return web.Response(status=404, text="stream not found")
+        self.hls_sessions = getattr(self, "hls_sessions", 0) + 1
+        return web.Response(text=f"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=192000\nhls/playlist.m3u8?id=hls{self.hls_sessions}\n",
+                            content_type="application/vnd.apple.mpegurl")
+
+    async def hls_playlist(self, request: web.Request) -> web.Response:
+        return web.Response(text="#EXTM3U\n#EXT-X-TARGETDURATION:1\n", content_type="application/vnd.apple.mpegurl")
 
     async def patch(self, request: web.Request) -> web.Response:
         name, src = request.query.get("name", ""), request.query.get("src", "")

@@ -2956,6 +2956,17 @@
   "stream": "none",
   "why": "a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded"
  },
+ "GET /go2rtc/key/{key}/{tail}": {
+  "csrf": "-",
+  "handler": "MediaProxy.keyed.<locals>.handle",
+  "kind": "proxy",
+  "mcp": [],
+  "module": "mantel_server.cameras.media_proxy",
+  "preview": false,
+  "reads": "view",
+  "stream": "live:media_proxy",
+  "why": "a Live TV stream's own key (stream_keys.py): the address a screen is handed to play it (AirPlay) carries it; media_proxy.keyed asks the same question as a signed-in request, as the person it was made for"
+ },
  "GET /healthz": {
   "csrf": "-",
   "handler": "register.<locals>.healthz",

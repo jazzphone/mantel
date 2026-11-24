@@ -64,7 +64,8 @@ SIGNED_OUT = frozenset({
     "/healthz", "/ingress/bootstrap", "/linked/pair", "/linked/ws", "/login", "/login/ha", "/login/login.css",
     "/login/login.js", "/logout", "/manifest.webmanifest", "/mcp", "/mcp/oauth/authorize", "/mcp/oauth/register",
     "/mcp/oauth/revoke", "/mcp/oauth/token", "/sw.js", "/webauthn.js"})
-SIGNED_OUT_PREFIXES = frozenset({"/mcp/preview/"})
+# /go2rtc/key/: a Live TV stream's own key (cameras/stream_keys.py), what an AirPlayed screen plays it by
+SIGNED_OUT_PREFIXES = frozenset({"/mcp/preview/", "/go2rtc/key/"})
 # what opens a stream in a handler's own source (R5): a heuristic over text, stated as one
 STREAM_MARKS = re.compile(r"\b(?:web\.)?(?:StreamResponse|WebSocketResponse|FileResponse)\(|\.prepare\(|"
                           r"\bfile_response\(|\bproxy_image\(")

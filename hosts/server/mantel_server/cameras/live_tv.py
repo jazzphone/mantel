@@ -788,8 +788,18 @@ class MantelLiveTv:
                 raise ConnectionError("Live TV's transcoder is unavailable") from exc
             self.streams[hname] = ch["number"]
             self._proxy_gate(hname, True, ch["camera"])
+        self._lease(name, hname)
+        out = {"path": f"api/stream.m3u8?src={hname}&mp4", "lease": HLS_LEASE_S}
+        # the same playlist under the stream's own key (stream_keys.py): what a screen handed the address plays
+        # without Mantel's sign-in (Safari's AirPlay to a HomeView fetches it itself, with no cookie)
+        keys = self.app.get("stream_keys")
+        if keys is not None and ctx.identity is not None:
+            out["shared"] = f"key/{keys.mint(ctx.identity, hname)}/" + out["path"]
+        return out
+
+    def _lease(self, *names: str) -> None:
         until = self.monotonic() + HLS_LEASE_S
-        for n in (name, hname):                         # both held: the HLS stream reads the channel's
+        for n in names:                                 # both held: the HLS stream reads the channel's
             self._cancel_stop(n)
             self.hls_leases[n] = until
             old = self._lease_timers.pop(n, None)
@@ -797,7 +807,15 @@ class MantelLiveTv:
                 old.cancel()
             self._lease_timers[n] = asyncio.get_running_loop().call_later(
                 HLS_LEASE_S + 1, lambda n=n: self.spawn(self._drop_if_idle(n)))
-        return {"path": f"api/stream.m3u8?src={hname}&mp4", "lease": HLS_LEASE_S}
+
+    def hold(self, src: str) -> None:
+        """A screen fetching an HLS stream under its key (media_proxy.keyed) holds it, and the channel's stream it
+        reads, as the page's renewal does: an AirPlayed show plays on after the page that sent it is gone."""
+        tail = hls_name("")
+        if not src.endswith(tail) or src not in self.streams:
+            return
+        base = src[: -len(tail)]
+        self._lease(*((base, src) if base in self.streams else (src,)))
 
     def _leased(self, name: str) -> bool:
         return self.hls_leases.get(name, float("-inf")) > self.monotonic()
@@ -1001,6 +1019,9 @@ class MantelLiveTv:
             lease.cancel()
         self.streams.pop(name, None)
         self._proxy_gate(name, False)
+        keys = self.app.get("stream_keys")
+        if keys is not None:
+            keys.forget(name)
         if self.go2rtc is not None:
             await self.go2rtc.drop_stream(name)
 

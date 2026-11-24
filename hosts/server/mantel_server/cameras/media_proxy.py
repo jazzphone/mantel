@@ -105,6 +105,12 @@ G_GET = {
     "video-rtc.js": frozenset(),
     "video-stream.js": frozenset(),
 }
+# what a Live TV stream's own key opens (stream_keys.py): its HLS playlists and segments, nothing else
+KEYED = frozenset({"api/stream.m3u8", "api/hls/playlist.m3u8", "api/hls/segment.ts", "api/hls/segment.m4s",
+                   "api/hls/init.mp4"})
+KEY_PREFIX = GO2RTC + "/key/"
+WHY_KEYED = ("a Live TV stream's own key (stream_keys.py): the address a screen is handed to play it (AirPlay) carries "
+             "it; media_proxy.keyed asks the same question as a signed-in request, as the person it was made for")
 
 
 def _error(status: int, code: str, service: str | None = None) -> web.Response:
@@ -370,6 +376,9 @@ class Go2rtc(Upstream):
     def authorize(self, app, principal, plan, request) -> bool:
         if principal is None or not principal.valid:
             return False
+        keyed = request.get("go2rtc_key_src") if request is not None else None
+        if keyed is not None and plan.path not in KEYED:
+            return False                      # a key opens its stream's HLS only
         if plan.path in ("video-rtc.js", "video-stream.js"):
             return True                       # go2rtc's player modules: static code, nothing of the house
         if plan.path.startswith("api/hls/"):
@@ -382,6 +391,8 @@ class Go2rtc(Upstream):
             self.hls.move_to_end(request.query["id"])
         else:
             src = request.query.get("src", "")
+        if keyed is not None and src != keyed:
+            return False                      # ... and only the stream it was made for
         return app["go2rtc_streams"].may(app.get("authz"), principal, src)
 
 
@@ -462,7 +473,7 @@ class MediaProxy:
                 stats["not_allowed"] += 1
                 return _error(404, "not_found", up.service)
             authz = request.app.get("authz")
-            principal = authz.principal(request) if authz is not None else None
+            principal = request.get("go2rtc_principal") or (authz.principal(request) if authz is not None else None)
             # a screen preview an assistant opened (mcp/preview.py) looks only: Music Assistant's own app and
             # go2rtc's API would let it act, so neither is reached from one
             if principal is not None and principal.identity.read_only or \
@@ -474,6 +485,34 @@ class MediaProxy:
                     return _error(403, "origin_required", up.service)   # loopback_only checked its value
                 return await self.relay(request, up, plan, principal)
             return await self.forward(request, up, plan, principal)
+        return handle
+
+    def keyed(self, up: Upstream):
+        """``/go2rtc/key/<key>/<tail>``: a Live TV stream's HLS for a screen with no Mantel session (stream_keys.py).
+        The key stands for the person it was made for: their principal, re-read, goes through the same handler and
+        authorize() as a signed-in request, limited to the key's stream. Each request holds the stream a while longer
+        (live_tv.hold): the screen keeps playing after the page that sent it is gone. A key that opens nothing: 404."""
+        inner = self.handler(up)
+
+        @open_route("proxy", why=WHY_KEYED, reads="view", stream="live:media_proxy")
+        async def handle(request: web.Request) -> web.StreamResponse:
+            keys = request.app.get("stream_keys")
+            grant = keys.get(request.match_info.get("key", "")) if keys is not None else None
+            authz = request.app.get("authz")
+            if grant is None or authz is None or not authz.refresh(grant.principal):
+                self.stats[up.name]["refused"] += 1
+                return _error(404, "not_found", up.service)
+            request["go2rtc_principal"] = grant.principal
+            request["go2rtc_key_src"] = grant.src
+            tail = safe_tail(request.match_info.get("tail", ""))
+            plan = up.plan(request, tail) if tail is not None else None
+            if plan is None or not up.authorize(request.app, grant.principal, plan, request):
+                self.stats[up.name]["refused"] += 1
+                return _error(404, "not_found", up.service)      # before it holds anything (the handler asks again)
+            tv = request.app.get("live_tv")
+            if tv is not None and hasattr(tv, "hold"):
+                tv.hold(grant.src)
+            return await inner(request)
         return handle
 
     async def forward(self, request: web.Request, up: Upstream, plan: Plan, principal: Any = None) -> web.StreamResponse:
@@ -810,6 +849,8 @@ def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
     """``/ma/…`` and ``/go2rtc/…`` (each ``not_configured`` until it has an address) and ``GET /api/services``.
     Call after ``app["authz"]`` (and ``app["connections"]``) exist (server.wire)."""
     app.setdefault("go2rtc_streams", Go2rtcStreams())
+    from .stream_keys import StreamKeys
+    app.setdefault("stream_keys", StreamKeys())
     ups = upstreams_for(app)
     proxy = MediaProxy(app, ups)
     app["media_proxy"] = proxy
@@ -829,6 +870,10 @@ def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
         async def bare(request: web.Request, _p=up.prefix) -> web.StreamResponse:
             raise web.HTTPFound(_p + "/" + (f"?{request.query_string}" if request.query_string else ""))
         app.router.add_route("*", up.prefix, bare)
+        if isinstance(up, Go2rtc):
+            # a Live TV stream's own key: signed out on purpose (stream_keys.py), so it comes before the open tail
+            app.router.add_get(KEY_PREFIX + "{key}/{tail:.*}", proxy.keyed(up))
+            app.setdefault("public_prefixes", set()).add(KEY_PREFIX)
         app.router.add_route("*", up.prefix + "/{tail:.*}", proxy.handler(up))
     app.on_startup.append(proxy.start)
     app.on_cleanup.append(proxy.stop)

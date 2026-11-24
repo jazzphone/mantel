@@ -377,7 +377,10 @@
         Promise.resolve(ask(false)).then(function (r) {
           if (closed) { ask(true); return; }
           if (!r || typeof r.path !== 'string' || !/^api\/stream\.m3u8\?src=[a-z0-9_]+&mp4$/.test(r.path)) throw new Error('no path');
-          video.src = go2rtcBase() + r.path;
+          // the stream's own key, where the host gives one: AirPlay hands the address to the screen (a HomeView),
+          // which fetches it itself without this page's sign-in (2026-11-24, the owner: it "never succeeded")
+          var shared = typeof r.shared === 'string' && /^key\/[A-Za-z0-9_-]{40,64}\/api\/stream\.m3u8\?src=[a-z0-9_]+&mp4$/.test(r.shared);
+          video.src = go2rtcBase() + (shared ? r.shared : r.path);
           Promise.resolve(video.play()).catch(function () { video.muted = true; Promise.resolve(video.play()).catch(function () {}); });
           hlsT = setInterval(function () { Promise.resolve(ask(false)).catch(function () {}); }, HLS_RENEW_MS);
         }).catch(function (e) {

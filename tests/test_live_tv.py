@@ -6,6 +6,7 @@ and linked HA's). Where it does not (the HA App), the interim is unchanged. A fa
 tuner on 127.0.0.1, a fictional house; house commands stay off throughout."""
 import asyncio
 import json
+import re
 import sys
 import types
 from pathlib import Path
@@ -662,7 +663,9 @@ async def test_an_apple_screen_plays_a_channel_as_hls_in_apples_player(rig):
     m = r.env.m
     ws = await r.socket("owner1", "owner")
     got = await r.ask(ws, 1, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc"})
+    shared = got["result"].pop("shared")
     assert got["result"] == {"path": "api/stream.m3u8?src=mantel_tv_4_1_hls&mp4", "lease": L.HLS_LEASE_S}
+    assert re.fullmatch(r"key/[A-Za-z0-9_-]{40,64}/api/stream\.m3u8\?src=mantel_tv_4_1_hls&mp4", shared)
     assert r.go2rtc.calls == [("PATCH", "mantel_tv_4_1"), ("PATCH", "mantel_tv_4_1_hls")]
     assert r.tv.streams == {"mantel_tv_4_1": "4.1", "mantel_tv_4_1_hls": "4.1"}
     assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#audio=opus")                      # WebRTC's, as it was
@@ -690,6 +693,42 @@ async def test_an_apple_screen_plays_a_channel_as_hls_in_apples_player(rig):
     assert (await m.client.get("/go2rtc/api/stream.m3u8?src=mantel_tv_4_1_hls&mp4")).status == 403
     await ws.close()
     await kid.close()
+
+
+async def test_an_airplayed_screen_plays_the_channel_by_its_key_and_nothing_else(rig):
+    """AirPlay to a HomeView (2026-11-24): the screen fetches the address itself, with no cookie, so hk_tv/hls also
+    gives it under the stream's own key (stream_keys.py). Signed out, the key opens that stream's HLS only, as the
+    person it was made for; it holds the stream after the page lets go; it opens nothing once the stream is gone."""
+    r = await rig()
+    m = r.env.m
+    ws = await r.socket("owner1", "owner")
+    got = (await r.ask(ws, 1, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc"}))["result"]
+    key = got["shared"].split("/")[1]
+    again = (await r.ask(ws, 2, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc"}))["result"]
+    assert again["shared"] == got["shared"]                     # one key a show: a renewal keeps it
+    m.forget_cookies()
+    base = f"/go2rtc/key/{key}/"
+    master = await m.client.get(base + "api/stream.m3u8?src=mantel_tv_4_1_hls&mp4")
+    assert master.status == 200
+    sid = re.search(r"id=(\w+)", await master.text()).group(1)
+    assert (await m.client.get(base + f"api/hls/playlist.m3u8?id={sid}")).status == 200   # the session it was issued
+    assert (await m.client.get(f"/go2rtc/api/hls/playlist.m3u8?id={sid}")).status in (401, 403)   # never without it
+    assert (await m.client.get("/go2rtc/api/stream.m3u8?src=mantel_tv_4_1_hls&mp4")).status in (401, 403)
+    # only its own stream, and only HLS
+    assert (await m.client.get(base + "api/stream.m3u8?src=mantel_tv_4_1&mp4")).status == 404
+    assert (await m.client.get(base + "api/frame.jpeg?src=mantel_tv_4_1_hls")).status == 404
+    assert (await m.client.get(base + "api/hls/playlist.m3u8?id=notissued")).status == 404
+    assert (await m.client.get("/go2rtc/key/" + "x" * 43 + "/api/stream.m3u8?src=mantel_tv_4_1_hls&mp4")).status == 404
+    # the page lets go (Stop: a phone that locks or closes the player); the screen still fetching holds the stream
+    await r.ask(ws, 3, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc", "stop": True})
+    assert (await m.client.get(base + f"api/hls/playlist.m3u8?id={sid}")).status == 200
+    assert r.tv._leased("mantel_tv_4_1_hls") and r.tv._leased("mantel_tv_4_1")
+    await r.tv._drop_if_idle("mantel_tv_4_1_hls")
+    assert "mantel_tv_4_1_hls" in r.tv.streams
+    # dropped: the key is forgotten with it
+    await r.tv._drop("mantel_tv_4_1_hls")
+    assert (await m.client.get(base + "api/stream.m3u8?src=mantel_tv_4_1_hls&mp4")).status == 404
+    await ws.close()
 
 
 async def test_live_tv_streams_under_go2rtc_follow_the_live_tv_gate(rig):
