@@ -23,7 +23,7 @@ the server exactly as the screens' socket is:
                                  its past). A reading that is not a number answers no points.
   GET  /api/app/energy          the Power and Energy widgets: the Power page's readings now (the whole house, solar,
                                  the grid, the house battery) and today's energy and cost so far, from the Energy
-                                 feature's plan; only with ``view`` on ``feature:energy`` (403 forbidden; 409
+                                 feature's plan; ``?rings=1`` adds today's Energy Rings (hk_core.energy.rings); only with ``view`` on ``feature:energy`` (403 forbidden; 409
                                  energy_off when the feature is off), each reading only if the person may view it
   GET  /api/app/laundry         the Laundry widget: each washer and dryer (Accessories -> Laundry's, else those found) the
                                  person may view by what says it runs: its state (hk_core.laundry STATES), when it
@@ -361,7 +361,45 @@ async def energy(request: web.Request) -> web.Response:
             if used is not None:
                 today = {"energy": used, "unit": "kWh", "cost": None if cost is None else round(cost, 2),
                          "hours": hours_of(res.get(total.get("stat")))}
-    return ok({"power": readings, "today": today, "at": float(request.app["clock"]())})
+    out = {"power": readings, "today": today, "at": float(request.app["clock"]())}
+    if request.query.get("rings") and proxy is not None:
+        out["rings"] = await energy_rings(request, plan, proxy)
+    return ok(out)
+
+
+async def energy_rings(request: web.Request, plan: dict, proxy) -> list[dict]:
+    """The Energy Rings widget's rings (hk_core.energy.rings): today against a usual day, from the last days' hourly
+    statistics -- one read of Home Assistant's Energy settings for the solar, water and gas sources, one of the statistics."""
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    from hk_core.energy import rings as RG
+    try:
+        prefs = await proxy.request({"type": "energy/get_prefs"})
+    except (ConnectionError, asyncio.TimeoutError, OSError, RuntimeError):
+        prefs = {}
+    stats = RG.stats_of(plan, prefs if isinstance(prefs, dict) else {})
+    ids = [sid for v in stats.values() for sid in v]
+    if not ids:
+        return []
+    try:
+        tz = ZoneInfo(getattr(request.app.get("authz"), "tz", None) or "UTC")
+    except (KeyError, ValueError):
+        tz = timezone.utc
+    now = datetime.fromtimestamp(float(request.app["clock"]()), tz)
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    try:
+        res = await proxy.request({"type": "recorder/statistics_during_period",
+                                   "start_time": datetime.fromtimestamp(midnight.timestamp() - RG.DAYS * 86400,
+                                                                        timezone.utc).isoformat(),
+                                   "end_time": now.astimezone(timezone.utc).isoformat(), "statistic_ids": ids,
+                                   "period": "hour", "types": ["change"], "units": {"energy": "kWh"}})
+    except (ConnectionError, asyncio.TimeoutError, OSError):
+        return []
+    if not isinstance(res, dict):
+        return []
+    states = request.app["hub"].store.states
+    units = {k: ((states.get(v[0]) or {}).get("a") or {}).get("unit_of_measurement") for k, v in stats.items()}
+    return RG.rings(stats, res, midnight.timestamp(), now.timestamp(), _start, units)
 
 
 @open_route("app_dpop", reads="view", why=WHY_APP)

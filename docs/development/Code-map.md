@@ -372,6 +372,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `const.py` — Energy's constants.
   - `plan.py` — THE ENERGY PAGE'S PLAN, shared by every host (hk_core; was features/energy/plan.py).
   - `power.py` — THE POWER PAGE'S PLAN (PLAN-2026-10-12-home-power)
+  - `rings.py` — TODAY'S ENERGY RINGS for the iPhone's Energy Rings widget (2026-11-24, the owner
   - `settings.py` — Energy's HK Settings page checks (Features -> Energy)
 - **hk_core/intercom/**
   - `config.py` — THE INTERCOM'S SETTINGS

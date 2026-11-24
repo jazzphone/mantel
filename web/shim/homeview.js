@@ -44,4 +44,91 @@
   root.style.setProperty('--hk-view-top', 'var(--hk-safe-top)');
   var m = document.querySelector('meta[name="viewport"]');
   if (m) m.setAttribute('content', 'width=' + LAYOUT + ', user-scalable=no, viewport-fit=cover');
+  if (car) return;
+
+  // SAFARI'S BARS IN THE SKY'S COLOR (2026-11-24, the owner: "the address bar in safari isn't color matching"). Safari 26
+  // no longer reads theme-color: it tints its bars from the page's background color, or from a fixed element along the
+  // top edge -- here the sky (hk-sky.js #hk-sky), whose own color is its palette's middle and the page's a near black, so
+  // the bar was a dark block over a light sky. On a HomeView all three are the sky's top stop (--sk0, a wallpaper's too),
+  // set again only when it moves (hk-sky-paint: the sun's colors, a page's own sky).
+  /** @type {HTMLElement | null} */
+  var sky = null;
+  var was = '';
+  /** @param {Document | ShadowRoot} r @param {number} d */
+  function find(r, d) {
+    if (sky || d > 40) return;
+    var all = r.querySelectorAll('*');
+    for (var i = 0; i < all.length && !sky; i++) {
+      var el = /** @type {HTMLElement} */ (all[i]);
+      if (el.id === 'hk-sky') sky = el;
+      else if (el.shadowRoot) find(el.shadowRoot, d + 1);
+    }
+  }
+  /** @type {Record<string, number[] | null>} */
+  var tops = {};
+  /** The mean color of a photo's top edge as the sky shows it (background-size cover, centered, on this window), once
+   *  per photo; null when it can't be read (another origin's picture taints the canvas).
+   *  @param {string} url @param {(c: number[] | null) => void} done */
+  function photoTop(url, done) {
+    if (url in tops) { done(tops[url]); return; }
+    var img = new Image();
+    img.onload = function () {
+      var c = null;
+      try {
+        var W = window.innerWidth, H = window.innerHeight, k = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+        var sh = H / k, sy = Math.max(0, (img.naturalHeight - sh) / 2), sw = W / k, sx = Math.max(0, (img.naturalWidth - sw) / 2);
+        var cv = document.createElement('canvas');
+        cv.width = 16; cv.height = 2;
+        var g = cv.getContext('2d');
+        if (g) {
+          g.drawImage(img, sx, sy, sw, sh * 0.06, 0, 0, 16, 2);       // the top 6 % of what shows
+          var px = g.getImageData(0, 0, 16, 2).data, sum = [0, 0, 0];
+          for (var i = 0; i < px.length; i += 4) { sum[0] += px[i]; sum[1] += px[i + 1]; sum[2] += px[i + 2]; }
+          c = sum.map(function (v) { return v / (px.length / 4); });
+        }
+      } catch (e) { c = null; }
+      tops[url] = c;
+      done(c);
+    };
+    img.onerror = function () { tops[url] = null; done(null); };
+    img.src = url;
+  }
+  /** @param {string} s */
+  function rgbOf(s) {
+    var m = /rgba?\(([^)]+)\)/.exec(s);
+    return m ? m[1].split(',').slice(0, 3).map(function (v) { return parseFloat(v); }) : null;
+  }
+  function tint() {
+    if (!sky || !sky.isConnected) { sky = null; find(document, 0); }
+    if (!sky) return;
+    var cs = getComputedStyle(sky), sk0 = cs.getPropertyValue('--sk0').trim(), o = parseFloat(cs.getPropertyValue('--artO')) || 0;
+    // a photo or album art over the palette: its top edge, at its share over the palette's top stop
+    var art = o > 0 ? sky.querySelector('.art') : null;
+    var u = art ? /url\(["']?([^"')]+)/.exec(getComputedStyle(art).backgroundImage) : null;
+    if (u && art) {
+      // (a photo is drawn darker for the words over it: its filter's brightness, hk-sky.js --phF)
+      var dim = /brightness\(([\d.]+)\)/.exec(getComputedStyle(art).filter), k = dim ? parseFloat(dim[1]) : 1;
+      photoTop(u[1], function (top) {
+        var base = rgbOf(sk0);
+        if (!top || !base) { paint(sk0); return; }
+        var t = /** @type {number[]} */ (top), b = /** @type {number[]} */ (base);
+        paint('rgb(' + t.map(function (v, i) { return Math.round(Math.min(255, v * k) * o + b[i] * (1 - o)); }).join(', ') + ')');
+      });
+      return;
+    }
+    paint(sk0);
+  }
+  /** @param {string} c */
+  function paint(c) {
+    if (!sky || !c || c === was) return;
+    was = c;
+    sky.style.backgroundColor = c;
+    root.style.backgroundColor = c;
+    if (document.body) document.body.style.backgroundColor = c;
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', c);           // (an older Safari still reads it)
+  }
+  window.addEventListener('hk-sky-paint', tint);
+  window.addEventListener('popstate', function () { setTimeout(tint, 300); });
+  window.addEventListener('load', function () { setTimeout(tint, 500); });
 })();

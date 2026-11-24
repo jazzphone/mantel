@@ -432,6 +432,8 @@ async def test_the_power_and_energy_widgets_read_the_energy_plan(mantel, monkeyp
     class Proxy:
         async def request(self, msg):
             asked.append(msg)
+            if msg["type"] == "energy/get_prefs":
+                return {"energy_sources": []}
             return {"sensor.grid_energy": [{"start": 1795496400000.0, "change": 1.5},
                                            {"start": "2026-11-24T06:00:00+00:00", "change": 2.25}],
                     "sensor.grid_cost": [{"change": 0.504}]}
@@ -447,6 +449,11 @@ async def test_the_power_and_energy_widgets_read_the_energy_plan(mantel, monkeyp
                             "hours": [[1795496400.0, 1.5], [1795500000.0, 2.25]]}
     assert asked[0]["type"] == "recorder/statistics_during_period" and asked[0]["types"] == ["change"]
     assert asked[0]["statistic_ids"] == ["sensor.grid_energy", "sensor.grid_cost"]
+    # ?rings=1: today's Energy Rings, from Home Assistant's Energy settings and the last days' statistics
+    r, got = await phone.call("GET", "/api/app/energy?rings=1")
+    # (the cost rows carry no hour: no ring for it)
+    assert [x["key"] for x in got["rings"]] == ["energy"] and asked[-2]["type"] == "energy/get_prefs"
+    assert asked[-1]["statistic_ids"] == ["sensor.grid_energy", "sensor.grid_cost"]
 
 
 async def test_the_laundry_widget_reads_each_machine_and_its_held_done(mantel, monkeypatch):
