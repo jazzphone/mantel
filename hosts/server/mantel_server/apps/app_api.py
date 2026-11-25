@@ -16,7 +16,12 @@ the server exactly as the screens' socket is:
   GET  /api/app/states?ids=a,b   chosen accessories' states (at most STATES_MAX), only those the person may view, in
                                  the order asked: the widgets made for one thing (an accessory, a thermostat, the
                                  house's doors and locks); ``?domain=timer`` instead: every timer the person may view
-                                 that counts (active or paused), soonest first
+                                 that counts (active or paused), soonest first; ``?kind=thermostats`` instead: what
+                                 the house counts as that kind (Accessories' Types: Status & Chips over the house,
+                                 Hidden Accessories and each accessory's own settings -- hidden.Hiding.found), the
+                                 ones the person may view (at most STATES_MAX); 503 not_ready before Mantel has the
+                                 house (CarPlay's Climate page, 2026-11-25: the house's thermostats, not every
+                                 ``climate.*`` -- a car's cabin or a water heater is one too)
   GET  /api/app/history?id=&hours=  a reading's last hours (1 to HISTORY_HOURS_MAX, 24 unless asked) as at most
                                  HISTORY_POINTS averaged points [epoch seconds, value], for the Sensor widget's
                                  graph; only with ``history`` on it (a Child or a guest may see a reading and not
@@ -54,6 +59,7 @@ from typing import Any
 from aiohttp import web
 
 from hk_core import glyphs as G
+from hk_core.settings.kinds import KINDS
 
 from .. import apns
 from . import app_crypto
@@ -217,10 +223,18 @@ async def summary(request: web.Request) -> web.Response:
 @open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def states(request: web.Request) -> web.Response:
-    ids_q, domain = request.query.get("ids"), request.query.get("domain")
-    if (ids_q is None) == (domain is None):
-        return error(400, "invalid_query", message="ids or domain")
-    if domain is not None:
+    ids_q, domain, kind = request.query.get("ids"), request.query.get("domain"), request.query.get("kind")
+    if [ids_q, domain, kind].count(None) != 2:
+        return error(400, "invalid_query", message="ids, domain or kind")
+    if kind is not None:
+        if kind not in KINDS:
+            return error(400, "invalid_query")
+        settings = request.app.get("settings")
+        found = settings.kind_lists() if settings is not None else None
+        if found is None:
+            return error(503, "not_ready")
+        ids = list(dict.fromkeys(e for e in found.get(kind) or [] if isinstance(e, str)))
+    elif domain is not None:
         if domain not in STATE_DOMAINS:
             return error(400, "invalid_query")
         store = request.app["hub"].store.states
@@ -230,6 +244,8 @@ async def states(request: web.Request) -> web.Response:
         if not 0 < len(ids) <= STATES_MAX or not all(ENTITY.match(i) for i in ids):
             return error(400, "invalid_query", message=f"1 to {STATES_MAX} entity ids")
     shown = [e for e in (_entity_json(request.app, eid) for eid in _visible(request, ids)) if e is not None]
+    if kind is not None:
+        shown = shown[:STATES_MAX]
     if domain is not None:
         shown = sorted(shown, key=lambda e: str((e.get("attributes") or {}).get("finishes_at") or "~"))[:STATES_MAX]
     return ok({"states": shown, "at": request.app["clock"]()})

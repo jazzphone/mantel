@@ -550,6 +550,39 @@ async def test_the_widgets_read_chosen_states_and_the_timers_only_as_one_may_see
     assert (await m.client.get("/api/app/states?ids=light.kitchen")).status == 401
 
 
+async def test_carplay_climate_reads_the_houses_thermostats_not_every_climate_entity(mantel, monkeypatch):
+    """/api/app/states?kind=: what the house counts as that kind (hidden.Hiding.found: Accessories' Types, Hidden
+    Accessories), only those the person may view -- a car's cabin climate or a water heater left out of Thermostats
+    stays off CarPlay's Climate page (2026-11-25)."""
+    m = mantel
+    m.app["hub"].store.states.update(STATES)
+    m.app["hub"].store.states.update({
+        "climate.hallway": {"s": "heat_cool", "a": {"friendly_name": "Hallway", "current_temperature": 70},
+                            "lc": 1.0, "lu": 1.0},
+        "climate.car_cabin": {"s": "off", "a": {"friendly_name": "Car"}, "lc": 1.0, "lu": 1.0}})
+    found = {"thermostats": ["climate.hallway", "climate.gone"], "locks": ["lock.front_door"]}
+    monkeypatch.setattr(m.app["settings"], "kind_lists", lambda: found)
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    r, got = await phone.call("GET", "/api/app/states?kind=thermostats")
+    assert r.status == 200 and [e["entity_id"] for e in got["states"]] == ["climate.hallway"]
+    assert got["states"][0]["attributes"]["current_temperature"] == 70
+    r, got = await phone.call("GET", "/api/app/states?kind=locks")
+    assert [e["entity_id"] for e in got["states"]] == ["lock.front_door"]
+    r, got = await phone.call("GET", "/api/app/states?kind=fans")                  # a kind with nothing in it
+    assert r.status == 200 and got["states"] == []
+    for bad in ("?kind=climate", "?kind=", "?kind=thermostats&domain=timer", "?kind=thermostats&ids=lock.front_door"):
+        r, _ = await phone.call("GET", "/api/app/states" + bad)
+        assert r.status == 400, bad
+    kid, _ = await sign_in_app(m, "kid", "child")
+    m.forget_cookies()
+    r, got = await kid.call("GET", "/api/app/states?kind=thermostats")
+    assert r.status == 200 and got["states"] == []
+    monkeypatch.setattr(m.app["settings"], "kind_lists", lambda: None)            # before Mantel has the house
+    r, got = await phone.call("GET", "/api/app/states?kind=thermostats")
+    assert r.status == 503 and got["error"] == "not_ready"
+
+
 async def test_the_sensor_widget_reads_a_days_graph_only_with_history_on_it(mantel):
     """/api/app/history: a reading's last hours averaged into at most HISTORY_POINTS points, through Home Assistant's
     history with ``history`` on the reading (not just view); a word for a state answers no points."""
