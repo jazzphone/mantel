@@ -1423,6 +1423,11 @@
       }
       // ...ITS PARTS, while it is on: the icons, the widgets, and what else is on it
       pagesScreenParts(c, ctx, ps, val) {
+        // WHERE THE SCREEN OPENS (2026-11-25, the owner: an Apple HomeView is itself the dashboard, so a screen there opens
+        // on its Pages screen)
+        c.appendChild(K.group({ footer: 'Where the screen starts when it’s opened: Home, or the Pages screen, for a screen ' +
+            'that is a dashboard already, like an Apple HomeView. Home is still a swipe or the Home Pill away.' }, [
+          this.psSelect(ctx, ps, 'opens', 'Opens On', [['home', 'Home'], ['pages', 'Pages Screen']])]));
         var icons = Array.isArray(val.icons) ? val.icons.length + (val.icons.length === 1 ? ' Page' : ' Pages') : 'Same as the Menu';
         c.appendChild(K.group({ header: 'Icons', footer: 'Each page as a large icon in its Accent Color. Calendar shows today’s date, ' +
             'Weather the temperature, and a red badge shows what’s waiting: timers running, a door open, a notification.' }, [

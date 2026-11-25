@@ -208,7 +208,7 @@
     ] },
     // THE PAGES SCREEN (settings.py PAGES_SCREEN_DEFAULTS, Phase J): All
     // Screens'; a screen's own fields over it (pagesScreen())
-    pages_screen: { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' }
+    pages_screen: { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off', opens: 'home' }
   };
 
   G.hkSettingsDefaults = DEFAULTS;

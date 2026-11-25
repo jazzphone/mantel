@@ -426,6 +426,26 @@ settle().then(function () {
       ok('...p6 comes back as the same element', p6 === els.p6);
     });
 }).then(function () {
+  // OPENS ON (the Pages screen marked `opens`, hk-strategy-energy.js pagesScreen): a screen opened on Home lands there, its
+  // address replaced; one opened on another page stays on it
+  var opensCfg = { views: [{ path: 'home', type: 'custom:t-view', cards: [] }, { path: 'pages', opens: true, type: 'custom:t-view', cards: [] },
+                           { path: 'lights', type: 'custom:t-view', cards: [] }] };
+  var depth = stack.length, landed = [];
+  function opened(at) {
+    stack.push(at);
+    var c = document.body.appendChild(document.createElement('hk-view-container'));
+    var h = V.create({ container: c, config: opensCfg, client: c1, base: '/dashboard-test' });
+    return h.start().then(function () { landed.push(h.current().path + ' ' + location.pathname); h.stop(); });
+  }
+  return opened('/dashboard-test').then(function () { return opened('/dashboard-test/0'); })
+    .then(function () { return opened('/dashboard-test/home'); }).then(function () { return opened('/dashboard-test/lights'); })
+    .then(function () {
+      ok('Opens On: Home (no view, 0, its path) lands on the view marked opens, the address replaced',
+         landed.slice(0, 3).join() === 'pages /dashboard-test/pages,pages /dashboard-test/pages,pages /dashboard-test/pages', landed);
+      ok('...another page opened stays on it', landed[3] === 'lights /dashboard-test/lights', landed);
+      stack.length = depth;
+    });
+}).then(function () {
   var host = made.filter(function (t) { return /^(hui-|ha-)/.test(t); });
   ok('not one host element made (no hui-*, no ha-*)', host.length === 0, host);
   var threw = false;

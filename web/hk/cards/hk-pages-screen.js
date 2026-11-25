@@ -411,7 +411,7 @@
         var client = this.client || {}, states = client.states || {}, HS = window.hkSettings, M = C.menu;
         var b = M && M.board ? M.board() : {};
         // (this screen's own as stored -- hkSettings reads it: menu.board() keeps only the menu's keys)
-        var ps = HS && HS.pagesScreen ? HS.pagesScreen() : { icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' };
+        var ps = HS && HS.pagesScreen ? HS.pagesScreen() : { icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off', opens: 'home' };
         var cfg = M && M.config ? M.config() : null, h = H();
         var m = h && h.model && cfg ? h.model(cfg, client.areas, {
           dash: M.dash ? M.dash() : '', order: b.menu_rooms === 'order' ? 'order' : 'az', roomOrder: b.room_order,

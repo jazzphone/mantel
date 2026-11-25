@@ -1548,7 +1548,24 @@
         offs.push(function () { w.removeEventListener('hk-black', onLight); });
         onUpdate();                // the host's newest client, if it moved on since create()
       }
+      land();
       return route();
+    }
+    // WHERE THE SCREEN OPENS (Opens On, hkSettings.pagesScreen().opens; 2026-11-25, the owner: an Apple HomeView is
+    // itself the dashboard): a screen opened on Home -- no view, `0` or Home's own path -- opens on the view marked
+    // `opens` (hk-strategy-energy.js pagesScreen) instead, its address replaced, so Back doesn't go to a Home never
+    // shown. Once, at start: Home is then a swipe, a tab or the Home Pill away, and the idle return still goes Home.
+    function land() {
+      var at = viewPathOf(global.location.pathname), vs = views(), v0 = vs[0], h = global.history;
+      if (at.dashboard !== base || !h || typeof h.replaceState !== 'function') return;
+      if (at.view && at.view !== '0' && !(v0 && v0.path === at.view)) return;
+      for (var i = 1; i < vs.length; i++) {
+        if (vs[i] && vs[i].opens && vs[i].path) {
+          var l = global.location;
+          try { h.replaceState(h.state, '', base + '/' + vs[i].path + (l.search || '') + (l.hash || '')); } catch (e) { /* stays Home */ }
+          return;
+        }
+      }
     }
     function stop() {
       if (live === api) live = null;

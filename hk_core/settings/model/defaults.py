@@ -347,6 +347,10 @@ PAGES_SCREEN_PILL = ("auto", "on", "off")
 # background?" -- Off unless chosen)
 PAGES_SCREEN_CLOCK = ("off", "on")
 
+# where the screen opens: Home, or its Pages screen (an Apple HomeView, which is itself a dashboard; 2026-11-25, the
+# owner: "should just open straight into the Apps page ... since the HomeView itself is the dashboard")
+PAGES_SCREEN_OPENS = ("home", "pages")
+
 # the Side Pane's twelve sections (Phase A2's PANE_SECTIONS, in its order): one list once both are in
 PAGES_SCREEN_WIDGETS = ("clock", "weather", "calendar", "now_playing", "security", "camera", "timers", "energy",
                         "climate", "people", "todo", "notifications")
@@ -362,7 +366,7 @@ PAGES_SCREEN_ICONS_MAX = 60
 PAGES_SCREEN_PATH = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 
 PAGES_SCREEN_DEFAULTS: dict[str, Any] = {"show": "off", "icons": "menu", "rooms": "folder", "widgets": [],
-                                         "pill": "auto", "clock": "off"}
+                                         "pill": "auto", "clock": "off", "opens": "home"}
 
 DEFAULTS["pages_screen"] = copy.deepcopy(PAGES_SCREEN_DEFAULTS)
 

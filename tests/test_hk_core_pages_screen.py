@@ -9,7 +9,7 @@ from hk_core.settings import changes as C, model as S
 
 def test_all_screens_has_every_field_and_starts_off():
     got = S.merged(None)["pages_screen"]
-    assert got == {"show": "off", "icons": "menu", "rooms": "folder", "widgets": [], "pill": "auto", "clock": "off"}
+    assert got == {"show": "off", "icons": "menu", "rooms": "folder", "widgets": [], "pill": "auto", "clock": "off", "opens": "home"}
     # stored values over the defaults; a bad one read back is its default, never an error
     opts = {"dashboard": {"pages_screen": {"show": "on", "rooms": "sideways", "widgets": [{"kind": "weather"}]}}}
     got = S.merged(opts)["pages_screen"]
@@ -44,7 +44,8 @@ def test_all_screens_saves_a_field_at_a_time():
     assert err == {}
     got = S.merged(opts)["pages_screen"]
     assert got == {"show": "on", "icons": ["security", "lights"], "rooms": "folder",
-                   "widgets": [{"kind": "weather", "size": "less", "place": "left"}], "pill": "off", "clock": "off"}
+                   "widgets": [{"kind": "weather", "size": "less", "place": "left"}], "pill": "off", "clock": "off",
+                   "opens": "home"}
     # only what differs from the defaults is stored
     assert opts["dashboard"]["pages_screen"] == {"show": "on", "icons": ["security", "lights"], "pill": "off",
                                                  "widgets": [{"kind": "weather", "size": "less", "place": "left"}]}
@@ -61,7 +62,7 @@ def test_all_screens_saves_a_field_at_a_time():
     ("pages_screen.widgets", [{"kind": "weather"}, {"kind": "weather"}]),
     ("pages_screen.widgets", [{"kind": k} for k in S.PAGES_SCREEN_WIDGETS[:5]]),
     ("pages_screen.widgets", [{"kind": "weather", "entity": "camera.yard"}]),
-    ("pages_screen.colour", "red"),
+    ("pages_screen.colour", "red"), ("pages_screen.opens", "apps"),
 ])
 def test_all_screens_refuses_what_it_cannot_be(path, value):
     opts, err = C.apply_house({}, {path: value})
@@ -79,6 +80,13 @@ def test_a_screen_saves_its_own_fields_whole():
         got, err = C.apply_board({"pages_screen": {"pill": "on"}}, {"pages_screen": bad})
         assert err == {"pages_screen": "choice"}, bad
         assert got["pages_screen"] == {"pill": "on"}                # nothing written
+
+
+def test_a_screen_can_open_on_its_pages_screen():
+    # an Apple HomeView is itself the dashboard: its screen opens on the Pages screen (hk-view-host.js land())
+    got, err = C.apply_board({}, {"pages_screen": {"show": "on", "opens": "pages"}})
+    assert err == {} and S.pages_screen_resolved({}, got["pages_screen"])["opens"] == "pages"
+    assert S.pages_screen_resolved({}, None)["opens"] == "home"
 
 
 def test_widgets_are_the_side_panes_sections():

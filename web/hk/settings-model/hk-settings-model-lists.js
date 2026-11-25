@@ -599,7 +599,7 @@
     // THE PAGES SCREEN (docs/phase11/HOMEVIEW-LOOK.md, Phase J; settings.py
     // PAGES_SCREEN_*): All Screens' every field; a screen's only the fields it
     // sets (b.pages_screen, null: Same as All Screens), each resolved on its own
-    var PAGES_SCREEN_DEFAULTS = { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' };
+    var PAGES_SCREEN_DEFAULTS = { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off', opens: 'home' };
     var PAGES_SCREEN_SHOW = [['off', 'Off'], ['on', 'On']];
     var PAGES_SCREEN_ROOMS = [['folder', 'A Rooms Folder'], ['each', 'Each Room Its Own Icon'], ['none', 'None']];
     var PAGES_SCREEN_PILL = [['auto', 'When There\u2019s No Tab Bar'], ['on', 'Always'], ['off', 'Never']];

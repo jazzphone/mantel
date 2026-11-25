@@ -20,7 +20,7 @@ var HS = window.hkSettings;
 print('=== the settings ===');
 var d0 = HS.pagesScreen({});
 ok('All Screens\' defaults: off, the menu\'s icons, a Rooms folder, no widgets, the pill when there\'s no tab bar, no background clock',
-   JSON.stringify(d0) === JSON.stringify({ show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' }), d0);
+   JSON.stringify(d0) === JSON.stringify({ show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off', opens: 'home' }), d0);
 HS._apply({ configured: true, pages_screen: { show: 'on', icons: 'menu', rooms: 'each', widgets: [{ kind: 'weather', size: 'more', place: 'right' }], pill: 'auto' } });
 var r1 = HS.pagesScreen({ pages_screen: null });
 ok('a screen Same as All Screens reads All Screens\'', r1.show === 'on' && r1.rooms === 'each' && r1.widgets.length === 1, r1);
@@ -28,6 +28,8 @@ var r2 = HS.pagesScreen({ pages_screen: { rooms: 'none', pill: 'off', icons: ['l
 ok('...a screen\'s own fields win, each on its own', r2.show === 'on' && r2.rooms === 'none' && r2.pill === 'off' &&
    r2.icons.join() === 'lights,climate' && r2.widgets[0].kind === 'weather', r2);
 var r3 = HS.pagesScreen({ pages_screen: { rooms: 'sideways', show: true, icons: ['a', 'a'] } });
+ok('Opens On: a screen\'s own, or All Screens\'; anything else is Home', HS.pagesScreen({ pages_screen: { opens: 'pages' } }).opens === 'pages' &&
+   HS.pagesScreen({ pages_screen: { opens: 'apps' } }).opens === 'home');
 ok('...a bad field of its own is All Screens\' (never a throw)', r3.rooms === 'each' && r3.show === 'on' && r3.icons === 'menu', r3);
 HS._apply({ configured: true });
 
@@ -254,11 +256,11 @@ print('=== the strategy: only while it is on ===');
 load(HK_ROOT + '/frontend/cards/hk-strategy.js');
 var hass = { states: { 'light.desk': { entity_id: 'light.desk', state: 'on', attributes: { friendly_name: 'Desk' } } },
              areas: { office: { area_id: 'office', name: 'Office' } }, entities: { 'light.desk': { area_id: 'office' } }, devices: {} };
-var ON = false;
+var ON = false, OPENS = 'home';
 location.pathname = '/dashboard-hall/home';
 window.hkSettings = { get: function (p, f) { return p === 'boards' ? { 'dashboard-hall': { pages: [] } } : f; },
                       weatherId: function () { return null; },
-                      pagesScreen: function () { return { show: ON ? 'on' : 'off' }; } };
+                      pagesScreen: function () { return { show: ON ? 'on' : 'off', opens: OPENS }; } };
 window.hkStrategy.generate({ music: false, popups: false }, hass).then(function (cfg) {
   ok('off (every screen today): no Pages screen', !cfg.views.some(function (v) { return v.pages_screen; }));
   ON = true;
@@ -268,6 +270,13 @@ window.hkStrategy.generate({ music: false, popups: false }, hass).then(function 
   ok('on: /pages right after Home, its one card', v.pages_screen === true && v.path === 'pages' && v.cards[0].type === 'custom:hk-pages-screen-card');
   ok('...on Home\'s sky', !!cfg.views[0].sky === !!v.sky);
   ok('...on the page\'s own edges', v.layout.margin === '0px' && v.layout.padding === '0px');
+  ok('...Opens On Home: not the view the screen opens on', v.opens === false);
+  OPENS = 'pages';
+  return window.hkStrategy.generate({ music: false, popups: false }, hass);
+}).then(function (cfg) {
+  var v = cfg.views[1] || {};
+  ok('Opens On Pages Screen: it is marked opens (the view host lands there), still right after Home',
+     v.pages_screen === true && v.opens === true && !cfg.views[0].opens);
 }).then(function () {
   // ---- Swipe Between Pages, loaded after the menu (as hk-loader.js loads them): the Pages screen joins its order
   load(HK_ROOT + '/frontend/modules/hk-pageswipe.js');
