@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from . import app_api, app_auth, app_music, app_music_device, app_tv
+from . import app_api, app_auth, app_music, app_music_device, app_power, app_tv
 from .. import push
 from ..identity.guards import WHY_STATIC, open_route
 
@@ -71,3 +71,4 @@ def register(app: web.Application, hub=None) -> None:
     app_music.register(app, hub)    # the apps' music: the Mac's native player (state, commands, queue, library)
     app_music_device.register(app, hub)   # the iPhone as a speaker (CarPlay, Apple HomeView): its Sendspin player
     app_tv.register(app, hub)       # phase 35: the Live TV widget's Play On (a channel on a paired AirPlay screen)
+    app_power.register(app, hub)    # the HomeView's Power page: the battery, its mode and levels, the circuits and their switches
