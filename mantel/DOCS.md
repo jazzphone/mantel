@@ -1,0 +1,301 @@
+# Mantel
+
+Mantel serves HK's home screens from its own server, inside Home Assistant. Open **Mantel** in the
+sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role allows.
+It needs Home Assistant **2026.8 or newer**; the optional Mantel Link integration needs **2026.9**
+(see the [Install guide](https://github.com/jazzphone/mantel/blob/main/docs/guide/Install.md#before-you-start)).
+
+## First start: becoming the Owner
+
+1. Start the App and open **Mantel** from the sidebar (or **Open Web UI**).
+2. Mantel has no Owner yet. If your Home Assistant account is an **administrator**, Mantel offers
+   **Make me Mantel's Owner**. Press it to confirm. Only the first Owner is made this way; afterwards
+   the page says it is closed.
+3. As the Owner, open `People` (the link on the confirmation page, or the address
+   `.../ingress/people` inside the sidebar page) and link the rest of the household's Home Assistant
+   accounts to Mantel roles (Admin, Adult, Child, Guest). An account that is not linked sees only
+   "Not linked yet" and nothing else.
+
+## Options
+
+The App's **Configuration** tab holds only what Mantel needs to start. Everything else is in **Mantel Settings**
+(the same whether Mantel runs here, in Docker or on its own), set by an Owner, applied at once and recorded in the
+Audit Log.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `log_level` | `info` | `debug`, `info`, `warning` or `error`. |
+| `read_only` | `false` | The kill switch. On, Mantel sends nothing to the house whatever Mantel Settings says. Turn it off again to use the setting there. |
+| `access` | `ingress` | How else Mantel can be reached: `ingress` (the sidebar only), `proxy` (your own reverse proxy) or `https` (Mantel's built-in HTTPS). See **Direct access** below. |
+| `public_url`, `trusted_proxies`, `cloudflare_token`, `duckdns_token`, `acme_email`, `acme_staging`, `lan_networks` | empty | Direct access only (below). |
+| `dns_provider` | `cloudflare` | Built-in HTTPS only: `cloudflare` or `duckdns` (below). |
+| `cf_access_team`, `cf_access_aud` | empty | Cloudflare Access in front of a tunnel to the direct port (below). Both set: Mantel refuses every request through the tunnel without a valid Access token. |
+
+**In Mantel Settings:**
+
+| Setting | Where | Meaning |
+|---|---|---|
+| Allow Control of the House | General | Off (read-only) until an Owner turns it on, which always asks them to confirm it is them. On, people may control the house within their roles; only the alarm needs a code (the house Alarm PIN) and every command is audited. |
+| House Default Screen | General | Where Mantel opens for anyone who hasn't chosen their own, and for wall tablets with none set. |
+| Sign-Ins from Away Last | General | How long a sign-in from outside the home network lasts, 1 hour to 30 days (12 hours by default). |
+| Sign-In Address | Connections → Home Assistant | Where *Sign in with Home Assistant* sends people at Mantel's own address. Empty uses Home Assistant's own URL (HA → Settings → System → Network). |
+| Coming Through Home Assistant | Connections → Home Assistant | **Trusted** (default): being signed in to Home Assistant is enough, as HK in Home Assistant always was; each person's Mantel role still decides what they may do. **Home Network Rules** or **Away Rules**: the sidebar gets those rules. |
+| Music Assistant | Connections → Music Assistant | Its address and a token or user sign-in, kept sealed. |
+| Home Assistant's Frame | Connections → HTTPS and Your Proxy | Other Home Assistant addresses that may show Mantel in a Webpage dashboard. |
+
+**Updating from 0.1.51 or older:** the options `commands_enabled`, `default_screen`, `session_hours`,
+`ha_door_rules`, `ma_url`, `ma_token`, `ha_sign_in_url` and `ha_frame_origins` moved to Mantel Settings. A value
+you had set is copied there once when Mantel updates, so nothing changes for you; after that the old option is
+not read (its description says *moved*) and you can clear it. A later release removes them.
+
+## Who can open it
+
+Every Home Assistant user can open the panel (`panel_admin: false`): wall tablets and most household
+members are not administrators. Mantel decides what anyone gets: an account that is not linked sees only
+"Not linked yet", each linked person gets their Mantel role, and only a Home Assistant administrator
+(checked with Home Assistant itself) can become the first Owner.
+
+## Wall tablets
+
+Each wall tablet is its own Home Assistant user, signed in by `trusted_networks` in its kiosk browser
+(Kiosk Satellite). To move one to Mantel:
+
+1. As the Owner, open `People` and press **Link as a wall tablet** on the tablet's Home Assistant user:
+   choose *a new device* and the tablet's room. (Needs *Coming Through Home Assistant* set to Trusted or Home
+   Network Rules: Mantel Settings → Connections → Home Assistant.)
+2. In Kiosk Satellite set the start URL to the App's panel on Home Assistant's address, for example
+   `http://homeassistant.local:8123/app/<slug>`, where `<slug>` is the end of this App's page address in Home
+   Assistant (`local_mantel` for an App built from source, `<repository id>_mantel` from the add-on repository); the
+   same scheme and host as the tablet uses today. Nothing else changes on the tablet.
+
+The tablet opens on its own HK screen, full screen (Mantel asks Home Assistant to hide its sidebar and
+header for tablets only). Nobody is signed in on it: it may do what its role allows (its room, the
+doorbell), with no PIN; only the alarm asks for a code, the house Alarm PIN.
+To go back, set the start URL back to the tablet's Home Assistant dashboard.
+
+## Direct access (optional)
+
+The sidebar is always there. Some homes also want Mantel at **its own address**, for example
+`https://mantel.example.com`: wall tablets open `https://mantel.example.com/home` without Home Assistant's
+frame, and every screen has a direct link (`https://mantel.example.com/<screen>/home`). Most homes need
+neither; leave `access` at `ingress` and nothing below applies.
+
+At Mantel's own address Home Assistant's sidebar sign-in does not apply. People use **Sign in with Home
+Assistant** (it goes to Home Assistant's own URL, or the Sign-In Address in Mantel Settings), or a Mantel password or passkey; wall tablets are **enrolled** as Mantel
+devices (on the tablet, sign in once at Mantel's address as the Owner, open Mantel Settings, *Make this
+browser a wall tablet*, with its room; the person's sign-in ends there) and then open `/home` on their own
+HK screen. Home addresses get the LAN rules; anything else the
+remote (tunnel) rules. HA's identity headers are never believed on this port.
+
+Pick **one** of the two ways:
+
+### `proxy`: your own reverse proxy (Nginx Proxy Manager, Traefik, ...)
+
+Your proxy owns HTTPS and forwards to the App over plain HTTP.
+
+1. App **Configuration**: `access: proxy`, `public_url: https://mantel.example.com` (the name people
+   type), `trusted_proxies`: your proxy's IP address as Mantel sees it.
+2. App **Network**: give `8100/tcp` a host port, e.g. `8100`. (Leave it empty if your proxy is itself a
+   Home Assistant App: it can reach `http://<this App's hostname>:8100` on Home Assistant's internal network
+   (`local-mantel` for an App built from source, `<repository id>-mantel` from the add-on repository). Its
+   address there is assigned by Home Assistant and can change when it restarts; check it on the Test my
+   proxy page after updates.)
+3. **Restart** the App, open Mantel in the sidebar as the Owner: **Mantel Settings → Connections → HTTPS
+   and your proxy**, *Rotate door key*, and copy the **door key** (shown once; *Test my proxy* there also
+   shows the block below with the key filled in). The proxy sends it with every request; without it Mantel
+   treats the proxy's requests as remote.
+4. In Nginx Proxy Manager add a **Proxy Host**: domain `mantel.example.com`, scheme `http`, forward
+   host = your Home Assistant machine's address, port = the host port from step 2, **Websockets Support
+   on**, Block Common Exploits on. SSL tab: a certificate for the name, Force SSL, HTTP/2 (leave HSTS off:
+   Mantel sends it). Advanced tab:
+
+   ```nginx
+   location / {
+       # HA_MACHINE_ADDRESS: your Home Assistant machine's LAN address; 8100: the App's host port (Network tab)
+       proxy_pass http://HA_MACHINE_ADDRESS:8100;
+       proxy_http_version 1.1;
+       proxy_set_header Host $http_host;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection $http_connection;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+       proxy_set_header X-Forwarded-Host $http_host;
+       set $mantel_door lan;
+       if ($http_cf_connecting_ip) { set $mantel_door tunnel; }
+       proxy_set_header X-Mantel-Door $mantel_door;
+       proxy_set_header X-Mantel-Door-Key MANTEL_DOOR_KEY;
+       proxy_set_header X-Remote-User-Id "";
+       proxy_set_header X-Remote-User-Name "";
+       proxy_set_header X-Remote-User-Display-Name "";
+       proxy_set_header X-Ingress-Path "";
+       proxy_read_timeout 1h;
+       proxy_buffering off;
+       proxy_request_buffering off;
+       client_max_body_size 4g;      # a backup with photos, restored in Mantel Settings
+   }
+   ```
+
+   Replace `HA_MACHINE_ADDRESS` (your Home Assistant machine's LAN address, the one you open it by at home; the block on the
+   Test my proxy page has the same placeholder) and `MANTEL_DOOR_KEY` (the key from step 3; never paste it anywhere else).
+   **Access tab: required.** Give this proxy host an NPM *Access List* that allows only your home's
+   networks (for example your LAN's `a.b.c.0/24`) and denies all, or run an NPM that the internet cannot
+   reach at all. The block above tells Mantel "this is the home network"; a certificate's name is public
+   (certificate transparency logs), so anyone who finds it and reaches NPM would otherwise get the home's
+   rules. (Mantel also refuses the home rules when the visitor's own address is an internet one, but do not
+   rely on that alone.) For access from outside, use a separate proxy host that sends `tunnel`, or Home
+   Assistant's sidebar.
+   **Cloudflare Tunnel into the same proxy host:** the `set $mantel_door` lines above stamp `tunnel` on what came
+   through Cloudflare (Mantel also gives any request carrying Cloudflare's headers the remote rules). Point the tunnel at the proxy's HTTPS port with the origin server name set to
+   Mantel's name, allow cloudflared's address in the Access List, and keep a local DNS record that sends
+   home devices straight to the proxy, not out through Cloudflare (a tablet through the tunnel gets the
+   remote rules).
+5. Point the name at the proxy in your DNS (a local record is enough), then open
+   `https://mantel.example.com/proxy-check` as the Owner (sign in there first). It says whether the
+   request came through the trusted proxy, with the door and the key, and **which address it came
+   from**: if that is not the one in `trusted_proxies` (Docker can show your proxy as Home Assistant's
+   own internal bridge address), put the address it shows there and restart the App. Mantel believes
+   anything your proxy says only together with the door key, so keep the key secret; between NPM and this
+   machine it travels in plain HTTP, so keep that hop on your home network (or the same machine).
+
+### `https`: Mantel's built-in HTTPS
+
+No proxy: Mantel serves HTTPS on the App's port itself, with a free Let's Encrypt certificate that it gets
+and renews by itself. The name is proved through your DNS host's API, Cloudflare or Duck DNS, so nothing has
+to be reachable from the internet and the name can stay inside your home. (Mantel on Docker or Proxmox also
+works with Porkbun, Route 53, DigitalOcean and deSEC; in this App it is these two.)
+
+1. Cloudflare (`dns_provider: cloudflare`, the default): make an API token with **Zone / Zone / Read** and
+   **Zone / DNS / Edit**, both for the zone holding the name only. Duck DNS (`dns_provider: duckdns`): your
+   name is `<name>.duckdns.org`, and the token is at the top of duckdns.org's page once signed in.
+2. App **Configuration**: `access: https`, `public_url: https://mantel.example.com` (or
+   `https://<name>.duckdns.org`; add `:port` when the host port below is not 443), `cloudflare_token` or
+   `duckdns_token` the token, `acme_email`
+   (optional), `lan_networks` (optional: your home's networks, for example `a.b.c.0/24`; empty means the
+   private ranges). While trying it out, `acme_staging: true` gets test certificates (a browser warning) so
+   mistakes do not count against Let's Encrypt's limits; turn it off afterwards (Mantel then gets a real
+   one). Asking for a certificate accepts Let's Encrypt's subscriber agreement.
+3. App **Network**: give `8100/tcp` a host port, e.g. `443` if nothing else on the machine uses it, else
+   `8443`.
+4. In your DNS point the name at the Home Assistant machine (a local record is enough; with Duck DNS, set
+   the name's address on duckdns.org to the machine's home address).
+5. **Restart** the App. Its log says when the certificate is installed. Until then the port serves a
+   temporary self-signed certificate and only a "certificate pending" page: nobody signs in there before
+   the real certificate is in. Renewal is automatic.
+
+Mantel tells home from remote by the connecting address: an address in `lan_networks` gets the home's
+rules, anything else the remote rules, and Home Assistant's internal network (`172.30.32.0/23`, where
+other Apps, Home Assistant itself and anything Docker relays come from) never counts as home. So tablets
+must reach this machine **directly** on your LAN; one that goes out to the router and back in (hairpin
+NAT, a port forward) arrives with the wrong address and gets the remote rules or nothing. Never forward
+this port from the internet; for remote use see the next section, or Home Assistant's sidebar or the Companion app.
+
+The certificate's key and the Let's Encrypt account key are kept in the App's data (`/data/tls`, readable
+only by Mantel, not encrypted) and so are inside Home Assistant's backups: protect those backups.
+
+### From away: a Cloudflare Tunnel, and Cloudflare Access (optional)
+
+The recommended way to reach Mantel's own address from away is a Cloudflare Tunnel (for example the
+cloudflared App, or a tunnel into your proxy as above): nothing on your router is opened, and everything
+through it gets Mantel's remote rules. Opening a port on your router instead works, at your own risk
+(Mantel's sign-in page is then open to the whole internet; never forward the `https` port, see above).
+
+Cloudflare Access in front of the tunnel is optional and recommended: Cloudflare asks for its own sign-in
+before anything reaches Mantel. To have Mantel check Access's signed token too:
+
+1. In Cloudflare Zero Trust, **Access** → **Applications**, add a **Self-hosted** application for Mantel's name.
+2. `cf_access_team`: your team name, from Zero Trust → **Settings** → **Team name and domain**
+   (`myteam` of `myteam.cloudflareaccess.com`).
+3. `cf_access_aud`: the application's **Application Audience (AUD) Tag**, from its overview under
+   **Access** → **Applications** (several separated by commas).
+4. **Restart** the App. Its log says `Cloudflare Access: every tunnel-door request must carry a valid assertion`.
+
+Then a request on the remote door without a valid token gets `403` (`access_required` / `access_invalid`).
+The sidebar and requests from home are not affected. Every path must go through Access (a *Bypass* rule
+does not work while Mantel checks the token). Mantel reads your team's public keys from Cloudflare; if it
+cannot, remote requests are refused until it can.
+
+### A screen in Home Assistant's sidebar (a Webpage dashboard)
+
+With direct access on, any Mantel screen can sit in Home Assistant's sidebar like any other web app. In Mantel
+Settings, on the screen's own page, an Owner or Admin turns on **Show in Home Assistant** (Title, Icon, and
+Who Sees It: everyone or Home Assistant administrators only); Mantel then adds, changes or removes that
+Webpage dashboard in Home Assistant itself. Home Assistant keeps the only copy, so a dashboard renamed or
+removed there shows so in Mantel. By hand it is the same: in Home Assistant, **Settings → Dashboards → Add
+dashboard → Webpage**, the screen's address (for example `https://mantel.example.com/dashboard-loft/home`).
+Unlike the App's own "Mantel" entry, a Webpage dashboard can be your **default dashboard** (Profile →
+Dashboard), so the Companion app opens it.
+
+* Home Assistant may show Mantel in a frame only from the addresses Mantel knows, and anywhere else the browser
+  shows a blank page. Allowed by themselves: Home Assistant's own **internal and external URL** (HA →
+  Settings → System → Network) and the Sign-In Address set in Mantel Settings. Any other address you open Home Assistant at: allow it
+  in **Mantel Settings → Connections → HTTPS and Your Proxy → Home Assistant's Frame** (an Owner; it applies at
+  once, no restart), or turn on *Show in Home Assistant* while Home Assistant is open at that address, which
+  allows it for you.
+* Open Home Assistant by a name in the **same domain** as Mantel's (e.g. `ha.example.com` beside
+  `mantel.example.com`), in the Companion app too (internal and external URL). Mantel's sign-in cookies are
+  same-site only: from `http://homeassistant.local:8123` or an IP address the frame cannot stay signed in.
+* Sign-in in the frame: *Sign in with Home Assistant* or a password. Passkeys are not offered there (Home
+  Assistant's frame does not allow them). A browser already signed in to Mantel's address is signed in in the
+  frame too.
+* The screensaver never runs in a frame, and the frame gets the remote or home rules of Mantel's own
+  address, not the sidebar's. Wall tablets keep opening Mantel's address directly.
+
+### Home Assistant in a screen's menu
+
+A screen's **Menu → Home Assistant Section** (HK Settings, the screen) puts Home Assistant in its menu and tab bar.
+What it offers depends on where the screen is open, so that every row does something:
+
+* **Inside Home Assistant** (a Webpage dashboard with Mantel Link installed, or the App's own *Mantel* entry in the
+  sidebar): your Home Assistant sidebar, as the menu had inside Home Assistant before. Integrations, Automations
+  and Settings (administrators), Notifications, More (your other pages, in your sidebar's order), Show Menu and
+  Profile. Each opens that page in Home Assistant's own window. This needs Mantel Link 0.1.1 or later: Home Assistant
+  does not let a Webpage dashboard move its window, so with an older Mantel Link the section is left out; the
+  menu's Mantel → Home Assistant row (Mantel Link takes you back) is always there.
+* **At Mantel's own address** (a browser): one row, *Open Home Assistant*, which opens
+  Home Assistant's external URL (else its internal URL, HA → Settings → System → Network; else the
+  Sign-In Address in Mantel Settings) in the same window. Mantel reads HA's URLs when it starts, so after changing them there,
+  restart the App.
+  A wall tablet gets no Home Assistant row at all.
+
+This only decides which rows are shown. What anyone may do stays Mantel's and Home Assistant's to decide.
+
+## Intercom (optional)
+
+The Intercom plays a spoken message from one screen on speakers in other rooms, through Music Assistant. Music
+Assistant has to fetch the audio from Mantel, so Mantel opens a **second, plain-HTTP port** for it, `8101/tcp`
+(not through Ingress, and nothing like the direct access port). It serves nothing but one-time links that last a
+few seconds, only to an address on your home network, and it listens only while the Intercom is turned on in
+Mantel Settings. To use it, give `8101/tcp` a host port under **Network** (for example `8101`), then in Mantel
+Settings, Intercom, set **Address for Music Assistant** to `http://<this Home Assistant machine's LAN address>:8101`.
+Leave the port empty if you do not use the Intercom; never forward it from your router.
+
+## Mantel Link (Home Assistant's side of Mantel)
+
+Mantel Link, from HACS, puts Mantel's wall tablets, actions and notifications in Home Assistant (it replaces HK
+Frontend; [its documentation](https://github.com/jazzphone/mantel-link)). The App announces Mantel to Home
+Assistant by itself: after installing Mantel Link, **Settings → Devices & Services → Discovered: Mantel → Add**, one
+click. At every start the App makes a new credential for it (a Service account "Mantel Link - App discovery",
+scope `linked` only, the previous one revoked) and Home Assistant's entry follows it. The address it gives is the
+App's own on Home Assistant's App network (`http://local-mantel:8099` built from source, `<repository id>-mantel`
+from the add-on repository), which never leaves the
+machine. This is what the App's `hassio_api` permission is for (and its own hostname); nothing else.
+
+Moving a house from HK Frontend keeps every entity id: Mantel Settings → Connections → Home Assistant → **Moving
+from HK Frontend** (each tablet, and under Advanced the bridge and the house); **Mantel Link** on the same page makes
+pairing codes for a Home Assistant elsewhere.
+
+## Security notes
+
+* Through the sidebar, Mantel believes who you are only from Home Assistant's Ingress proxy (the
+  Supervisor). Other requests to the sidebar's port are refused; the direct port (only with `access`
+  `proxy` or `https`) never accepts Home Assistant's identity headers and uses Mantel's own sign-in.
+* Mantel reaches Home Assistant with the App's own built-in credential; you create no token.
+* Turn on Home Assistant's two-step verification for every household account: through the sidebar,
+  Home Assistant's login is what proves who you are.
+
+## Backups and removal
+
+Mantel keeps its data (people, roles, settings, the audit log) in the App's `/data`, which Home
+Assistant's backups include. Home Assistant stops Mantel while it backs the App up and starts it again
+straight after, so the copy of Mantel's database is exact (Mantel is away for that time). Uninstalling
+the App removes it; nothing else in Home Assistant changes.

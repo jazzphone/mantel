@@ -1,0 +1,10 @@
+configuration:
+  mantel_address:
+    name: Mantel address
+    description: Where Home Assistant reaches your Mantel Server's Connect port, for example mantel.lan:8766 or 192.0.2.10:8766 (the port is 8766 unless you changed it). Mantel's admin page (Connect) and `mantel connect pair` show it.
+  pairing_code:
+    name: Pairing code
+    description: The one-time code from Mantel (admin page, Connect, Start pairing; or `mantel connect pair`). It works once, for ten minutes. Save, then restart the App. After pairing it is not needed again, and you may clear it.
+  log_level:
+    name: Log level
+    description: How much this App writes to its log. It never logs codes, keys, certificates or addresses.
