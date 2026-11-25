@@ -181,8 +181,18 @@
       var cfg = left && M && M.config ? M.config() : null, hit = cfg && (cfg.views || []).filter(function (v) { return v && v.path === left; })[0];
       if (hit && M.dash) extra = { path: '/' + M.dash() + '/' + left, paths: [left], kind: 'page', title: hit.title || left, icon: hit.icon };
     } catch (e) { extra = null; }
-    return leftOfHome(order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
-                              pagesScreen: pagesScreen() }), left, extra);
+    var vs = [];
+    try { vs = (M && M.config && M.config() && M.config().views) || []; } catch (e) { vs = []; }
+    return noHome(leftOfHome(order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
+                                     pagesScreen: pagesScreen() }), left, extra), vs);
+  }
+  // A SCREEN THAT OPENS ON ITS PAGES SCREEN has no Home to swipe to: that view is its Home (Opens On, hk-view-host.js
+  // land(); 2026-11-25, the owner: "there is still a Main Dashboard screen")
+  function noHome(items, vs) {
+    vs = Array.isArray(vs) ? vs : [];
+    if (!Array.isArray(items) || !vs.some(function (v, i) { return i > 0 && v && v.opens; })) return items;
+    var home = vs[0] && vs[0].path ? String(vs[0].path) : '';
+    return items.filter(function (it) { var g = viewSeg(it && it.path); return !(g === '' || g === '0' || (home && g === home)); });
   }
   // SWIPE RIGHT ON HOME (2026-11-06): the screen's chosen page, moved from where it is to before Home (the list's first);
   // a page of the screen out of the menu (`extra`: Now Playing) put there; else (a room, a page gone) nothing changes
@@ -1528,7 +1538,7 @@
     takes: takes,
     arm: arm,
     plan: plan,
-    _: { enabled: enabled, order: order, leftOfHome: leftOfHome, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
+    _: { enabled: enabled, order: order, leftOfHome: leftOfHome, noHome: noHome, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
          viewSeg: viewSeg, ghost: ghost, slow: slow, park: park, keeps: keeps, restOk: restOk, fixedIn: fixedIn, untouched: untouched,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },

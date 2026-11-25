@@ -91,21 +91,26 @@
   // the scale. `o.pill`: the Home pill shows (the foot is taller).
   //   landscape tablet 6 x 3, upright 4 x 5, phone 4 x 6; a short landscape
   //   (a phone held sideways) 6 x 2
-  //   `o.homeView`: an Apple HomeView (web/shim/homeview.js), 4 x 2 (2026-11-23, the owner: "make the Apps page icons
-  //   bigger on the HomeView" -- its nearly square 720 x 622 page made six across 73 px icons, 55 px of its screen)
+  //   `o.homeView`: an Apple HomeView (web/shim/homeview.js), 3 x 2 under a shorter header and foot (2026-11-23, the
+  //   owner: "make the Apps page icons bigger on the HomeView" -- 4 x 2 then; 2026-11-25, on its 440 px page: "the Apps
+  //   page icons aren't bigger" -- four across were 67 px, 83 of its screen; three are 89, 110 of it, sized by the width). The rest scroll.
+  var HV_TOP = 78, HV_FOOT_PILL = 58;
   function grid(W, H, o) {
     o = o || {};
     var phone = W < PHONE_W, cols, rows;
-    if (o.homeView) { cols = 4; rows = 2; }
+    if (o.homeView) { cols = 3; rows = 2; }
     else if (phone) { cols = 4; rows = 6; }
     else if (H > W) { cols = 4; rows = 5; }
     else if (H < 560) { cols = 6; rows = 2; }
     else { cols = 6; rows = 3; }
     var gut = Math.max(GUTTER_MIN, W * GUTTER);
-    var top = Math.round(Math.min(TOP_MAX, Math.max(TOP_MIN, H * TOP_SHARE)));
-    var foot = o.pill ? FOOT_PILL : FOOT;
+    var top = o.homeView ? HV_TOP : Math.round(Math.min(TOP_MAX, Math.max(TOP_MIN, H * TOP_SHARE)));
+    var foot = o.pill ? (o.homeView ? HV_FOOT_PILL : FOOT_PILL) : FOOT;
     var slotW = Math.max(1, (W - 2 * gut) / cols), slotH = Math.max(1, (H - top - foot) / rows);
-    var s = Math.max(0.3, Math.min(1, slotW / SLOT_W, slotH / SLOT_H));
+    // (a HomeView's by its width alone: under Safari's bar its page is 356 tall, and two rows to fit made them small
+    // again -- the rest scroll up, as on the tablets)
+    var s = Math.max(0.3, Math.min(1, slotW / SLOT_W, o.homeView ? Infinity : slotH / SLOT_H));
+    if (o.homeView) slotH = SLOT_H * s;
     return { cols: cols, rows: rows, phone: phone, gutter: gut, top: top, foot: foot,
              slotW: slotW, slotH: slotH, s: s, icon: ICON * s,
              // a label never under 12 px (an iPhone's), never over 17
@@ -199,7 +204,9 @@
   }
 
   // THE HOME PILL: Automatic shows it where the screen has no tab bar
-  function pillOn(pill, tabBar) {
+  // (none on a screen that opens here: this is its Home -- Opens On, hk-view-host.js land())
+  function pillOn(pill, tabBar, opens) {
+    if (opens === 'pages') return false;
     return pill === 'on' || (pill !== 'off' && !tabBar);
   }
 
@@ -514,7 +521,7 @@
       }
 
       _html(d, sz, now) {
-        var W = sz.W, Ht = sz.H, pill = pillOn(d.ps.pill, d.tabBar);
+        var W = sz.W, Ht = sz.H, pill = pillOn(d.ps.pill, d.tabBar, d.ps.opens);
         var g = grid(W, Ht, { pill: pill, homeView: !!window.hkHomeView }), s = g.s;
         g.now = now;                             // the calendar icon's day: the time this is drawn for
         var sc = place(d.list.length, d.widgets, g.cols, g.rows);

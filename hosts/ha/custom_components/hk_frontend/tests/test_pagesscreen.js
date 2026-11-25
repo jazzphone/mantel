@@ -130,8 +130,10 @@ var g4 = P.grid(844, 390, {});
 ok('a phone on its side: 6 x 2', g4.cols === 6 && g4.rows === 2, g4);
 var g5 = P.grid(1180, 736, { pill: false });
 ok('beside a tab bar (less height, no pill): still 6 x 3, a little smaller', g5.cols === 6 && g5.rows === 3 && g5.s < 1 && g5.s > 0.9, g5);
-var g6 = P.grid(720, 622, { pill: true, homeView: true }), g6x = P.grid(720, 622, { pill: true });
-ok('an Apple HomeView: 4 x 2, icons half again bigger than 6 x 3 would draw', g6.cols === 4 && g6.rows === 2 && g6.icon > 105 && g6.icon > g6x.icon * 1.4, [g6, g6x]);
+// (its 440 px page under Safari's bar, 356 tall: three across, sized by the width -- the rows scroll)
+var g6 = P.grid(440, 356, { pill: false, homeView: true }), g6x = P.grid(440, 356, { pill: false });
+ok('an Apple HomeView: 3 across, icons by the width alone (~89 px), a third bigger than a phone\'s 4 across',
+   g6.cols === 3 && near(g6.icon, 89, 2) && g6.icon > g6x.icon * 1.3 && near(g6.slotH, 200 * g6.s, 0.5), [g6, g6x]);
 
 print('=== placing them ===');
 var p1 = P.place(10, [], 6, 3);
@@ -159,6 +161,7 @@ ok('nothing: one empty row', P.place(0, [], 6, 3).rows === 1 && P.place(0, [], 6
 print('=== the pill ===');
 ok('Automatic: the pill where the screen has no tab bar, none beside one', P.pillOn('auto', false) && !P.pillOn('auto', true));
 ok('Always and Never', P.pillOn('on', true) && !P.pillOn('off', false));
+ok('none on a screen that opens on its Pages screen (it is that screen\'s Home)', !P.pillOn('auto', false, 'pages') && !P.pillOn('on', false, 'pages') && P.pillOn('auto', false, 'home'));
 
 print('=== drawn ===');
 var card = new (customElements.get('hk-pages-screen-card'))();

@@ -269,10 +269,6 @@
     '@keyframes mpeq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}',
     '.mpcap{font-size:13px;opacity:.78;min-height:36px;margin-bottom:12px;line-height:1.38}',
     '.mpcap.err{color:#ffb340;opacity:1}',
-    // A SHORT SCREEN (hk-detail-frame.js SHORT_MQ, written out: an Apple HomeView's 440 px page, a phone on its side): the
-    // line over the buttons one line, trimmed -- two lines and their room cost the list its rooms; an error keeps its lines
-    '@media (min-aspect-ratio:1/1) and (max-height:500px){.mpcap:not(.err){min-height:0;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '  .mpfoot{padding:10px 22px 14px}}',
     // RESET AND UPDATE AS EQUAL HALVES, Stop a square at the end (the user's
     // pick, 2026-10-11, for Add and Transfer: buttons sized to their words
     // looked off)
@@ -335,6 +331,28 @@
     '.mpq.busy{opacity:.5}',
     '.mpact.stop{flex:0 0 48px;width:48px;padding:0;background:rgba(255,90,90,.18);color:#ffb3b3}',
     '.mpact.stop svg{width:18px;height:18px}',
+    // A SHORT SCREEN (hk-detail-frame.js SHORT_MQ, written out: an Apple HomeView's 440 px page, a phone on its side):
+    // SIDE BY SIDE, as its sheets (2026-11-25, the owner: "the speaker selection pop up on the music page is unusable" --
+    // the tabs, the line, the hint and the buttons above and below left a room and a half). The tabs across the top; the
+    // list down the left, the whole height under them; the hint and Reset / Update / Stop in a column beside it, at its
+    // foot. A tab with no foot (Queue, Browse) is the list alone. (After the rules it changes: the same weight, so last wins.)
+    '@media (min-aspect-ratio:1/1) and (max-height:500px){',
+    '  .mpin{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;',
+    '    grid-template-areas:"hd hd" "body foot" "mini mini"}',
+    '  .mphd{grid-area:hd;padding:12px 18px 6px}.mpsub{margin-top:8px}',
+    '  .mpbody{grid-area:body}.mpmini{grid-area:mini}',
+    '  .mpt{padding:6px 10px 16px 18px}.mpchips{margin:0 -10px 10px -18px;padding:0 10px 0 18px}',
+    '  .mpfoot{grid-area:foot;width:150px;display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none;',
+    '    padding:6px 18px 14px 12px;border-top:0;border-left:1px solid rgba(255,255,255,.12)}',
+    // (its hint four lines at most, the buttons under it at the column's foot)
+    '  .mpfoot>:first-child{margin-top:auto}.mpfoot>*{flex:none}',
+    '  .mpcap:not(.err){min-height:0;margin-bottom:10px;font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;',
+    '    -webkit-line-clamp:4;overflow:hidden}',
+    // (Update the column's width, Reset and Stop under it, equal halves; Reset its arrow alone -- the owner, 2026-11-25:
+    // "Can you just remove the word reset?")
+    '  .mpacts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.mpact{height:44px}',
+    '  .mpact.upd{grid-column:1/-1;grid-row:1}.mpact.rst{grid-row:2}.mpact.rst .w{display:none}.mpact.stop{grid-row:2;width:auto}',
+    '  .mpact.stop svg{width:16px;height:16px}}',
     '@media (prefers-reduced-motion:reduce){.mpeq i,.mpspin{animation:none}}'
   ].join('\n');
 
@@ -547,7 +565,8 @@
       var also = gone.length ? ' ' + esc(list(gone.map(nameOf))) + (gone.length === 1 ? ' stops ' : ' stop ') + esc(others[gone[0]]) + ' first.' : '';
       if (S.clear) {
         var cf = '<div class="mpcap">Tap the rooms ' + (picking(c) ? 'the next pick plays on.' : 'to play on.') + '</div>' +
-                 (picking(c) ? '' : '<div class="mpacts"><div class="mpact rst' + (S.busy ? ' dis' : '') + '" data-k="reset">' + svg(ICON.undo) + 'Reset</div>' +
+                 (picking(c) ? '' : '<div class="mpacts"><div role="button" aria-label="Reset" class="mpact rst' + (S.busy ? ' dis' : '') + '" data-k="reset">' + svg(ICON.undo) +
+                 '<span class="w">Reset</span></div>' +
                  '<div class="mpact upd dis" data-k="update">' + svg(ICON.check) + 'Update</div>' +
                  (o.stop ? '<div class="mpact stop' + (S.busy || !c ? ' dis' : '') + '" data-k="stop" role="button" aria-label="Stop">' + svg(ICON.stop) + '</div>' : '') + '</div>');
         if (E.foot.__t !== cf) { E.foot.innerHTML = cf; E.foot.__t = cf; }
@@ -569,7 +588,7 @@
               : ticksCaption(S.members, ticks, (c && (c.title || label(c))) || 'the music', nextHere, roomsName) + also;
       var upL = S.busy ? '<span class="mpspin"></span>' + (pl.moves ? 'Moving' : 'Updating') : svg(ICON.check) + 'Update';
       var foot = '<div class="mpcap' + (S.err ? ' err' : '') + '">' + cap + '</div><div class="mpacts">' +
-                 '<div class="mpact rst' + (!pl.update || S.busy || !c ? ' dis' : '') + '" data-k="reset">' + svg(ICON.undo) + 'Reset</div>' +
+                 '<div role="button" aria-label="Reset" class="mpact rst' + (!pl.update || S.busy || !c ? ' dis' : '') + '" data-k="reset">' + svg(ICON.undo) + '<span class="w">Reset</span></div>' +
                  '<div class="mpact upd' + (!pl.update || S.busy || !c ? ' dis' : '') + '" data-k="update">' + upL + '</div>' +
                  (o.stop ? '<div class="mpact stop' + (S.busy || !c ? ' dis' : '') + '" data-k="stop" role="button" aria-label="Stop">' + svg(ICON.stop) + '</div>' : '') + '</div>';
       if (E.foot.__t !== foot) { E.foot.innerHTML = foot; E.foot.__t = foot; }

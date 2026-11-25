@@ -379,9 +379,11 @@
         // put Home's path on it with a second page change, and every
         // page-change listener ran twice on every way back (seen on the tablet:
         // security -> /<dashboard> -> home)
+        // (a screen that opens on its Pages screen: that is its Home -- hk-view-host.js land())
         if (!up) {
-          var cfg = menu().config ? menu().config() : null, v0 = cfg && cfg.views && cfg.views[0];
-          if (v0 && v0.path) up = v0.path;
+          var cfg = menu().config ? menu().config() : null, vs = (cfg && cfg.views) || [], v0 = vs[0];
+          for (var i = 1; i < vs.length && !up; i++) if (vs[i] && vs[i].opens && vs[i].path) up = vs[i].path;
+          if (!up && v0 && v0.path) up = v0.path;
         }
         var path = '/' + seg[1] + (up ? '/' + up : '');
         // dimmed for a drawn frame first: the tap answered before the page is

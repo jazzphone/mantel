@@ -58,6 +58,11 @@ ok('the hidden page is reachable in both directions', X.neighbors(NLP, '/dashboa
    X.neighbors(NLP, '/dashboard-hall/now-playing', here).next === MORE[0]);
 ok('a hidden page can precede Home alone, and an unrelated extra is ignored', X.leftOfHome([MORE[0]], 'now-playing', NP).length === 2 &&
    X.leftOfHome(MORE, 'missing', NP) === MORE);
+// OPENS ON: PAGES SCREEN (2026-11-25): that view is the screen's Home, so the swipe order has no Home before it
+var PV = [{ path: 'home' }, { path: 'pages', pages_screen: true, opens: true }];
+ok('a screen that opens on its Pages screen swipes to no Home; any other keeps it',
+   X.noHome(MORE, PV).map(function (x) { return x.title; }).indexOf('Home') < 0 && X.noHome(MORE, PV).length === MORE.length - 1 &&
+   X.noHome(MORE, [{ path: 'home' }, { path: 'pages', pages_screen: true }]) === MORE && X.noHome(MORE, null) === MORE);
 ok('the order as given, untouched by default', X.order({ items: BAR }).map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security');
 var PAGES = it('pages', 'Pages');
 var off = P.extend(function (items, ctx) {
