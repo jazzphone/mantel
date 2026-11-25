@@ -60,7 +60,9 @@ def test_the_carrier_counts_the_buttons_and_carries_the_bridges_wish():
     got = LB.plan("e1", [{"screen": DEN, "channel": "4.1"}], CHANNELS, SCREENS)
     c = LB.carrier("e1", got, True)
     assert c["state"] == 1 and c["entity_id"] == LB.CARRIER_ID and c["name"] == LB.BRIDGE_NAME
-    assert c["homekit"] == {"bridge": "live_tv", "want": True, "include": [p["uid"] for p in got]}
+    # the channels' buttons only: a Stop stays in Home Assistant (the owner: "Having a stop option will confuse someone")
+    assert c["homekit"] == {"bridge": "live_tv", "want": True, "include": [f"e1_live_tv_{DEN}_4_1"]}
+    assert [p["uid"] for p in got] == [f"e1_live_tv_{DEN}_4_1", f"e1_live_tv_{DEN}_stop"]
     # published while there is anything to say: a button, the bridge wanted, or the bridge still there
     assert LB.wanted([], False, "none") is False
     assert LB.wanted([], False, "paired") and LB.wanted([], True, "none") and LB.wanted([{"screen": DEN}], False, "none")

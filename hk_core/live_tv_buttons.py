@@ -3,8 +3,8 @@
 THE ASK: a channel AirPlayed to an Apple HomeView (or any paired AirPlay screen) from a tap in Apple's own Home app, with
 no other app, for someone who never opens Mantel. Mantel already plays a channel on a paired screen (phase 35's sender);
 this is how the Home app reaches it: Mantel publishes one Home Assistant button per channel and screen the owner picks
-(Mantel Link mirrors them), plus a Stop button for each of those screens, and Mantel Link puts exactly those buttons in a
-HomeKit Bridge of their own, "Mantel Live TV". The Home app shows each as a switch that turns itself off again; a tap
+(Mantel Link mirrors them), plus a Stop button for each of those screens, and Mantel Link puts the channels' buttons (not
+the Stops, which stay in Home Assistant for automations) in a HomeKit Bridge of their own, "Mantel Live TV". The Home app shows each as a switch that turns itself off again; a tap
 presses the button, the press comes back over the link, and Mantel plays the channel on the screen as the linked
 Service actor (audited).
 
@@ -143,10 +143,13 @@ def cameras(saved: Any, channel_cameras: Mapping[str, str], screens: Mapping[str
 
 def carrier(entry: str, published: list[dict[str, Any]], want: bool) -> dict[str, Any]:
     """The sensor that says how many buttons there are and carries the bridge's wish to Mantel Link: {uid, entity_id,
-    name, state, homekit: {bridge, want, include}}."""
+    name, state, homekit: {bridge, want, include}}. The bridge holds the channels' buttons only: a Stop stays in Home
+    Assistant, for automations and scripts (the owner, 2026-11-25: "Having a stop option will confuse someone"; a show
+    ends by itself when paused on the screen, or after its safety net)."""
     return {"uid": carrier_uid(entry), "entity_id": CARRIER_ID, "name": BRIDGE_NAME,
             "state": sum(1 for p in published if p["channel"] is not None),
-            "homekit": {"bridge": "live_tv", "want": bool(want), "include": [p["uid"] for p in published]}}
+            "homekit": {"bridge": "live_tv", "want": bool(want),
+                        "include": [p["uid"] for p in published if p["channel"] is not None]}}
 
 
 def wanted(saved: Any, want: bool, bridge_state: str) -> bool:

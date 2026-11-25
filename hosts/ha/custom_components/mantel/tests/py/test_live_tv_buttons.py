@@ -31,7 +31,7 @@ def carrier(include: list[str], want: bool = True) -> dict:
 def tv(want: bool = True) -> list[dict]:
     return [button(PLAY, "NBC on Den HomeView", "button.den_homeview_live_tv_nbc"),
             button(STOP, "Stop Live TV on Den HomeView", "button.den_homeview_live_tv_stop"),
-            carrier([PLAY, STOP], want)]
+            carrier([PLAY], want)]
 
 
 async def test_the_link_says_it_mirrors_buttons_and_a_press_goes_to_mantel(hass, mantel):
@@ -76,18 +76,18 @@ async def test_the_live_tv_bridge_is_made_changed_and_removed_as_mantel_says(has
     domain, ctx, data = made[0]
     assert (domain, ctx) == ("homekit", {"source": SOURCE_IMPORT})
     assert (data["name"], data["port"], data["mode"], data["filter"]["include_entities"]) == (
-        "Mantel Live TV", 21131, "bridge", ["button.den_homeview_live_tv_nbc", "button.den_homeview_live_tv_stop"])
+        "Mantel Live TV", 21131, "bridge", ["button.den_homeview_live_tv_nbc"])
     await until(hass, lambda: {"homekit_tv": {"state": "starting"}} in mantel.reports)
     assert not any("homekit" in (r or {}) for r in mantel.reports), "the Apple TV camera's entry is another matter"
 
     # another button: the same entry, its filter changed and reloaded (the bridge keeps its pairing)
     more = button(f"{ENTRY}_live_tv_{DEN}_7_1", "WFAK-DT on Den HomeView", "button.den_homeview_live_tv_wfak_dt")
     await mantel.push({"type": "entity", "entity": more})
-    await mantel.push({"type": "entity", "entity": carrier([PLAY, more["unique_id"], STOP])})
+    await mantel.push({"type": "entity", "entity": carrier([PLAY, more["unique_id"]])})
     await until(hass, lambda: reloaded)
     entry = H.ours(hass, H.TV_BRIDGE_NAME)
     assert entry.options["filter"]["include_entities"] == [
-        "button.den_homeview_live_tv_nbc", "button.den_homeview_live_tv_stop", "button.den_homeview_live_tv_wfak_dt"]
+        "button.den_homeview_live_tv_nbc", "button.den_homeview_live_tv_wfak_dt"]
     assert len(made) == 1 and H.ours(hass) is None
 
     # Remove from HomeKit
@@ -98,7 +98,7 @@ async def test_the_live_tv_bridge_is_made_changed_and_removed_as_mantel_says(has
         hass.config_entries._entries.pop(entry_id)
         return {"require_restart": False}
     monkeypatch.setattr(hass.config_entries, "async_remove", remove)
-    await mantel.push({"type": "entity", "entity": carrier([PLAY, more["unique_id"], STOP], want=False)})
+    await mantel.push({"type": "entity", "entity": carrier([PLAY, more["unique_id"]], want=False)})
     await until(hass, lambda: removed)
     await until(hass, lambda: {"homekit_tv": {"state": "none"}} in mantel.reports)
 

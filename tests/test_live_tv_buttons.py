@@ -54,7 +54,7 @@ async def test_a_button_in_the_home_app_plays_its_channel_on_its_screen(rig, mon
         assert (b["platform"], b["name"], b["entity_id"]) == ("button", "NBC on Den HomeView",
                                                              "button.den_homeview_live_tv_nbc")
         assert reg.get(stop)["name"] == "Stop Live TV on Den HomeView"
-        assert reg.get(carrier)["features"]["homekit"] == {"bridge": "live_tv", "want": True, "include": [play, stop]}
+        assert reg.get(carrier)["features"]["homekit"] == {"bridge": "live_tv", "want": True, "include": [play]}
         assert authz.tv_button_cameras() == ("camera.tv_nbc",)
 
         # a press: the channel plays on the screen as the linked actor, under its own key, audited

@@ -22,9 +22,10 @@ Phase 35 already plays a channel on a paired AirPlay screen ([PLAN.md](PLAN.md):
    release): an older Mantel Link or HK Frontend never sees one. Published only while the house is Mantel's.
 3. **Mantel Link** mirrors them (its `button` platform) and keeps a HomeKit Bridge entry of their own,
    **"Mantel Live TV"** (`homekit_entry.py`, beside phase 31's "Mantel Alerts"): HomeKit's import flow, bridge mode,
-   exactly the buttons Mantel names. A changed list changes the entry's filter and reloads it (the pairing stays). Its
-   state goes back to Mantel as `report.homekit_tv`; Settings draws the code and its QR. Nothing else in Home
-   Assistant is touched.
+   exactly the buttons Mantel names: the channels' buttons, never a Stop (the owner, 2026-11-25: "Having a stop option
+   will confuse someone"; the Stops stay in Home Assistant for automations and scripts). A changed list changes the
+   entry's filter and reloads it (the pairing stays). Its state goes back to Mantel as `report.homekit_tv`; Settings
+   draws the code and its QR. Nothing else in Home Assistant is touched.
 4. **A tap in the Home app** presses the button (the Home app shows each as a switch that turns itself off again).
    Mantel Link sends `entity_command press`; Mantel plays the channel on the screen (or stops it) as the linked Service
    actor `mantel:linked`, audited with `via: home_app`. A screen that is slow to start answers `starting` after 6 s
@@ -35,8 +36,8 @@ id/number). Mantel Link's own: not aliased under `hk_frontend.*`, which never ha
 
 ## How a show ends
 
-- **Stop**, the screen's Stop button in the Home app (also what a HomeKit scene or automation, a "Good Night", can
-  press), or `mantel.live_tv_stop`.
+- **Stop**: the screen's Stop button in Home Assistant (an automation or a script presses it; not in the Home app), or
+  `mantel.live_tv_stop`.
 - **Paused on the screen**: nothing fetches the stream, Live TV lets it go after its 90 s lease, and the show ends with
   it (phase 35's `stream_dropped`).
 - **The safety net**: every AirPlay show (the Home app's, the page's Play On, the iPhone app's) ends 2 hours after it

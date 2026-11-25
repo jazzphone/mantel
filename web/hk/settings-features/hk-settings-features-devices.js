@@ -211,7 +211,7 @@
       screens.forEach(function (s) {
         var mine = (H.buttons || []).filter(function (b) { return b.screen === s.id; });
         c.appendChild(K.group({ header: s.name, sk: 'f:hk_tv:buttons', footer: (err ? err + ' ' : '') + (s.playing ? 'Playing ' + s.playing + '. ' : '') +
-            (mine.length ? 'Each checked channel is a button in the Home app, with Stop Live TV on ' + s.name + '.'
+            (mine.length ? 'Each checked channel is a button in the Home app. Stop Live TV on ' + s.name + ' is in Home Assistant only, for automations.'
                          : 'Check a channel to make it a button in the Home app.') },
           chans.map(function (ch) {
             var on = mine.some(function (b) { return b.channel === ch.number; });
