@@ -377,8 +377,8 @@
         '  cursor:pointer;--mdc-icon-size:24px}' +
         '.hktv .ends{display:flex;gap:10px;flex:none}' +
         '.hktv .on{display:none}.hktv .on.has{display:flex}' +
-        '.hktv .menu{position:absolute;right:0;top:52px;min-width:220px;border-radius:14px;overflow:hidden;' +
-        '  background:rgba(28,28,30,.92);color:#fff;font-size:17px}' +
+        '.hktv .menu{position:absolute;right:0;top:52px;min-width:220px;border-radius:' + window.hkCards.R.inner + 'px;' +
+        '  overflow:hidden;background:' + window.hkCards.OVER.solid + ';color:#fff;font-size:17px}' +
         '.hktv .menu>div{padding:12px 16px;cursor:pointer}.hktv .menu>div+div{border-top:1px solid rgba(255,255,255,.12)}' +
         '</style><div class="top"><div class="cap"></div><div class="ends">' +
         '<div class="x on" role="button" aria-label="Play On" tabindex="0"><hk-icon icon="mdi:cast"></hk-icon></div>' +
