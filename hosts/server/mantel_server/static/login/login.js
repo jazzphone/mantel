@@ -143,6 +143,19 @@ export function signIn({ fetchImpl, base = '', credentials } = {}) {
         return false;
       }
     },
+    // ALREADY SIGNED IN? (2026-11-25, the owner: closing Live TV's full-screen player on an Apple HomeView "kicks me out
+    // to the login screen"). The session cookies are SameSite=Strict, and a page the HomeView opens again on its own
+    // counts as coming from another site, so its first request carries none and the server sends it here -- though
+    // this browser is still signed in (its next sign-in replaced that same session). A request from this page is the
+    // site's own: the cookies go, and a session that answers means: back where it was, no sign-in.
+    async signedIn() {
+      try {
+        const res = await doFetch(base + '/api/session', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        return res.status === 200;
+      } catch (e) {
+        return false;
+      }
+    },
     // Mantel answers again (after a restart)
     async answering() {
       try {
@@ -257,6 +270,16 @@ export function withVia(href, origin) {
   return href + (href.indexOf('?') >= 0 ? '&' : '?') + 'via=' + encodeURIComponent(origin);
 }
 
+// came here from this sign-in page (a page it sent on that sent it back): its own address as the referrer
+export function cameFromHere(doc) {
+  try {
+    const r = new URL(doc.referrer || '', doc.location ? doc.location.href : undefined);
+    return !!doc.referrer && !!doc.location && r.origin === new URL(doc.location.href).origin && /\/login\/?$/.test(r.pathname);
+  } catch (e) {
+    return false;
+  }
+}
+
 export function start(doc = globalThis.document, win = globalThis.window) {
   const $ = (id) => doc.getElementById(id);
   const base = baseFrom(meta(doc, 'mantel-base'));
@@ -326,6 +349,11 @@ export function start(doc = globalThis.document, win = globalThis.window) {
 
   if (meta(doc, 'mantel-door') === 'tunnel') els.doorNote.hidden = false;
   showPasswordStep();
+  // (signed in after all: on to the page -- once: a page that sends it straight back here can't see the session, and
+  // this page, then the one that sent it, says so as where it came from; the sign-in stays)
+  if (!elsewhere && !cameFromHere(doc)) {
+    flow.signedIn().then((yes) => { if (yes && !busy) done(); });
+  }
   els.orHa.hidden = false;
   const haLink = $('ha');
   if (elsewhere && haLink) {

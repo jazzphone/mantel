@@ -428,6 +428,26 @@ def test_js_flows_with_a_fake_server():
 
 
 @pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_js_already_signed_in():
+    """A page opened as if from another site gets no SameSite=Strict cookie and lands here signed in (an Apple
+    HomeView closing Live TV's player, 2026-11-25): the page asks /api/session itself, its own request carries them."""
+    out = node_module("""
+      const calls = [];
+      const answer = (status) => async (url, init) => { calls.push([url, init.method || 'GET', init.credentials]); return { status, json: async () => ({}) }; };
+      out.push(await m.signIn({ fetchImpl: answer(200), base: '/api/hassio_ingress/tok' }).signedIn());
+      out.push(await m.signIn({ fetchImpl: answer(401) }).signedIn());
+      out.push(await m.signIn({ fetchImpl: async () => { throw new TypeError('offline'); } }).signedIn());
+      out.push(calls);
+      const at = (referrer) => ({ referrer, location: { href: 'https://m.example/login?next=/apple-homeview/home' } });
+      out.push([m.cameFromHere(at('')), m.cameFromHere(at('https://m.example/login?next=/x')),
+                m.cameFromHere(at('https://m.example/apple-homeview/live-tv')), m.cameFromHere(at('https://other.example/login'))]);
+    """)
+    assert out[:3] == [True, False, False]
+    assert out[4] == [False, True, False, False]                            # only a bounce back from this page waits
+    assert out[3] == [["/api/hassio_ingress/tok/api/session", "GET", "same-origin"], ["/api/session", "GET", "same-origin"]]
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
 def test_js_passkey_flow_with_a_fake_authenticator():
     out = node_module("""
       const answers = [
