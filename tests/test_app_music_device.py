@@ -70,7 +70,7 @@ async def test_the_queue_is_the_universal_player_that_wraps_the_phone():
     assert await D.queue_of(Ma(ConnectionError("gone")), CID) == CID
 
 
-async def test_the_players_socket_passes_its_frames_and_plays_only_on_it(house, monkeypatch):
+async def test_the_players_socket_passes_its_frames_and_plays_only_on_it(house, monkeypatch):  # noqa: F811 -- the fixture
     m = house
     monkeypatch.setattr(D, "QUEUE_WAITS", 2)          # the fake lists no wrapper: the player's own id, at once
     server, got = await fake_sendspin(m, monkeypatch)
@@ -119,7 +119,7 @@ async def test_the_players_socket_passes_its_frames_and_plays_only_on_it(house, 
         await server.close()
 
 
-async def test_a_socket_must_start_with_client_init(house, monkeypatch):
+async def test_a_socket_must_start_with_client_init(house, monkeypatch):  # noqa: F811 -- the fixture
     m = house
     server, got = await fake_sendspin(m, monkeypatch)
     try:
@@ -132,7 +132,7 @@ async def test_a_socket_must_start_with_client_init(house, monkeypatch):
         await server.close()
 
 
-async def test_without_a_credential_or_a_socket_nothing(house, monkeypatch):
+async def test_without_a_credential_or_a_socket_nothing(house, monkeypatch):  # noqa: F811 -- the fixture
     m = house
     server, got = await fake_sendspin(m, monkeypatch)
     try:
@@ -148,7 +148,7 @@ async def test_without_a_credential_or_a_socket_nothing(house, monkeypatch):
         await server.close()
 
 
-async def test_a_revocation_ends_the_players_socket_at_once(house, monkeypatch):
+async def test_a_revocation_ends_the_players_socket_at_once(house, monkeypatch):  # noqa: F811 -- the fixture
     """The phone signed out from Me → Mantel App (or its person's access gone): its player leaves Music Assistant
     within one turn of the loop, not at the next recheck."""
     m = house

@@ -258,8 +258,8 @@ def ends_at(m: Mapping[str, Any], states: Mapping[str, Any], now: float) -> floa
     if n is None or n <= 0:
         return None
     u = str(a.get("unit_of_measurement") or "min").lower()
-    sec = n if re.match(r"^(s|sec|seconds?)$", u) else n * 3600 if re.match(r"^(h|hr|hours?)$", u) else n * 60
-    return now + sec
+    secs = n if re.match(r"^(s|sec|seconds?)$", u) else n * 3600 if re.match(r"^(h|hr|hours?)$", u) else n * 60
+    return now + secs
 
 
 # ------------------------------------------------------------ Done, held

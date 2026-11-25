@@ -7,8 +7,6 @@ import asyncio
 import json
 import re
 
-import pytest
-
 from airplay_fakes import FakeScreen
 from test_live_tv import rig  # noqa: F401 -- the fixture
 from mantel_server.network import announce

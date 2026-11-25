@@ -533,6 +533,9 @@ class LinkedHandler:
         self.house, self.features = house, features
 
     async def call_service(self, service: str, data: dict[str, Any], targets: list[dict[str, str]], ctx: Any) -> Any:
+        # (LinkedError once, here: imported in one branch below, it was the whole function's name, and the Live TV branch's
+        # raise before it failed as an UnboundLocalError -- ruff F823)
+        from . import LinkedError
         if service == "notify":
             return await self.house.notify(data, ctx)
         from . import TV_SERVICES
@@ -545,7 +548,6 @@ class LinkedHandler:
         if service in linked_actions.SERVICES:
             actions = self.house.app.get("linked_actions")
             if actions is None:
-                from . import LinkedError
                 raise LinkedError("not_set_up", f"{service} isn't run by this Mantel")
             return await actions.call(service, data, ctx)
         return await self.features.call_service(service, data, targets, ctx)

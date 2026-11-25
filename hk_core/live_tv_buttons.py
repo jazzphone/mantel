@@ -121,7 +121,8 @@ def plan(entry: str, saved: Any, channels: Mapping[str, str], screens: Mapping[s
     """The buttons to publish, in order: each kept one, then a Stop for each screen with one. ``channels``: {number: name}
     of the channels served now; ``screens``: {id: name} of the paired screens. Each: {uid, entity_id, name, screen,
     channel} (channel None for a Stop)."""
-    out, stops = [], []
+    out: list[dict[str, Any]] = []
+    stops: list[str] = []
     for b in kept(saved, channels, screens):
         sid, num = b["screen"], b["channel"]
         out.append({"uid": button_uid(entry, sid, num), "entity_id": entity_id(channels[num], screens[sid]),

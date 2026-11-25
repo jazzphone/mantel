@@ -26,7 +26,8 @@ NAMES = {"energy": "Energy", "cost": "Cost", "solar": "Solar", "water": "Water",
 def stats_of(plan: Mapping[str, Any] | None, prefs: Mapping[str, Any] | None) -> dict[str, list[str]]:
     """Each ring's statistics: the whole home's meter and its cost (the Energy page's plan), and the solar, water and
     gas sources in Home Assistant's Energy settings. A ring with none is left out."""
-    total = (plan or {}).get("total") if isinstance((plan or {}).get("total"), Mapping) else {}
+    t = (plan or {}).get("total")
+    total: Mapping[str, Any] = t if isinstance(t, Mapping) else {}
     out: dict[str, list[str]] = {"energy": [], "cost": [], "solar": [], "water": [], "gas": []}
     if isinstance(total.get("stat"), str) and total["stat"]:
         out["energy"].append(total["stat"])
