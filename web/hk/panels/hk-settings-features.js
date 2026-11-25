@@ -93,7 +93,7 @@
   var addHref, batteriesStored, cooldownLabel, dndRows, dndSummary, energyFound, integrationHref, LIST, listed,
       musicTop, notifySummary, own, page, pairChoices, pairNote, pairsAfter, playlistSub, roomCount, roomLists, SCOPE,
       search, sectionsAfter, setFeature, speakerLists, speakerName, stateOf, stayLabel, trigWord, tvButtonsAfter, tvCount,
-      tvHomeLink, tvLists, vacuumsAfter, vacuumSub, wakesOf, whenControl;
+      tvHomeLink, tvLastButton, tvLists, vacuumsAfter, vacuumSub, wakesOf, whenControl;
 
   // ----------------------------------------------------------------- pages
   var K = null;
@@ -202,7 +202,8 @@
     roomLists = KIT.roomLists; SCOPE = KIT.SCOPE; search = KIT.search; sectionsAfter = KIT.sectionsAfter;
     setFeature = KIT.setFeature; speakerLists = KIT.speakerLists; speakerName = KIT.speakerName;
     stateOf = KIT.stateOf; stayLabel = KIT.stayLabel; trigWord = KIT.trigWord; tvCount = KIT.tvCount;
-    tvLists = KIT.tvLists; tvButtonsAfter = KIT.tvButtonsAfter; tvHomeLink = KIT.tvHomeLink; vacuumsAfter = KIT.vacuumsAfter; vacuumSub = KIT.vacuumSub; wakesOf = KIT.wakesOf;
+    tvLists = KIT.tvLists; tvButtonsAfter = KIT.tvButtonsAfter; tvHomeLink = KIT.tvHomeLink; tvLastButton = KIT.tvLastButton;
+    vacuumsAfter = KIT.vacuumsAfter; vacuumSub = KIT.vacuumSub; wakesOf = KIT.wakesOf;
     whenControl = KIT.whenControl;
     bindLate();
   }
@@ -214,7 +215,7 @@
       LIST: LIST, listed: listed, stateOf: stateOf, page: page, use: use, addHref: addHref, search: search, musicTop: musicTop,
       integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
       featureList: featureList, featuresOn: featuresOn, featureSub: featureSub, NEEDS: NEEDS, SETTINGS_AT: SETTINGS_AT,
-      _: { tvLists: tvLists, tvCount: tvCount, tvButtonsAfter: tvButtonsAfter, tvHomeLink: tvHomeLink,
+      _: { tvLists: tvLists, tvCount: tvCount, tvButtonsAfter: tvButtonsAfter, tvHomeLink: tvHomeLink, tvLastButton: tvLastButton,
         speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub,
         vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
            roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,

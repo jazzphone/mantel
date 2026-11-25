@@ -33,6 +33,15 @@ Phase 35 already plays a channel on a paired AirPlay screen ([PLAN.md](PLAN.md):
 Scripts can do the same with `mantel.live_tv_play {channel, screen}` and `mantel.live_tv_stop {screen}` (by name or
 id/number). Mantel Link's own: not aliased under `hk_frontend.*`, which never had them.
 
+## How a show ends
+
+- **Stop**, the screen's Stop button in the Home app (also what a HomeKit scene or automation, a "Good Night", can
+  press), or `mantel.live_tv_stop`.
+- **Paused on the screen**: nothing fetches the stream, Live TV lets it go after its 90 s lease, and the show ends with
+  it (phase 35's `stream_dropped`).
+- **The safety net**: every AirPlay show (the Home app's, the page's Play On, the iPhone app's) ends 2 hours after it
+  started, whatever the screen does (`MAX_SHOW_S`; the owner, 2026-11-25). Pressing the button again starts it again.
+
 ## Who may watch
 
 Live TV's gate and the stream's key (asked again on every fetch the screen makes) decide with `Authz.policy_for`, not
@@ -48,9 +57,10 @@ buttons, the screens or the house change (never inside `policy_for`). A script c
 - Mantel Link with `buttons` connected, the house run by Mantel.
 - The HomeKit Bridge added in the Home app once (the code on the page).
 
-## Not done
+## Limits
 
-- A bridge whose last button is removed keeps its old filter until a button is added again or it is removed (an
-  empty bridge is never made).
+- Unchecking the last button while the bridge is in the Home app asks whether to remove the bridge too. Kept, it
+  stays paired with its old list (its switches don't answer) until a button is added again; an empty bridge is never
+  made.
 - Not measured on a real HomeView or a real Home app: the suites cover Mantel's side with a fake screen and Mantel
   Link's with HomeKit stood in for.

@@ -164,3 +164,28 @@ async def test_a_paused_screen_leaves_airplay_once_its_stream_goes_unwatched(rig
         await ws.close()
     finally:
         await screen.close()
+
+
+async def test_a_show_ends_by_itself_after_the_safety_net(rig, monkeypatch):  # noqa: F811
+    """Whatever the screen does, a show ends MAX_SHOW_S after it started (2026-11-25, the owner: "close a stream after
+    2 hours or so as well as a safety net"); playing it again starts the time again."""
+    r = await rig()
+    screen = await FakeScreen().start()
+    try:
+        sender = r.app["airplay_sender"]
+        monkeypatch.setattr(sender, "_base", lambda: "https://house.example")
+        from mantel_server.cameras.airplay_out import routes as R
+        assert sender.max_show == R.MAX_SHOW_S == 7200
+        ws = await r.socket("owner1", "owner")
+        sid = await _paired(r, ws, screen)
+        sender.max_show = 0.2
+        await r.ask(ws, 51, {"type": "hk_tv/play_on", "channel": "4.1", "screen": sid})
+        assert sender.playing(sid) is not None
+        for _ in range(100):
+            if sender.playing(sid) is None and any(w.startswith("TEARDOWN") for w, h, d in screen.requests):
+                break
+            await asyncio.sleep(0.02)
+        assert sender.playing(sid) is None and not sender._limits
+        await ws.close()
+    finally:
+        await screen.close()

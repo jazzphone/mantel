@@ -13,7 +13,7 @@
         roomCount = KIT.roomCount, roomLists = KIT.roomLists, speakerLists = KIT.speakerLists,
         speakerName = KIT.speakerName, stateOf = KIT.stateOf, tvButtonCount = KIT.tvButtonCount,
         tvButtonsAfter = KIT.tvButtonsAfter, tvCount = KIT.tvCount, tvHomeLink = KIT.tvHomeLink,
-        tvHomeNames = KIT.tvHomeNames, tvLists = KIT.tvLists,
+        tvHomeNames = KIT.tvHomeNames, tvLastButton = KIT.tvLastButton, tvLists = KIT.tvLists,
         vacuumsAfter = KIT.vacuumsAfter, vacuumSub = KIT.vacuumSub, virtualPair = KIT.virtualPair, WHAT = KIT.WHAT;
 
     var K;
@@ -217,9 +217,13 @@
             var on = mine.some(function (b) { return b.channel === ch.number; });
             return K.check({ label: ch.name, sub: ch.number, multi: true, on: on, fk: 'tv:home:' + s.id + ':' + ch.number,
                              onClick: function (v) {
+                               var next = tvButtonsAfter(H.buttons, s.id, ch.number, v);
                                // (shown at once: the page's copy first, the answer replaces it)
-                               H.buttons = tvButtonsAfter(H.buttons, s.id, ch.number, v);
-                               set({ buttons: H.buttons });
+                               var save = function (more) { H.buttons = next; if (more) H.homekit_wanted = false; set(Object.assign({ buttons: next }, more || {})); };
+                               if (!tvLastButton(H, next)) { save(); return; }
+                               K.confirm(P.shadowRoot, { title: 'Remove ' + N.bridge + ' from the Home app too?', ok: 'Remove', cancel: 'Keep', destructive: true,
+                                 message: 'That was its last button. Kept, it stays paired and its switches don’t answer until you add a button; removed, adding it again needs the Home app’s code.' })
+                                 .then(function (yes) { save(yes ? { homekit: false } : null); });
                              } });
           })));
       });

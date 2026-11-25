@@ -77,6 +77,10 @@ ok('checking a channel adds its button at the end, once',
    eq(F._.tvButtonsAfter(btns, den, '4.1', true), [{ screen: study, channel: '4.1' }, { screen: den, channel: '4.1' }]));
 ok('...unchecking takes only that screen’s', eq(F._.tvButtonsAfter(btns, den, '4.1', false), [{ screen: study, channel: '4.1' }]) &&
    eq(F._.tvButtonsAfter(undefined, den, '4.1', false), []));
+var home = { buttons: [{ screen: den, channel: '4.1' }], homekit_wanted: true };
+ok('the last button unchecked while the bridge is in the Home app asks whether it goes too',
+   F._.tvLastButton(home, []) && !F._.tvLastButton(home, btns) && !F._.tvLastButton({ buttons: home.buttons }, []) &&
+   !F._.tvLastButton({ buttons: [], homekit_wanted: true }, []));
 var names = { host: 'Hearth', link: 'Hearth Link', bridge: 'Hearth TV', ha_page: '#/hearth/ha' };
 var link = function (l, n) { return F._.tvHomeLink({ link: l, published: n, names: names }); };
 var ready = link({ connected: true, buttons: true, house: true, linked_on: true }, 3);

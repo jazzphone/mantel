@@ -12,6 +12,10 @@ iPhone app ask it.
   (the paired ones with their addresses, and those on the network), ``hk_tv/screen_pair`` (begin: the code shows;
   finish: the code), ``hk_tv/screen_remove``, ``hk_tv/screen_rename``.
 * The app (``apps/app_tv.py``): ``POST /api/app/tv/play`` and ``/api/app/tv/stop`` for the Live TV widget's Play On.
+* **A show ends by itself**: paused on the screen, once its stream goes unwatched (``stream_dropped``, Live TV's 90 s
+  lease); and, whatever the screen does, MAX_SHOW_S after it started (2026-11-25, the owner: "We probably should close a
+  stream after 2 hours or so as well as a safety net"), so a screen left playing never holds the tuner for good.
+  Playing it again starts the time again.
 """
 from __future__ import annotations
 
@@ -30,12 +34,15 @@ from .session import Show
 log = logging.getLogger("mantel.airplay_out")
 
 START_TIMEOUT = 20.0
+MAX_SHOW_S = 2 * 3600.0           # the safety net: a show ends this long after it started
 
 
 class Sender:
     def __init__(self, app: Any, screens: Screens) -> None:
         self.app, self.screens = app, screens
         self.shows: dict[str, tuple[Show, dict]] = {}          # screen id -> (its show, {channel, name, by})
+        self.max_show = MAX_SHOW_S
+        self._limits: dict[str, asyncio.TimerHandle] = {}      # screen id -> its show's safety net
 
     def _base(self) -> str:
         url = getattr(self.app.get("cfg"), "public_url", "") or ""
@@ -75,6 +82,10 @@ class Sender:
             if isinstance(exc, hap.PairingError) and exc.code == 2:
                 raise PermissionError("the screen no longer knows Mantel: pair it again in Settings") from exc
             raise ConnectionError(f"the screen didn't play it ({type(exc).__name__})") from exc
+        old_limit = self._limits.pop(sid, None)
+        if old_limit is not None:
+            old_limit.cancel()
+        self._limits[sid] = asyncio.get_running_loop().call_later(self.max_show, self._too_long, sid, show)
         return {"playing": {"channel": number, "name": ch.get("name")}, "screen": sid}
 
     async def stop(self, principal: Any, sid: str, via: str | None = None) -> dict:
@@ -99,12 +110,25 @@ class Sender:
         got = self.shows.get(sid)
         return {k: v for k, v in got[1].items() if k != "stream"} if got and not got[0].ended.is_set() else None
 
+    def _too_long(self, sid: str, show: Show) -> None:
+        """The safety net (MAX_SHOW_S): the show still on the screen ends; nobody asked, so nothing is audited."""
+        cur = self.shows.get(sid)
+        if cur is not None and cur[0] is show and not show.ended.is_set():
+            log.info("airplay show of %s: on for %.0f h; ending it (the safety net)", cur[1].get("name"),
+                     self.max_show / 3600)
+            asyncio.ensure_future(show.stop())
+
     def _ended(self, sid: str, show: Show) -> None:
         cur = self.shows.get(sid)
         if cur is not None and cur[0] is show:
             del self.shows[sid]
+            limit = self._limits.pop(sid, None)
+            if limit is not None:
+                limit.cancel()
 
     async def close(self, _app: Any = None) -> None:
+        for limit in self._limits.values():
+            limit.cancel()
         for show, _ in list(self.shows.values()):
             await show.stop()
 

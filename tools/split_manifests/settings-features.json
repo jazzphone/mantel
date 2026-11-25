@@ -43,6 +43,7 @@
         "tvButtonsAfter",
         "tvButtonCount",
         "tvHomeNames",
+        "tvLastButton",
         "tvHomeLink",
         "SEARCH",
         "search"

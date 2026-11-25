@@ -191,6 +191,11 @@
       return on ? rest.concat([{ screen: screen, channel: channel }]) : rest;
     }
     function tvButtonCount(home) { return ((home && home.buttons) || []).length; }
+    // the last button unchecked while the bridge is in the Home app: ask whether it goes too (kept, its switches no longer
+    // answer until a button comes back; removed, adding it again needs the Home app's code)
+    function tvLastButton(home, next) {
+      return !!(home && home.homekit_wanted && tvButtonCount(home) && !(next || []).length);
+    }
     // the names the server gives its parts (its own, its integration in Home Assistant, the bridge, where it links)
     function tvHomeNames(home) {
       var n = (home && home.names) || {};
@@ -277,7 +282,7 @@
     KIT.pairsAfter = pairsAfter; KIT.plural = plural; KIT.roomCount = roomCount; KIT.roomLists = roomLists;
     KIT.search = search; KIT.speakerLists = speakerLists; KIT.speakerName = speakerName; KIT.stateOf = stateOf;
     KIT.tvButtonCount = tvButtonCount; KIT.tvButtonsAfter = tvButtonsAfter; KIT.tvHomeLink = tvHomeLink;
-    KIT.tvHomeNames = tvHomeNames;
+    KIT.tvHomeNames = tvHomeNames; KIT.tvLastButton = tvLastButton;
     KIT.tvCount = tvCount; KIT.tvLists = tvLists; KIT.vacuumsAfter = vacuumsAfter; KIT.vacuumSub = vacuumSub;
     KIT.virtualPair = virtualPair;
   };
