@@ -23,7 +23,9 @@ the server exactly as the screens' socket is:
                                  its past). A reading that is not a number answers no points.
   GET  /api/app/energy          the Power and Energy widgets: the Power page's readings now (the whole house, solar,
                                  the grid, the house battery) and today's energy and cost so far, from the Energy
-                                 feature's plan; ``?rings=1`` adds today's Energy Rings (hk_core.energy.rings); only with ``view`` on ``feature:energy`` (403 forbidden; 409
+                                 feature's plan; ``?rings=1`` adds today's Energy Rings (hk_core.energy.rings); ``?devices=1``
+                                 what each device uses now, biggest first (the Power page's devices: CarPlay's Using Now);
+                                 only with ``view`` on ``feature:energy`` (403 forbidden; 409
                                  energy_off when the feature is off), each reading only if the person may view it
   GET  /api/app/laundry         the Laundry widget: each washer and dryer (Accessories -> Laundry's, else those found) the
                                  person may view by what says it runs: its state (hk_core.laundry STATES), when it
@@ -328,6 +330,34 @@ def energy_now(plan: dict, states: dict, may: set) -> list[dict]:
     return out
 
 
+ENERGY_DEVICES_MAX = 30
+
+
+def energy_devices(plan: dict, states: dict, may: set) -> list[dict]:
+    """What each of the Energy feature's devices uses now, biggest first: [{key, name, entity, value, unit, parent}]
+    from the plan's devices (each power sensor once), only those the person may view and that read a number above
+    zero; at most ENERGY_DEVICES_MAX. ``parent``: the device it is part of (a circuit inside a panel), if any."""
+    devices = plan.get("devices") if isinstance(plan.get("devices"), dict) else {}
+    out, seen = [], set()
+    for rec in devices.values():
+        eid = rec.get("power") if isinstance(rec, dict) else None
+        if not isinstance(eid, str) or eid in seen or eid not in may:
+            continue
+        seen.add(eid)
+        st = states.get(eid) or {}
+        value = _number(st.get("s"))
+        if value is None or value <= 0:
+            continue
+        out.append({"key": rec.get("key"), "name": rec.get("name") or eid, "entity": eid, "value": value,
+                    "unit": (st.get("a") or {}).get("unit_of_measurement"), "parent": rec.get("parent")})
+    out.sort(key=lambda d: -_watts(d["value"], d["unit"]))
+    return out[:ENERGY_DEVICES_MAX]
+
+
+def _watts(value: float, unit: str | None) -> float:
+    return value * 1000 if (unit or "").lower() == "kw" else value
+
+
 def _start(row: dict) -> float | None:
     """A statistics row's start in epoch seconds (Home Assistant sends milliseconds, older ones an ISO time)."""
     v = row.get("start")
@@ -399,6 +429,10 @@ async def energy(request: web.Request) -> web.Response:
                 today = {"energy": used, "unit": "kWh", "cost": None if cost is None else round(cost, 2),
                          "hours": hours_of(res.get(total.get("stat")))}
     out = {"power": readings, "today": today, "at": float(request.app["clock"]())}
+    if request.query.get("devices"):
+        devs = plan.get("devices") if isinstance(plan.get("devices"), dict) else {}
+        ids = sorted({r.get("power") for r in devs.values() if isinstance(r, dict) and isinstance(r.get("power"), str)})
+        out["devices"] = energy_devices(plan, hub.store.states, set(_visible(request, ids)))
     if request.query.get("rings") and proxy is not None:
         out["rings"] = await energy_rings(request, plan, proxy)
     return ok(out)

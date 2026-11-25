@@ -456,6 +456,21 @@ async def test_the_power_and_energy_widgets_read_the_energy_plan(mantel, monkeyp
     # (the cost rows carry no hour: no ring for it)
     assert [x["key"] for x in got["rings"]] == ["energy"] and asked[-2]["type"] == "energy/get_prefs"
     assert asked[-1]["statistic_ids"] == ["sensor.grid_energy", "sensor.grid_cost"]
+    # ?devices=1: what each device uses now, biggest first (CarPlay's Using Now): one row per power sensor, kW as
+    # thousands of W, nothing for a device reading zero or no number
+    st.update({"sensor.oven_power": {"s": "2.1", "a": {"unit_of_measurement": "kW"}, "lc": 1.0, "lu": 1.0},
+               "sensor.tv_power": {"s": "140", "a": {"unit_of_measurement": "W"}, "lc": 1.0, "lu": 1.0},
+               "sensor.idle_power": {"s": "0", "a": {"unit_of_measurement": "W"}, "lc": 1.0, "lu": 1.0}})
+    host.energy_cache["devices"] = {
+        "sensor.tv_power": {"key": "tv", "name": "TV", "power": "sensor.tv_power", "parent": None},
+        "sensor.tv_energy": {"key": "tv", "name": "TV", "power": "sensor.tv_power", "parent": None},
+        "sensor.oven_power": {"key": "oven", "name": "Oven", "power": "sensor.oven_power", "parent": "kitchen"},
+        "sensor.idle_power": {"key": "idle", "name": "Idle", "power": "sensor.idle_power", "parent": None}}
+    r, got = await phone.call("GET", "/api/app/energy?devices=1")
+    assert [(d["name"], d["value"], d["unit"], d["parent"]) for d in got["devices"]] == [
+        ("Oven", 2.1, "kW", "kitchen"), ("TV", 140.0, "W", None)]
+    r, got = await phone.call("GET", "/api/app/energy")
+    assert "devices" not in got
 
 
 async def test_the_laundry_widget_reads_each_machine_and_its_held_done(mantel, monkeypatch):
