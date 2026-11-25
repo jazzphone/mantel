@@ -14,7 +14,7 @@
         musicPair = KIT.musicPair, musicPlaylist = KIT.musicPlaylist, musicPlaylists = KIT.musicPlaylists,
         musicPreset = KIT.musicPreset, musicPresets = KIT.musicPresets, musicSpeakers = KIT.musicSpeakers,
         notAdded = KIT.notAdded, removeRow = KIT.removeRow, SCOPE = KIT.SCOPE, stateOf = KIT.stateOf,
-        tvChannel = KIT.tvChannel, tvChannels = KIT.tvChannels, tvScreens = KIT.tvScreens, tvMain = KIT.tvMain, virtualPair = KIT.virtualPair,
+        tvChannel = KIT.tvChannel, tvChannels = KIT.tvChannels, tvScreens = KIT.tvScreens, tvHome = KIT.tvHome, tvMain = KIT.tvMain, virtualPair = KIT.virtualPair,
         waiting = KIT.waiting, WHAT = KIT.WHAT;
 
     var K;
@@ -514,6 +514,7 @@
         }
         if (sub[0] === 'channels') return mk('Channels', withData(function (c, d) { tvChannels(P, c, d); }));
         if (sub[0] === 'screens') return mk('AirPlay Screens', function (c) { tvScreens(P, c); });
+        if (sub[0] === 'home') return mk('Home App', withData(function (c, d) { tvHome(P, c, d); }));
         return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { tvMain(P, c, d); removeRow(P, c, name, domain); }) };
       }
       if (route === 'music') {

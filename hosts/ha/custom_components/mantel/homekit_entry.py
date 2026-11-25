@@ -1,21 +1,31 @@
-"""MANTEL'S APPLE TV CAMERA IN HOMEKIT (phase 31, docs/phase31/PLAN.md "Who serves the camera").
+"""MANTEL'S HOMEKIT BRIDGE ENTRIES: the Apple TV camera (phase 31, docs/phase31/PLAN.md "Who serves the camera") and
+Live TV's buttons for Apple's Home app (Mantel's cameras/live_tv_buttons.py).
 
-Mantel shows notifications on the Apple TVs as a HomeKit camera's alert: it publishes a camera (its picture drawn by
-Mantel, fetched over the link: entity.py's ``LinkedCamera``) and a motion sensor it turns on for each notification.
-Home Assistant's own HomeKit Bridge serves them to HomeKit. This module makes and removes that HomeKit Bridge entry
-when Mantel says so, and tells Mantel how it stands, so the owner does everything from Mantel's Settings:
+Home Assistant's own HomeKit Bridge serves Mantel's entities to HomeKit. This module makes, keeps and removes those
+HomeKit Bridge entries when Mantel says so, and tells Mantel how each stands, so the owner does everything from Mantel's
+Settings. Two kinds (``Kind``), each its own entry:
 
-* **Want** (the camera's ``features.homekit``: ``{want, sensor}``): Add to HomeKit in Mantel makes the entry through
-  HomeKit's own import flow -- accessory mode, named "Mantel Alerts", the next free port, the camera with the sensor
-  as its linked motion sensor, no audio (the entity settings checked by HomeKit's own ``validate_entity_config``).
-  Home Assistant lists it as set up in YAML, so nobody edits it by hand. Remove from HomeKit removes it.
-* **How it stands** (``report.homekit`` to Mantel): ``none``, ``starting``, ``unpaired`` with the setup code and URI
-  (Mantel Settings draws its QR code), ``paired``, or ``error``. Read from the entry's HomeKit driver
-  (``runtime_data.homekit.driver``): Home Assistant's inside, not a public API, so anything missing reads as
-  ``starting`` and Mantel's Settings points at the code in Home Assistant's notifications instead. Told when it
-  changes, and looked at again every LOOK_S while it is wanted and not yet paired.
+* **"Mantel Alerts"** (``ALERTS``): notifications on the Apple TVs as a camera's alert. Mantel publishes a camera (its
+  picture drawn by Mantel, fetched over the link: entity.py's ``LinkedCamera``) and a motion sensor; the camera's
+  ``features.homekit`` ``{want, sensor}`` says whether it is wanted. Accessory mode, the camera with the sensor as its
+  linked motion sensor, no audio (the entity settings checked by HomeKit's own ``validate_entity_config``). Reported
+  as ``report.homekit``.
+* **"Mantel Live TV"** (``LIVE_TV``): a channel AirPlayed to a screen from a tap in the Home app. Mantel publishes the
+  buttons and a sensor, "Mantel Live TV", whose ``features.homekit`` ``{bridge: "live_tv", want, include}`` names the
+  buttons (by unique id) the bridge shows. Bridge mode, exactly those buttons (each a switch in the Home app that
+  turns itself off again). When Mantel's list changes, the entry's filter is changed and the entry reloaded: the
+  bridge keeps its pairing, and the Home app shows the new buttons. Reported as ``report.homekit_tv``.
 
-Nothing else in Home Assistant is touched: no automation, no script, no other HomeKit entry.
+Each is made through HomeKit's own import flow (named, the next free port), so Home Assistant lists it as set up in
+YAML and nobody edits it by hand. **How it stands** (to Mantel): ``none``, ``starting``, ``unpaired`` with the setup
+code and URI (Mantel Settings draws its QR code), ``paired``, or ``error``. Read from the entry's HomeKit driver
+(``runtime_data.homekit.driver``): Home Assistant's inside, not a public API, so anything missing reads as
+``starting`` and Mantel's Settings points at the code in Home Assistant's notifications instead. Told when it changes,
+and looked at again every LOOK_S while it is wanted and not yet as wished.
+
+Mantel publishing nothing of a kind leaves its entry alone (a link that is coming back never unpairs a Home); only a
+``want`` of false removes it. Nothing else in Home Assistant is touched: no automation, no script, no other HomeKit
+entry.
 """
 from __future__ import annotations
 
@@ -35,6 +45,7 @@ _LOGGER = logging.getLogger(__name__)
 
 HOMEKIT = "homekit"
 BRIDGE_NAME = "Mantel Alerts"
+TV_BRIDGE_NAME = "Mantel Live TV"
 START_PORT = 21128
 LOOK_S = 30
 
@@ -49,25 +60,34 @@ def _free_port(hass: HomeAssistant) -> int:
     return async_find_next_available_port(hass, START_PORT)
 
 
+def _filter(entities: list[str]) -> dict[str, list[str]]:
+    return {"include_domains": [], "include_entities": list(entities), "include_entity_globs": [],
+            "exclude_domains": [], "exclude_entities": [], "exclude_entity_globs": []}
+
+
 def import_data(camera: str, sensor: str, port: int) -> dict[str, Any]:
-    """The HomeKit Bridge entry, as its YAML import takes it: one camera in accessory mode, its motion sensor linked."""
-    return {"name": BRIDGE_NAME, "port": port, "mode": "accessory",
-            "filter": {"include_domains": [], "include_entities": [camera], "include_entity_globs": [],
-                       "exclude_domains": [], "exclude_entities": [], "exclude_entity_globs": []},
+    """The Apple TV camera's entry, as its YAML import takes it: one camera in accessory mode, its motion sensor linked."""
+    return {"name": BRIDGE_NAME, "port": port, "mode": "accessory", "filter": _filter([camera]),
             "entity_config": _validate({camera: {"linked_motion_sensor": sensor, "support_audio": False}})}
 
 
-def ours(hass: HomeAssistant) -> Any:
-    """The HomeKit Bridge entry this module made, or None."""
+def tv_import_data(buttons: list[str], port: int) -> dict[str, Any]:
+    """Live TV's buttons' entry, as its YAML import takes it: a bridge of exactly those buttons."""
+    return {"name": TV_BRIDGE_NAME, "port": port, "mode": "bridge", "filter": _filter(sorted(buttons)),
+            "entity_config": {}}
+
+
+def ours(hass: HomeAssistant, name: str = BRIDGE_NAME) -> Any:
+    """The HomeKit Bridge entry this module made under ``name``, or None."""
     for e in hass.config_entries.async_entries(HOMEKIT, include_ignore=False):
-        if e.source == SOURCE_IMPORT and (e.data or {}).get("name") == BRIDGE_NAME:
+        if e.source == SOURCE_IMPORT and (e.data or {}).get("name") == name:
             return e
     return None
 
 
-def status(hass: HomeAssistant) -> dict[str, Any]:
+def status(hass: HomeAssistant, name: str = BRIDGE_NAME) -> dict[str, Any]:
     """How the entry stands, for Mantel (never logged: the setup code pairs a Home)."""
-    e = ours(hass)
+    e = ours(hass, name)
     if e is None:
         return {"state": "none"}
     hk = getattr(getattr(e, "runtime_data", None), "homekit", None)
@@ -84,16 +104,96 @@ def status(hass: HomeAssistant) -> dict[str, Any]:
         return {"state": "starting"}
 
 
-class HomeKitLink:
-    """Keeps the entry as Mantel wants it, and Mantel told how it stands (one per Mantel Link entry)."""
+class Kind:
+    """One of Mantel's HomeKit Bridge entries: its name, the report key, and how Mantel's entities say what is wanted.
+    ``wish`` answers None (Mantel publishes nothing of it: leave everything), or (want, what to build it from, or None
+    while the registry has not caught up)."""
 
-    def __init__(self, bridge: Any) -> None:
-        self.bridge, self.hass = bridge, bridge.hass
+    name = ""
+    report = ""
+    what = ""
+
+    def concerns(self, d: dict[str, Any]) -> bool:
+        raise NotImplementedError
+
+    def wish(self, bridge: Any) -> tuple[bool, Any] | None:
+        raise NotImplementedError
+
+    def data(self, got: Any, port: int) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def options(self, entry: Any, got: Any) -> dict[str, Any] | None:
+        """The entry's options as wished when they differ from its own, else None (as wished: nothing to do)."""
+        return None
+
+
+class _Alerts(Kind):
+    name, report, what = BRIDGE_NAME, "homekit", "the Apple TV camera"
+
+    def concerns(self, d: dict[str, Any]) -> bool:
+        return d.get("platform") == "camera" and isinstance((d.get("features") or {}).get("homekit"), dict)
+
+    def wish(self, bridge: Any) -> tuple[bool, Any] | None:
+        for uid, d in bridge.descs.items():
+            if self.concerns(d):
+                hk = d["features"]["homekit"]
+                reg = er.async_get(bridge.hass)
+                cam = reg.async_get_entity_id("camera", DOMAIN, uid)
+                sensor = reg.async_get_entity_id("binary_sensor", DOMAIN, hk.get("sensor")) if isinstance(
+                    hk.get("sensor"), str) else None
+                return bool(hk.get("want")), ((cam, sensor) if cam and sensor else None)
+        return None
+
+    def data(self, got: Any, port: int) -> dict[str, Any]:
+        return import_data(got[0], got[1], port)
+
+
+class _LiveTv(Kind):
+    name, report, what = TV_BRIDGE_NAME, "homekit_tv", "Live TV's buttons"
+
+    def concerns(self, d: dict[str, Any]) -> bool:
+        hk = (d.get("features") or {}).get("homekit")
+        return d.get("platform") == "button" or (d.get("platform") == "sensor" and isinstance(hk, dict)
+                                                 and hk.get("bridge") == "live_tv")
+
+    def wish(self, bridge: Any) -> tuple[bool, Any] | None:
+        for d in bridge.descs.values():
+            hk = (d.get("features") or {}).get("homekit")
+            if d.get("platform") == "sensor" and isinstance(hk, dict) and hk.get("bridge") == "live_tv":
+                include = [u for u in hk.get("include") or [] if isinstance(u, str)]
+                reg = er.async_get(bridge.hass)
+                ids = [reg.async_get_entity_id("button", DOMAIN, u) for u in include]
+                if not include or not all(ids):
+                    return bool(hk.get("want")), None      # no button yet, or not in the registry yet
+                return bool(hk.get("want")), sorted(ids)
+        return None
+
+    def data(self, got: Any, port: int) -> dict[str, Any]:
+        return tv_import_data(got, port)
+
+    def options(self, entry: Any, got: Any) -> dict[str, Any] | None:
+        opts = dict(entry.options or {})
+        have = sorted(((opts.get("filter") or {}).get("include_entities")) or [])
+        if have == sorted(got):
+            return None
+        return {**opts, "filter": _filter(sorted(got))}
+
+
+ALERTS, LIVE_TV = _Alerts(), _LiveTv()
+
+
+class HomeKitLink:
+    """Keeps one of Mantel's entries as Mantel wants it, and Mantel told how it stands (one per kind, per Mantel Link
+    entry)."""
+
+    def __init__(self, bridge: Any, kind: Kind = ALERTS) -> None:
+        self.bridge, self.hass, self.kind = bridge, bridge.hass, kind
         self._task: asyncio.Task | None = None
         self._again = False
         self._told: dict[str, Any] | None = None
         self._unsub: Any = None
         self.error: str | None = None
+        self._settled = True                     # the entry is as last wished (nothing left to look at again)
 
     def start(self) -> None:
         self._unsub = async_track_time_interval(self.hass, self._tick, timedelta(seconds=LOOK_S))
@@ -105,17 +205,8 @@ class HomeKitLink:
         if self._task is not None:
             self._task.cancel()
 
-    def wish(self) -> tuple[bool, str | None, str | None] | None:
-        """(want, camera's entity id, sensor's entity id) from Mantel's camera, or None when Mantel publishes none."""
-        for uid, d in self.bridge.descs.items():
-            hk = (d.get("features") or {}).get("homekit") if d.get("platform") == "camera" else None
-            if isinstance(hk, dict):
-                reg = er.async_get(self.hass)
-                cam = reg.async_get_entity_id("camera", DOMAIN, uid)
-                sensor = reg.async_get_entity_id("binary_sensor", DOMAIN, hk.get("sensor")) if isinstance(
-                    hk.get("sensor"), str) else None
-                return bool(hk.get("want")), cam, sensor
-        return None
+    def wish(self) -> tuple[bool, Any] | None:
+        return self.kind.wish(self.bridge)
 
     @callback
     def changed(self) -> None:
@@ -123,7 +214,7 @@ class HomeKitLink:
         if self._task is not None and not self._task.done():
             self._again = True
             return
-        self._task = self.hass.async_create_task(self._sync(), "Mantel Link: HomeKit")
+        self._task = self.hass.async_create_task(self._sync(), f"Mantel Link: HomeKit ({self.kind.name})")
 
     @callback
     def reconnected(self) -> None:
@@ -134,7 +225,7 @@ class HomeKitLink:
     @callback
     def _tick(self, _now: Any) -> None:
         w = self.wish()
-        if w is not None and w[0] and (self._told or {}).get("state") != "paired":
+        if w is not None and w[0] and ((self._told or {}).get("state") != "paired" or not self._settled):
             self.changed()
 
     async def _sync(self) -> None:
@@ -143,46 +234,54 @@ class HomeKitLink:
             try:
                 await self._apply()
             except Exception as err:  # noqa: BLE001 -- told to Mantel, tried again on the next change
-                _LOGGER.warning("Mantel Link: the Apple TV camera's HomeKit entry: %s", err)
+                _LOGGER.warning("Mantel Link: the HomeKit entry for %s: %s", self.kind.what, err)
                 self.error = str(err)[:200]
             await self._tell()
             if not self._again:
                 return
 
     async def _apply(self) -> None:
-        w, entry = self.wish(), ours(self.hass)
+        w, entry = self.wish(), ours(self.hass, self.kind.name)
         if w is None:
-            return                                        # Mantel publishes no Apple TV camera: leave everything
-        want, cam, sensor = w
+            self._settled = True
+            return                                        # Mantel publishes nothing of it: leave everything
+        want, got = w
         if not want:
             if entry is not None:
-                _LOGGER.info("Mantel Link: removing the Apple TV camera from HomeKit (Mantel's Remove from HomeKit)")
+                _LOGGER.info("Mantel Link: removing %s from HomeKit (Mantel's Remove from HomeKit)", self.kind.what)
                 await self.hass.config_entries.async_remove(entry.entry_id)
-            self.error = None
+            self.error, self._settled = None, True
             return
+        if got is None:
+            self._settled = False
+            return                                        # not in the registry yet: the next change or look tries again
         if entry is not None:
-            self.error = None
+            opts = self.kind.options(entry, got)
+            if opts is not None:
+                _LOGGER.info("Mantel Link: %s in HomeKit changed; reloading %s", self.kind.what, self.kind.name)
+                self.hass.config_entries.async_update_entry(entry, options=opts)
+                # an imported HomeKit entry doesn't reload on an options change by itself: the bridge keeps its pairing
+                await self.hass.config_entries.async_reload(entry.entry_id)
+            self.error, self._settled = None, True
             return
-        if not cam or not sensor:
-            return                                        # not in the registry yet: the next change tries again
         port = _free_port(self.hass)
-        _LOGGER.info("Mantel Link: adding %s to HomeKit (port %s, motion sensor %s)", cam, port, sensor)
+        _LOGGER.info("Mantel Link: adding %s to HomeKit as %s (port %s)", self.kind.what, self.kind.name, port)
         result = await self.hass.config_entries.flow.async_init(HOMEKIT, context={"source": SOURCE_IMPORT},
-                                                                data=import_data(cam, sensor, port))
+                                                                data=self.kind.data(got, port))
         if result.get("type") == "abort":
             raise RuntimeError(f"HomeKit refused the entry ({result.get('reason')})")
-        self.error = None
+        self.error, self._settled = None, True
 
     async def _tell(self) -> None:
-        got = status(self.hass)
+        got = status(self.hass, self.kind.name)
         if self.error and got["state"] in ("none", "starting"):
             got = {"state": "error", "error": self.error}
         if got == {"state": "none"} and self.wish() is None:
-            return            # a Mantel with no Apple TV camera (one from before phase 31) has nothing to hear
+            return            # a Mantel that publishes none of this (one from before it) has nothing to hear
         if got == self._told or not self.bridge.link.connected:
             return
         try:
-            await self.bridge.link.request("report", {"report": {"homekit": got}})
+            await self.bridge.link.request("report", {"report": {self.kind.report: got}})
             self._told = got
         except Exception as err:  # noqa: BLE001 -- an older Mantel refuses the key; nothing else depends on it
             _LOGGER.debug("Mantel Link: Mantel did not take the HomeKit report: %s", err)

@@ -1017,6 +1017,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # phase 35: a Live TV channel played on a paired AirPlay screen (a HomeView) by Mantel itself (cameras/airplay_out)
     from .cameras.airplay_out import routes as airplay_out
     airplay_out.register(app)
+    # Live TV's buttons for Apple's Home app: a channel on a paired screen from a tap there, through Mantel Link's
+    # buttons and their own HomeKit Bridge (cameras/live_tv_buttons.py); published by linked_house
+    from .cameras import live_tv_buttons
+    live_tv_buttons.register(app)
     # direct camera sources (docs/phase13/CAMERAS-DIRECT.md phase 3): camera.mantel_* through Mantel's own go2rtc;
     # after Live TV, so its signaling wraps Live TV's wrapper. Without --go2rtc-url (the HA App) nothing is installed
     cameras_direct.register(app, hub, hooks)

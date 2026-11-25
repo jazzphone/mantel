@@ -12,6 +12,7 @@ from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity, AlarmControlPanelEntityFeature, AlarmControlPanelState, CodeFormat,
 )
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
+from homeassistant.components.button import ButtonEntity
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.components.switch import SwitchEntity
@@ -321,7 +322,24 @@ class LinkedAlarmPanel(LinkedEntity, AlarmControlPanelEntity):
         await self._linked.command(self, "alarm_trigger", code)
 
 
+class LinkedButton(LinkedEntity, ButtonEntity):
+    """Live TV's buttons for Apple's Home app ("NBC on Den HomeView", "Stop Live TV on Den HomeView"): a press goes to
+    Mantel, which plays the channel on the AirPlay screen (or stops it). Home Assistant keeps the button's state (when it
+    was last pressed) itself; Mantel's descriptor carries none."""
+
+    linked_platform = "button"
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        hk = getattr(self._linked, "homekit_tv", None)
+        if hk is not None:
+            hk.changed()                    # in the registry now: the Live TV bridge can include it
+
+    async def async_press(self) -> None:
+        await self._linked.command(self, "press")
+
+
 CLASSES: dict[str, type[LinkedEntity]] = {
     "switch": LinkedSwitch, "sensor": LinkedSensor, "binary_sensor": LinkedBinarySensor,
-    "camera": LinkedCamera, "alarm_control_panel": LinkedAlarmPanel,
+    "camera": LinkedCamera, "alarm_control_panel": LinkedAlarmPanel, "button": LinkedButton,
 }

@@ -200,6 +200,30 @@
     "resume_automation": {
       "name": "Resume an automation",
       "description": "Turns a paused automation on again now."
+    },
+    "live_tv_play": {
+      "name": "Play Live TV on a screen",
+      "description": "Plays a Live TV channel on a paired AirPlay screen (an Apple HomeView), as its button in the Home app does. Only a channel a Live TV button plays (Mantel's Settings, Live TV, Home App).",
+      "fields": {
+        "channel": {
+          "name": "Channel",
+          "description": "The channel's number (4.1) or its name."
+        },
+        "screen": {
+          "name": "Screen",
+          "description": "The AirPlay screen's name, as Mantel's Settings show it."
+        }
+      }
+    },
+    "live_tv_stop": {
+      "name": "Stop Live TV on a screen",
+      "description": "Stops what Mantel plays on a paired AirPlay screen.",
+      "fields": {
+        "screen": {
+          "name": "Screen",
+          "description": "The AirPlay screen's name, as Mantel's Settings show it."
+        }
+      }
     }
   },
   "entity": {

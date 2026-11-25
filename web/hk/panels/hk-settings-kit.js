@@ -88,6 +88,8 @@
     '.cells{background:var(--hk-cell);border-radius:26px;overflow:hidden}',
     '.gf{margin:0;padding:7px 16px 0;font-size:13px;line-height:18px;color:var(--hk-label2)}',
     '.gf a{font-weight:400}',
+    // A SETUP CODE TO SCAN (a HomeKit Bridge's QR, the server's own SVG): centered, on white, as the server's own settings draw one
+    '.cell.qr{justify-content:center;padding:16px}.cell.qr img{width:min(240px,60vw);height:auto;border-radius:8px;background:#fff}',
     // CELLS
     '.cell{position:relative;display:flex;align-items:center;gap:12px;min-height:var(--hk-row);padding:6px 16px;',
     '  width:100%;border:0;background:none;text-align:left;color:inherit}',
@@ -642,6 +644,10 @@
     b.appendChild(c);
     b.addEventListener('click', function () { o.onClick(!o.on); });
     return b;
+  }
+  // A CODE TO SCAN: o.svg (the server's own QR, an SVG document), o.alt
+  function qr(o) {
+    return h('div', { class: 'cell qr', 'data-sk': o.sk }, h('img', { alt: o.alt || '', src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(o.svg || '') }));
   }
   // A BUTTON ROW: o.label, o.onClick, o.destructive, o.center
   function button(o) {
@@ -1466,7 +1472,7 @@
   root.hkSettingsKit = {
     version: '2.3.0', CSS: CSS, h: h, esc: esc, icon: icon, svg: svg, id: id,
     CHEV: CHEV, CHECK: CHECK, group: group, nav: nav, toggle: toggle, seg: seg, select: select, slider: slider,
-    text: text, info: info, check: check, button: button, recommend: recommend, previewPick: previewPick, listEditor: listEditor, confirm: confirm, label: label, popup: popup,
+    text: text, info: info, check: check, button: button, qr: qr, recommend: recommend, previewPick: previewPick, listEditor: listEditor, confirm: confirm, label: label, popup: popup,
     moveVal: moveVal, yaml: yaml, yamlParse: yamlParse, yamlDump: yamlDump, YamlError: YamlError
   };
 })();

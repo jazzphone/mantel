@@ -40,6 +40,10 @@
         "speakerName",
         "plural",
         "tvCount",
+        "tvButtonsAfter",
+        "tvButtonCount",
+        "tvHomeNames",
+        "tvHomeLink",
         "SEARCH",
         "search"
       ]
@@ -57,6 +61,8 @@
         "tvMain",
         "tvChannels",
         "tvChannel",
+        "tvPairing",
+        "tvHome",
         "cleanMain",
         "cleanRooms",
         "pinForm",

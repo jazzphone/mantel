@@ -213,3 +213,22 @@ resume_automation:
       selector:
         entity:
           domain: automation
+live_tv_play:
+  fields:
+    channel:
+      required: true
+      example: "4.1"
+      selector:
+        text:
+    screen:
+      required: true
+      example: Den HomeView
+      selector:
+        text:
+live_tv_stop:
+  fields:
+    screen:
+      required: true
+      example: Den HomeView
+      selector:
+        text:

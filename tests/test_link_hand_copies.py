@@ -102,9 +102,10 @@ def test_the_talk_paths_and_the_speaker_pattern_are_the_same():
 
 
 # ---------------------------------------------------------------------------------- Mantel Link's actions vs HK Frontend's
-def _schema_fields(path: Path) -> dict[str, set[str]]:
+def _schema_fields(path: Path, own: bool = False) -> dict[str, set[str]]:
     """{service: field names} of services.py's POPUP_SCHEMA / NOTIFY_SCHEMA / MORE_SCHEMAS, from the vol.Required and
-    vol.Optional keys of each schema (the text: the file imports homeassistant)."""
+    vol.Optional keys of each schema (the text: the file imports homeassistant). ``own``: TV_SCHEMAS instead, Mantel
+    Link's own actions (Live TV on an AirPlay screen), which HK Frontend never had and are never aliased."""
     tree = _tree(path)
 
     def keys(schema: ast.AST) -> set[str]:
@@ -130,6 +131,10 @@ def _schema_fields(path: Path) -> dict[str, set[str]]:
     out = {"show_popup": keys(named["POPUP_SCHEMA"]), "close_popup": keys(named["POPUP_SCHEMA"]),
            "notify": keys(named["NOTIFY_SCHEMA"])}
     out.update({name: keys(node) for name, node in more.items()})
+    if own:
+        tv = named["TV_SCHEMAS"]
+        assert isinstance(tv, ast.Dict)
+        return {k.value: keys(v) for k, v in zip(tv.keys, tv.values)}
     return out
 
 
@@ -144,7 +149,11 @@ def test_mantel_links_action_schemas_have_the_fields_hk_frontend_has():
     for name, fields in ours.items():
         assert fields == hk_yaml[name], f"{name}: services.py schema {sorted(fields)} vs HK Frontend {sorted(hk_yaml[name])}"
         assert fields == ml_yaml[name], f"{name}: services.py schema vs Mantel Link's own services.yaml"
-    assert ml_yaml.keys() == hk_yaml.keys()
+    own = _schema_fields(ML / "services.py", own=True)
+    assert not set(own) & set(hk_yaml), "Mantel Link's own actions are not HK Frontend's"
+    for name, fields in own.items():
+        assert fields == ml_yaml[name], f"{name}: services.py schema vs Mantel Link's own services.yaml"
+    assert ml_yaml.keys() == hk_yaml.keys() | own.keys()
 
 
 def test_mantel_links_action_limits_are_hk_frontends():
@@ -160,10 +169,12 @@ def test_mantel_links_action_limits_are_hk_frontends():
 
 
 def test_the_action_names_agree_across_mantel_link_hk_frontend_and_mantel_server():
-    ours = set(_schema_fields(ML / "services.py")) | {"set_black_screen"}
+    own = set(_schema_fields(ML / "services.py", own=True))
+    ours = set(_schema_fields(ML / "services.py")) | {"set_black_screen"} | own
     assert set(LK.SERVICES_2) == ours, "Mantel Server forwards other actions than Mantel Link registers"
+    assert set(LK.TV_SERVICES) == own
     assert set(constants(ML / "const.py")["SERVICES"]) == set(LK.SERVICES)
     hk = constants(HKF / "linked_mode.py")["FORWARDED"]
-    assert set(hk) | set(LK.SERVICES) == set(LK.SERVICES_2), "HK Frontend's linked mode forwards other actions"
+    assert set(hk) | set(LK.SERVICES) == set(LK.SERVICES_2) - own, "HK Frontend's linked mode forwards other actions"
     popup = _schema_fields(ML / "services.py")["show_popup"]
     assert popup == set(LK._POPUP_KEYS), "the pop-up fields Mantel Server accepts"

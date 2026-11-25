@@ -69,6 +69,30 @@ ok('the count: saved of the lineup', F._.tvCount(tv) === '3 of 4');
 ok('...just the saved number when the tuner did not answer', F._.tvCount({ channels: tv.channels, lineup: null }) === '3');
 ok('an empty answer is an empty list, not an error', eq(F._.tvLists({}), { rows: [], more: [] }));
 
+// the Home app's buttons (Live TV -> Home App): a channel checked or unchecked on a screen, the list kept in its order
+var den = 's0123456789ab', study = 'sba9876543210';
+var btns = [{ screen: den, channel: '4.1' }, { screen: study, channel: '4.1' }];
+ok('checking a channel adds its button at the end, once',
+   eq(F._.tvButtonsAfter(btns, den, '13.1', true), btns.concat([{ screen: den, channel: '13.1' }])) &&
+   eq(F._.tvButtonsAfter(btns, den, '4.1', true), [{ screen: study, channel: '4.1' }, { screen: den, channel: '4.1' }]));
+ok('...unchecking takes only that screen’s', eq(F._.tvButtonsAfter(btns, den, '4.1', false), [{ screen: study, channel: '4.1' }]) &&
+   eq(F._.tvButtonsAfter(undefined, den, '4.1', false), []));
+var names = { host: 'Hearth', link: 'Hearth Link', bridge: 'Hearth TV', ha_page: '#/hearth/ha' };
+var link = function (l, n) { return F._.tvHomeLink({ link: l, published: n, names: names }); };
+var ready = link({ connected: true, buttons: true, house: true, linked_on: true }, 3);
+ok('ready: Mantel Link connected and making buttons, the house Mantel’s',
+   ready.ready && eq(ready.rows.map(function (r) { return [r.label, r.value]; }),
+                     [['Hearth Link', 'Connected'], ['The House', 'Run by Hearth'], ['Buttons in Home Assistant', '3']]) &&
+   /^Hearth Link makes the buttons/.test(ready.footer));
+ok('...each thing missing says what to do, first things first',
+   /Add it in Home Assistant/.test(link({}, 0).footer) && !link({}, 0).ready &&
+   link({ connected: true }, 4).rows[0].value === 'Needs an Update' && link({ connected: true }, 4).rows[2].value === 'None' &&
+   /Update Hearth Link/.test(link({ connected: true }, 0).footer) &&
+   /run by Hearth/.test(link({ connected: true, buttons: true, house: true }, 0).footer) &&
+   link({ connected: true, buttons: true, house: true }, 0).rows[1].value === 'Run by Home Assistant');
+ok('search finds the Home App page', F.search({ hk_tv: { installed: true, entries: [{ entry_id: 'a' }] } })
+   .some(function (x) { return x.route === 'features/tv/home' && /homekit/.test(x.words); }));
+
 // ------------------------------------------------------------ clean by area
 var nm = function (id) { return { office: 'Office' }[id] || id; };
 ok('a vacuum’s line says what a chosen room does with it',
@@ -85,17 +109,17 @@ cd.chosen_vacuums = ['vacuum.a'];
 ok('the last one cannot be unticked (none would be every vacuum)', F._.vacuumsAfter(cd, 'vacuum.a', false) === null);
 cd.chosen_vacuums = ['vacuum.gone', 'vacuum.a'];
 ok('a chosen vacuum the house no longer has is dropped', eq(F._.vacuumsAfter(cd, 'vacuum.b', true), ['vacuum.a', 'vacuum.b']));
-var rd = { areas: [{ id: 'kitchen', name: 'Kitchen', floor: 'Main', level: 0, by: ['Down'] }, { id: 'loft', name: 'Loft', floor: 'Up', level: 1, by: ['Up', 'Down'] },
+var rd = { areas: [{ id: 'kitchen', name: 'Kitchen', floor: 'Main', level: 0, by: ['Down'] }, { id: 'study', name: 'Loft', floor: 'Up', level: 1, by: ['Up', 'Down'] },
                    { id: 'den', name: 'Den', floor: null, by: [] }],
-           chosen_areas: [], offered: ['loft', 'den', 'kitchen'] };
+           chosen_areas: [], offered: ['study', 'den', 'kitchen'] };
 var RL = F._.roomLists(rd);
 ok('Rooms, automatic: every room offered, floor by floor (no floor last), with its floor and who reaches it',
    RL.auto && eq(RL.rows.map(function (r) { return [r.label, r.sub]; }), [['Kitchen', 'Main · Down'], ['Loft', 'Up · Up, Down'], ['Den', null]]) && !RL.more.length, RL);
 ok('...counted as Automatic', F._.roomCount(rd) === 'Automatic · 3');
-rd.chosen_areas = ['loft']; rd.offered = ['loft'];
+rd.chosen_areas = ['study']; rd.offered = ['study'];
 RL = F._.roomLists(rd);
 ok('chosen by hand: the chosen ones shown, the rest a vacuum reaches under More',
-   !RL.auto && eq(RL.rows.map(function (r) { return r.value; }), ['loft']) && eq(RL.more.map(function (r) { return r.value; }), ['kitchen', 'den']));
+   !RL.auto && eq(RL.rows.map(function (r) { return r.value; }), ['study']) && eq(RL.more.map(function (r) { return r.value; }), ['kitchen', 'den']));
 ok('...counted of the reachable', F._.roomCount(rd) === '1 of 3');
 
 // ------------------------------------------------------------ music

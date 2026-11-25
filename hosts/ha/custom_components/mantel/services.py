@@ -15,6 +15,10 @@ same schema HK Frontend had; Mantel checks it all again and answers.
   clean_areas        HK Frontend's Clean Areas, run by Mantel (answers its plan)
   pause_automation   an automation off until a time (default: midnight), and
   resume_automation  on again; run by Mantel through its command gateway
+  live_tv_play       a Live TV channel on a paired AirPlay screen, and Stop, as
+  live_tv_stop       Live TV's buttons for Apple's Home app press them (Mantel's
+                     own: only a channel a button plays; never an alias, HK
+                     Frontend never had them)
 
 THE ALIASES. Registered only for a name HK Frontend does not have right now:
 if HK Frontend (still installed) sets up later, its own registration replaces
@@ -124,6 +128,9 @@ def _register(hass: HomeAssistant, domain: str, service: str) -> None:
     elif service == "set_black_screen" and domain == HK_DOMAIN:
         hass.services.async_register(domain, service, _black_screen_alias(hass),
                                      cv.make_entity_service_schema(BLACK_SCREEN_SCHEMA))
+    elif service in TV_SCHEMAS and domain == DOMAIN:
+        hass.services.async_register(domain, service, _forwarder(hass, domain, service), TV_SCHEMAS[service],
+                                     supports_response=SupportsResponse.OPTIONAL)
     elif service in MORE_SCHEMAS:
         hass.services.async_register(domain, service, _forwarder(hass, domain, service), MORE_SCHEMAS[service],
                                      supports_response=SupportsResponse.OPTIONAL if service in ANSWERS
@@ -148,11 +155,17 @@ MORE_SCHEMAS: dict[str, Any] = {
     "pause_automation": vol.Schema({vol.Required("entity_id"): AUTOMATION, vol.Optional("until"): cv.datetime}),
     "resume_automation": vol.Schema({vol.Required("entity_id"): AUTOMATION}),
 }
+# Mantel's own (not HK Frontend's, so no alias): Live TV on a paired AirPlay screen, by the screen's name or id and the
+# channel's number or name, as a Live TV button in the Home app does it (Mantel's cameras/live_tv_buttons.py)
+TV_SCHEMAS: dict[str, Any] = {
+    "live_tv_play": vol.Schema({vol.Required("channel"): cv.string, vol.Required("screen"): cv.string}),
+    "live_tv_stop": vol.Schema({vol.Required("screen"): cv.string}),
+}
 # which of them answer (HK Frontend's: music and Clean Areas)
 ANSWERS = {"music_play", "music_transfer", "music_stop", "music_transport", "music_play_media", "clean_areas"}
 
 # the mantel.* domain actions (set_black_screen is the switch platform's)
-OWN = ("show_popup", "close_popup", "notify", *MORE_SCHEMAS)
+OWN = ("show_popup", "close_popup", "notify", *MORE_SCHEMAS, *TV_SCHEMAS)
 # the hk_frontend.* names Mantel Link answers while HK Frontend does not
 ALIASES = ("set_black_screen", "show_popup", "close_popup", "notify", *MORE_SCHEMAS)
 

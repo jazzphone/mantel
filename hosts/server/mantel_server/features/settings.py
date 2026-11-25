@@ -7,6 +7,7 @@ import copy
 import re
 from typing import Any, Awaitable, Callable, Mapping
 
+from hk_core import live_tv_buttons as LB
 from hk_core.notifications import rules as NR, settings as NS
 from hk_core.screensaver import rules as SS
 
@@ -23,8 +24,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
     # `go2rtc_once`: Mantel has started with its own go2rtc and turned Live TV on for it, once (host._live_tv_once)
+    # `buttons` / `homekit`: Live TV's buttons for Apple's Home app and their HomeKit Bridge (hk_core.live_tv_buttons)
     "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720",
-                "go2rtc_once": False},
+                "go2rtc_once": False, "buttons": [], "homekit": False},
     # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
     # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
     "tablets": {"enabled": False},
@@ -159,6 +161,12 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
         raise ValueError("live_tv.names: {channel number: its name (up to 40 characters)}")
     if tv["quality"] not in ("720", "1080"):
         raise ValueError("live_tv.quality: \"720\" or \"1080\" (the transcode's picture, where Mantel runs Live TV)")
+    try:
+        tv["buttons"] = LB.buttons(tv["buttons"])
+    except LB.Invalid:
+        raise ValueError("live_tv.buttons: [{screen: a paired screen's id, channel: \"4.1\"}]") from None
+    if not isinstance(tv["homekit"], bool):
+        raise ValueError("live_tv.homekit: true or false (the Live TV buttons' HomeKit Bridge)")
     au = out["auto"]
     if not isinstance(au["decided"], Mapping) or not all(
             k in AUTO_PIECES and isinstance(m, Mapping) and set(m) <= {"by", "at", "why"} and m.get("by") in ("auto", "owner")
@@ -258,5 +266,8 @@ async def import_features(panel: Any, read: Callable[[dict], Awaitable[Any]], cu
         # where Mantel runs its own go2rtc (live_tv.py), Live TV comes in on: Mantel serves it
         if kind == "live_tv" and live_tv_on and piece.get("tuner"):
             piece["enabled"] = True
+        if kind == "live_tv":
+            # Mantel's own, which Home Assistant never had: the Home app's buttons stay through an import
+            piece.update({k: copy.deepcopy(out["live_tv"][k]) for k in ("buttons", "homekit")})
         out[kind] = piece
     return check_settings(out)

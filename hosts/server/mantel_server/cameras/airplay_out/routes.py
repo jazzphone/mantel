@@ -43,7 +43,7 @@ class Sender:
             raise ConnectionError("Mantel has no https address a screen can fetch Live TV from")
         return url.rstrip("/")
 
-    async def play(self, principal: Any, number: str, sid: str) -> dict:
+    async def play(self, principal: Any, number: str, sid: str, via: str | None = None) -> dict:
         tv = self.app.get("live_tv")
         screen = self.screens.get(sid) if isinstance(sid, str) else None
         if tv is None or screen is None:
@@ -52,7 +52,8 @@ class Sender:
         if ch is None:
             raise LookupError("no such channel")
         user = getattr(getattr(principal, "identity", None), "user", None)
-        detail = {"channel": number, "channel_name": ch.get("name"), "screen": sid, "screen_name": screen.get("name")}
+        detail = {"channel": number, "channel_name": ch.get("name"), "screen": sid, "screen_name": screen.get("name"),
+                  **({"via": via} if via else {})}
         # Live TV's own question first (feature, the channel's camera): a refused play leaves no audit row
         got = await tv.hls(Ctx(send=_quiet, identity=principal), {"type": "hk_tv/hls", "entity_id": ch["camera"]})
         if not isinstance(got, dict) or not got.get("shared"):
@@ -76,12 +77,12 @@ class Sender:
             raise ConnectionError(f"the screen didn't play it ({type(exc).__name__})") from exc
         return {"playing": {"channel": number, "name": ch.get("name")}, "screen": sid}
 
-    async def stop(self, principal: Any, sid: str) -> dict:
+    async def stop(self, principal: Any, sid: str, via: str | None = None) -> dict:
         got = self.shows.get(sid) if isinstance(sid, str) else None
         if got is None or got[0].ended.is_set():
             return {"playing": None, "screen": sid}
-        audit.config(None, principal, "live_tv.airplay.stop", {"screen": sid, "channel": got[1].get("channel")},
-                     app=self.app)
+        audit.config(None, principal, "live_tv.airplay.stop", {"screen": sid, "channel": got[1].get("channel"),
+                     **({"via": via} if via else {})}, app=self.app)
         await got[0].stop()
         return {"playing": None, "screen": sid}
 
@@ -181,6 +182,9 @@ def register(app: Any) -> Sender | None:
             return {"error": "unreachable", "message": f"the screen didn't answer ({type(exc).__name__})"}
         except (ValueError, LookupError) as exc:
             return {"error": "invalid", "message": str(exc)}
+        finally:
+            if step == "finish":
+                _screens_changed(app)
         return {"error": "invalid", "message": "step is begin, finish or cancel"}
 
     async def remove(ctx: Ctx, msg: dict):
@@ -194,6 +198,7 @@ def register(app: Any) -> Sender | None:
         if sid in sender.shows:
             await sender.shows[sid][0].stop()
         screens.remove(sid)
+        _screens_changed(app)
         return {"removed": sid}
 
     async def rename(ctx: Ctx, msg: dict):
@@ -204,6 +209,7 @@ def register(app: Any) -> Sender | None:
             return {"error": "not_found"}
         audit.config(None, ctx.identity, "live_tv.airplay.screen_renamed", {"screen": sid}, app=app)
         got = screens.rename(sid, str(msg.get("name") or ""))
+        _screens_changed(app)
         return {"screen": {k: got.get(k) for k in ("id", "name")}}
 
     async def play_on(ctx: Ctx, msg: dict):
@@ -222,6 +228,13 @@ def register(app: Any) -> Sender | None:
         "hk_tv/play_off": Route(request=play_off),
     })
     return sender
+
+
+def _screens_changed(app: Any) -> None:
+    """A screen paired, renamed or removed: the Home app's buttons for it follow (cameras/live_tv_buttons.py)."""
+    house, host = app.get("linked_house"), app.get("features")
+    if house is not None and host is not None:
+        host.spawn(house.refresh())
 
 
 def _data_dir(cfg: Any):

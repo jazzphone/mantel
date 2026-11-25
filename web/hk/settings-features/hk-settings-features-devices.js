@@ -11,7 +11,9 @@
     var addHref = KIT.addHref, cap = KIT.cap, haPlace = KIT.haPlace, integrationHref = KIT.integrationHref,
         pairChoices = KIT.pairChoices, pairNote = KIT.pairNote, pairsAfter = KIT.pairsAfter, plural = KIT.plural,
         roomCount = KIT.roomCount, roomLists = KIT.roomLists, speakerLists = KIT.speakerLists,
-        speakerName = KIT.speakerName, stateOf = KIT.stateOf, tvCount = KIT.tvCount, tvLists = KIT.tvLists,
+        speakerName = KIT.speakerName, stateOf = KIT.stateOf, tvButtonCount = KIT.tvButtonCount,
+        tvButtonsAfter = KIT.tvButtonsAfter, tvCount = KIT.tvCount, tvHomeLink = KIT.tvHomeLink,
+        tvHomeNames = KIT.tvHomeNames, tvLists = KIT.tvLists,
         vacuumsAfter = KIT.vacuumsAfter, vacuumSub = KIT.vacuumSub, virtualPair = KIT.virtualPair, WHAT = KIT.WHAT;
 
     var K;
@@ -93,6 +95,13 @@
           K.nav({ label: 'AirPlay Screens', value: nScreens === null ? '' : String(nScreens), href: '#/features/tv/screens',
                   fk: 'tv:screens' })]));
       }
+      // LIVE TV IN THE HOME APP: buttons in Apple's Home app that play a channel on a screen (where this server plays them)
+      if (d.home_app) {
+        var nb = tvButtonCount(d.home_app);
+        c.appendChild(K.group({ header: 'Home App', footer: 'A channel on a screen from a tap in Apple’s Home app, with no other app.' }, [
+          K.nav({ label: 'Home App', value: nb ? (nb === 1 ? '1 Button' : nb + ' Buttons') : 'Off', href: '#/features/tv/home',
+                  fk: 'tv:home' })]));
+      }
       // (a page served from outside Home Assistant says its Live TV has no integration there to open)
       if (d.ha_link !== false) openIn(c, 'Live TV', 'hk_tv');
     }
@@ -121,6 +130,30 @@
       var A = P._airplay = P._airplay || /** @type {any} */ ({});
       if (!A.at || Date.now() - A.at > 30000) airplayLoad(P);
       if (!A.screens) { c.appendChild(K.group({ footer: A.error || '' }, [K.info({ label: A.error ? 'Couldn’t load' : 'Loading…' })])); return; }
+      if (A.pairing) { tvPairing(P, c); return; }
+      var paired = A.screens || [];
+      if (paired.length) {
+        paired.forEach(function (s) {
+          c.appendChild(K.group({ header: s.name, footer: s.playing ? 'Playing ' + s.playing.name + '.' : (s.model || '') }, [
+            K.text({ label: 'Name', value: s.name, maxlength: 64, fk: 'tv:screen:name:' + s.id, onCommit: function (v) {
+              airplayAsk(P, { type: 'hk_tv/screen_rename', screen: s.id, name: v }).then(function () { A.at = 0; P.render(); });
+            } }),
+            K.button({ label: 'Remove', destructive: true, fk: 'tv:screen:remove:' + s.id, onClick: function () {
+              K.confirm(P.shadowRoot, { title: 'Remove ' + s.name + '?', message: 'Its pairing is forgotten. To use it again, pair it with a new code.',
+                                        destructive: true, ok: 'Remove' }).then(function (yes) {
+                if (yes) airplayAsk(P, { type: 'hk_tv/screen_remove', screen: s.id }).then(function () { A.at = 0; P.render(); });
+              });
+            } })]));
+        });
+      }
+      tvPairing(P, c);
+    }
+    // PAIRING A SCREEN (AirPlay Screens, and Live TV's Home App page): the code being typed, the screens on the network,
+    // one by its address. `paired` runs once a screen is paired (the Home App page reads its screens again).
+    function tvPairing(P, c, paired) {
+      var A = P._airplay = P._airplay || /** @type {any} */ ({});
+      if (!A.at || Date.now() - A.at > 30000) airplayLoad(P);
+      if (!A.screens) { c.appendChild(K.group({ footer: A.error || '' }, [K.info({ label: A.error ? 'Couldn’t load' : 'Loading…' })])); return; }
       var begin = function (host, port, name, model, psi) {
         A.error = null;
         P.announce('Asking ' + (name || host) + ' for its code');
@@ -137,7 +170,10 @@
                      var pid = A.pairing.id;
                      airplayAsk(P, { type: 'hk_tv/screen_pair', step: 'finish', pairing: pid, code: String(v || '').trim() })
                        .then(function (r) {
-                         if (r && r.screen) { A.pairing = null; A.error = null; A.at = 0; P.announce(r.screen.name + ' paired'); }
+                         if (r && r.screen) {
+                           A.pairing = null; A.error = null; A.at = 0; P.announce(r.screen.name + ' paired');
+                           if (paired) paired();
+                         }
                          else { A.pairing = null; A.error = airplayError(r); }
                        }, function (e) { A.pairing = null; A.error = String((e && e.message) || e); }).then(function () { P.render(); });
                    } }),
@@ -146,21 +182,6 @@
             A.pairing = null; P.render();
           } })]));
         return;
-      }
-      var paired = A.screens || [];
-      if (paired.length) {
-        paired.forEach(function (s) {
-          c.appendChild(K.group({ header: s.name, footer: s.playing ? 'Playing ' + s.playing.name + '.' : (s.model || '') }, [
-            K.text({ label: 'Name', value: s.name, maxlength: 64, fk: 'tv:screen:name:' + s.id, onCommit: function (v) {
-              airplayAsk(P, { type: 'hk_tv/screen_rename', screen: s.id, name: v }).then(function () { A.at = 0; P.render(); });
-            } }),
-            K.button({ label: 'Remove', destructive: true, fk: 'tv:screen:remove:' + s.id, onClick: function () {
-              K.confirm(P.shadowRoot, { title: 'Remove ' + s.name + '?', message: 'Its pairing is forgotten. To use it again, pair it with a new code.',
-                                        destructive: true, ok: 'Remove' }).then(function (yes) {
-                if (yes) airplayAsk(P, { type: 'hk_tv/screen_remove', screen: s.id }).then(function () { A.at = 0; P.render(); });
-              });
-            } })]));
-        });
       }
       var fresh = (A.found || []).filter(function (f) { return !f.paired; });
       c.appendChild(K.group({ header: 'On This Network', footer: (A.error && !A.pairing ? A.error + ' ' : '') +
@@ -173,6 +194,80 @@
           v = String(v || '').trim();
           if (v) begin(v, 7000, '', '', '');
         } })]));
+    }
+
+    // LIVE TV IN THE HOME APP (the server's cameras/live_tv_buttons.py; the owner, 2026-11-25: "The setup could setup Home
+    // Assistant, the Bridge, and the AirPlay Pairing all on the same screen"): which channel on which screen, how Home
+    // Assistant stands, the HomeKit Bridge and its code, and pairing another screen, on one page. Saved as Live TV's
+    // settings (`buttons`, `homekit`); the page's answer is the page again.
+    function tvHome(P, c, d) {
+      var H = d.home_app;
+      if (!H) { c.appendChild(K.group({ footer: 'The Home app’s buttons need Live TV played by this server.' }, [])); return; }
+      var set = function (ch) { return P.featSet('hk_tv', ch); };
+      // (read again keeping what it shows: a screen just paired, the bridge's state)
+      var again = function () { if (P.feats && P.feats.hk_tv && !P.feats.hk_tv.loading) P.featLoad('hk_tv'); };
+      var chans = d.channels || [], screens = H.screens || [], err = P.err('f:hk_tv:buttons'), N = tvHomeNames(H);
+      // 1. THE BUTTONS: a group a paired screen, a row a channel
+      screens.forEach(function (s) {
+        var mine = (H.buttons || []).filter(function (b) { return b.screen === s.id; });
+        c.appendChild(K.group({ header: s.name, sk: 'f:hk_tv:buttons', footer: (err ? err + ' ' : '') + (s.playing ? 'Playing ' + s.playing + '. ' : '') +
+            (mine.length ? 'Each checked channel is a button in the Home app, with Stop Live TV on ' + s.name + '.'
+                         : 'Check a channel to make it a button in the Home app.') },
+          chans.map(function (ch) {
+            var on = mine.some(function (b) { return b.channel === ch.number; });
+            return K.check({ label: ch.name, sub: ch.number, multi: true, on: on, fk: 'tv:home:' + s.id + ':' + ch.number,
+                             onClick: function (v) {
+                               // (shown at once: the page's copy first, the answer replaces it)
+                               H.buttons = tvButtonsAfter(H.buttons, s.id, ch.number, v);
+                               set({ buttons: H.buttons });
+                             } });
+          })));
+      });
+      // 2. A SCREEN TO PAIR (AirPlay Screens' own pairing, here too): the first one, or another; renaming and removing
+      // one stay on AirPlay Screens
+      if (!screens.length && !(P._airplay || {}).pairing) {
+        c.appendChild(K.group({ footer: 'First pair a screen that plays video over AirPlay, such as an Apple HomeView. It shows a code to type here.' }, []));
+      }
+      tvPairing(P, c, again);
+      // 3. HOME ASSISTANT: Mantel Link, who runs the house, the buttons there
+      var L = tvHomeLink(H);
+      c.appendChild(K.group({ header: 'Home Assistant', footer: L.footer }, L.rows.map(function (r) {
+        return K.info({ label: r.label, value: r.value });
+      }).concat(L.ready || !N.ha ? [] : [K.nav({ label: 'Home Assistant', sub: N.link + ', The House', href: N.ha, fk: 'tv:home:ha' })])));
+      // 4. THE HOMEKIT BRIDGE (its name the server's): add it, its code to scan, paired, remove it
+      var hk = H.homekit || { state: 'none' }, rows = [], footer;
+      if (!H.homekit_wanted) {
+        rows.push(K.button({ label: 'Add to Home App', fk: 'tv:home:add', disabled: !tvButtonCount(H), onClick: function () { H.homekit_wanted = true; set({ homekit: true }); } }));
+        footer = tvButtonCount(H) ? N.link + ' adds a HomeKit Bridge named ' + N.bridge + ' with just these buttons. The Home app then asks for its code.'
+                                  : 'Check a channel first: the bridge holds only these buttons.';
+      } else if (hk.state === 'unpaired') {
+        if (hk.qr) rows.push(K.qr({ svg: hk.qr, alt: 'HomeKit setup code for ' + N.bridge }));
+        rows.push(K.info({ label: 'Setup Code', sub: 'In the Home app: +, Add Accessory, then scan the code or type it', value: hk.code || '' }));
+        footer = 'Waiting for the Home app. Once it is added, put each button in a room; this says Paired.';
+      } else if (hk.state === 'paired') {
+        rows.push(K.info({ label: N.bridge, sub: 'In the Home app', value: 'Paired' }));
+        footer = 'Each button is a switch in the Home app that turns itself off again. A new button shows there by itself.';
+      } else if (hk.state === 'error') {
+        rows.push(K.info({ label: N.bridge, sub: hk.error || 'Home Assistant refused it', value: 'Not Added' }));
+        footer = N.link + ' tries again when anything changes. Home Assistant’s log says more.';
+      } else {
+        rows.push(K.info({ label: N.bridge, sub: L.ready ? 'Home Assistant is adding it' : 'Waiting for ' + N.link, value: 'Adding…' }));
+        footer = L.ready ? 'If this stays, the code to scan is in Home Assistant’s notifications (HomeKit Pairing).'
+                         : N.link + ' adds it once Home Assistant is ready, above.';
+      }
+      if (H.homekit_wanted) {
+        rows.push(K.button({ label: 'Remove from Home App…', destructive: true, fk: 'tv:home:remove', onClick: function () {
+          K.confirm(P.shadowRoot, { title: 'Remove ' + N.bridge + ' from the Home app?', ok: 'Remove', destructive: true,
+                                    message: 'Its buttons leave the Home app. Adding it again needs the Home app’s code again.' })
+            .then(function (yes) { if (yes) { H.homekit_wanted = false; set({ homekit: false }); } });
+        } }));
+        // while it is being added or waits for the Home app, look again every few seconds (the code stays until replaced)
+        if (hk.state !== 'paired' && hk.state !== 'error') {
+          var at = location.hash, n = P._tvHomeLook = (P._tvHomeLook || 0) + 1;
+          setTimeout(function () { if (n === P._tvHomeLook && location.hash === at) again(); }, 5000);
+        }
+      }
+      c.appendChild(K.group({ header: 'HomeKit', footer: footer }, rows));
     }
     function tvChannels(P, c, d) {
       var L = tvLists(d);
@@ -676,6 +771,6 @@
     KIT.musicPresets = musicPresets; KIT.musicSpeakers = musicSpeakers; KIT.musicTop = musicTop;
     KIT.notAdded = notAdded; KIT.openIn = openIn; KIT.own = own; KIT.playlistSub = playlistSub;
     KIT.removeRow = removeRow; KIT.setFeature = setFeature; KIT.tvChannel = tvChannel; KIT.tvChannels = tvChannels; KIT.tvScreens = tvScreens;
-    KIT.tvMain = tvMain; KIT.waiting = waiting;
+    KIT.tvHome = tvHome; KIT.tvMain = tvMain; KIT.tvPairing = tvPairing; KIT.waiting = waiting;
   };
 })();

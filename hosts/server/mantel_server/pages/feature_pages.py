@@ -112,6 +112,8 @@ TV_MSG = {"guide_url": "Enter an address starting with http:// or https://, or l
           "name": "Give it a name (up to 40 characters).", "name_taken": "Another channel has that name.",
           "host": "Enter the tuner’s address.", "unknown": "That setting doesn’t exist.",
           "quality": "Choose 720p or 1080p.",
+          "buttons": "That screen or channel isn’t there any more. Pair the screen again, or choose another.",
+          "homekit": "Turn the Home app’s bridge on or off.",
           "no_lineup": "Mantel hasn’t read this tuner’s lineup, so only channels already chosen can be kept."}
 
 
@@ -337,6 +339,9 @@ class FeaturePages:
             "lineup": [{"number": c["number"], "station": c.get("name") or c["number"], "network": networks.get(c["number"])}
                        for c in h.tv.lineup] if h.tv.lineup else None,
             "lineup_error": None if h.tv.lineup else (h.tv.error or TV_MSG["no_lineup"]),
+            # Live TV's buttons for Apple's Home app (cameras/live_tv_buttons.py): where Mantel plays on AirPlay screens
+            **({"home_app": h.app["live_tv_buttons"].status()}
+               if "live_tv_buttons" in h.app and "airplay_sender" in h.app else {}),
         }
 
     # -- the saves -----------------------------------------------------------------------------------
@@ -559,13 +564,30 @@ class FeaturePages:
         from ..features import _HOST, _URL
         errors: dict[str, str] = {}
         for k in changes:
-            if k not in ("host", "guide_url", "channels", "names", "quality"):
+            if k not in ("host", "guide_url", "channels", "names", "quality", "buttons", "homekit"):
                 errors[k] = TV_MSG["unknown"]
         if "quality" in changes:
             if str(changes["quality"]) not in ("720", "1080"):
                 errors["quality"] = TV_MSG["quality"]
             else:
                 piece["quality"] = str(changes["quality"])
+        if "homekit" in changes:
+            if not isinstance(changes["homekit"], bool):
+                errors["homekit"] = TV_MSG["homekit"]
+            else:
+                piece["homekit"] = changes["homekit"]
+        if "buttons" in changes:
+            # Apple's Home app (hk_core.live_tv_buttons): a new button names a paired screen and a chosen channel; one
+            # already saved may stay while its screen or channel is away (it is published again when they come back)
+            from hk_core import live_tv_buttons as LB
+            screens = self.host.app.get("airplay_screens")
+            have = {s["id"] for s in screens.listed()} if screens is not None else set()
+            try:
+                got = LB.buttons(changes["buttons"])
+                LB.buttons(LB.added(piece["buttons"], got), channels=set(piece["channels"]), screens=have)
+                piece["buttons"] = got
+            except LB.Invalid:
+                errors["buttons"] = TV_MSG["buttons"]
         if errors:
             raise PageError("invalid_format", fields=errors)
         if "host" in changes:

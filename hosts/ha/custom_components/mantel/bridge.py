@@ -55,8 +55,8 @@ _LOGGER = logging.getLogger(__name__)
 # Mantel's refusals that are the caller's to fix (the rest are Mantel's trouble)
 VALIDATION = {"invalid", "unknown_service", "unknown_target", "unknown_entity", "unknown_command",
               "not_a_black_screen", "invalid_code", "code_required", "code_locked", "unknown_popup",
-              "not_owned", "commands_disabled", "forbidden", "not_set_up"}
-PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel")
+              "not_owned", "commands_disabled", "forbidden", "not_set_up", "unpaired"}
+PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel", "button")
 TAKE_TIMEOUT = 120.0     # how long a hand-over waits for HK Frontend to let go of one entity
 TAKE_POLL = 0.25
 
@@ -151,9 +151,10 @@ class Bridge:
         link = link_of(entry)
         assert link is not None
         self.hass, self.entry = hass, entry
-        # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here
+        # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here; buttons: it
+        # mirrors Mantel's buttons (Live TV's for Apple's Home app), which Mantel sends only to a side that says so
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv"),
+                               domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv", "buttons"),
                                frames=self.frames(), on_auth_failed=self.on_auth_failed, ca=link.get("ca"),
                                **({"timeout": timeout} if timeout is not None else {}))
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor (all of them)
@@ -169,8 +170,9 @@ class Bridge:
         self._pending_owners: dict[str, Any] | None = None
         self._unwait: Any = None
         self.waiting: set[str] = set()                       # entities HK Frontend has not let go of yet
-        from .homekit_entry import HomeKitLink
-        self.homekit = HomeKitLink(self)                     # phase 31: the Apple TV camera's HomeKit Bridge entry
+        from .homekit_entry import ALERTS, LIVE_TV, HomeKitLink
+        self.homekit = HomeKitLink(self, ALERTS)             # phase 31: the Apple TV camera's HomeKit Bridge entry
+        self.homekit_tv = HomeKitLink(self, LIVE_TV)         # Live TV's buttons' own bridge, "Mantel Live TV"
 
     @callback
     def on_auth_failed(self, status: int) -> None:
@@ -225,9 +227,11 @@ class Bridge:
     def start(self) -> None:
         self.entry.async_create_background_task(self.hass, self.link.run(), f"{NAME}: link to Mantel")
         self.homekit.start()
+        self.homekit_tv.start()
 
     async def stop(self) -> None:
         self.homekit.stop()
+        self.homekit_tv.stop()
         if self._unwait is not None:
             self._unwait()
             self._unwait = None
@@ -307,14 +311,16 @@ class Bridge:
             self.descs.pop(uid, None)
             self._drop(uid, registry=False)          # gone from Mantel's list: off the state machine only
         self.homekit.changed()
+        self.homekit_tv.changed()
 
     @callback
     def on_entity(self, entity: dict[str, Any]) -> None:
         d = self._checked(entity)
         if d is not None:
             self._upsert(d)
-            if d["platform"] == "camera" and isinstance((d.get("features") or {}).get("homekit"), dict):
-                self.homekit.changed()
+            for hk in (self.homekit, self.homekit_tv):
+                if hk.kind.concerns(d):
+                    hk.changed()
 
     @callback
     def on_state(self, unique_id: str, state: Any, attributes: dict[str, Any], available: bool) -> None:
@@ -342,6 +348,7 @@ class Bridge:
         if connected:
             self.hass.async_create_task(self.report(), f"{NAME}: report")
             self.homekit.reconnected()
+            self.homekit_tv.reconnected()
 
     async def report(self) -> None:
         """Tell Mantel whether this Home Assistant has HK Frontend (whether the

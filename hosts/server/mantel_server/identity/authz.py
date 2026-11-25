@@ -107,6 +107,29 @@ def intercom_grants(speakers: Iterable[str]) -> tuple[Grant, ...]:
                        roles=INTERCOM_ROLES, note=INTERCOM_NOTE) for s in sorted(speakers))
 
 
+# LIVE TV'S BUTTONS FOR APPLE'S HOME APP (cameras/live_tv_buttons.py): a press plays a channel on an AirPlay screen as the
+# linked Service actor (alarm_pin.LINKED_ACTOR), and Live TV's gate and the stream's key decide with this policy, not
+# the command gateway's (linked_actions.py's grants never reach them). So the actor gets, only while a button is set up:
+# Live TV (view on the feature) and view on exactly the cameras of the channels a button plays (policy_for), and live
+# view of the same cameras (`camera.live`, control.sensitive) only where live view is decided (doorbell_policy).
+LINKED_TV_ACTOR = "mantel:linked"        # alarm_pin.LINKED_ACTOR, spelled out here (tests pin the two equal)
+LINKED_TV_NOTE = "Live TV's buttons in Apple's Home app (Settings -> Live TV -> Home App): the channels they play"
+
+
+def live_tv_button_grants(cameras: tuple[str, ...]) -> tuple[Grant, ...]:
+    if not cameras:
+        return ()
+    return (Grant(effect="allow", actions=("view",), resource_kind="feature", resource="live_tv",
+                  users={LINKED_TV_ACTOR}, note=LINKED_TV_NOTE),
+            *(Grant(effect="allow", actions=("view",), resource_kind="entity", resource=c, users={LINKED_TV_ACTOR},
+                    note=LINKED_TV_NOTE) for c in cameras))
+
+
+def live_tv_button_live(cameras: tuple[str, ...]) -> tuple[Grant, ...]:
+    return tuple(Grant(effect="allow", actions=("control.sensitive",), resource_kind="entity", resource=c,
+                       users={LINKED_TV_ACTOR}, note=LINKED_TV_NOTE + " (live view only)") for c in cameras)
+
+
 def _is_loopback(peer: str | None) -> bool:
     try:
         return peer is not None and ip_address(peer).is_loopback
@@ -260,12 +283,13 @@ class Authz:
         base = self.rbac.policy()            # cached by the store until a grant/role/scope write
         # (a timer turned on in Which Timers belongs to no room, and every tablet shows its last minute, as a quick timer's)
         timers = getattr(self.app.get("timers"), "turned_on", None) or ()
-        key = tuple(sorted(timers))
+        tv = self.tv_button_cameras()
+        key = (tuple(sorted(timers)), tv)
         cached = self._derived.get(subject.door)
         if cached is not None and cached[0] is base and cached[2] == key:
             return cached[1]
-        extra = tuple(Grant(effect="allow", actions=frozenset({"view", "control"}), resource_kind="entity", resource=e, roles=frozenset({"wall_tablet"})) for e in key)
-        got = replace(base, grants=tuple(base.grants) + HOUSE_GRANTS + extra)
+        extra = tuple(Grant(effect="allow", actions=frozenset({"view", "control"}), resource_kind="entity", resource=e, roles=frozenset({"wall_tablet"})) for e in key[0])
+        got = replace(base, grants=tuple(base.grants) + HOUSE_GRANTS + extra + live_tv_button_grants(tv))
         self._derived[subject.door] = (base, got, key)
         return got
 
@@ -286,13 +310,20 @@ class Authz:
             log.exception("could not read HK's pop-ups for the talk-back speakers")
             return frozenset()
 
+    def tv_button_cameras(self) -> tuple[str, ...]:
+        """The Live TV channel cameras the Home app's buttons play (cameras/live_tv_buttons.py ``cameras``): none while
+        no button is set up. Read as it is (worked out when the buttons or the house change), never computed here."""
+        got = getattr(self.app.get("live_tv_buttons"), "cameras", None)
+        return got if isinstance(got, tuple) else ()
+
     def doorbell_policy(self, subject: Subject) -> Policy:
-        """The house policy plus DOORBELL_GRANTS. Used ONLY for camera live view and talk-back."""
+        """The house policy plus DOORBELL_GRANTS, and live view of the Live TV buttons' channels for the linked actor.
+        Used ONLY for camera live view and talk-back."""
         base = self.policy_for(subject)
         cached = getattr(self, "_doorbell_cache", None)
         if cached is not None and cached[0] is base:
             return cached[1]
-        got = replace(base, grants=tuple(base.grants) + DOORBELL_GRANTS)
+        got = replace(base, grants=tuple(base.grants) + DOORBELL_GRANTS + live_tv_button_live(self.tv_button_cameras()))
         self._doorbell_cache = (base, got)
         return got
 
