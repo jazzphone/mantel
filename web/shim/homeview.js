@@ -1,5 +1,5 @@
 // @ts-check
-// An Apple HomeView's page, laid out wider and kept clear of Safari's buttons (2026-11-23).
+// An Apple HomeView's page, laid out at a set width and kept clear of Safari's buttons (2026-11-23).
 //
 // THE APPLE HOMEVIEW: Apple's 7-inch square home display, whose Safari is the only way a web page gets on it.
 // Its Safari says it is an iPhone ("iPhone; CPU iPhone OS 18_6 ... Version/27.2 Mobile") on a 544 x 544 screen. No
@@ -8,10 +8,10 @@
 // comes out about three quarters of that size, so every sheet it opens, drawn at full size, looked half again too big
 // beside it (the owner, the Kitchen's HomeView: "the pop up for the Home is really large ... hard to look at").
 //
-// So the page is laid out WIDER and Safari scales it down to the screen, as it does any page that asks (the meta
-// viewport, which a phone's Safari honors -- not a computer's: tesla-viewport.js zooms instead): LAYOUT px across, so
-// the grid, its sheets and their text all come out at one scale, and the page is an upright iPad's width, not a
-// phone's. And Safari's buttons float over the page's top edge (back, the address, the time), so the page keeps
+// So the page is laid out LAYOUT px across and Safari scales it to the screen, as it does any page that asks (the meta
+// viewport, which a phone's Safari honors -- not a computer's: tesla-viewport.js zooms instead), so the grid, its
+// sheets and their text all come out at one scale. It was first an upright iPad's width (720, then 648); since
+// 2026-11-25 it is a large iPhone's, scaled up. And Safari's buttons float over the page's top edge (back, the address, the time), so the page keeps
 // TOP px clear there, through --hk-safe-top (hk-base.js SAFE: the sheets, the tab bar, the menu) and --hk-view-top
 // (home.html's view container, and the Home Grid's height: hk-layout-home-grid.js). Nothing changes anywhere else:
 // both are unset off a HomeView.
@@ -28,10 +28,11 @@
 // a HomeView shows the paired iPhone's CarPlay apps -- and says the window's size first (window.mantelCarScreen; the
 // web view's own screen is the phone's). A square one is a HomeView, laid out the same, with no Safari to keep clear of.
 (function () {
-  // (2026-11-25, the owner: "too small": 720 showed everything at 0.76; 648 shows it at 0.84, about 11 % bigger. Not 640
-  // or under: at 640 the phone's CSS starts (hk-responsive.css max-width: 640px) and the phone's layout came back)
-  var LAYOUT = 648;   // the page's width in CSS px (544 px of screen: 0.84 of it)
-  var TOP = 22;       // clear of Safari's floating buttons, in the page's px (measured off the owner's photos: ~15 of 544)
+  // (2026-11-25, the owner: "too small": 720 showed everything at 0.76, 648 at 0.84 -- still "not big enough ... it needs
+  // to be treated like a large iPhone". So 440, an iPhone Pro Max's width: the phone's layout (hk-responsive.css under
+  // 640 px), scaled up 1.24, every page's words and buttons half again the size they were at 648)
+  var LAYOUT = 440;   // the page's width in CSS px (544 px of screen: 1.24 of it)
+  var TOP = 15;       // clear of Safari's floating buttons, in the page's px (~18.5 of the screen's 544)
   var CORNER = 70;    // the display's corner radius in pt of its 544 (measured off the owner's photo)
   var s = window.screen, ua = navigator.userAgent || '', car = window.mantelCarScreen;
   var width = car ? car.width : s && s.width, height = car ? car.height : s && s.height;
