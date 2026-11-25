@@ -79,7 +79,10 @@ const CLEAR = { season: '', cond: 'sunny', wet: { kind: 'none', rate: 0 }, fog: 
         await sleep(1500);
         await page.evaluate(() => window.hkSkyHandover.again(true));
         const played = await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 40000);
-        await sleep(800);
+        // (the glass and the tab bar take the frost picture a few frames after it plays: waited for on the page, not a
+        // clock -- 800 ms read the bar bare under a full run's load, twice, 2026-11-25)
+        await until(page, '(() => { const s = (' + state + ')(); return !!(s.bar && s.bar.pic && s.layers.length && s.layers.every((L) => L.pic)); })()',
+                    null, 15000);
         let s = await page.evaluate(state);
         say(played && s.status.busy, tag + ': pouring rain is handed over (busy: ' + (s.status && s.status.busy) + ')', s.status);
         const ops = s.ops.join(' ');
