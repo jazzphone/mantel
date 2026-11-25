@@ -28,8 +28,10 @@
 // a HomeView shows the paired iPhone's CarPlay apps -- and says the window's size first (window.mantelCarScreen; the
 // web view's own screen is the phone's). A square one is a HomeView, laid out the same, with no Safari to keep clear of.
 (function () {
-  var LAYOUT = 720;   // the page's width in CSS px (544 px of screen: 0.76 of it, about the Square grid's own fit)
-  var TOP = 24;       // clear of Safari's floating buttons, in the page's px (measured off the owner's photos: ~15 of 544)
+  // (2026-11-25, the owner: "too small": 720 showed everything at 0.76; 648 shows it at 0.84, about 11 % bigger. Not 640
+  // or under: at 640 the phone's CSS starts (hk-responsive.css max-width: 640px) and the phone's layout came back)
+  var LAYOUT = 648;   // the page's width in CSS px (544 px of screen: 0.84 of it)
+  var TOP = 22;       // clear of Safari's floating buttons, in the page's px (measured off the owner's photos: ~15 of 544)
   var CORNER = 70;    // the display's corner radius in pt of its 544 (measured off the owner's photo)
   var s = window.screen, ua = navigator.userAgent || '', car = window.mantelCarScreen;
   var width = car ? car.width : s && s.width, height = car ? car.height : s && s.height;
