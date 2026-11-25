@@ -76,7 +76,9 @@ ATTRS = ("friendly_name", "unit_of_measurement", "device_class", "brightness", "
          "media_artist", "media_album_name", "volume_level", "is_volume_muted", "media_duration", "media_position",
          "media_position_updated_at", "supported_features", "percentage", "icon",
          # a timer's countdown and a thermostat's range (the widgets: a timer counts down on its own from finishes_at)
-         "finishes_at", "remaining", "duration", "min_temp", "max_temp", "target_temp_step", "hvac_modes")
+         "finishes_at", "remaining", "duration", "min_temp", "max_temp", "target_temp_step", "hvac_modes",
+         # a thermostat's fan (the HomeView's Climate page: Fan, 2026-11-25)
+         "fan_mode", "fan_modes")
 STATES_MAX = 24
 ENTITIES_MAX = 500          # every kind: the things one switches first, the readings after
 ENTITIES_KIND_MAX = 2000    # the kinds asked (a widget's Type): a house's 690 switches fit

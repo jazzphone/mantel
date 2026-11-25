@@ -512,6 +512,7 @@ Mantel Server.
   - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).
   - `app_music.py` — The apps' music, over REST (docs/phase10/APPLE-APPS.md §12
   - `app_music_device.py` — The phone as a speaker
+  - `app_power.py` — THE POWER PAGE FOR THE APP (2026-11-25, the owner, on the HomeView's CarPlay Home tab
   - `app_shell.py` — Phase 10
   - `app_tv.py` — THE LIVE TV WIDGET'S PLAY ON (phase 35, docs/phase35/PLAN.md)
   - `tablet_app.py` — Mantel for Android, managed from Mantel Settings on the home network (docs/phase26/ANDROID-APP.md "Managing a tablet").
