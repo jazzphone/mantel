@@ -48,6 +48,9 @@ var JS_EXCEPT = {
   '1060': 'energy highlights', '520': 'energy highlights', '720': 'house battery',
   // the screensaver (art, its own scale)
   '470': 'screensaver',
+  // a Big Number thermostat's face in a sheet (a container query on the face): narrower, its name has no room between
+  // the arrows -- an Apple HomeView's short sheet, 2026-11-25
+  '230': 'thermostat face in a sheet',
   // the music pane's own width (a container, not the screen): its five
   // buttons on one row, smaller, in a narrow pane (2026-10-31)
   '360': 'music pane'

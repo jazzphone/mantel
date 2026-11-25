@@ -9,7 +9,7 @@
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-lock'] = function (K) {
     var at = K.at, C = K.C, domainOf = K.domainOf, glyph = K.glyph, gone = K.gone, num = K.num, Panel = K.Panel,
-        PANEL_CSS = K.PANEL_CSS;
+        PANEL_CSS = K.PANEL_CSS, SHORT_MQ = K.SHORT_MQ;
 
     // ------------------------------------------------------------ lock + garage
     // THE HOLD RING. A door that lets someone in is opened by a hold: the ring
@@ -48,6 +48,11 @@
           '.hint{font-size:16px}',
           '@media (max-width:' + C.BP.phone + 'px){.lk{width:228px;height:228px;border-radius:114px}',
           '  .lk .core{width:166px;height:166px;border-radius:83px}.big.lkt{font-size:32px}}',
+          // A SHORT SCREEN: the ring the left column's square (--hk-short-box), its disc the same 0.73 of it; on a
+          // phone's width (an Apple HomeView) the state a step smaller, so "Unlocked" fits the column beside it
+          '@media ' + SHORT_MQ + '{:host .pn > .lk{width:var(--hk-short-box);height:var(--hk-short-box);border-radius:50%}',
+          '  :host .pn > .lk .core{width:calc(var(--hk-short-box) * 0.727);height:calc(var(--hk-short-box) * 0.727);border-radius:50%}}',
+          '@media ' + SHORT_MQ + ' and (max-width:' + C.BP.phone + 'px){.big.lkt{font-size:30px}}',
           // THE ART (2026-11-05; EASE's curves: exit, spring, build -- a door's run is linear, as a door moves):
           // the lock's shackle and the garage's door
           // drawn in parts, so they move as the device does -- the shackle

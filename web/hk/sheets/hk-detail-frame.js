@@ -57,8 +57,10 @@
     // kind can move. (A panel with a long list may ask for more height -- hkHeightKind, a number, --hkd-h; the music sheet
     // does -- and the screen's own cap and the phone's and the short screen's rules below still win.)
     var STD = 460, WIDE = 820, SHEET_H = 680;
-    // A SHORT SCREEN: wider than a phone, under 500 px tall, held sideways
-    var SHORT_MQ = '(orientation:landscape) and (max-height:500px) and (min-width:' + (C.BP.phone + 1) + 'px)';
+    // A SHORT SCREEN: under 500 px tall and at least as wide -- a phone held sideways, the car's, and an Apple HomeView's
+    // 440 x 440 page (web/shim/homeview.js; 2026-11-25, the owner: the sheets "need to be designed for this", side by side).
+    // (min-aspect-ratio, not orientation:landscape: a square window is portrait to CSS)
+    var SHORT_MQ = '(min-aspect-ratio:1/1) and (max-height:500px)';
     // ONE SPACING SCALE for every sheet (2026-10-12: gaps intentional, things
     // aligned). 20 between regions -- the header and the body, two columns,
     // a notification and the sheet under it; 20 (a phone 16) between a
@@ -240,7 +242,10 @@
       // SHORT) -- with a phone's header and corners. HAS_SHORT is the one
       // test, here and in the panels.
       '@media ' + SHORT_MQ + '{',
-      '  .hkd .sheet{width:calc(var(--hkd-w,' + STD + 'px) + 120px);height:calc(var(--hk-vh, 100dvh) - 24px);max-height:calc(var(--hk-vh, 100dvh) - 24px);',
+      // (under Safari's buttons on a HomeView, --hk-safe-top; no wider than the screen, less 12 a side, where it's a phone's width)
+      '  .hkd{padding-top:var(--hk-safe-top, 0px)}',
+      '  .hkd .sheet{width:min(calc(var(--hkd-w,' + STD + 'px) + 120px), calc(var(--hk-vw, 100vw) - 24px));',
+      '    height:calc(var(--hk-vh, 100dvh) - 24px - var(--hk-safe-top, 0px));max-height:calc(var(--hk-vh, 100dvh) - 24px - var(--hk-safe-top, 0px));',
       '    padding:16px;gap:12px;border-radius:30px}',
       '  .hkd .sheet:has(hk-detail-media){width:min(760px, calc(var(--hk-vw, 100vw) - max(var(--hk-content-left, 0px), var(--hk-safe-left,env(safe-area-inset-left,0px))) - ' +
         'var(--hk-safe-right,env(safe-area-inset-right,0px)) - 32px))}',

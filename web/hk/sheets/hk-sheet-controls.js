@@ -10,8 +10,8 @@
   (window.hkSheets = window.hkSheets || {})['hk-sheet-controls'] = function (K) {
     var at = K.at, C = K.C, clamp = K.clamp, fanGuard = K.fanGuard, fanLabel = K.fanLabel, fanSteps = K.fanSteps,
         glyph = K.glyph, gone = K.gone, num = K.num, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS,
-        sinceText = K.sinceText, SLIDER_H = K.SLIDER_H, SPEED_NAMES = K.SPEED_NAMES, throttle = K.throttle,
-        unavailable = K.unavailable;
+        SHORT_MQ = K.SHORT_MQ, sinceText = K.sinceText, SLIDER_H = K.SLIDER_H, SPEED_NAMES = K.SPEED_NAMES,
+        throttle = K.throttle, unavailable = K.unavailable;
 
     // ------------------------------------------------------------ toggle
     class TogglePanel extends Panel {
@@ -87,7 +87,10 @@
           '  border-radius:20px;background:rgba(255,179,64,0.16);color:#FFB340;font-size:15px;font-weight:600}',
           '.guard button{height:30px;padding:0 13px;border:0;border-radius:15px;font:inherit;font-size:13px;',
           '  font-weight:600;color:' + window.hkCards.v('ink') + ';background:rgba(255,255,255,0.16);cursor:pointer}',
-          '@media (max-width:' + C.BP.phone + 'px){.names{left:calc(100% + 12px)}.names span{font-size:14px}.vs{height:340px}}'
+          '@media (max-width:' + C.BP.phone + 'px){.names{left:calc(100% + 12px)}.names span{font-size:14px}.vs{height:340px}}',
+          // A SHORT SCREEN A PHONE WIDE (an Apple HomeView): no room for the speeds' names beside the slider -- they ran
+          // under the state beside it; the state above says the speed, the slider's steps show where it is
+          '@media ' + SHORT_MQ + ' and (max-width:' + C.BP.phone + 'px){.names{display:none}}'
         ].join('');
       }
       hkWidthKind() { return 'fan'; }

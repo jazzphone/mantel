@@ -269,6 +269,10 @@
     '@keyframes mpeq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}',
     '.mpcap{font-size:13px;opacity:.78;min-height:36px;margin-bottom:12px;line-height:1.38}',
     '.mpcap.err{color:#ffb340;opacity:1}',
+    // A SHORT SCREEN (hk-detail-frame.js SHORT_MQ, written out: an Apple HomeView's 440 px page, a phone on its side): the
+    // line over the buttons one line, trimmed -- two lines and their room cost the list its rooms; an error keeps its lines
+    '@media (min-aspect-ratio:1/1) and (max-height:500px){.mpcap:not(.err){min-height:0;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '  .mpfoot{padding:10px 22px 14px}}',
     // RESET AND UPDATE AS EQUAL HALVES, Stop a square at the end (the user's
     // pick, 2026-10-11, for Add and Transfer: buttons sized to their words
     // looked off)

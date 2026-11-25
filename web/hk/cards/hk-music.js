@@ -379,6 +379,27 @@
     '.mu[cols="1"] .grab{display:block;flex:none;width:100%;height:26px;margin:-4px 0 6px;cursor:pointer;touch-action:none;position:relative}',
     '.mu[cols="1"] .grab::before{content:"";position:absolute;left:50%;top:8px;width:42px;height:5px;margin-left:-21px;border-radius:3px;background:rgba(255,255,255,.5)}',
     '.mu[cols="1"] .front{flex:none}',
+    // ...ON A SHORT SCREEN A PHONE WIDE (an Apple HomeView's 440 x 440 page; 2026-11-25, the owner: the Music page's pop-ups "need
+    // to be worked out" there): the phone's tall sheet left the song and every control under the fold. The cover a square beside
+    // the speaker line, the song and the artist; the controls strip across the sheet under them; Up Next left out. Clear of
+    // Safari's buttons (--hk-safe-top). (The short test is hk-detail-frame.js SHORT_MQ's, written out: this CSS is built at load.)
+    '@media (min-aspect-ratio:1/1) and (max-height:500px){',
+    '  .mu[cols="1"] .left{padding-top:calc(var(--hk-safe-top, 0px) + 6px);display:flex;flex-direction:column}',
+    '  .mu[cols="1"] .grab{height:20px;margin:0 0 6px}',
+    '  .mu[cols="1"] .front{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto auto minmax(0,1fr) auto;column-gap:16px}',
+    '  .mu[cols="1"] .front > *{grid-column:1 / -1}',
+    '  .mu[cols="1"] .front::before,.mu[cols="1"] .front::after{content:"";grid-column:2}',
+    '  .mu[cols="1"] .front::before{grid-row:1}.mu[cols="1"] .front::after{grid-row:5}',
+    '  .mu[cols="1"] .front > .artbox{grid-column:1;grid-row:1 / 6;--np-a:min(150px, calc(var(--hk-vh, 100dvh) - 280px - var(--hk-safe-top, 0px)));',
+    '    width:var(--np-a);height:var(--np-a);align-self:center}',
+    '  .mu[cols="1"] .front > .ttl{grid-column:2;grid-row:2;margin-top:0}',
+    '  .mu[cols="1"] .front > .tt{grid-column:2;grid-row:3;margin-top:2px;font-size:22px}',
+    '  .mu[cols="1"] .front > .st{grid-column:2;grid-row:4;font-size:15px}',
+    '  .mu[cols="1"] .front > .hks{grid-row:6;margin-top:12px}',
+    '  .mu[cols="1"] .front > .nx{display:none}',
+    // (the Speakers and Queue sheet from the foot: the whole height under Safari's buttons, for the rooms' list)
+    '  .mpanel.sheet{height:calc(var(--hk-vh, 100dvh) - var(--hk-safe-top, 0px) - 8px)}',
+    '}',
     // ...its own, when the dashboard's bar is not up (none on this screen,
     // or dismissed): a row in the page under the search -- never over the
     // tab bar or anything else (a floating one covered a floating tab bar)

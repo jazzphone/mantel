@@ -598,6 +598,9 @@ class HkControlCard extends HTMLElement {
       .big .nm b{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
       .big .nm b{font-size:${window.hkCards.TILE.centred.square.name}px;font-weight:600;line-height:${window.hkCards.TILE.centred.square.line}px;letter-spacing:-.3px;color:${window.hkCards.v('ink')}}
       .big .nm i{font-style:normal;font-size:${window.hkCards.TILE.centred.square.sub}px;font-weight:400;line-height:${window.hkCards.TILE.centred.square.line}px;color:${window.hkCards.v('ink-2')}}
+      /* (in a sheet -- bare: its header names the thermostat -- a face too narrow for the name between the arrows keeps the
+         arrows and leaves the name out: an Apple HomeView's sheet, 2026-11-25, where it came out "Do / W... / H...") */
+      @container (max-width:230px){.surface.bare.big .ft .nm{visibility:hidden}}
       /* SMALL AND TALL (2026-10-31, the owner's notes on the widget mock-up):
          a column inside the block's inset -- the target(s), Tall's row of
          modes, then the foot: the arrows either side of the name, and under

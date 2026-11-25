@@ -250,7 +250,9 @@
         // (Big Number: a square, as tall as the panel)
         if (this.hasAttribute('big')) {
           var pb = this._root.querySelector('.pn'), hb = pb ? pb.clientHeight : 0;
-          if (hb) dial.style.width = Math.max(160, Math.min(360, hb)) + 'px';
+          // (and no wider than half the panel: an Apple HomeView's sheet is a phone's width)
+          var half = pb ? Math.floor(pb.clientWidth / 2) : 360;
+          if (hb) dial.style.width = Math.max(140, Math.min(360, hb, half)) + 'px';
           return;
         }
         var wrap = card && card.shadowRoot && card.shadowRoot.querySelector('.tstat-wrap');
@@ -258,7 +260,7 @@
         var pn = this._root.querySelector('.pn'), room = pn ? pn.clientHeight : 0;
         if (!wrap || !room || !card.offsetHeight || !wrap.offsetWidth) return;
         var rest = card.offsetHeight - wrap.offsetHeight, k = wrap.offsetHeight / wrap.offsetWidth;
-        var w = Math.max(160, Math.min(320, Math.floor((room - rest) / k)));
+        var w = Math.max(140, Math.min(320, Math.floor((room - rest) / k), Math.floor(pn.clientWidth / 2)));
         if (Math.abs(w - dial.offsetWidth) > 1) dial.style.width = w + 'px';
       }
       _alignTop() {

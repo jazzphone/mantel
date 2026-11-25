@@ -129,12 +129,13 @@
           '  :host .pn > .pl{grid-column:1 / -1;grid-row:1 / 8;justify-self:stretch;margin-block:0}',
           // (centred on the cover as the other sheets' columns are on their
           // controls: a flexible row above the track and one below it)
-          '  :host .pl{display:grid;grid-template-columns:var(--hk-short-h) minmax(0,1fr);grid-template-rows:minmax(0,1fr) repeat(7,auto) minmax(0,1fr);',
+          '  :host .pl{display:grid;grid-template-columns:var(--hk-short-box) minmax(0,1fr);grid-template-rows:minmax(0,1fr) repeat(7,auto) minmax(0,1fr);',
           '    column-gap:24px;row-gap:6px;margin:0;height:var(--hk-short-h)}',
           '  :host .pl::before,:host .pl::after{content:"";grid-column:2}',
           '  :host .pl::before{grid-row:1}:host .pl::after{grid-row:9}',
           '  :host .pl > *{grid-column:2;min-width:0}',
-          '  :host .pl > .art{grid-column:1;grid-row:1 / 10;width:var(--hk-short-h);height:var(--hk-short-h);align-self:center}',
+          // (the cover the left column's square: the body's height, or half the sheet on a phone's width)
+          '  :host .pl > .art{grid-column:1;grid-row:1 / 10;width:var(--hk-short-box);height:var(--hk-short-box);align-self:center}',
           '  :host .pl > .art.tv{height:auto;aspect-ratio:16/9}',
           '  .tp button{width:48px;height:48px}.tp .pp{width:56px;height:56px}',
           '  :host .pl .vw,:host .pl .vst{margin:0}',

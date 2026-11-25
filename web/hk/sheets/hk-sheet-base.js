@@ -187,8 +187,11 @@
       // with .pn: specific enough to win over a panel's own sizes.
       '@media ' + SHORT_MQ + '{',
       // (the control's corners as variables: a capsule, half its width; the slider's 0.29 of it, as the tablet's 44 of 150)
-      '  :host{--hk-short-h:calc(var(--hk-vh, 100dvh) - 112px);--hk-short-w:min(120px, calc(var(--hk-short-h) * 0.43));',
-      '    --hk-short-cap:calc(var(--hk-short-w) / 2);--hk-short-vr:calc(var(--hk-short-w) * 0.29);--hk-short-kn:calc((var(--hk-short-w) - 24px) / 2)}',
+      '  :host{--hk-short-h:calc(var(--hk-vh, 100dvh) - 112px - var(--hk-safe-top, 0px));--hk-short-w:min(120px, calc(var(--hk-short-h) * 0.43));',
+      '    --hk-short-cap:calc(var(--hk-short-w) / 2);--hk-short-vr:calc(var(--hk-short-w) * 0.29);--hk-short-kn:calc((var(--hk-short-w) - 24px) / 2);',
+      // (--hk-short-box: the largest square the left column holds -- the body's height, or half the sheet's width where
+      // that is less: an Apple HomeView's 440 px page, whose sheet is 416 wide; 84 = its margins, padding and the gap)
+      '    --hk-short-box:min(var(--hk-short-h), calc((var(--hk-vw, 100vw) - 84px) / 2))}',
       // (no row gap: an empty row would still take one; the right column's
       // pieces are 12 apart by their own margins, 6 a side)
       // (only a panel with such a control: a reading and its chart, a list, keep their own column)
@@ -241,6 +244,16 @@
       '  :host .pn .grp{min-width:0}',
       '  :host .lab{margin-bottom:-6px}',
       '  :host .btn{height:44px;border-radius:22px;font-size:15px}',
+      '}',
+      // A SHORT SCREEN A PHONE WIDE (an Apple HomeView's 440 x 440 page, 2026-11-25): the right column is about 170 px.
+      // A color light's swatches wrap into centered rows; the thermostat's modes and fan keep each word whole (a step
+      // smaller, no padding inside a segment), and its three readings sit closer.
+      '@media ' + SHORT_MQ + ' and (max-width:' + C.BP.phone + 'px){',
+      '  :host .pn .sw{flex-wrap:wrap;justify-content:center;overflow:visible;gap:8px}',
+      '  :host .pn .sw button{width:36px;height:36px;border-radius:18px}',
+      '  :host .side .sctl .seg button{font-size:13px;padding:0;white-space:nowrap;min-width:0}',
+      '  :host .side .now .rd{grid-template-columns:repeat(3,auto);justify-content:space-between;gap:6px}',
+      '  :host .side .now .k{font-size:11px}:host .side .now .v{font-size:17px}',
       '}'
     ].join('');
 
