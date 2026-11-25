@@ -39,7 +39,8 @@
   } else if (!(s && /\biPhone\b/.test(ua) && width > 0 && width === height)) return;
   var root = document.documentElement;
   root.setAttribute('hk-homeview', '');
-  window.hkHomeView = { layout: LAYOUT, top: TOP, corner: CORNER * LAYOUT / width };   // (the corner in the page's px)
+  // (the corner in the page's px; car: the app's car screen, not Safari -- Live TV keeps its own player there)
+  window.hkHomeView = { layout: LAYOUT, top: TOP, corner: CORNER * LAYOUT / width, car: !!car };
   root.style.setProperty('--hk-safe-top', 'max(env(safe-area-inset-top, 0px), ' + TOP + 'px)');
   root.style.setProperty('--hk-view-top', 'var(--hk-safe-top)');
   var m = document.querySelector('meta[name="viewport"]');

@@ -323,6 +323,28 @@
       } catch (e) { return false; }
     }
 
+    // APPLE'S FULL-SCREEN PLAYER ON A HOMEVIEW (2026-11-25, the owner: on the HomeView, Live TV still played in the page,
+    // not in its native player). Elsewhere the HLS video plays in the page (playsinline: a phone or an iPad keeps the
+    // caption, the X and Play On over the picture). In a HomeView's Safari (homeview.js: window.hkHomeView, without .car:
+    // the iOS app's car screen sets it too) the channel goes to Safari's own full-screen player -- Apple's controls, the
+    // system volume, AirPlay: no playsinline, and webkitEnterFullscreen() once the stream is ready. Measured in iOS 27
+    // Safari: a phone's Safari goes full screen on its own when the video starts without playsinline; an iPad's plays
+    // inline but takes the call, outside the tap, since the tap's play() lifted the gesture rule for that video. Closing
+    // Apple's player pauses the video, so it closes this player too: the stream and the tuner go, the guide is back.
+    function tvNative(w) { return !!(w && w.hkHomeView && !w.hkHomeView.car); }
+    function nativeFullscreen(video, done) {
+      var shown = false;
+      video.addEventListener('loadedmetadata', function () {
+        if (video.webkitDisplayingFullscreen || typeof video.webkitEnterFullscreen !== 'function') return;
+        try { video.webkitEnterFullscreen(); } catch (e) { /* refused: it plays in the page, with Apple's full-screen button */ }
+      });
+      video.addEventListener('webkitbeginfullscreen', function () { shown = true; });
+      video.addEventListener('webkitendfullscreen', function () {
+        // (to Picture in Picture is not closing it)
+        if (shown && video.webkitPresentationMode !== 'picture-in-picture') done();
+      });
+    }
+
     // The full-screen player. Mounted in home-assistant's shadow root, like
     // hk-popup's sheets (position:fixed under a transformed view would be
     // placed against the view, not the screen).
@@ -373,8 +395,12 @@
         // playlist is set (a play() after the reply would start muted, or not at all)
         video = document.createElement('video');
         video.controls = true;
-        video.playsInline = true;
-        video.setAttribute('playsinline', '');
+        if (tvNative(window)) {
+          nativeFullscreen(video, function () { player.close(); });
+        } else {
+          video.playsInline = true;
+          video.setAttribute('playsinline', '');
+        }
         video.setAttribute('x-webkit-airplay', 'allow');
         el.insertBefore(video, el.firstChild);
         try { Promise.resolve(video.play()).catch(function () {}); } catch (e) { /* nothing to play yet */ }
@@ -436,7 +462,10 @@
           closed = true;
           clearTimeout(quietT); clearInterval(beatT); clearInterval(hlsT);
           if (video) {
-            try { video.pause(); video.removeAttribute('src'); video.load(); } catch (e) { /* gone */ }
+            try {
+              if (video.webkitDisplayingFullscreen) video.webkitExitFullscreen();   // (leaving the page under Apple's player)
+              video.pause(); video.removeAttribute('src'); video.load();
+            } catch (e) { /* gone */ }
             if (video.src !== undefined && h && h.callWS) Promise.resolve(h.callWS({ type: 'hk_tv/hls', entity_id: ch.camera, stop: true })).catch(function () {});
           }
           window.removeEventListener('keydown', onKey, true);

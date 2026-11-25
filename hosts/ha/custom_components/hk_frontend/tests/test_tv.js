@@ -150,7 +150,7 @@ ok('holds hk-idle while open and releases it on close',
    /hkIdle\.hold\('hk-tv', true\)/.test(player) && /hkIdle\.hold\('hk-tv', false\)/.test(player));
 ok('close: removes the sheet (drops the stream) and says it stopped watching',
    /el\.parentNode\.removeChild\(el\);[^\n]*\n\s*watching\(false\)/.test(player));
-ok('X and Escape both close', /\.x'\)\.addEventListener\('click'/.test(player) && /e\.key === 'Escape'/.test(player));
+ok('X and Escape both close', /\.x(:not\(\.on\))?'\)\.addEventListener\('click'/.test(player) && /e\.key === 'Escape'/.test(player));
 ok('the controls fade and come back on a touch', /quiet/.test(player) && /addEventListener\('pointerdown', wake, true\)/.test(player));
 ok('the X never fades (only the caption and the sound controls do)',
    /'\.hktv\.quiet \.cap\{opacity:0\}'/.test(player) && !/quiet \.top/.test(player) && /--hk-db-bar-opacity/.test(player));
@@ -166,6 +166,47 @@ ok('...and a still not loaded yet is hidden too (Safari outlines an empty <img>:
 ok('the still hides once the video moves, and returns on a reconnect',
    /'\.db\.moving>img\{visibility:hidden\}'/.test(cam) && /db\.classList\.add\('moving'\)/.test(cam) &&
    /box\.classList\.remove\('moving'\)/.test(cam));
+
+// (2026-11-25) On a HomeView's Safari a channel plays in Apple's full-screen player, not in the page; everywhere else the
+// HLS video stays in the page (playsinline). Run on stand-in windows and a stand-in video.
+print('\n=== Apple\'s full-screen player on a HomeView (driven) ===');
+(function () {
+  var a = src.indexOf('function tvNative('), b = src.indexOf('// The full-screen player.', a);
+  ok('tvNative and nativeFullscreen are there', a > 0 && b > a);
+  if (!(a > 0 && b > a)) return;
+  var M = new Function(src.slice(a, b) + '\nreturn { native: tvNative, full: nativeFullscreen };')();
+  ok('a HomeView\'s Safari: Apple\'s player', M.native({ hkHomeView: { layout: 720 } }) === true);
+  ok('a phone, an iPad, a computer, a wall tablet: the page\'s player', M.native({}) === false && M.native(null) === false);
+  ok('the iOS app\'s car screen (it sets hkHomeView too): the page\'s player',
+     M.native({ hkHomeView: { layout: 720, car: true } }) === false);
+  function fakeVideo(enter) {
+    var L = {};
+    return { L: L, entered: 0, webkitDisplayingFullscreen: false, webkitPresentationMode: 'inline',
+             addEventListener: function (t, f) { (L[t] = L[t] || []).push(f); },
+             fire: function (t) { (L[t] || []).forEach(function (f) { f(); }); },
+             webkitEnterFullscreen: enter };
+  }
+  var closed = 0, v = fakeVideo(function () { v.entered++; });
+  M.full(v, function () { closed++; });
+  v.fire('loadedmetadata');
+  ok('the stream ready: it asks for full screen once', v.entered === 1, v.entered);
+  v.webkitDisplayingFullscreen = true; v.webkitPresentationMode = 'fullscreen';
+  v.fire('webkitbeginfullscreen'); v.fire('loadedmetadata');
+  ok('...not again while it is full screen (a phone\'s Safari went on its own)', v.entered === 1, v.entered);
+  v.webkitPresentationMode = 'picture-in-picture'; v.fire('webkitendfullscreen');
+  ok('to Picture in Picture: the player stays', closed === 0, closed);
+  v.webkitPresentationMode = 'inline'; v.fire('webkitendfullscreen');
+  ok('Apple\'s player closed: Live TV\'s player closes (the stream and the tuner go)', closed === 1, closed);
+  var closed2 = 0, w = fakeVideo(function () { throw new Error('InvalidStateError'); });
+  M.full(w, function () { closed2++; });
+  var threw = null;
+  try { w.fire('loadedmetadata'); w.fire('webkitendfullscreen'); } catch (e) { threw = e.message; }
+  ok('a Safari that refuses: no throw, it plays in the page, and an end it never began closes nothing',
+     threw === null && closed2 === 0, [threw, closed2]);
+})();
+ok('only a HomeView leaves out playsinline; elsewhere the video stays in the page',
+   /if \(tvNative\(window\)\) \{\s*nativeFullscreen\(video, function \(\) \{ player\.close\(\); \}\);\s*\} else \{\s*video\.playsInline = true;/.test(player));
+ok('closing leaves Apple\'s player first (the page left under it)', /webkitDisplayingFullscreen\) video\.webkitExitFullscreen\(\)/.test(player));
 
 print('\n=== the camera card, as a TV ===');
 ok('fill: letterboxed (contain), not cropped', /'\.db\.fill>img,\.db\.fill>video\{object-fit:contain/.test(cam));
