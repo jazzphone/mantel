@@ -118,7 +118,7 @@
           var ids = (this._offer && this._offer.areas) || [];
           return this._order().join(',') + '|' + ids.map(function (id) {
             var a = A[id] || {}, f = FL[a.floor_id] || {};
-            return id + ':' + (a.name || '') + ':' + (a.floor_id || '') + ':' + (f.name || '') + ':' + (f.level == null ? '' : f.level);
+            return id + ':' + (a.name || '') + ':' + (a.icon || '') + ':' + (a.floor_id || '') + ':' + (f.name || '') + ':' + (f.level == null ? '' : f.level);
           }).join(',');
         }
         // a room no longer offered is no longer selected

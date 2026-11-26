@@ -76,3 +76,26 @@ The HomeView's Safari shows a 544 x 440 pt window under its bar; `web/shim/homev
   as the house's HomeView shows it (`--size 544x2200` the whole scroll); `--busy` turns things on.
 - The kit's pure parts (harvest, the state words) are tested in the main suite (`tests/test_hv_kit.py`).
 - No new browser check (the checks' budget): the twin is the by-hand check for a HomeView change.
+
+## Round 2, on the HomeView itself (2026-11-26)
+
+The owner, with photos and videos of the first build on the Kitchen's HomeView:
+
+- **Locked sideways.** "It allows for movement left to right which makes it not really feel locked into place or
+  native." No page was wider than the screen; Safari's own sideways rubber band and pinch moved it. `homeview.js` now
+  sets `overflow-x: clip`, `overscroll-behavior-x: none` and `touch-action: pan-y` on the root and the body: the page
+  scrolls up and down only, and a control that drags sideways keeps its moves.
+- **Tabs that float.** "All the pages that have tabs at the top, they should probably float above the content as you
+  scroll down ... Be careful on pages that have barely enough content to scroll." A switch in the title row (`H.seg` in
+  `H.head`'s right) has a copy in a sticky layer of no height (`.flt`), shown once the title row has gone under the top
+  (an IntersectionObserver), on the near-solid overlay; the page is exactly as tall either way, so nothing bounces.
+- **Safari's bar.** At rest the page starts under Safari's bar (104 of the screen's 544 pt); scrolled, the bar is a pill
+  over the page's top. The floating switch sits clear below it (`--hv-float`: the view's top room plus 34 pt).
+- **HomeView Pages on any screen.** "It would be great to have an option to enable these HomeView pages on a
+  Dashboard/Screen so that way you can see them on a desktop computer." A screen's option (`homeview_pages`, Settings ->
+  the screen -> HomeView); off a HomeView the kit frames a page at the HomeView's own 544 px, centered (`--hvw`).
+- **Energy and Power had lost their content.** Rebuilt to carry what the tablet pages carry: the rings, every circuit and
+  device as rows (now in watts, or the period's kWh by tab; a tap asks before turning one off; a Backup mark when it is on
+  the battery), and Power's two halves, right now and the house battery (EcoFlow): its level, mode, levels and circuits.
+- **Padding.** No number or unit is cut by its plate; text stays at least 12 pt from a plate's sides (measured on every
+  page with a script over the twin).

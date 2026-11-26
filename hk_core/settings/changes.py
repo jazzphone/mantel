@@ -1306,6 +1306,8 @@ def _home_grid(v: Any) -> dict[str, Any] | None:
 BOARD: dict[str, Callable[[Any], Any]] = {
     "menu": _choice(S.BOARD_MENUS),
     "home_style": _choice(HG.HOME_STYLES),
+    # HOMEVIEW PAGES (phase 36): the Apple HomeView's own pages on any device -- a computer's look at them
+    "homeview_pages": _bool,
     "home_grid": _home_grid,
     "phone_header": _choice(S.BOARD_PHONE),
     "chips_custom": _chip_keys,

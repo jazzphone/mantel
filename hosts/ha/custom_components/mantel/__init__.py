@@ -108,7 +108,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: MantelConfigEntry) -> bo
     for ev in (EVENT_SERVICE_REGISTERED, EVENT_SERVICE_REMOVED):
         entry.async_on_unload(hass.bus.async_listen(ev, phones_changed))
     entry.async_on_unload(hass.bus.async_listen(EVENT, phone_action))
-    _drop_old_buttons(hass, entry)
     bridge.start()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.info("%s: linked to Mantel at %s (%s)", NAME, bridge.link.url, bridge.state)
@@ -127,14 +126,3 @@ async def async_remove_entry(hass: HomeAssistant, entry: MantelConfigEntry) -> N
     it (if Home Assistant still has it), before Home Assistant clears them."""
     give_back(hass, entry)
 
-
-def _drop_old_buttons(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """0.1.16's Live TV buttons are switches since 0.1.17 (the same unique ids; on while the channel plays, off stops
-    it, no Stop): the buttons' registry entries go, so none is left behind unavailable. Mantel Link has no other
-    buttons."""
-    from homeassistant.helpers import entity_registry as er
-    reg = er.async_get(hass)
-    for ent in er.async_entries_for_config_entry(reg, entry.entry_id):
-        if ent.domain == "button" and ent.platform == DOMAIN:
-            _LOGGER.info("%s: %s is a switch now; the button goes", NAME, ent.entity_id)
-            reg.async_remove(ent.entity_id)

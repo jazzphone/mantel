@@ -106,3 +106,71 @@ def test_every_page_the_strategy_hands_over_is_registered_and_lazy():
     assert {f.name for f in files} <= hk_cards.LAZY
     for f in files:
         assert hk_cards.tags_of(f), f.name                    # a lazy file names its elements, or it would load at the start
+
+
+def test_homeview_pages_is_a_screens_own_option_off_by_default():
+    # a screen's HomeView Pages (the owner, 2026-11-26: "an option to enable these 'HomeView' pages on a Dashboard/Screen so
+    # that way you can see them on a desktop computer"): off unless set, and written as a plain true / false
+    from hk_core.settings import changes
+    from hk_core.settings.model import dashboard_rules
+    assert dashboard_rules.board({})["homeview_pages"] is False
+    assert dashboard_rules.board({"homeview_pages": True})["homeview_pages"] is True
+    assert dashboard_rules.board({"homeview_pages": "yes"})["homeview_pages"] is False
+    assert changes.BOARD["homeview_pages"](True) is True
+    views = (ROOT / "web/hk/strategy/hk-strategy-views.js").read_text()
+    assert "b.homeview_pages === true" in views
+
+
+def test_the_kit_floats_a_switch_on_the_body_keeps_short_pages_steady_and_frames_pages_elsewhere():
+    kit = KIT.read_text()
+    # the float lives on the body, fixed to the window (a sticky copy inside the page didn't follow the HomeView's own
+    # scrolling), lent by the page on the screen while its title row is under the line; it takes no room in any page
+    assert "document.body.appendChild(el)" in kit and ":host{position:fixed;" in kit
+    assert "window.addEventListener('scroll', this._onScroll, { passive: true })" in kit and "new IntersectionObserver" in kit
+    # a page between Safari's small and large window is made taller than the large one, so its bar folding can't bounce it
+    assert "height:100svh" in kit and "d.style.height = '100lvh'" in kit and "_settle()" in kit
+    # a HomeView is the screen's width; anywhere else the HomeView's 544, centered
+    assert ":host{--hvw:min(100vw, 544px)" in kit and ":host([hvdev]){--hvw:100vw" in kit
+    shim = (ROOT / "web/shim/homeview.js").read_text()
+    assert "'touch-action', 'pan-y'" in shim and "'overflow-x', 'clip'" in shim
+    assert "root.style.setProperty('--hk-safe-top', px + 'px')" in shim          # the top room, measured once
+
+
+def test_a_room_without_an_icon_takes_one_its_name_says_and_the_vacuum_rooms_are_checked_rows():
+    # (the house gave its areas no icons, so every room drew the same floor plan -- the owner, 2026-11-26)
+    js = r"""
+globalThis.window = globalThis; globalThis.addEventListener = () => {}; globalThis.document = { addEventListener() {} };
+(0, eval)(require('fs').readFileSync(process.argv[1], 'utf8'));
+const g = window.hkMenu._.roomGlyph;
+console.log(JSON.stringify([g('Guest Bathroom'), g('Bedroom Closet'), g('Garage Entry'), g('Kitchen'), g('Hallway'), g('Kitchen', 'mdi:stove')]));
+"""
+    out = subprocess.run([NODE, "-e", js, str(ROOT / "web/hk/modules/hk-menu.js")], capture_output=True, text=True, check=True)
+    assert json.loads(out.stdout) == ["mdi:shower", "mdi:hanger", "mdi:garage", "mdi:silverware-fork-knife", "mdi:floor-plan", "mdi:stove"]
+    # the HomeView's Rooms sheet: the speaker list's capsule rows with a check at the right, not two columns of pills
+    assert "layout: 'panel', rows: true, pick: vid" in (ROOT / "web/hk/cards/hk-hv-care.js").read_text()
+    vac = (ROOT / "web/hk/home-cards/hk-home-vacuum.js").read_text()
+    assert "rw ? 'rws' : 'grid'" in vac and "H.roomGlyph(a.name || id, icon)" in vac
+
+
+def test_lights_and_climate_share_the_glance_and_home_pills_and_power_levels_are_long_sliders():
+    # (the owner, 2026-11-26: "the heading from L4, but our standard HomeKit Pills" ... "make sure the Lights and Climate page
+    # match"; the rooms at the foot "the list layout you had before"; Power's levels as mockup L2's long sliders)
+    kit = KIT.read_text()
+    assert "pill: pill, sectionKey: sectionKey, glance: glance, wellOf: wellOf" in kit
+    assert ".grid.pills{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:' + P(70)" in kit      # Rule 5's 70 tall pill
+    home = (ROOT / "web/hk/cards/hk-hv-home.js").read_text()
+    lights, climate = home.split("class HvLights")[1].split("H.register('hk-hv-lights-card'")[0], home.split("class HvClimate")[1]
+    for page in (lights, climate):
+        assert "H.glance(" in page and "H.pill(" in page and "H.level(" not in page
+    assert "H.list(dark.map(" in lights                                    # the rooms that are all off, one list
+    assert "H.plate({ cls: 'sls' }" in (ROOT / "web/hk/cards/hk-hv-energy.js").read_text()
+
+
+def test_a_scrolled_page_keeps_its_place_through_a_shorter_draw():
+    # (the owner's video, 2026-11-26: scrolled down the Power page, it jumped to the top as a reading changed -- one draw came
+    # out short for a moment and the browser pulled the page up to its new end)
+    kit = KIT.read_text()
+    render = kit.split("    _render() {")[1].split("    draw() {")[0]
+    assert render.index("this._holdPlace();") < render.index("this._root.innerHTML =")       # held before the page is replaced
+    assert "(window.scrollY || 0) < 1" in kit and "var KEEP_MS = 8000;" in kit
+    assert "this._hv.mode = m; this._fresh = true;" in kit and "this._hv.deep = d; this._fresh = true;" in kit    # not for the person's own steps

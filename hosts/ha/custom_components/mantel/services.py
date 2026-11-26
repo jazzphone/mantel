@@ -16,9 +16,9 @@ same schema HK Frontend had; Mantel checks it all again and answers.
   pause_automation   an automation off until a time (default: midnight), and
   resume_automation  on again; run by Mantel through its command gateway
   live_tv_play       a Live TV channel on a paired AirPlay screen, and Stop, as
-  live_tv_stop       Live TV's switches for Apple's Home app turn them (Mantel's
-                     own: only a channel a switch plays; never an alias, HK
-                     Frontend never had them)
+  live_tv_stop       the screen's TV in Apple's Home app does (Mantel's own:
+                     only a channel its TV has; never an alias, HK Frontend
+                     never had them)
 
 THE ALIASES. Registered only for a name HK Frontend does not have right now:
 if HK Frontend (still installed) sets up later, its own registration replaces
@@ -156,7 +156,7 @@ MORE_SCHEMAS: dict[str, Any] = {
     "resume_automation": vol.Schema({vol.Required("entity_id"): AUTOMATION}),
 }
 # Mantel's own (not HK Frontend's, so no alias): Live TV on a paired AirPlay screen, by the screen's name or id and the
-# channel's number or name, as a Live TV switch in the Home app does it (Mantel's cameras/live_tv_buttons.py)
+# channel's number or name, as the screen's Live TV in the Home app does it (Mantel's cameras/live_tv_buttons.py)
 TV_SCHEMAS: dict[str, Any] = {
     "live_tv_play": vol.Schema({vol.Required("channel"): cv.string, vol.Required("screen"): cv.string}),
     "live_tv_stop": vol.Schema({vol.Required("screen"): cv.string}),

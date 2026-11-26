@@ -2,11 +2,12 @@
 // hk-hv-home.js -- AN APPLE HOMEVIEW'S HOUSE PAGES (docs/phase36/PLAN.md, 2026-11-26): Lights, Climate, Doors & Windows and Water,
 // each drawn for the HomeView from the page the build made (hk-hv.js: the kit, the frame, harvest()).
 //
-//   hk-hv-climate-card   the thermostats (a big number, keys at the foot), the rooms' readings, fans and blinds
+//   hk-hv-climate-card   the glance (inside, outside, every room on a cold-to-warm bar), the thermostats, fans, humidifiers and
+//                        blinds as Home pills, the rooms' readings
 //   hk-hv-doors-card     what is open (how long), then the closed doors and windows, then the garage door
 //   hk-hv-water-card     today's use, the main valve, the leak sensors, this week
-//   hk-hv-lights-card    what's on first, as levels you drag; then every room (a tap opens its lights on the same frame);
-//                        then the screen's scenes. All Off is the page's one action.
+//   hk-hv-lights-card    the glance (how many on, the lit rooms' bar, the scenes), each lit room's lights as Home pills, then
+//                        the rooms that are all off, a list (a tap opens a room's lights on the same frame)
 (function () {
   'use strict';
   if (window.hkHvHome) return;                     // double-load guard
@@ -23,79 +24,75 @@
   window.hkHvHome.ready = true;
   var esc = H.esc;
 
-  // the Wide levels first, then the Small tiles, each in its own order: two Wides to a row and the Smalls four to one, so the
-  // grid has no holes and a room's lights stay together within each kind
-  /** @param {any[]} xs */
-  function H_levelsFirst(xs) { return xs.filter(function (x) { return x.lv; }).concat(xs.filter(function (x) { return !x.lv; })); }
-
   // ------------------------------------------------------------------ LIGHTS
-  // ON NOW: every light that is on, a Wide level each (a switch drawn as a light, which has no level, a lit Small tile), in
-  // the page's own order (its rooms, then each room's). ROOMS: one tile each, lit while any of its lights is; a tap opens
-  // the room's lights. SCENES: the screen's own scenes (its Scenes row), run with a tap.
+  // (the owner, 2026-11-26, from the "Lights + Climate, One Frame" mockup: "the heading from L4, but our standard HomeKit Pills",
+  // the rooms at the foot "the list layout you had before")
+  // THE GLANCE: how many lights are on and in how many rooms, a bar of the lit rooms (each as wide as its lights that are on, in
+  // their color), the screen's scenes. THEN EACH LIT ROOM: its heading with a key that turns the room off, its lights as Home
+  // pills (the well toggles, the rest opens the light's sheet with its slider). THEN THE ROOMS THAT ARE ALL OFF: one list, a
+  // tap opens the room's lights on the same frame. All Off is the page's one action.
+  /** @param {string} name */
+  function roomGlyph(name) { var M = window.hkMenu && window.hkMenu._; return M && M.roomGlyph ? M.roomGlyph(name) : 'mdi:floor-plan'; }
   class HvLights extends H.Page {
     /** @param {string} id */
     _item(id) {
       var t = this.h.byId[id], st = this.st(id), on = H.isOn(st), lv = H.levelNow(this, id, st);
       return { id: id, t: t, st: st, on: lv ? lv.pct > 0 : on, lv: lv };
     }
-    /** @param {any} x @param {string} sub */
-    _piece(x, sub) {
+    /** @param {any} x */
+    _pill(x) {
       var cfg = x.t.cfg, icon = H.iconOf(cfg, x.st), name = cfg.name || (x.st && x.st.attributes.friendly_name) || x.id;
-      if (x.lv) {
-        return H.level({ id: x.id, name: name, sub: sub, icon: icon, color: H.glyphColor(cfg, x.st, x.on), fill: H.fillOf(x.st), pct: x.lv.pct, lit: x.on,
-                         word: x.on ? x.lv.pct + '%' : 'Off' });
-      }
-      return H.tile({ id: x.id, name: name, sub: x.on ? sub : 'Off', icon: icon, color: H.glyphColor(cfg, x.st, x.on), lit: x.on, gact: 'toggle' });
+      var gone = !x.st || x.st.state === 'unavailable' || x.st.state === 'unknown';
+      var sub = gone ? H.word(x.st) : !x.on ? 'Off' : x.lv ? x.lv.pct + '%' : 'On';
+      var well = x.id.indexOf('light.') === 0 ? H.wellOf(x.st) : H.hue(H.colorName(cfg, x.st));
+      return H.pill({ id: x.id, name: name, sub: sub, icon: icon, well: well, color: H.glyphColor(cfg, x.st, false), lit: x.on });
     }
-    // the pieces in rows: the Wide ones two to a row, the Small ones filling the gaps (the grid packs them)
-    /** @param {any[]} xs @param {(x: any) => string} sub */
-    _grid(xs, sub) { return '<div class="grid">' + H_levelsFirst(xs).map(function (/** @type {any} */ x) { return this._piece(x, sub(x)); }, this).join('') + '</div>'; }
+    /** @param {any[]} xs */
+    _pills(xs) { return '<div class="grid pills">' + xs.map(function (/** @type {any} */ x) { return this._pill(x); }, this).join('') + '</div>'; }
     draw() {
       var self = this, groups = this.h.groups.filter(function (/** @type {any} */ g) { return g.ids.length; });
       var rooms = groups.map(function (/** @type {any} */ g) { return { name: g.name || 'Lights', items: g.ids.map(function (/** @type {string} */ id) { return self._item(id); }) }; });
+      this._rooms = rooms;
       var deep = this.deep();
       if (deep && deep.room != null) {
         var r = rooms.filter(function (x) { return x.name === deep.room; })[0];
         if (r) return this._room(r);
       }
-      var on = [];
-      rooms.forEach(function (r) { r.items.forEach(function (x) { if (x.on) on.push({ x: x, room: r.name }); }); });
-      var litRooms = rooms.filter(function (r) { return r.items.some(function (x) { return x.on; }); }).length;
-      var out = H.head({ title: (this._config || {}).title || 'Lights',
-        sum: on.length ? '<b>' + on.length + ' On</b> · ' + litRooms + (litRooms === 1 ? ' room' : ' rooms') : 'All Off',
-        right: on.length ? H.cap({ g: H.svg('power', 18), t: 'All Off', act: 'alloff' }) : '' });
-      if (on.length) {
-        out += '<div class="grid">' + H_levelsFirst(on.map(function (o) { return Object.assign({ room: o.room }, o.x); }))
-          .map(function (/** @type {any} */ x) { return self._piece(x, x.room); }).join('') + '</div>';
-      }
-      if (rooms.length) {
-        out += on.length ? H.section('Rooms') : '';
-        out += '<div class="grid">' + rooms.map(function (r, i) {
-          var n = r.items.filter(function (x) { return x.on; }).length;
-          return H.tile({ id: '', name: r.name, sub: n ? n + ' On' : 'Off', icon: 'hk:lightbulb', color: n ? H.DEEP.yellow : 'var(--hk-ink-3, rgba(255,255,255,.42))',
-                          lit: n > 0, act: 'room', data: { k: i } });
-        }).join('') + '</div>';
-      } else {
-        out += '<div class="pl quiet">No lights on this screen. Add them in ' + H.esc(H.where('Accessories')) + '.</div>';
-      }
+      /** @param {any} r */
+      var onIn = function (r) { return r.items.filter(function (/** @type {any} */ x) { return x.on; }); };
+      var lit = rooms.filter(function (r) { return onIn(r).length; }), dark = rooms.filter(function (r) { return !onIn(r).length; });
+      var n = lit.reduce(function (k, r) { return k + onIn(r).length; }, 0);
+      var out = H.head({ title: (this._config || {}).title || 'Lights', right: n ? H.cap({ g: H.svg('power', 18), t: 'All Off', act: 'alloff' }) : '' });
+      if (!rooms.length) return out + '<div class="pl quiet">No lights on this screen. Add them in ' + H.esc(H.where('Accessories')) + '.</div>';
+      var bar = n ? '<div class="gbar" aria-hidden="true">' + lit.map(function (r) {
+        var on = onIn(r);
+        return '<i style="flex:' + on.length + ';background:' + (on[0].id.indexOf('light.') === 0 ? H.wellOf(on[0].st) : H.hue(H.colorName(on[0].t.cfg, on[0].st))) + '"></i>';
+      }).join('') + '</div>' : '';
       var scenes = ((this._config || {}).extra || {}).scenes || [];
-      if (scenes.length) {
-        out += H.section('Scenes');
-        out += '<div class="grid">' + scenes.map(function (/** @type {string} */ id) {
+      out += H.glance({ big: String(n), line: n === 1 ? 'light on' : 'lights on',
+        sub: n ? 'in ' + lit.length + ' of ' + rooms.length + ' rooms' : 'Every room is off', bar: bar,
+        acts: scenes.map(function (/** @type {string} */ id) {
           var st = self.st(id), a = (st && st.attributes) || {};
-          return H.tile({ id: id, name: a.friendly_name || id, sub: 'Scene', icon: a.icon || 'hk:palette', color: H.hue('purple'), act: 'run' });
-        }).join('') + '</div>';
+          return { g: H.glyph(a.icon || 'hk:palette', 16, H.hue('purple')), t: a.friendly_name || id, act: 'run', data: { id: id } };
+        }) });
+      lit.forEach(function (r) {
+        out += H.sectionKey(r.name, onIn(r).length + ' On', { label: 'Turn off ' + r.name, act: 'alloff', data: { room: r.name } }) + self._pills(r.items);
+      });
+      if (dark.length) {
+        out += H.section(lit.length ? 'All Off' : 'Rooms', dark.length + (dark.length === 1 ? ' room' : ' rooms'));
+        out += H.list(dark.map(function (r) {
+          var k = rooms.indexOf(r), m = r.items.length;
+          return H.row({ icon: roomGlyph(r.name), color: 'var(--hk-ink-2, rgba(255,255,255,.68))', name: r.name, sub: m + (m === 1 ? ' light' : ' lights'),
+                         val: H.chev('right', 14), act: 'room', data: { k: k } });
+        }));
       }
-      this._rooms = rooms;
       return out;
     }
     /** @param {any} r */
     _room(r) {
       var n = r.items.filter(function (/** @type {any} */ x) { return x.on; }).length;
-      this._rooms = this._rooms || [];
       return H.head({ title: r.name, back: true, sum: n ? '<b>' + n + ' On</b>' : 'All Off',
-                      right: n ? H.cap({ g: H.svg('power', 18), t: 'All Off', act: 'alloff', data: { room: r.name } }) : '' }) +
-        this._grid(r.items, function (/** @type {any} */ x) { return x.on ? 'On' : 'Off'; });
+                      right: n ? H.cap({ g: H.svg('power', 18), t: 'All Off', act: 'alloff', data: { room: r.name } }) : '' }) + this._pills(r.items);
     }
     /** @param {string} act @param {any} el */
     act(act, el) {
@@ -124,7 +121,9 @@
   // ------------------------------------------------------------------ SHARED BY THE PAGES BELOW
   var C = H.C, P = H.P, V = C.v;
   // a name that says only what the thing is ("Fan", "Blinds"): its room is the better name
-  var GENERIC = /^(\w+ )?(fans?|blinds?|shades?|curtains?|shutters?|awnings?|humidifiers?)$/i;
+  var GENERIC = /^(\w+ )?(fans?|blinds?|shades?|curtains?|shutters?|awnings?|humidifiers?|windows?)( (left|right|center|middle|\d+))?$/i;
+  // ...and one that is only the kind ("Window", "Blinds"): nothing to keep of it once the room names it
+  var BARE = /^(fans?|blinds?|shades?|curtains?|shutters?|awnings?|humidifiers?|windows?)$/i;
   var COOL_FILL = '#cdeefa';
   /** @param {any} x */
   function num(x) { if (x == null || x === '') return null; var n = Number(x); return isFinite(n) ? n : null; }
@@ -199,6 +198,13 @@
     '.half.sel{opacity:1;background:' + V('key') + '}',
     '.half .n{font-size:' + P(54) + ';font-weight:500;letter-spacing:' + P(-2) + ';line-height:' + P(58) + ';font-variant-numeric:tabular-nums}',
     '.half .l{font-size:' + P(12) + ';font-weight:600;letter-spacing:' + P(0.3) + ';text-transform:uppercase;color:' + V('ink-2') + '}',
+    // CLIMATE'S GLANCE: every room a dot on a cold-to-warm bar, the coolest and the warmest named under it
+    '.tbar{position:relative;height:' + P(12) + ';margin:' + P(2) + ' ' + P(2) + ' 0}',
+    '.tbar .grad{position:absolute;inset:0;border-radius:' + P(6) + ';background:linear-gradient(90deg,#64d2ff,#a1e3ff 35%,#ffd479 65%,#ff9f0a)}',
+    '.tbar .td{position:absolute;top:' + P(-3) + ';width:' + P(18) + ';height:' + P(18) + ';margin-left:' + P(-9) + ';border-radius:50%;background:#fff;' +
+      'box-shadow:0 1px ' + P(4) + ' rgba(0,0,0,.35);opacity:.92}',
+    '.tlab{display:flex;justify-content:space-between;gap:' + P(12) + ';margin-top:' + P(-6) + ';font-size:' + P(13) + ';font-weight:500;color:' + V('ink-2') + '}',
+    '.tlab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     // CLIMATE'S ROOMS: the name, its humidity, its temperature
     '.rdl{padding:' + P(4) + ' 0}',
     '.rd{display:flex;align-items:center;gap:' + P(12) + ';width:100%;height:' + P(52) + ';padding:0 ' + P(14) + ' 0 ' + P(18) + ';border-top:1px solid ' + V('line') + ';text-align:left}',
@@ -238,8 +244,8 @@
   // THE THERMOSTATS: two to a row, a plate two rows tall each: what it is doing, the target as the one big number, and the keys
   // (down, up) at its foot; the plate opens the thermostat's sheet. In heat/cool the number is the range, and the keys move the
   // side last touched (the low one until one is). A step is the thermostat's own target_temp_step, held on the face and sent
-  // 600 ms after the last tap, as the Wide block's. ROOMS: the readings of the screen's rooms, one list. FANS, BLINDS: Wide
-  // levels for what runs from 0 to 100, Small tiles for the rest.
+  // 600 ms after the last tap, as the Wide block's. FANS, HUMIDIFIERS, BLINDS: Home pills, as Lights' (the owner, 2026-11-26:
+  // "make sure the Lights and Climate page match"), each section's key for all of them. ROOMS: the readings, one list, last.
   var MODE_NAME = { heat: 'Heat', cool: 'Cool', heat_cool: 'Auto', auto: 'Auto', off: 'Off', dry: 'Dry', fan_only: 'Fan Only' };
   /** @param {any} a */
   function stepOf(a) {
@@ -319,25 +325,23 @@
       (rd.humidity || []).forEach(function (/** @type {string} */ id) { put(id, false); });
       return Object.keys(by).map(function (k) { return by[k]; }).sort(function (/** @type {any} */ x, /** @type {any} */ y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; });
     }
-    // a fan, a blind, a humidifier: a level where it has one (a Wide), else a Small tile
+    // a fan, a blind, a humidifier: a Home pill (the well toggles; its sheet has the slider), its level in its words
     /** @param {any} t @param {boolean} blind */
     _piece(t, blind) {
       var id = t.id, st = this.st(id), lv = H.levelNow(this, id, st), on = lv ? lv.pct > 0 : H.isOn(st);
-      var raw = nameOf(t, st), room = t.group || '', name = GENERIC.test(raw) && room ? room : raw, icon = H.iconOf(t.cfg, st), color = H.glyphColor(t.cfg, st, on);
-      if (lv) {
-        return H.level({ id: id, name: name, sub: H.word(st), icon: icon, color: color, fill: COOL_FILL, pct: lv.pct, lit: on, word: on ? lv.pct + '%' : '' });
-      }
-      return H.tile({ id: id, name: name, sub: H.word(st), icon: icon, color: color, lit: on, gact: 'toggle' });
+      var raw = nameOf(t, st), room = roomOf(this, id) || t.group || '', named = GENERIC.test(raw) && room, name = named ? room : raw, icon = H.iconOf(t.cfg, st);
+      var sub = gone(st) || !lv ? H.word(st) : blind ? (lv.pct >= 100 ? 'Open' : lv.pct <= 0 ? 'Closed' : lv.pct + '% Open') : on ? lv.pct + '%' : 'Off';
+      if (named && !BARE.test(raw)) sub = raw + ' · ' + sub;      // ("Window Left · Closed": which of the room's)
+      return H.pill({ id: id, name: name, sub: sub, icon: icon, well: H.hue(H.colorName(t.cfg, st)), color: H.glyphColor(t.cfg, st, false), lit: on });
     }
     /** @param {any[]} ts @param {boolean} blind */
     _group(ts, blind) {
-      var self = this;
-      var items = ts.map(function (t) {
+      var self = this, on = [];
+      ts.forEach(function (t) {
         var st = self.st(t.id), lv = H.levelNow(self, t.id, st);
-        return { t: t, lv: lv, on: lv ? lv.pct > 0 : H.isOn(st) };
+        if (lv ? lv.pct > 0 : H.isOn(st)) on.push(t.id);
       });
-      return { on: items.filter(function (x) { return x.on; }).length,
-               html: '<div class="grid">' + H_levelsFirst(items).map(function (x) { return self._piece(x.t, blind); }).join('') + '</div>' };
+      return { on: on, html: '<div class="grid pills">' + ts.map(function (t) { return self._piece(t, blind); }).join('') + '</div>' };
     }
     draw() {
       var self = this, h = this.h, cfg = this._config || {}, extra = cfg.extra || {};
@@ -349,16 +353,53 @@
       var blinds = h.tiles.filter(function (/** @type {any} */ t) { return t.id.indexOf('cover.') === 0; });
       // (the readings' own unit, else the locale's)
       var metric = this._unitC != null ? this._unitC : /C/.test((window.hkLocale && window.hkLocale.units && window.hkLocale.units().temp) || '');
-      // THE LINE UNDER THE TITLE: the house's temperature (its rooms', else its thermostats') and what it is outside
+      // THE HOUSE'S TEMPERATURE: its rooms', else its thermostats'; and what it is outside
       var temps = rooms.filter(function (/** @type {any} */ r) { return r.t != null; }).map(function (/** @type {any} */ r) { return r.t; });
       if (!temps.length) thermos.forEach(function (c) { var a = (self.st(c.entity) || { attributes: {} }).attributes, n = num(a.current_temperature); if (n != null) temps.push(n); });
       if (metric && temps.some(function (x) { return x > 45; })) metric = false;     // (a Celsius reading is never that warm)
       var outCfg = H.cardOf(h, 'hk-climate-outside-card'), wst = outCfg && outCfg.weather ? this.st(outCfg.weather) : null, out = wst ? num(wst.attributes.temperature) : null;
-      var sum = '';
-      if (temps.length) sum = '<b>' + Math.round(temps.reduce(function (x, y) { return x + y; }, 0) / temps.length) + '°</b> inside' + (out != null ? ' · ' + Math.round(out) + '° out' : '');
-      else if (out != null) sum = Math.round(out) + '° out';
-      var html = H.head({ title: cfg.title || 'Climate', sum: sum });
-      if (thermos.length) html += '<div class="grid">' + thermos.map(function (c) { return self._thermo(c); }).join('') + '</div>';
+      // THE GLANCE: the house's temperature, outside and what the heat is doing; every room a dot on a cold-to-warm bar
+      var words = thermos.map(function (c) {
+        var st = self.st(c.entity), a = (st && st.attributes) || {};
+        if (gone(st)) return 'No Response';
+        if (st.state === 'off') return 'Off';
+        return a.hvac_action ? H.sentence(a.hvac_action) : MODE_NAME[st.state] || H.sentence(st.state);
+      });
+      var doing = !words.length ? '' : words.every(function (w) { return w === words[0]; }) ? (words.length === 2 ? 'both ' : words.length > 2 ? 'all ' : '') + words[0] :
+        thermos.map(function (c, i) { return String(c.name || (self.st(c.entity) || { attributes: {} }).attributes.friendly_name || c.entity).replace(/\s+thermostat$/i, '') + ' ' + words[i]; })
+          .join(' · ');
+      var avg = temps.length ? Math.round(temps.reduce(function (x, y) { return x + y; }, 0) / temps.length) : null;
+      var bar = '', withT = rooms.filter(function (/** @type {any} */ r) { return r.t != null; });
+      if (withT.length) {
+        var lo0 = metric ? 15 : 60, hi0 = metric ? 27 : 80;
+        /** @param {number} x */
+        var at = function (x) { return Math.max(0, Math.min(100, (x - lo0) * 100 / (hi0 - lo0))); };
+        var cold = withT.reduce(function (/** @type {any} */ x, /** @type {any} */ y) { return y.t < x.t ? y : x; }),
+          warm = withT.reduce(function (/** @type {any} */ x, /** @type {any} */ y) { return y.t > x.t ? y : x; });
+        bar = '<div class="tbar" aria-hidden="true"><div class="grad"></div>' + withT.map(
+          function (/** @type {any} */ r) { return '<i class="td" style="left:' + at(r.t).toFixed(1) + '%"></i>'; }).join('') +
+          '</div><div class="tlab"><span>' + esc(Math.round(cold.t) + '° ' + cold.name) + '</span>' + (warm !== cold ? '<span>' + esc(Math.round(warm.t) + '° ' + warm.name) + '</span>' : '') +
+            '</div>';
+      }
+      this._fans = fans.map(function (/** @type {any} */ t) { return t.id; });
+      this._hums = hums.map(function (/** @type {any} */ t) { return t.id; });
+      this._blinds = blinds.map(function (/** @type {any} */ t) { return t.id; });
+      var f = fans.length ? this._group(fans, false) : null, u = hums.length ? this._group(hums, false) : null, b = blinds.length ? this._group(blinds, true) : null;
+      var acts = [];
+      if (f) acts.push({ g: H.glyph('hk:fan', 16, H.HUES.blue), t: 'Fans Off', act: 'fansoff', off: !f.on.length });
+      if (b) {
+        acts.push({ g: H.glyph('mdi:blinds-open', 16, H.HUES.blue), t: 'Open Blinds', act: 'blinds', data: { k: 'open' } });
+        acts.push({ g: H.glyph('hk:blinds', 16), t: 'Close Blinds', act: 'blinds', data: { k: 'close' } });
+      }
+      var html = H.head({ title: cfg.title || 'Climate' });
+      if (avg != null || out != null) {
+        html += H.glance({ big: avg != null ? avg + '°' : Math.round(/** @type {number} */ (out)) + '°', line: avg != null ? 'inside' : 'outside',
+          sub: [avg != null && out != null ? Math.round(out) + '° outside' : '', doing].filter(Boolean).join(' · '), bar: bar, acts: acts });
+      }
+      if (thermos.length) html += H.section('Thermostats') + '<div class="grid">' + thermos.map(function (c) { return self._thermo(c); }).join('') + '</div>';
+      if (f) html += H.sectionKey('Fans', f.on.length ? f.on.length + ' On' : 'All Off', f.on.length ? { label: 'Turn off every fan', act: 'fansoff' } : null) + f.html;
+      if (u) html += H.sectionKey('Humidifiers', u.on.length ? u.on.length + ' On' : 'All Off', u.on.length ? { label: 'Turn off every humidifier', act: 'humoff' } : null) + u.html;
+      if (b) html += H.section('Blinds', b.on.length ? b.on.length + ' Open' : 'All Closed') + b.html;
       if (rooms.length) {
         var lo = Math.min.apply(null, temps), hi = Math.max.apply(null, temps);
         html += H.section('Rooms', temps.length ? (Math.round(lo) === Math.round(hi) ? Math.round(lo) + '°' : Math.round(lo) + '–' + Math.round(hi) + '°') : '');
@@ -369,9 +410,6 @@
               '</span></button>';
         }).join('') + '</div>';
       }
-      if (fans.length) { var f = this._group(fans, false); html += H.section('Fans', f.on ? f.on + ' On' : 'All Off') + f.html; }
-      if (hums.length) { var u = this._group(hums, false); html += H.section('Humidifiers', u.on ? u.on + ' On' : 'All Off') + u.html; }
-      if (blinds.length) { var b = this._group(blinds, true); html += H.section('Blinds', b.on ? b.on + ' Open' : 'All Closed') + b.html; }
       if (!thermos.length && !rooms.length && !fans.length && !hums.length && !blinds.length) {
         html += '<div class="pl quiet">Nothing on this screen. Add thermostats, fans and blinds in ' + H.esc(H.where('Accessories')) + '.</div>';
       }
@@ -416,6 +454,16 @@
       var id = el.getAttribute('data-id') || '';
       if (act === 'pick') { this._pick[id] = el.getAttribute('data-side') === 'high' ? 'high' : 'low'; this.redraw(); return true; }
       if (act === 'step') { this._step(id, Number(el.getAttribute('data-d')) || 0); return true; }
+      var self = this;
+      /** @param {string[]} ids */
+      var onOf = function (ids) { return (ids || []).filter(function (x) { var st = self.st(x), lv = H.levelNow(self, x, st); return lv ? lv.pct > 0 : H.isOn(st); }); };
+      if (act === 'fansoff') { var fo = onOf(this._fans); if (fo.length) this._call('fan', 'turn_off', { entity_id: fo }); return true; }
+      if (act === 'humoff') { var ho = onOf(this._hums); if (ho.length) this._call('humidifier', 'turn_off', { entity_id: ho }); return true; }
+      if (act === 'blinds') {
+        var all = (this._blinds || []).filter(function (x) { return !gone(self.st(x)); });
+        if (all.length) this._call('cover', el.getAttribute('data-k') === 'open' ? 'open_cover' : 'close_cover', { entity_id: all });
+        return true;
+      }
       return false;
     }
   }

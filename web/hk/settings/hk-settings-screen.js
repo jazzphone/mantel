@@ -402,6 +402,15 @@
           c.appendChild(K.group({ header: 'Pages', footer: gen && !only ? 'The order of the pages is the menu’s too. Each page’s own settings are under Pages in the sidebar.' : null }, prows));
         }
 
+        // HOMEVIEW PAGES (phase 36, 2026-11-26, the owner: "it would be great to have an option to enable these 'HomeView' pages on
+        // a Dashboard/Screen so that way you can see them on a desktop computer")
+        if (gen && !only) {
+          c.appendChild(K.group({ header: 'HomeView', footer: 'Draws this screen’s pages the way an Apple HomeView does, at its width, on any ' +
+            'device: to see them on a computer, and for screenshots. A HomeView always draws its pages this way.' },
+            [K.toggle({ label: 'HomeView Pages', sk: 'b:homeview_pages', on: !!b.homeview_pages,
+                        onChange: function (on) { self.setB(path, { homeview_pages: on }); } })]));
+        }
+
         // WALL TABLETS (1.14): the tablets that run this screen -- each one's
         // user, room, idle time and Sleep Screen are its own
         var mine = (b.tablets || []).filter(function (tid) { return self.tabs()[tid]; });

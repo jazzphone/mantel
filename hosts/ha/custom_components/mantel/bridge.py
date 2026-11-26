@@ -56,7 +56,7 @@ _LOGGER = logging.getLogger(__name__)
 VALIDATION = {"invalid", "unknown_service", "unknown_target", "unknown_entity", "unknown_command",
               "not_a_black_screen", "invalid_code", "code_required", "code_locked", "unknown_popup",
               "not_owned", "commands_disabled", "forbidden", "not_set_up", "unpaired"}
-PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel")
+PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel", "media_player")
 TAKE_TIMEOUT = 120.0     # how long a hand-over waits for HK Frontend to let go of one entity
 TAKE_POLL = 0.25
 
@@ -151,10 +151,11 @@ class Bridge:
         link = link_of(entry)
         assert link is not None
         self.hass, self.entry = hass, entry
-        # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here; live_tv_home: it
-        # keeps the HomeKit Bridge of Live TV's switches for Apple's Home app (homekit_entry.py)
+        # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here; live_tv_home and
+        # live_tv_tv: it mirrors Live TV's TVs for Apple's Home app and gives each its own HomeKit entry (homekit_tvs.py)
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv", "live_tv_home"),
+                               domain=DOMAIN, protocol=PROTOCOL,
+                               features=("bridge", "live_tv", "live_tv_home", "live_tv_tv"),
                                frames=self.frames(), on_auth_failed=self.on_auth_failed, ca=link.get("ca"),
                                **({"timeout": timeout} if timeout is not None else {}))
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor (all of them)
@@ -170,9 +171,10 @@ class Bridge:
         self._pending_owners: dict[str, Any] | None = None
         self._unwait: Any = None
         self.waiting: set[str] = set()                       # entities HK Frontend has not let go of yet
-        from .homekit_entry import ALERTS, LIVE_TV, HomeKitLink
+        from .homekit_entry import ALERTS, HomeKitLink
+        from .homekit_tvs import TvHomeKit
         self.homekit = HomeKitLink(self, ALERTS)             # phase 31: the Apple TV camera's HomeKit Bridge entry
-        self.homekit_tv = HomeKitLink(self, LIVE_TV)         # Live TV's switches' own bridge, "Mantel Live TV"
+        self.homekit_tv = TvHomeKit(self)                    # Live TV's TVs, an accessory-mode entry each
 
     @callback
     def on_auth_failed(self, status: int) -> None:
@@ -319,7 +321,7 @@ class Bridge:
         if d is not None:
             self._upsert(d)
             for hk in (self.homekit, self.homekit_tv):
-                if hk.kind.concerns(d):
+                if hk.concerns(d):
                     hk.changed()
 
     @callback
@@ -523,9 +525,10 @@ class Bridge:
             _LOGGER.debug("%s: no picture for %s: %s", NAME, unique_id, err)
             return None
 
-    async def command(self, ent: Any, command: str, code: str | None = None) -> Any:
-        """A command to one mirrored entity, to Mantel."""
-        payload = {"unique_id": ent.unique_id, "command": command, "data": {"code": code} if code is not None else {}}
+    async def command(self, ent: Any, command: str, code: str | None = None, *, data: Mapping[str, Any] | None = None) -> Any:
+        """A command to one mirrored entity, to Mantel (``data``: a TV's input, {source})."""
+        payload = {"unique_id": ent.unique_id, "command": command,
+                   "data": {"code": code} if code is not None else dict(data or {})}
         try:
             return await self.link.request("entity_command", payload)
         except LinkError as err:

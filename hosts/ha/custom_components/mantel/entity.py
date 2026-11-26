@@ -13,6 +13,9 @@ from homeassistant.components.alarm_control_panel import (
 )
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.components.camera import Camera, CameraEntityFeature
+from homeassistant.components.media_player import (
+    MediaPlayerDeviceClass, MediaPlayerEntity, MediaPlayerEntityFeature, MediaPlayerState,
+)
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import callback
@@ -94,17 +97,9 @@ class LinkedEntity(Entity):
 
 
 class LinkedSwitch(LinkedEntity, SwitchEntity):
-    """switch.<tablet>_black_screen, _photo_screensaver, the Seasonal decorations, and Live TV's switches for Apple's
-    Home app ("NBC on Den HomeView": on while that channel plays on that AirPlay screen; Mantel's
-    cameras/live_tv_buttons.py)."""
+    """switch.<tablet>_black_screen, _photo_screensaver and the Seasonal decorations."""
 
     linked_platform = "switch"
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        hk = getattr(self._linked, "homekit_tv", None)
-        if hk is not None and self._features.get("live_tv_home"):
-            hk.changed()                    # in the registry now: the Live TV bridge can include it
 
     @property
     def is_on(self) -> bool:
@@ -126,6 +121,94 @@ class LinkedSwitch(LinkedEntity, SwitchEntity):
             data["brightness"] = int(brightness)
         await self._linked.forward("set_black_screen", data,
                                    [{"entity_id": self.entity_id, "unique_id": self.unique_id}])
+
+
+TV_FEATURES = (MediaPlayerEntityFeature.TURN_ON | MediaPlayerEntityFeature.TURN_OFF
+               | MediaPlayerEntityFeature.SELECT_SOURCE | MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
+               | MediaPlayerEntityFeature.STOP | MediaPlayerEntityFeature.NEXT_TRACK
+               | MediaPlayerEntityFeature.PREVIOUS_TRACK)
+
+
+class LinkedTv(LinkedEntity, MediaPlayerEntity):
+    """Live TV's TV a paired AirPlay screen, for Apple's Home app ("Den HomeView Live TV"; Mantel's
+    cameras/live_tv_buttons.py): its inputs are the channels Mantel names (``features.sources``), its state and input
+    what Mantel says plays there. Every command goes to Mantel, which plays or stops the screen's show; next and previous
+    are channel up and down (the Remote's arrows, homekit_tvs.py). Volume up and down, while Mantel says the screen has a
+    speaker (``features.volume``), are that speaker's: the HomeView's own volume, set by Mantel's music (the iPhone's
+    buttons in the Remote). The state changes only when Mantel says so, never on the tap alone. HomeKit shows it as a TV
+    in an entry of its own (homekit_tvs.py)."""
+
+    linked_platform = "media_player"
+
+    @property
+    def supported_features(self) -> MediaPlayerEntityFeature:
+        return TV_FEATURES | (MediaPlayerEntityFeature.VOLUME_STEP if self._features.get("volume") else 0)
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        hk = getattr(self._linked, "homekit_tv", None)
+        if hk is not None and self._features.get("live_tv_home"):
+            hk.changed()                    # in the registry now: its HomeKit entry can be made
+
+    @property
+    def device_class(self) -> MediaPlayerDeviceClass | None:
+        return MediaPlayerDeviceClass.TV if self._features.get("device_class") == "tv" else None
+
+    @property
+    def state(self) -> MediaPlayerState:
+        return MediaPlayerState.PLAYING if self._state == "playing" else MediaPlayerState.OFF
+
+    @property
+    def source_list(self) -> list[str]:
+        return [s for s in self._features.get("sources") or [] if isinstance(s, str)]
+
+    @property
+    def source(self) -> str | None:
+        got = (self._desc.get("attributes") or {}).get("source")
+        return got if isinstance(got, str) else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {k: v for k, v in super().extra_state_attributes.items() if k != "source"}
+
+    async def _send(self, command: str, **data: Any) -> None:
+        await self._linked.command(self, command, data=data)
+
+    async def async_turn_on(self) -> None:
+        await self._send("turn_on")
+
+    async def async_turn_off(self) -> None:
+        await self._send("turn_off")
+
+    async def async_toggle(self) -> None:
+        await self._send("toggle")
+
+    async def async_select_source(self, source: str) -> None:
+        await self._send("select_source", source=source)
+
+    async def async_media_play(self) -> None:
+        await self._send("media_play")
+
+    async def async_media_pause(self) -> None:
+        await self._send("media_pause")
+
+    async def async_media_play_pause(self) -> None:
+        await self._send("media_play_pause")
+
+    async def async_media_stop(self) -> None:
+        await self._send("media_stop")
+
+    async def async_media_next_track(self) -> None:
+        await self._send("media_next_track")
+
+    async def async_media_previous_track(self) -> None:
+        await self._send("media_previous_track")
+
+    async def async_volume_up(self) -> None:
+        await self._send("volume_up")
+
+    async def async_volume_down(self) -> None:
+        await self._send("volume_down")
 
 
 class LinkedSensor(LinkedEntity, SensorEntity):
@@ -331,5 +414,5 @@ class LinkedAlarmPanel(LinkedEntity, AlarmControlPanelEntity):
 
 CLASSES: dict[str, type[LinkedEntity]] = {
     "switch": LinkedSwitch, "sensor": LinkedSensor, "binary_sensor": LinkedBinarySensor,
-    "camera": LinkedCamera, "alarm_control_panel": LinkedAlarmPanel,
+    "camera": LinkedCamera, "alarm_control_panel": LinkedAlarmPanel, "media_player": LinkedTv,
 }

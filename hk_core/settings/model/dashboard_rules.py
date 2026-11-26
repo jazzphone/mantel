@@ -398,7 +398,10 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # HOME STYLE (Home Grid, docs/phase11/HOME-GRID.md): "generated", Home as
     # every screen builds it, or "grid" -- Home is this screen's own layout,
     # home_grid (home_grid.py; None: none yet, and Home is generated)
-    "home_style": "generated", "home_grid": None}
+    "home_style": "generated", "home_grid": None,
+    # HOMEVIEW PAGES (docs/phase36/PLAN.md): the pages an Apple HomeView draws for itself, drawn so on any device (a
+    # computer, for a look and a screenshot); a HomeView draws them whatever this says
+    "homeview_pages": False}
 
 # THE PAGES SCREEN, a screen's own (pages_screen_own: only the fields it sets); None is Same as All Screens
 BOARD_DEFAULTS["pages_screen"] = None
@@ -564,6 +567,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     hv = str(d.get("home_view") or "").strip()
     out["home_view"] = hv if PAGE_PATH.match(hv) else ""
     out["home_style"] = pick("home_style", HG.HOME_STYLES)
+    out["homeview_pages"] = d.get("homeview_pages") is True
     # (Pages Screen -> Opens On: Pages Screen, 2026-11-25 only, is Home Style: Launcher now: it said the same, whatever
     # the Home Style. The field is gone from what's written, so the screen's next choice is its own -- its Home Grid's
     # layout kept for it.)
