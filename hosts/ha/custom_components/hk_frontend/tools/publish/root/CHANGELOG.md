@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.61.3 - 2026-11-25
+
 **Changed**
 - **New designs for every Home Grid block**, all drawn from one kit: Home and Room (from Wide up, the top of Apple's Home app, with glass buttons over the picture), People (a cluster of faces), Calendar (the month on Large, the month and the day on Extra Large), On Now, Recent, House Status, Laundry, Doors & Locks, Weather, Clock (Extra Extra Large with the calendar), Thermostat Extra Large, and Battery and Energy Rings. Card Design is no longer a setting.
 - **Live TV shows each channel's show** with its art at every size, and the channel's logo as a small mark on the picture.
