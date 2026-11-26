@@ -336,6 +336,36 @@
                re.test(k) && !(not && not.test(k));
       }).sort()[0] || null;
     }
+    // A CAMERA'S OWN PARTS (2026-11-26, the owner: the HomeView Cameras page's motion badges, the light and the lock "should
+    // apply to the main camera page"): the detection sensors of its device (motion, person, vehicle, animal, package, the
+    // doorbell), its light and its lock. Looked up once per registry (the Cameras row asks on every push): the devices'
+    // entities are listed once, and each camera's answer kept until the registry changes.
+    var CAM_PARTS = { ents: null, dev: null, by: {} }, CAM_DETECT = /motion|person|vehicle|animal|package|doorbell|ring/,
+        CAM_DC = { motion: 1, occupancy: 1, moving: 1 };
+    function cameraParts(client, id) {
+      var ents = client.entities || {};
+      if (CAM_PARTS.ents !== ents) { CAM_PARTS.ents = ents; CAM_PARTS.dev = null; CAM_PARTS.by = {}; }
+      if (CAM_PARTS.by[id]) return CAM_PARTS.by[id];
+      if (!CAM_PARTS.dev) {
+        var d = {};
+        Object.keys(ents).forEach(function (k) { var dv = ents[k].device_id; if (dv) (d[dv] = d[dv] || []).push(k); });
+        CAM_PARTS.dev = d;
+      }
+      var dev = ents[id] && ents[id].device_id, list = ((dev && CAM_PARTS.dev[dev]) || []).slice().sort();
+      var usable = function (k) { var e = ents[k] || {}; return !e.hidden && !e.entity_category; };
+      // its name is its device's ("Front Door", not "Front Door Low Resolution Channel"), as the camera sheet says it
+      var dv = dev && (client.devices || {})[dev], st = client.states[id];
+      var nm = String((dv && (dv.name_by_user || dv.name)) || (st && st.attributes && st.attributes.friendly_name) || id);
+      return (CAM_PARTS.by[id] = {
+        name: nm.replace(/\s+(low|medium|high)\s+resolution\s+channel$/i, '').replace(/\s+camera$/i, '') || nm,
+        motion: list.filter(function (k) {
+          return k.indexOf('binary_sensor.') === 0 && usable(k) && (CAM_DC[dc(client.states[k])] || CAM_DETECT.test(k));
+        }),
+        light: list.filter(function (k) {
+          return usable(k) && (k.indexOf('light.') === 0 || (k.indexOf('switch.') === 0 && /light|flood|spot|lamp/.test(k)));
+        })[0] || null,
+        lock: list.filter(function (k) { return k.indexOf('lock.') === 0 && usable(k); })[0] || null });
+    }
     function friendly(client, id, area) {
       var ents = client.entities || {}, areas = client.areas || {}, devs = client.devices || {};
       var e = ents[id] || {};
@@ -381,6 +411,6 @@
     K.fullName = fullName; K.groupOf = groupOf; K.houseBattery = houseBattery; K.houseCameras = houseCameras;
     K.kioskTheme = kioskTheme; K.listOf = listOf; K.named = named; K.notHouseCamera = notHouseCamera;
     K.placed = placed; K.roomCards = roomCards; K.rooms = rooms; K.roomSection = roomSection; K.section = section;
-    K.shown = shown; K.sibling = sibling; K.siblingLike = siblingLike; K.slug = slug;
+    K.cameraParts = cameraParts; K.shown = shown; K.sibling = sibling; K.siblingLike = siblingLike; K.slug = slug;
   };
 })();

@@ -164,6 +164,23 @@
       if (window.hkCards && window.hkCards.sized) window.hkCards.sized('hk-camera-mosaic-card', HkCameraMosaicCard);
       customElements.define('hk-camera-mosaic-card', HkCameraMosaicCard);
     }
+    // THE TILE'S WORDS: words over a picture wear the dark plate the camera sheet's name wears (DESIGN.md: an X or a name
+    // over live video, rgba(28,28,30,.62-.66), white), never the look's glass; a detection is the house's orange badge
+    var BADGE_MS = 30 * 60 * 1000;
+    var OV = {
+      nm: 'position:absolute;left:10px;bottom:10px;max-width:calc(100% - 20px);box-sizing:border-box;padding:5px 11px;border-radius:12px;' +
+          'background:rgba(28,28,30,0.62);color:#fff;font-size:15px;font-weight:600;letter-spacing:-.2px;line-height:19px;' +
+          'white-space:nowrap;overflow:hidden;text-overflow:ellipsis',
+      mo: 'position:absolute;left:10px;top:10px;padding:4px 9px;border-radius:8px;background:#ffb340;color:#000;font-size:13px;font-weight:700;line-height:17px',
+      gone: 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(24,24,28,0.93);' +
+            'color:rgba(235,235,245,.62);font-size:15px;font-weight:600'
+    };
+    function detectionKind(id, st) {
+      var w = (id + ' ' + ((st && st.attributes && st.attributes.friendly_name) || '')).toLowerCase();
+      return /person|people/.test(w) ? 'Person' : /vehicle|car\b/.test(w) ? 'Vehicle' : /animal|pet/.test(w) ? 'Animal' :
+        /package/.test(w) ? 'Package' : /doorbell|ring/.test(w) ? 'Doorbell' : 'Motion';
+    }
+    function esc(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
     class HkCameraLiveCard extends HTMLElement {
       setConfig(c) {
         if (!c || !c.entity) throw new Error('hk-camera-live-card: entity is required');
@@ -176,6 +193,35 @@
         if (this._still) window.hkHostClient.bridge(this._still, c);
         if (this._liveEl) window.hkHostClient.bridge(this._liveEl, c);
         if (!this._still && this.isConnected && this._config) this._reset();
+        this._badges(c);
+      }
+      // WHAT IS OVER THE PICTURE (2026-11-26, the owner, of the HomeView's Cameras page: "I like the things you added"): the
+      // camera's name, what its device last saw (`motion`: its detection sensors, the strategy's) -- "Person · Now", then
+      // "Person · 2:41 PM" for BADGE_MS after -- and "Unavailable" over a camera that is gone. Read when the card is told
+      // (each client); one timer takes a badge away when its time is up. The layer takes no taps: the tile's tap is the
+      // picture's (the camera's sheet).
+      _badges(c) {
+        var cfg = this._config, ov = this._ov;
+        if (!cfg || !ov || !c) return;
+        var st = c.states || {}, me = st[cfg.entity], gone = !me || me.state === 'unavailable';
+        var best = null, now = Date.now(), self = this;
+        (Array.isArray(cfg.motion) ? cfg.motion : []).forEach(function (k) {
+          var s = st[k];
+          if (!s || s.state === 'unavailable' || s.state === 'unknown') return;
+          var at = s.state === 'on' ? now : Date.parse(s.last_changed);
+          if (isFinite(at) && (!best || at > best.at)) best = { id: k, at: at, on: s.state === 'on', st: s };
+        });
+        var show = !gone && best && (best.on || now - best.at < BADGE_MS);
+        var words = show ? detectionKind(best.id, best.st) + ' \u00b7 ' +
+          (best.on ? 'Now' : new Date(best.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) : '';
+        var key = (cfg.name || '') + '|' + words + '|' + gone;
+        if (key !== this._ovKey) {
+          this._ovKey = key;
+          ov._box.innerHTML = (gone ? '<div style="' + OV.gone + '">Unavailable</div>' : '') + (words ? '<div style="' + OV.mo + '">' + esc(words) + '</div>' : '') +
+            (cfg.name ? '<div style="' + OV.nm + '">' + esc(cfg.name) + '</div>' : '');
+        }
+        clearTimeout(this._ovT);
+        if (show && !best.on) this._ovT = setTimeout(function () { self._badges(self.client); }, Math.max(1000, best.at + BADGE_MS - now + 500));
       }
       getCardSize() { return 3; }
       static getStubConfig(input) {
@@ -232,6 +278,7 @@
       // takes turns again instead of opening all nine at once
       disconnectedCallback() {
         if (super.disconnectedCallback) super.disconnectedCallback();
+        clearTimeout(this._ovT);
         if (this._restOff) { this._restOff(); this._restOff = null; }
         this._resting = false;
         this._stop();
@@ -268,6 +315,18 @@
         this.appendChild(this._still);
         this._saved();
         this._keepStill();
+        // the name and the badges, over every layer (the kept frame is 2)
+        this._ov = this._overlay();
+        this.appendChild(this._ov);
+        this._ovKey = null;
+        this._badges(this.client);
+      }
+      _overlay() {
+        var host = document.createElement('div');
+        host.style.cssText = 'position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:var(--ha-card-border-radius,12px);overflow:hidden;' +
+          'font-family:var(--hk-font-body,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif);-webkit-font-smoothing:antialiased';
+        host._box = host;
+        return host;
       }
       _saved() {
         this._dropFrame();

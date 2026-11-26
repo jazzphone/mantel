@@ -319,7 +319,10 @@
                     security: ['security', 'locks', 'garage', 'doors', 'windows', 'leaks', 'motion', 'occupancy'],
                     // the Vacuums and Timers pages (2026-10-16, the utility pages' plan): what
                     // is working, and how the batteries are (HK Settings -> Pages)
-                    vacuums: ['vacuums', 'vacuum_battery'], timers: ['timers'] };
+                    vacuums: ['vacuums', 'vacuum_battery'], timers: ['timers'],
+                    // the Cameras page (2026-11-26, from the HomeView's): how many and whether they are all live, and the
+                    // latest thing one of them saw
+                    cameras: ['cameras', 'detections'] };
   var CLIMATE_KINDS = PAGE_ROWS.climate;
   function rowSetting(page) {
     var HS = window.hkSettings;
@@ -342,7 +345,7 @@
     var by = S && S.pageMembers ? S.pageMembers(client, page, o) : {};
     return picked(page, o).map(function (k) {
       // (the batteries are the vacuums')
-      return UTILITY[k] ? UTILITY[k](client, by[k] || (k === 'vacuum_battery' ? by.vacuums : null) || [])
+      return UTILITY[k] ? UTILITY[k](client, by[k] || (k === 'vacuum_battery' ? by.vacuums : null) || [], by)
                         : describe(client, k, by[k] || [], true);
     }).filter(Boolean);
   }
@@ -394,6 +397,34 @@
                value: (lo === hi ? lo + '%' : lo + '\u2013' + hi + '%') + (lo <= 20 ? ' \u00b7 Low' : ''),
                ids: lows.map(function (x) { return x.id; }), dim: false, on: 1, alert: lo <= 20, battery: lo };
     },
+    // THE CAMERAS: how many, and whether every one is up
+    cameras: function (client, ids) {
+      var st = client.states || {}, n = ids.length;
+      if (!n) return null;
+      var gone = ids.filter(function (id) { return !st[id] || OFF[st[id].state]; }).length;
+      return { kind: 'cameras', title: n === 1 ? 'Camera' : n + ' Cameras',
+               value: gone ? (gone === n ? 'Unavailable' : gone + ' Unavailable') : (n === 1 ? 'Live' : 'All Live'),
+               ids: ids, dim: gone === n, on: n - gone, alert: false };
+    },
+    // THE LATEST THING A CAMERA SAW: what (Person, Vehicle, Package...), which camera, and when -- a clock time, not "2m
+    // ago", so the row needs no clock of its own (it is drawn when a state changes). Seeing it now is the row's alert;
+    // a tap opens that camera.
+    detections: function (client, ids, by) {
+      var st = client.states || {}, best = null, now = Date.now();
+      ids.forEach(function (k) {
+        var s = st[k];
+        if (!s || OFF[s.state]) return;
+        var at = s.state === 'on' ? now : Date.parse(s.last_changed);
+        if (isFinite(at) && (!best || at > best.at || (s.state === 'on' && !best.on))) best = { id: k, at: at, on: s.state === 'on' };
+      });
+      if (!ids.length) return null;
+      if (!best || now - best.at > 86400000) return { kind: 'detections', title: 'Motion', value: 'None Today', ids: [], dim: true, on: 0 };
+      var cam = by && by.camera_of && by.camera_of[best.id], s0 = st[best.id];
+      var when = best.on ? 'Now' : new Date(best.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      var where = cam ? cameraLabel(client, cam) : '';
+      return { kind: 'detections', title: detectionKind(best.id, s0), value: (where ? where + ' \u00b7 ' : '') + when,
+               ids: cam ? [cam] : [best.id], dim: false, on: best.on ? 1 : 0, alert: best.on };
+    },
     timers: function (client, ids) {
       var st = client.states || {};
       if (!ids.length) return null;
@@ -406,6 +437,16 @@
                ids: ids, dim: !run && !pause, on: run + pause };
     }
   };
+  // a detection sensor's kind, by its name; a camera's own name, its device's (as the camera sheet says it)
+  function detectionKind(id, st) {
+    var s = (id + ' ' + ((st && st.attributes && st.attributes.friendly_name) || '')).toLowerCase();
+    return /person|people/.test(s) ? 'Person' : /vehicle|car\b/.test(s) ? 'Vehicle' : /animal|pet/.test(s) ? 'Animal' :
+      /package/.test(s) ? 'Package' : /doorbell|ring/.test(s) ? 'Doorbell' : 'Motion';
+  }
+  function cameraLabel(client, id) {
+    var S = window.hkStrategy;
+    return S && S.cameraParts ? S.cameraParts(client, id).name : id;
+  }
   // Current ambient readings, shared by the summary and the popup pills.
   // A thermostat's setpoint is deliberately never a reading source.
   function climateReading(client, id, kind) {
@@ -460,7 +501,8 @@
                // `motion`: the Home app's diamond with trails, drawn for this set
                // (not a public SF Symbol); a tile's motion sensor is `motion-sensor`
                doors: 'door-closed', locks: 'lock', garage: 'garage', motion: 'motion',
-               occupancy: 'walk', leaks: 'water', vacuums: 'robot-vacuum', vacuum_battery: 'battery', timers: 'timer-sand' };
+               occupancy: 'walk', leaks: 'water', vacuums: 'robot-vacuum', vacuum_battery: 'battery', timers: 'timer-sand',
+               cameras: 'video', detections: 'motion' };
   var ICON_ON = { lights: 'lightbulb-on', blinds: 'blinds-horizontal', windows: 'window-open-variant', doors: 'door-open',
                   locks: 'lock-open-variant', garage: 'garage-open', leaks: 'water-alert' };
   function icon(it) {
@@ -705,6 +747,8 @@
       _itemsFor(h) { return pageItems(h, this._page(), this._opts()); }
       _open(it) {
         var D = window.hkDetail, self = this;
+        // the latest detection is its camera's: that camera's sheet, live
+        if (it.kind === 'detections') { if (it.ids[0]) window.hkShell.moreInfo(it.ids[0], this); return; }
         if (D && D.openGroup && !(it.kind === 'security' && it.ids.length === 1)) {
           D.openGroup(it.title, it.ids, { icon: icon(it), kind: it.kind,
             row: this._opts(), resolve: function (h) {

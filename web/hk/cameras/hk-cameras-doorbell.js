@@ -249,6 +249,11 @@
           '  -webkit-tap-highlight-color:transparent;background:rgba(28,28,30,.66);',
           '  box-shadow:0 4px 14px rgba(0,0,0,.25);--mdc-icon-size:26px}',
           '.snd{width:56px;border-radius:28px}',
+          // the camera's light and lock (keys)
+          '.key{width:56px;border-radius:28px}',
+          '.key.on{background:#fff;color:#e8a200}',
+          '.key.open{color:#40c8e0}',
+          '.key.off{opacity:.5}',
           '.snd.off{color:rgba(255,255,255,.7)}',
           '.talk{padding:0 26px 0 20px;border-radius:28px;font-size:17px;font-weight:600;',
           '  min-width:200px;touch-action:none}',
@@ -303,6 +308,7 @@
           this._posterPic = pic;
           this._poster.setAttribute('src', /^camera\./.test(c.entity) ? this._posterUrl(pic) : pic);
         }
+        this._paintKeys();
         if (this.isConnected && !this._pc && !this._retryT && !this._rested) this._start();
       }
 
@@ -486,8 +492,47 @@
           this._talkBtn = t;
           this._talkUi('idle');
         }
+        // THE CAMERA'S OWN LIGHT AND LOCK (`keys`, the camera sheet's: hk-sheet-security.js), round keys in the bar beside
+        // the sound, as the HomeView's camera page has them (2026-11-26). The light is one tap; a lock never is (it opens
+        // the lock's own sheet).
+        this._keys = [];
+        (Array.isArray(c.keys) ? c.keys : []).forEach(function (k) {
+          if (!k || !k.entity) return;
+          var kb = document.createElement('button');
+          kb.className = 'key';
+          kb.innerHTML = '<hk-icon></hk-icon>';
+          kb.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+          kb.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (k.kind === 'lock') { if (window.hkShell && window.hkShell.moreInfo) window.hkShell.moreInfo(k.entity, self); return; }
+            self._call('homeassistant', 'toggle', { entity_id: k.entity });
+          });
+          bar.insertBefore(kb, self._talkBtn || null);
+          self._keys.push({ k: k, b: kb });
+        });
         if (!bar.children.length) bar.style.display = 'none';
         this._paintSound();
+        this._paintKeys();
+      }
+      // a key in its state: a light on is white with its glyph yellow; a lock left open says so in teal
+      _paintKeys() {
+        var h = this.client;
+        (this._keys || []).forEach(function (x) {
+          var st = h && h.states && h.states[x.k.entity], on = !!st && st.state === 'on', open = !!st && st.state !== 'locked';
+          var lock = x.k.kind === 'lock', ic = x.b.querySelector('hk-icon');
+          x.b.classList.toggle('on', !lock && on);
+          x.b.classList.toggle('open', lock && open);
+          ic.setAttribute('icon', lock ? (open ? 'hk:lock-open-variant' : 'hk:lock') : 'hk:lightbulb');
+          x.b.setAttribute('aria-label', (x.k.name || (lock ? 'Lock' : 'Light')) + ', ' +
+            (!st || st.state === 'unavailable' ? 'Unavailable' : lock ? (open ? 'Unlocked' : 'Locked') : on ? 'On' : 'Off'));
+          x.b.classList.toggle('off', !st || st.state === 'unavailable');
+        });
+      }
+      // ...drawn again when one of them changes, not only the camera
+      _sigOf() {
+        var base = super._sigOf(), c = this._config, h = this.client;
+        if (base === null || !c || !h || !Array.isArray(c.keys) || !c.keys.length) return base;
+        return base + c.keys.map(function (k) { var st = k && h.states[k.entity]; return st ? st.last_updated : 'x'; }).join(',');
       }
 
       // ------------------------------------------------------------ sound

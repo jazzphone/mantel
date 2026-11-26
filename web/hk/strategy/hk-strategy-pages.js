@@ -10,7 +10,7 @@
     var accIcon = K.accIcon, accName = K.accName, accOf = K.accOf, added = K.added, areaName = K.areaName,
         areaOf = K.areaOf, COL2 = K.COL2, column = K.column, dashSeg = K.dashSeg, dc = K.dc, FAV_PX = K.FAV_PX,
         firstOf = K.firstOf, friendly = K.friendly, fullName = K.fullName, heading = K.heading, hidden = K.hidden,
-        houseCameras = K.houseCameras, listOf = K.listOf, membersOf = K.membersOf, named = K.named, nameOf = K.nameOf,
+        houseCameras = K.houseCameras, cameraParts = K.cameraParts, listOf = K.listOf, membersOf = K.membersOf, named = K.named, nameOf = K.nameOf,
         pillGrid = K.pillGrid, placed = K.placed, PR = K.PR, rooms = K.rooms, section = K.section,
         setting = K.setting, shortName = K.shortName, shown = K.shown, sibling = K.sibling,
         siblingLike = K.siblingLike, sized = K.sized, tileFor = K.tileFor, titleBar = K.titleBar, TL = K.TL;
@@ -136,6 +136,7 @@
     function pageMembers(client, page, o) {
       o = o || {};
       if (page === 'climate') return climateMembers(client, o);
+      if (page === 'cameras') return cameraMembers(client, o);
       var G = setting('generated') || {}, row = (setting('status_rows') || {})[page] || {};
       var opts = {};
       ['exclude_entities', 'exclude_devices', 'exclude_areas'].forEach(function (k) {
@@ -153,6 +154,18 @@
                motion: inv.motion || [], occupancy: inv.occupancy || [], valves: inv.valves || [],
                vacuums: inv.vacuums || [], timers: inv.timers || [],
                security: alarm ? [alarm] : [] };
+    }
+    // THE CAMERAS PAGE'S ROW: the page's own cameras (the screen's, else the house's, as the page has them), and what
+    // their devices detect -- each sensor with its camera, so the row's latest detection opens that camera
+    function cameraMembers(client, o) {
+      var b = boardOf() || {}, opts = Object.assign({}, o, { board: b });
+      var cams = listOf(b, 'cameras').length ? listOf(b, 'cameras').filter(function (id) { return client.states[id] && !hidden(client, opts, id); })
+                                             : houseCameras(client, opts);
+      var detections = [], cameraOf = {};
+      cams.forEach(function (id) {
+        cameraParts(client, id).motion.forEach(function (k) { if (!(k in cameraOf)) { cameraOf[k] = id; detections.push(k); } });
+      });
+      return { cameras: cams, detections: detections, camera_of: cameraOf };
     }
     // THE PAGE HEADERS (hk-headers.js; hk_house/docs/PLAN-2026-10-15-page-headers.md):
     // the cards between a page's status row and its accessories, on the Energy

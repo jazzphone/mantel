@@ -127,7 +127,7 @@
     });
   }
   // ------------------------------------------------------------ end of the parts loader
-  var boardOf, clientOf, climateMembers, contactGlyphs, dashSeg, groupOf, HkDashboardStrategy, HkRoomViewStrategy,
+  var boardOf, cameraParts, clientOf, climateMembers, contactGlyphs, dashSeg, groupOf, HkDashboardStrategy, HkRoomViewStrategy,
       homeGridView, homeSheet, inventory, kioskOf, lookSample, notHouseCamera, overlay, pageMembers, PX, PX_KIN, roomCards,
       rooms, saverBlock, setting, shortName, sibling, TILE, tileFor;
 
@@ -392,7 +392,7 @@
     dashSeg = K.dashSeg; groupOf = K.groupOf; HkDashboardStrategy = K.HkDashboardStrategy;
     HkRoomViewStrategy = K.HkRoomViewStrategy; homeGridView = K.homeGridView; homeSheet = K.homeSheet; inventory = K.inventory;
     kioskOf = K.kioskOf; lookSample = K.lookSample; notHouseCamera = K.notHouseCamera; overlay = K.overlay;
-    pageMembers = K.pageMembers; PX = K.PX; PX_KIN = K.PX_KIN; roomCards = K.roomCards; rooms = K.rooms;
+    cameraParts = K.cameraParts; pageMembers = K.pageMembers; PX = K.PX; PX_KIN = K.PX_KIN; roomCards = K.roomCards; rooms = K.rooms;
     saverBlock = K.saverBlock; setting = K.setting; shortName = K.shortName; sibling = K.sibling; TILE = K.TILE;
     tileFor = K.tileFor;
   }
@@ -425,6 +425,7 @@
                           lateError: lateError, recoverLate: recoverLate, defineHere: defineHere,
                           tileFor: viaClient(tileFor), roomCards: viaClient(roomCards), inventory: viaClient(inventory),
                           climateMembers: viaClient(climateMembers), pageMembers: viaClient(pageMembers),
+                          cameraParts: viaClient(function (client, id) { return cameraParts(client, id); }),
                           batteryOf: viaClient(function (client, id) { return sibling(client, id, 'battery'); }),
                           groupOf: viaClient(groupOf), ownChange: ownChange,
                           // a Home Grid's view from a layout (Edit mode's preview, hk-edit-grid.js)

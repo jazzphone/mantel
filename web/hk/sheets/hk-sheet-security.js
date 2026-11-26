@@ -291,6 +291,11 @@
           // as the camera pop-ups: a camera is captioned with its name, the
           // doorbell (the camera that talks) is not
           if (sp) cfg.speaker = sp; else cfg.name = cameraName(h, this._id);
+          // its device's light and lock as keys in the picture's bar (hk-cameras-doorbell.js), as the HomeView's camera page
+          var S = window.hkStrategy, parts = S && S.cameraParts ? S.cameraParts(h, this._id) : null, keys = [];
+          if (parts && parts.light) keys.push({ entity: parts.light, kind: 'light', name: at(stOf(h, parts.light), 'friendly_name') || 'Light' });
+          if (parts && parts.lock) keys.push({ entity: parts.lock, kind: 'lock', name: at(stOf(h, parts.lock), 'friendly_name') || 'Lock' });
+          if (keys.length) cfg.keys = keys;
           this._shape(sp ? 4 / 3 : 16 / 9);
           var self = this, st = h.states[stream];
           var pic = st && st.attributes && !C.stale(st) && st.attributes.entity_picture;

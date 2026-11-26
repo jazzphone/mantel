@@ -128,4 +128,27 @@ ok('rest: ...but a moment after', R.every(function (c) { return !!c._liveEl; }))
 R.forEach(function (c) { c.isConnected = false; c.disconnectedCallback(); });
 window.dispatchEvent(new CustomEvent('hk-saver-covered'));
 ok('rest: a tile taken off the page no longer listens', R.every(function (c) { return !c._liveEl && !c._restOff; }));
+// WHAT IS OVER THE PICTURE (2026-11-26, from the HomeView's Cameras page): the camera's name, what its device saw
+// ("Person · Now", then its clock time for half an hour), "Unavailable" over a camera that is gone
+(function () {
+  // (what the layer says: name|badge|gone -- this DOM keeps no innerHTML to read back)
+  var c = new Card(), words = function () { return c._ovKey || ''; };
+  c.setConfig({ entity: 'camera.door', aspect_ratio: '16x9', fit_mode: 'cover', name: 'Front Door', motion: ['binary_sensor.door_person_detected'] });
+  c.isConnected = true;
+  var at = new Date(NOW).toISOString();
+  c.hass = { states: { 'camera.door': { entity_id: 'camera.door', state: 'idle', attributes: {} },
+                       'binary_sensor.door_person_detected': { entity_id: 'binary_sensor.door_person_detected', state: 'on', attributes: {}, last_changed: at } } };
+  c.connectedCallback();
+  c._badges(c.hass);
+  ok('badges: the name, and a person seen now', words().indexOf('Front Door') >= 0 && words().indexOf('Person \u00b7 Now') >= 0, words());
+  c.hass = { states: { 'camera.door': { entity_id: 'camera.door', state: 'idle', attributes: {} },
+                       'binary_sensor.door_person_detected': { entity_id: 'binary_sensor.door_person_detected', state: 'off', attributes: {},
+                         last_changed: new Date(NOW - 40 * 60000).toISOString() } } };
+  c._badges(c.hass);
+  ok('badges: ...gone once it is half an hour old', words().indexOf('Person') < 0 && words().indexOf('Front Door') >= 0, words());
+  c.hass = { states: { 'camera.door': { entity_id: 'camera.door', state: 'unavailable', attributes: {} } } };
+  c._badges(c.hass);
+  ok('badges: a camera that is gone says so', /\|true$/.test(words()), words());
+  c.isConnected = false; c.disconnectedCallback();
+})();
 print(fail ? 'FAIL ' + fail + ' CAMERA LIVE TESTS' : 'ALL ' + pass + ' CAMERA LIVE TESTS PASS');

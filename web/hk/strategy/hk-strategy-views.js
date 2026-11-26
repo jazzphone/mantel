@@ -14,7 +14,7 @@
         firstOf = K.firstOf, fold = K.fold, friendly = K.friendly, fullName = K.fullName, gridReady = K.gridReady,
         guarded = K.guarded, HEADER_H = K.HEADER_H, headerGrid = K.headerGrid, headerOn = K.headerOn,
         headerOpts = K.headerOpts, hidden = K.hidden, hkSaver = K.hkSaver, homeGridView = K.homeGridView,
-        houseBattery = K.houseBattery, houseCameras = K.houseCameras, inputs = K.inputs, inventory = K.inventory,
+        houseBattery = K.houseBattery, houseCameras = K.houseCameras, cameraParts = K.cameraParts, inputs = K.inputs, inventory = K.inventory,
         kioskOf = K.kioskOf, kioskTheme = K.kioskTheme, listOf = K.listOf, mediaBar = K.mediaBar,
         MUSIC_PAGE = K.MUSIC_PAGE, musicConfigured = K.musicConfigured, named = K.named, nameOf = K.nameOf,
         onlyPages = K.onlyPages, overlay = K.overlay, ownOrder = K.ownOrder, pageRow = K.pageRow,
@@ -242,15 +242,17 @@
       // desktop Safari).
       if (hasCams) {
         pages.cameras = view({ title: 'Cameras', path: 'cameras', subview: true, icon: 'mdi:camera', menu: 'top',
-          sky_variant: 'cameras', background: '#080a0e', cards: [titleBar('Cameras'), column([{
+          sky_variant: 'cameras', background: '#080a0e', cards: [titleBar('Cameras'), pageRow('cameras', opts), column([{
             type: 'custom:hk-grid-card',
             // the house's gap both ways and no margins of their own, so the
             // tiles sit on the page's edges as every plate does (DESIGN.md
             // "Page edges"; their default 4 px put them 4 px in)
             layout: { 'grid-template-columns': 'var(--hk-cameras, repeat(3, minmax(0, 1fr)))', 'grid-column-gap': TL().gridGap + 'px',
                       'grid-row-gap': TL().gridGap + 'px', 'card-margin': '0px', margin: '0px', padding: '0px' },
+            // each tile its camera's name and what its device detects (hk-cameras.js: the badge over the picture)
             cards: cams.map(function (id) {
-              return { type: 'custom:hk-camera-live-card', entity: id, aspect_ratio: '16x9', fit_mode: 'cover' };
+              var cp = cameraParts(client, id);
+              return { type: 'custom:hk-camera-live-card', entity: id, aspect_ratio: '16x9', fit_mode: 'cover', name: cp.name, motion: cp.motion };
             }) }])] });
       }
 
