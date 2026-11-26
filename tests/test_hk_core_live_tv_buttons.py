@@ -118,3 +118,28 @@ def test_a_tvs_volume_is_the_speaker_named_as_its_screen_unless_another_is_chose
     for bad in (None, {DEN: "light.lamp"}, {DEN: "auto"}, {"den": "none"}):
         with pytest.raises(LB.Invalid):
             LB.volume(bad)
+
+
+def test_a_square_screen_fills_unless_another_picture_is_chosen():
+    assert LB.picture(None, "HomeAccessory17,1", "Den") == "fill"
+    assert LB.picture(None, "", "Den HomeView") == "fill" and LB.picture(None, None, "den homeview") == "fill"
+    assert LB.picture(None, "AppleTV14,1", "Den HomeView") == "fit"      # a model that isn't one wins
+    assert LB.picture(None, "", "Living Room TV") == "fit"
+    assert LB.picture("zoom", "HomeAccessory17,1", "Den") == "zoom" and LB.picture("fit", "", "Den HomeView") == "fit"
+    assert LB.picture("bogus", "", "Den HomeView") == "fill"
+    assert LB.picture_setting({DEN: "zoom", STUDY: "fit"}) == {DEN: "zoom", STUDY: "fit"}
+    assert LB.picture("stretch", "", "Den") == "stretch" and "setsar=1" in LB.FILTERS["stretch"]
+    for bad in (None, {DEN: "squish"}, {"den": "fill"}, {DEN: "as_sent"}):
+        with pytest.raises(LB.Invalid):
+            LB.picture_setting(bad)
+
+
+def test_blurred_edges_fill_the_bars_of_fit_and_zoom_unless_turned_off():
+    assert [LB.look(p, True) for p in ("fill", "zoom", "fit", "stretch")] == ["fill", "zoom", "fit_blur", "stretch"]
+    assert [LB.look(p, False) for p in ("fill", "zoom", "fit", "stretch")] == ["fill", "zoom_bars", None, "stretch"]
+    assert all(" " not in f for f in LB.FILTERS.values())                # go2rtc refuses a space inside a #raw part
+    assert "pad=720:404:0:2:black" in LB.FILTERS["fit_blur"] and "pad=720:540:0:2:black" in LB.FILTERS["zoom"]
+    assert LB.blur_setting({DEN: False}) == {DEN: False}
+    for bad in (None, {DEN: "off"}, {"den": False}):
+        with pytest.raises(LB.Invalid):
+            LB.blur_setting(bad)

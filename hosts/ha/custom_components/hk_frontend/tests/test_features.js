@@ -98,6 +98,13 @@ ok('Volume: Automatic names the speaker the screen matched, then every speaker, 
       [['auto', 'Automatic (Den HomeView)'], ['media_player.den_homeview', 'Den HomeView'],
        ['media_player.study_homepod', 'Study HomePod'], ['none', 'None']]) &&
    F._.tvVolumeOptions(spk, {})[0][1] === 'Automatic (None Found)' && eq(F._.tvVolumeOptions({}, {}).length, 2));
+ok('Picture: Automatic says what it is for the screen (Fill on a HomeView), then each picture',
+   eq(F._.tvPictureOptions({ picture_auto: 'fill' }), [['auto', 'Automatic (Fill)'], ['fill', 'Fill'], ['zoom', 'Zoom'], ['fit', 'Fit'],
+                                                    ['stretch', 'Stretch']]) &&
+   F._.tvPictureOptions({})[0][1] === 'Automatic (Fit)' && /crops the sides/.test(F._.tvPictureNote('fill')) &&
+   /whole picture, with a blur/.test(F._.tvPictureNote('fit')) && /black bars/.test(F._.tvPictureNote('zoom', false)));
+ok('Blurred Edges only for the pictures with bars', F._.tvHasBars('fit') && F._.tvHasBars('zoom') &&
+   !F._.tvHasBars('fill') && !F._.tvHasBars('stretch'));
 var names = { host: 'Hearth', link: 'Hearth Link', ha_page: '#/hearth/ha' };
 var link = function (l, n) { return F._.tvHomeLink({ link: l, published: n, names: names }); };
 var ready = link({ connected: true, home: true, house: true, linked_on: true }, 3);

@@ -116,6 +116,8 @@ TV_MSG = {"guide_url": "Enter an address starting with http:// or https://, or l
           "homekit": "Add the TVs to the Home app, or remove them.",
           "power_on": "Choose Last Watched or one of its channels.",
           "volume": "Choose a speaker, or None.",
+          "picture": "Choose Fill, Zoom, Fit or Stretch.",
+          "blur": "Turn Blurred Edges on or off.",
           "no_lineup": "Mantel hasn’t read this tuner’s lineup, so only channels already chosen can be kept."}
 
 
@@ -566,7 +568,8 @@ class FeaturePages:
         from ..features import _HOST, _URL
         errors: dict[str, str] = {}
         for k in changes:
-            if k not in ("host", "guide_url", "channels", "names", "quality", "buttons", "power_on", "volume", "homekit"):
+            if k not in ("host", "guide_url", "channels", "names", "quality", "buttons", "power_on", "volume", "picture",
+                         "blur", "homekit"):
                 errors[k] = TV_MSG["unknown"]
         if "quality" in changes:
             if str(changes["quality"]) not in ("720", "1080"):
@@ -604,6 +607,19 @@ class FeaturePages:
                 piece["volume"] = LB.volume(changes["volume"])
             except LB.Invalid:
                 errors["volume"] = TV_MSG["volume"]
+        if "picture" in changes:
+            # a screen's picture (Fill, Zoom, Fit): what its next show plays
+            from hk_core import live_tv_buttons as LB
+            try:
+                piece["picture"] = LB.picture_setting(changes["picture"])
+            except LB.Invalid:
+                errors["picture"] = TV_MSG["picture"]
+        if "blur" in changes:
+            from hk_core import live_tv_buttons as LB
+            try:
+                piece["blur"] = LB.blur_setting(changes["blur"])
+            except LB.Invalid:
+                errors["blur"] = TV_MSG["blur"]
         if errors:
             raise PageError("invalid_format", fields=errors)
         if "host" in changes:

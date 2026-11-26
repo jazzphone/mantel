@@ -11,6 +11,7 @@ import re
 import types
 
 from airplay_fakes import FakeScreen
+from hk_core import live_tv_buttons as LB
 from test_airplay_out_routes import _paired
 from test_feature_pages import save
 from test_live_tv import ITEM, _mantel_link, rig  # noqa: F401 -- the fixture
@@ -280,6 +281,46 @@ async def test_the_remotes_select_and_volume(rig, monkeypatch):  # noqa: F811
         got = await save(ws, 5, {"type": "hk_tv/settings/set", "changes": {"volume": {sid: "light.lamp"}}})
         assert "volume" in str(got)
         await _turn(r, tv, "turn_off")
+        await ws.close()
+    finally:
+        await screen.close()
+
+
+async def test_a_screens_picture_picks_its_stream(rig, monkeypatch):  # noqa: F811
+    """A HomeView fills by itself; Zoom, Stretch and Fit are chosen, with Blurred Edges or not; a fetch of a cropped stream holds its channel's."""
+    r = await rig(linked=True)
+    screen = await FakeScreen().start()
+    try:
+        ws, sid = await _set_up(r, monkeypatch, screen)
+        got = await save(ws, 1, {"type": "hk_tv/settings/set", "changes": {"buttons": [{"screen": sid, "channel": "4.1"}]}})
+        den = got["result"]["home_app"]["screens"][0]
+        assert (den["picture"], den["picture_auto"], got["result"]["home_app"]["pictures"]) == ("fill", "fill", {})
+
+        def src():
+            item = [d["inner"]["item"] for w, h, d in screen.requests
+                    if isinstance(d, dict) and "inner" in d and d["inner"]["type"] == "insertPlayQueueItem"][-1]
+            return re.search(r"src=([a-z0-9_]+)&", item["Content-Location"]).group(1)
+        sender = r.app["airplay_sender"]
+        tv = r.app["live_tv"]
+        # Blurred Edges on (the default): Fit and Zoom fill their bars; off: black bars, Fit the channel's own stream
+        for blur, picture, want in ((True, "zoom", "mantel_tv_4_1_hls_zoom"), (True, "stretch", "mantel_tv_4_1_hls_stretch"),
+                                    (True, "fit", "mantel_tv_4_1_hls_fit_blur"), (False, "zoom", "mantel_tv_4_1_hls_zoom_bars"),
+                                    (False, "fit", "mantel_tv_4_1_hls")):
+            got = await save(ws, 2, {"type": "hk_tv/settings/set", "changes": {"picture": {sid: picture},
+                                                                               "blur": {} if blur else {sid: False}}})
+            den = got["result"]["home_app"]["screens"][0]
+            assert (den["picture"], den["blur"]) == (picture, blur)
+            await sender.play(r.app["live_tv_buttons"].app["linked_actions"].principal(), "4.1", sid)
+            assert src() == want
+        assert r.go2rtc.streams["mantel_tv_4_1_hls_zoom"] == ("ffmpeg:mantel_tv_4_1#video=h264#raw=-vf#raw=" + LB.FILTERS["zoom"]
+                                                             + "#raw=-g#raw=30#audio=aac")
+        # the screen's fetch of a cropped stream holds it and the channel's it reads
+        tv.hls_leases.clear()
+        tv.hold("mantel_tv_4_1_hls_zoom_bars")
+        assert set(tv.hls_leases) == {"mantel_tv_4_1", "mantel_tv_4_1_hls_zoom_bars"}
+        got = await save(ws, 3, {"type": "hk_tv/settings/set", "changes": {"picture": {sid: "squish"}}})
+        assert "picture" in str(got)
+        await sender.stop(r.app["live_tv_buttons"].app["linked_actions"].principal(), sid)
         await ws.close()
     finally:
         await screen.close()

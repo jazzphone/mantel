@@ -67,7 +67,7 @@ async def test_the_feature_import_brings_each_added_feature_over():
     tv = got["live_tv"]
     assert tv == {"enabled": False, "tuner": "192.0.2.40", "guide_url": "http://192.0.2.41/xmltv.xml",
                   "channels": ["4.1"], "names": {"4.1": "NBC"}, "quality": "720", "go2rtc_once": False,
-                  "buttons": [], "power_on": {}, "volume": {}, "homekit": False}, \
+                  "buttons": [], "power_on": {}, "volume": {}, "picture": {}, "blur": {}, "homekit": False}, \
         "Mantel's own guide fetch stays off"
     assert got["linked"] == F.DEFAULTS["linked"] and got["sleep"] == F.DEFAULTS["sleep"]
     assert F.check_settings(got) == got

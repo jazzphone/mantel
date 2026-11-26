@@ -61,6 +61,43 @@ Live TV plays there.
 Scripts can do the same with `mantel.live_tv_play {channel, screen}` and `mantel.live_tv_stop {screen}` (by name or
 id/number). Mantel Link's own: not aliased under `hk_frontend.*`, which never had them.
 
+## A screen's picture
+
+The owner, 2026-11-26: "is is possible for us to squish the 16x9 into Square format of the homeview automatically...or
+do a center crop? Maybe make this a setting?", "We should stick to 720p", and of a first Zoom with bars: "Why can't we
+do a 1:1 Zoom?". An Apple HomeView is 1088 x 1088. Each
+screen's **Picture** (Settings → Live TV → Home App, `live_tv.picture` `{screen: "fit" | "fill" | "zoom" | "stretch"}`):
+
+- **Fill**: the middle square of the picture (720 x 720 from a 720p channel), edge to edge on a HomeView: no bars and
+  no double tap. The sides are lost.
+- **Zoom**: square too (720 x 720): the middle 4:3 of the picture undistorted, so less is lost at the sides than with
+  Fill, and a blurred copy of the picture above and below instead of bars. The blur is made from a 180 px copy, so it
+  costs no more than Fill's crop.
+- **Fit**: the whole 16:9 picture as sent, with bars.
+- **Stretch**: the whole picture squeezed into the square (720 x 720): everything in frame, a little narrow (the owner:
+  "so that way a user can see EVERYTHING in the frame, even though it is squished"). `setsar=1` after the scale: alone it
+  keeps the picture's shape by marking its pixels wide, and a player would undo the squeeze.
+- **Blurred Edges** (`live_tv.blur` `{screen: false}` when off; on by default), for Fit and Zoom, the two that leave
+  bars (the owner: "Should we offer the blur option on and off for all options that show black bars on the
+  homeview?"): on, a blurred copy of the picture fills the bars, with a 2 px black line above and below the picture
+  ("I like that separation can you add it to the bottom as well?"; the picture's own edge rows trimmed first, a
+  broadcast often has a dark top row); off, black bars: Fit is then the channel's own stream, untouched, and Zoom a 4:3
+  picture the screen puts bars around.
+- **Automatic** (nothing chosen): Fill on a square screen, else Fit (`hk_core.live_tv_buttons.square`: the model a
+  screen said when it was paired, `HomeAccessory…` for a HomeView, or with none its name). Settings says which.
+
+It is the screen's, whatever plays there: the Home app's TV and Mantel's own Play On (`airplay_out.Sender.play` asks
+Live TV's `hk_tv/hls` for it). Fill, Zoom and Stretch are streams of their own beside a channel's HLS stream,
+`<channel>_hls_<look>` (`hk_core.live_tv_buttons.look`: `fill`, `zoom`, `zoom_bars`, `fit_blur`,
+`stretch`), read from the channel's stream (no second tuner) and encoded again with the crop
+(`cameras/live_tv.hls_source`: go2rtc's h264, the filter as separate `#raw` parts, which go2rtc joins with spaces; it
+refuses a space inside one). Inline, not a go2rtc.yaml template: a hotfix builds the server only and never changes the
+LXC's go2rtc.yaml. Probed on the house's go2rtc 1.9.9 first: Fill, Zoom and Stretch all 720 x 720 (Stretch with square pixels), H.264
+and AAC.
+Either costs one more encode while a screen watches it: go2rtc went from about 11 % of a core (NBC playing) to about
+77 % with Fill and 69 % with Zoom (the LXC has 4 cores). A changed Picture takes effect on the
+next show. The Live TV page's own player keeps the picture as sent.
+
 ## How a show ends
 
 Each turns the screen's TV off.
@@ -111,6 +148,8 @@ So Mantel Link 0.1.18 can go first and nothing stops working until the Mantel ho
 ## Limits
 
 - One HomeKit pairing a screen: a house with three screens scans three codes.
+- Fill and Zoom were measured as streams on the house, not yet watched on a HomeView: its AirPlay player is expected to
+  show a square picture edge to edge.
 - Volume needs Mantel's music on and the screen's speaker in it; whether a HomeView playing AirPlay video takes the
   music player's volume the same way was not tried on the house before it shipped.
 - Siri turns a TV on and off; picking an input by voice is HomeKit's to allow, not checked on a real Home app yet.

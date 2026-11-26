@@ -90,6 +90,28 @@ class LiveTvButtons:
         got = self.speakers() if speakers is None else speakers
         return LB.speaker(self.screens().get(screen), self.volume_setting().get(screen), got)
 
+    def picture_setting(self) -> dict[str, str]:
+        try:
+            return LB.picture_setting((self.host.settings.get("live_tv") or {}).get("picture") or {})
+        except LB.Invalid:
+            return {}
+
+    def blur_setting(self) -> dict[str, bool]:
+        try:
+            return LB.blur_setting((self.host.settings.get("live_tv") or {}).get("blur") or {})
+        except LB.Invalid:
+            return {}
+
+    def look(self, screen: str) -> str | None:
+        """The stream a screen's show plays as (LB.look: its picture, with Blurred Edges unless turned off), or None:
+        the channel's own HLS stream."""
+        return LB.look(self.picture(screen), self.blur_setting().get(screen, True))
+
+    def picture(self, screen: str) -> str:
+        """A screen's picture (LB.picture): the one chosen, else Fill on a square screen (an Apple HomeView)."""
+        s = self.app["airplay_screens"].get(screen) if self.app.get("airplay_screens") is not None else None
+        return LB.picture(self.picture_setting().get(screen), (s or {}).get("model"), (s or {}).get("name"))
+
     def power_on(self) -> dict[str, str]:
         try:
             return LB.power_on((self.host.settings.get("live_tv") or {}).get("power_on") or {})
@@ -327,6 +349,9 @@ class LiveTvButtons:
         if lk is not None and self.entry:
             published = sum(1 for p in tvs.values() if lk.registry.get(p["uid"]) is not None)
         power, last, speakers, vol = self.power_on(), self.last(), self.speakers(), self.volume_setting()
+        blurs = self.blur_setting()
+        got = self.app.get("airplay_screens")
+        models = {s["id"]: s.get("model") for s in got.listed()} if got is not None else {}
 
         def homekit_of(uid: str) -> dict[str, Any]:
             got = hk.get(uid) or {"state": "none"}
@@ -336,8 +361,11 @@ class LiveTvButtons:
         return {
             "buttons": self.saved(), "homekit_wanted": self.homekit_wanted(), "power_on": power,
             "speakers": [[e, nm] for e, nm in sorted(speakers.items(), key=lambda x: x[1].casefold())],
+            "pictures": self.picture_setting(), "blurs": blurs,
             "screens": [{"id": sid, "name": n, "playing": (sender.playing(sid) or {}).get("name") if sender else None,
                          "last": last.get(sid), "volume": vol.get(sid, LB.AUTO),
+                         "picture": self.picture(sid), "picture_auto": LB.picture(None, models.get(sid), n),
+                         "blur": blurs.get(sid, True),
                          "speaker": self.speaker(sid, speakers),
                          "speaker_auto": LB.speaker(n, None, speakers),
                          **({"tv": tvs[sid]["name"], "homekit": homekit_of(tvs[sid]["uid"])} if sid in tvs else {})}

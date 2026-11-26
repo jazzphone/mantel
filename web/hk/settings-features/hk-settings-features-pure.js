@@ -223,6 +223,21 @@
       return [['auto', auto ? 'Automatic (' + (names[auto] || auto) + ')' : 'Automatic (None Found)']]
         .concat(((home && home.speakers) || []).map(function (p) { return [p[0], p[1]]; })).concat([['none', 'None']]);
     }
+    // a screen's picture: Automatic (Fill on a square screen such as a HomeView, else Fit), or one chosen
+    var TV_PICTURES = { fill: 'Fill', zoom: 'Zoom', fit: 'Fit', stretch: 'Stretch' };
+    function tvPictureOptions(screen) {
+      var auto = TV_PICTURES[(screen && screen.picture_auto) || 'fit'];
+      return [['auto', 'Automatic (' + auto + ')'], ['fill', 'Fill'], ['zoom', 'Zoom'], ['fit', 'Fit'], ['stretch', 'Stretch']];
+    }
+    function tvPictureNote(picture, blur) {
+      var bars = blur === false ? 'black bars' : 'a blur of the picture';
+      return picture === 'fill' ? 'Fill crops the sides so the picture fills a square screen.'
+        : picture === 'zoom' ? 'Zoom keeps more of the sides, with ' + bars + ' above and below on a square screen.'
+        : picture === 'stretch' ? 'Stretch squeezes the whole picture into a square screen: everything shows, a little narrow.'
+        : 'Fit shows the whole picture, with ' + bars + ' above and below on a square screen.';
+    }
+    // Blurred Edges is for the pictures that leave bars (Fit, Zoom)
+    function tvHasBars(picture) { return picture === 'fit' || picture === 'zoom'; }
     // the names the server gives its parts (its own, its integration in Home Assistant, where it links)
     function tvHomeNames(home) {
       var n = (home && home.names) || {};
@@ -312,6 +327,7 @@
     KIT.tvButtonCount = tvButtonCount; KIT.tvButtonsAfter = tvButtonsAfter; KIT.tvHomeLink = tvHomeLink;
     KIT.tvHomeNames = tvHomeNames; KIT.tvLastButton = tvLastButton; KIT.tvCountTvs = tvCountTvs;
     KIT.tvPowerOptions = tvPowerOptions; KIT.tvPowerOn = tvPowerOn; KIT.tvVolumeOptions = tvVolumeOptions;
+    KIT.tvPictureOptions = tvPictureOptions; KIT.tvPictureNote = tvPictureNote; KIT.tvHasBars = tvHasBars;
     KIT.tvCount = tvCount; KIT.tvLists = tvLists; KIT.vacuumsAfter = vacuumsAfter; KIT.vacuumSub = vacuumSub;
     KIT.virtualPair = virtualPair;
   };

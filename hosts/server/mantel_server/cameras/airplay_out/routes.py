@@ -67,7 +67,12 @@ class Sender:
         detail = {"channel": number, "channel_name": ch.get("name"), "screen": sid, "screen_name": screen.get("name"),
                   **({"via": via} if via else {})}
         # Live TV's own question first (feature, the channel's camera): a refused play leaves no audit row
-        got = await tv.hls(Ctx(send=_quiet, identity=principal), {"type": "hk_tv/hls", "entity_id": ch["camera"]})
+        # the screen's picture (a square HomeView's Fill, say: Home App's Picture and Blurred Edges,
+        # cameras/live_tv_buttons.py)
+        buttons = self.app.get("live_tv_buttons")
+        picture = buttons.look(sid) if buttons is not None else None
+        got = await tv.hls(Ctx(send=_quiet, identity=principal), {"type": "hk_tv/hls", "entity_id": ch["camera"],
+                                                                  **({"picture": picture} if picture else {})})
         if not isinstance(got, dict) or not got.get("shared"):
             raise ConnectionError("Live TV gave no address a screen can play")
         audit.config(None, principal, "live_tv.airplay.play", detail, app=self.app)

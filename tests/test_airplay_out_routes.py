@@ -75,9 +75,13 @@ async def test_a_channel_plays_on_a_screen_by_its_key_and_stops(rig, monkeypatch
         assert got == {"playing": {"channel": "4.1", "name": "NBC"}, "screen": sid}
         item = next(d["inner"]["item"] for w, h, d in screen.requests
                     if isinstance(d, dict) and "inner" in d and d["inner"]["type"] == "insertPlayQueueItem")
-        m = re.fullmatch(r"https://house\.example/go2rtc/(key/[A-Za-z0-9_-]+/api/stream\.m3u8\?src=mantel_tv_4_1_hls&mp4)",
+        # a HomeView (the screen is named one) is square: its picture is Fill, a stream of its own cropped from the
+        # channel's (cameras/live_tv.hls_source)
+        m = re.fullmatch(r"https://house\.example/go2rtc/(key/[A-Za-z0-9_-]+/api/stream\.m3u8\?src=mantel_tv_4_1_hls_fill&mp4)",
                          item["Content-Location"])
         assert m, item["Content-Location"]
+        assert r.go2rtc.streams["mantel_tv_4_1_hls_fill"] == \
+            "ffmpeg:mantel_tv_4_1#video=h264#raw=-vf#raw=crop=ih:ih#raw=-g#raw=30#audio=aac"
         # the address is the screen's to fetch signed out, as the person who played it
         r.env.m.forget_cookies()
         assert (await r.env.m.client.get("/go2rtc/" + m.group(1))).status == 200
@@ -153,7 +157,7 @@ async def test_a_paused_screen_leaves_airplay_once_its_stream_goes_unwatched(rig
         sid = await _paired(r, ws, screen)
         await r.ask(ws, 41, {"type": "hk_tv/play_on", "channel": "4.1", "screen": sid})
         assert sender.playing(sid) == {"channel": "4.1", "name": "NBC", "by": sender.playing(sid)["by"]}  # no stream name
-        await r.tv._drop("mantel_tv_4_1_hls")           # what the lease's end does
+        await r.tv._drop("mantel_tv_4_1_hls_fill")      # what the lease's end does
         for _ in range(100):
             if sender.playing(sid) is None and any(w.startswith("TEARDOWN") for w, h, d in screen.requests):
                 break

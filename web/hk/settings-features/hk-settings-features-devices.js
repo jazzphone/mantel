@@ -15,7 +15,8 @@
         tvButtonsAfter = KIT.tvButtonsAfter, tvCount = KIT.tvCount, tvHomeLink = KIT.tvHomeLink,
         tvHomeNames = KIT.tvHomeNames, tvLastButton = KIT.tvLastButton, tvLists = KIT.tvLists,
         tvCountTvs = KIT.tvCountTvs, tvPowerOptions = KIT.tvPowerOptions, tvPowerOn = KIT.tvPowerOn,
-        tvVolumeOptions = KIT.tvVolumeOptions,
+        tvVolumeOptions = KIT.tvVolumeOptions, tvPictureOptions = KIT.tvPictureOptions, tvPictureNote = KIT.tvPictureNote,
+        tvHasBars = KIT.tvHasBars,
         vacuumsAfter = KIT.vacuumsAfter, vacuumSub = KIT.vacuumSub, virtualPair = KIT.virtualPair, WHAT = KIT.WHAT;
 
     var K;
@@ -231,8 +232,8 @@
           })));
         if (mine.length) {
           c.appendChild(K.group({ footer: 'Last Watched plays the channel last played on ' + s.name + ', from the Home app or anywhere else. ' +
-              (s.speaker ? 'In Control Center’s Remote, the iPhone’s volume buttons set ' + s.name + '’s volume.'
-                         : 'Choose its speaker to set its volume from Control Center’s Remote.') }, [
+              (s.speaker ? 'In Control Center’s Remote, the iPhone’s volume buttons set ' + s.name + '’s volume. '
+                         : 'Choose its speaker to set its volume from Control Center’s Remote. ') + tvPictureNote(s.picture, s.blur) }, [
             K.select({ label: 'When Turned On', sk: 'f:hk_tv:power_on', value: tvPowerOn(H, s.id), options: tvPowerOptions(H, s.id, chans),
                        onChange: function (v) {
                          var p = Object.assign({}, H.power_on || {});
@@ -244,7 +245,19 @@
                          var p = Object.assign({}, H.volume || {});
                          if (v === 'auto') delete p[s.id]; else p[s.id] = v;
                          H.volume = p; set({ volume: p });
-                       } })]));
+                       } }),
+            K.select({ label: 'Picture', sk: 'f:hk_tv:picture', value: (H.pictures || {})[s.id] || 'auto', options: tvPictureOptions(s),
+                       onChange: function (v) {
+                         var p = Object.assign({}, H.pictures || {});
+                         if (v === 'auto') delete p[s.id]; else p[s.id] = v;
+                         H.pictures = p; set({ picture: p });
+                       } })].concat(tvHasBars(s.picture) ? [
+            K.toggle({ label: 'Blurred Edges', sub: 'A blur of the picture instead of black bars', on: s.blur !== false,
+                       sk: 'f:hk_tv:blur', onChange: function (on) {
+                         var p = Object.assign({}, H.blurs || {});
+                         if (on) delete p[s.id]; else p[s.id] = false;
+                         H.blurs = p; set({ blur: p });
+                       } })] : [])));
         }
       });
       // 2. A SCREEN TO PAIR (AirPlay Screens' own pairing, here too): the first one, or another; renaming and removing

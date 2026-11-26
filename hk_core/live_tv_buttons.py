@@ -199,6 +199,85 @@ def speaker(screen_name: Any, how: Any, speakers: Mapping[str, str]) -> str | No
     return next((e for e, n in speakers.items() if want and str(n).strip().casefold() == want), None)
 
 
+# A SCREEN'S PICTURE (the owner, 2026-11-26: "squish the 16x9 into Square format of the homeview automatically...or do
+# a center crop? Maybe make this a setting?"; "We should stick to 720p"; of a 4:3 Zoom with bars: "Why can't we do a
+# 1:1 Zoom?"). A HomeView is 1088 x 1088: Fit shows a 16:9 channel with bars (a double tap fills it); Fill crops the
+# middle square (720 x 720 from 720p); Zoom is square too, the middle 4:3 undistorted (more of the sides than Fill) with
+# a blurred copy of the picture above and below instead of bars; Fit is the picture as sent (bars on a square screen);
+# Stretch squeezes the whole picture into the square ("so that way a user can see EVERYTHING in the frame, even though
+# it is squished"). ``live_tv.picture`` {screen: one of PICTURES}; none said: Fill on a square screen (``square``),
+# else Fit.
+FIT = "fit"
+PICTURES = (FIT, "fill", "zoom", "stretch")
+# BLURRED EDGES (the owner, 2026-11-26: "Should we offer the blur option on and off for all options that show black bars
+# on the homeview?"): Fit and Zoom leave bars above and below on a square screen; with ``live_tv.blur`` on (the
+# default) a blurred copy of the picture fills them, off they are black. Fill and Stretch fill the square: no bars.
+BARS = ("fit", "zoom")
+_BG = "[a]crop=ih:ih,scale=180:180,boxblur=8,scale=720:720[bg]"      # the blur, from a 180 px copy (cheap)
+# a 2 px black line above and below the picture on its blur (the owner: "I like that separation can you add it to the
+# bottom as well?"); the picture's own edge rows are trimmed first (``ih-4``: a broadcast often has a dark top row)
+_LINE = "pad=720:{h}:0:2:black"
+# ffmpeg's filter for each look a stream can have (cameras/live_tv.hls_source; no space in one: go2rtc refuses it).
+# Fit without the blur has none: the channel's picture as sent. Each was probed on the house's go2rtc 1.9.9: 720 x 720
+# (Zoom's black bars: 960 x 720, the screen's own bars), and the blur costs no more than the crop (about two thirds of
+# a core while watched).
+FILTERS = {
+    "fill": "crop=ih:ih",
+    "zoom": f"split[a][b];{_BG};[b]crop=ih*4/3:ih-4,scale=720:536,{_LINE.format(h=540)}[fg];[bg][fg]overlay=0:90",
+    "zoom_bars": "crop=ih*4/3:ih",
+    "fit_blur": f"split[a][b];{_BG};[b]crop=iw:ih-4,scale=720:400,{_LINE.format(h=404)}[fg];[bg][fg]overlay=0:158",
+    # (setsar: scale alone keeps the picture's shape by marking its pixels wide, and a player would undo it)
+    "stretch": "scale=720:720,setsar=1",
+}
+
+
+def look(picture: str, blur: bool) -> str | None:
+    """The stream a picture plays as (a key of FILTERS), or None: Fit without the blur, the channel's own HLS stream."""
+    if picture == FIT:
+        return "fit_blur" if blur else None
+    if picture == "zoom":
+        return "zoom" if blur else "zoom_bars"
+    return picture if picture in FILTERS else None
+
+
+def blur_setting(v: Any) -> dict[str, bool]:
+    """``live_tv.blur`` as saved: {screen id: true or false} (none said: on)."""
+    if not isinstance(v, Mapping) or len(v) > MAX_BUTTONS:
+        raise Invalid("blur")
+    out = {}
+    for sid, on in v.items():
+        if not isinstance(sid, str) or not SCREEN.match(sid) or not isinstance(on, bool):
+            raise Invalid("blur")
+        out[sid] = on
+    return out
+
+
+def picture_setting(v: Any) -> dict[str, str]:
+    """``live_tv.picture`` as saved: {screen id: "fit" | "fill" | "zoom" | "stretch"}."""
+    if not isinstance(v, Mapping) or len(v) > MAX_BUTTONS:
+        raise Invalid("picture")
+    out = {}
+    for sid, how in v.items():
+        if not isinstance(sid, str) or not SCREEN.match(sid) or how not in PICTURES:
+            raise Invalid("picture")
+        out[sid] = how
+    return out
+
+
+def square(model: Any, name: Any) -> bool:
+    """A square screen: an Apple HomeView, by the model it said when it was paired ("HomeAccessory17,1"), or, when it
+    said none, by its name."""
+    m = str(model or "").strip()
+    return m.startswith("HomeAccessory") if m else "homeview" in str(name or "").replace(" ", "").casefold()
+
+
+def picture(how: Any, model: Any, name: Any) -> str:
+    """A screen's picture: the one chosen for it, else Fill on a square screen and Fit on any other."""
+    if how in PICTURES:
+        return how
+    return "fill" if square(model, name) else FIT
+
+
 def stepped(tv: Mapping[str, Any], current: Any, step: int) -> str | None:
     """The channel ``step`` (1 or -1) from ``current`` among the TV's, round the end (channel up and down on the
     Remote); from none, the first (up) or the last (down)."""
