@@ -335,6 +335,29 @@ def test_transfer_refusals(house, cfg):
     assert E.check_transfer(house, cfg, [OFF], OFF) == (None, None)
 
 
+
+def test_no_room_is_added_to_or_moved_from_music_that_isnt_music_assistants(house, cfg):
+    # 2026-11-25: Update on the Play Music page joined every room under a HomeView playing its own Music app; Music
+    # Assistant can't send that music anywhere, so the rooms showed playing and were silent.
+    house.set(OFF, "playing", app_id="com.apple.sonic.music", source="Music",
+              media_content_id="apple-device://ap0001/snHome::STREAM")
+    fail, _ = E.check_transfer(house, cfg, [OFF, LOFT], OFF)
+    assert fail is not None and "isn't Music Assistant's" in fail["message"], fail
+    assert "own AirPlay menu" in fail["message"], fail
+    assert E.check_transfer(house, cfg, [LOFT], OFF)[0] is not None, "nor moved"
+    # letting rooms go still works: the rooms it was joined to are freed, it keeps playing
+    house.group(OFF, [LOFT, EXTRA])
+    assert E.check_transfer(house, cfg, [OFF, LOFT], OFF) == (None, None)
+    assert E.check_transfer(house, cfg, [OFF], OFF) == (None, None)
+    # AirPlay from an iPhone: changed on that device
+    house.set(K, "playing", app_id="com.apple.TVAirPlay", media_content_id="apple-device://ap0009/snPhone::STREAM")
+    fail, _ = E.check_transfer(house, cfg, [K, LR], K)
+    assert fail["message"] == "AirPlay isn't Music Assistant's: change its speakers on the device that sends it.", fail
+    # Music Assistant's own music moves as before
+    house.set(LR, "playing", app_id="music_assistant", media_content_id="apple_music://track/1")
+    assert E.check_transfer(house, cfg, [LR, EXTRA], LR) == (None, None)
+
+
 def test_a_move_plans_its_leader_and_what_it_leaves_behind(house, cfg):
     house.set(OFF, "playing", media_content_id="q1")
     assert E.move_plan(house, [LOFT, OFF], OFF, None) == (OFF, [LOFT], True), "add: no queue moves"

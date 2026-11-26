@@ -645,6 +645,13 @@
         if (!st || (st.state !== 'playing' && st.state !== 'paused')) return false;
         // "Add the room it is already in, and nothing else" has no work in it.
         if (t.length === 1 && t[0] === src) return false;
+        // MUSIC THAT ISN'T MUSIC ASSISTANT'S (a HomeView's own Music app, AirPlay from an iPhone; 2026-11-25): Music
+        // Assistant can't send it to other rooms, so it is neither added to nor moved (the engine's check_transfer).
+        // Letting rooms of its group go, itself kept, is still Music Assistant's grouping.
+        if (window.hkMusic && window.hkMusic.outside && window.hkMusic.outside(st)) {
+          var has = (st.attributes || {}).group_members || [];
+          if (t.indexOf(src) < 0 || t.some(function (e) { return e !== src && has.indexOf(e) < 0; })) return false;
+        }
         // Nor has "make the group exactly what it already is" -- the same
         // short-circuit the integration makes for a group that already exists.
         var gm = (window.hkMusic && window.hkMusic.fold ? window.hkMusic.fold((st.attributes || {}).group_members || [])

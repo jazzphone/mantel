@@ -87,6 +87,13 @@ speaker:
     - **Update**: what is playing moves to exactly the ticked rooms (rooms
       join, rooms stop, or it moves altogether).
 
+    Music that isn’t Music Assistant’s (a HomeView playing from its own
+    Music app, or AirPlay from an iPhone) says where it comes from under the
+    song: “Music on Living Room HomeView”, “AirPlay from Living Room
+    HomeView” on the rooms it sends to, or “AirPlay”. Music Assistant can’t
+    send that music to other rooms, so Update only lets rooms go there; add
+    rooms from the sending device’s own AirPlay menu.
+
     **Reset** puts the ticks back on where it plays, and **Stop** stops it.
     The line above the buttons says what each will do, including a room
     that has to stop something else first. **Volume** has a slider for each room, and

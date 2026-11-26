@@ -13,6 +13,14 @@ as a player of its own, playing an outside stream (its source ``com.apple.tvairp
   in hk-base-music.js, and the app's contexts), and Play / Pause goes to every room of it (``session_players``): an
   explicit pause to each, or play to each, never a toggle each (one already paused would start). Their rooms can't be
   changed from Mantel: the device sending decides them.
+* MUSIC THAT ISN'T MUSIC ASSISTANT'S (``outside``, ``where_from``; 2026-11-25). A speaker playing its own app (a
+  HomeView's Music app: ``app_id`` ``com.apple.sonic.music``, its own ``apple-device://`` session) or AirPlay from a
+  device: Music Assistant can neither move it nor send it to other rooms (it streams only its own music), and joining
+  rooms to it in Music Assistant gave silent rooms shown as playing. So no room is added to it or moved from it
+  (``engine.check_transfer``; letting rooms go still works), rooms are added from the sending device's own AirPlay
+  menu, and the players say where it comes from: "Music on Living Room HomeView", or "AirPlay from Living Room
+  HomeView" on the rooms it sends to, or "AirPlay" from a device that is no speaker of the house (an iPhone).
+  hk-base-music.js reads the same rules for the pages (``hkMusic.contexts``' ``outside`` and ``from``).
 * ITS COVER (``StreamCovers``). Music Assistant asks each HomePod for the artwork, and a HomePod AirPlayed to by a
   HomeView has none ("Artwork not present in response", MA's log), so Music Assistant's picture of it is an address
   that answers 404. The song is looked up in Music Assistant's search instead (Apple Music, ~0.3 s), once per song:
@@ -67,6 +75,60 @@ def play_pause(house: House, rooms: Iterable[str], player: str) -> tuple[str, st
         return "media_play_pause", player
     st = house.state(player)
     return ("media_pause" if st is not None and st.state == "playing" else "media_play"), players
+
+
+MA_APP = "music_assistant"                                   # Music Assistant's own stream
+RECEIVER_APPS = ("com.apple.TVAirPlay", "com.apple.tvairplayd")   # a speaker's AirPlay receiver: it is sent to
+
+
+def outside(attributes: Mapping[str, Any]) -> bool:
+    """The player plays music that isn't Music Assistant's: an AirPlay session (``apple-device://``), or an app
+    other than Music Assistant."""
+    if session_of(attributes.get("media_content_id")) is not None:
+        return True
+    app = attributes.get("app_id")
+    return isinstance(app, str) and app not in ("", MA_APP)
+
+
+def _app_name(attributes: Mapping[str, Any]) -> str:
+    """The app's name as the speaker gives it ("Music", "Safari"), else the last part of its id."""
+    src = attributes.get("source")
+    if isinstance(src, str) and src.strip():
+        return src.strip()
+    return str(attributes.get("app_id") or "").rsplit(".", 1)[-1] or "An app"
+
+
+def origin(house: House, rooms: Iterable[str], player: str) -> tuple[str, str | None] | None:
+    """Where ``player``'s music comes from, or None when it is Music Assistant's: (app name, ``player``) when it plays
+    its own app; ("AirPlay", the speaker) when a speaker of the same AirPlay session plays its own app (it sends);
+    ("AirPlay", None) when the sender is no speaker of the house (an iPhone, a Mac)."""
+    st = house.state(player)
+    if st is None or st.state not in LIVE or not outside(st.attributes):
+        return None
+    app = st.attributes.get("app_id")
+    if app and app not in RECEIVER_APPS and app != MA_APP:
+        return _app_name(st.attributes), player
+    sid = session_of(st.attributes.get("media_content_id"))
+    if sid is not None:
+        for r in rooms:
+            o = house.state(r)
+            if (r != player and o is not None and o.state in LIVE
+                    and o.attributes.get("app_id") not in (*RECEIVER_APPS, MA_APP, None, "")
+                    and session_of(o.attributes.get("media_content_id")) == sid):
+                return "AirPlay", r
+    return "AirPlay", None
+
+
+def where_from(house: House, rooms: Iterable[str], player: str, name_of: Callable[[str], str]) -> str | None:
+    """``origin`` as the players' line: "Music on Living Room HomeView", "AirPlay from Living Room HomeView",
+    "AirPlay"; None for Music Assistant's own music."""
+    got = origin(house, rooms, player)
+    if got is None:
+        return None
+    app, sender = got
+    if sender is None:
+        return app
+    return f"{app} from {name_of(sender)}" if sender != player else f"{app} on {name_of(sender)}"
 
 
 # -- the cover --------------------------------------------------------------------------------------------------------

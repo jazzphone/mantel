@@ -302,7 +302,8 @@
       var hold = this._npHold;
       if (hold && Date.now() < hold.until) vol = hold.v; else this._npHold = null;
       var d = { size: size, song: song, playing: playing, live: live, title: song ? this._title(p) : 'Nothing Playing', artist: song ? a.media_artist || '' : '',
-        album: song ? a.media_album_name || a.media_album || '' : '', cover: song ? this._art(p) : '', bg: (this._config || {}).background === 'card' ? 'card' : 'album', rooms: this._rooms(p),
+        album: song ? (this._npFrom(p) || a.media_album_name || a.media_album || '') : '', cover: song ? this._art(p) : '', bg: (this._config || {}).background === 'card' ? 'card' : 'album',
+          rooms: this._rooms(p),
           roomKey: p ? p.entity_id : res.player,
         pos: pos, dur: dur, since: since, vol: vol, queue: /** @type {any[]} */ ([]), lists: /** @type {any[]} */ ([]) };
       if (size === 'XL') {
@@ -318,6 +319,11 @@
       return d;
     };
     // Music Assistant's queue, asked once a song (as the screensaver's rows are): the block draws again when it lands
+    // MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25): where it comes from, in the album's place (hkMusic.whereFrom)
+    HkNowPlayingCard.prototype._npFrom = function (/** @type {any} */ p) {
+      var M = window.hkMusic, h = this.client;
+      return p && h && M && M.whereFrom ? M.whereFrom(h.states || {}, p.entity_id) : null;
+    };
     HkNowPlayingCard.prototype._npAsk = function (/** @type {any} */ p) {
       var key = this._res().player, sig = key ? key + '|' + this._title(p) + '|' + this._artist(p) : '', self = this;
       if (sig === this._qFor) return;

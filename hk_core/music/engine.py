@@ -35,6 +35,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from ..house import House
+from .airplay import origin, outside, where_from
 from .config import MusicConfig, Playlist, Preset
 from .const import VOLUME_STEP
 from .groups import kind
@@ -327,6 +328,18 @@ def check_transfer(house: House, cfg: MusicConfig, rooms: list[str],
     alone = not [m for m in grouped(house, cfg, source) if m != source and m in cfg.room_ids]
     if preset is None and source in rooms and len(rooms) == 1 and alone:
         return {"ok": False, "message": "The music is already there."}, preset
+    # MUSIC THAT ISN'T MUSIC ASSISTANT'S (airplay.py): its rooms are the sending device's to change. Letting
+    # rooms go (a pick within its group, itself kept) still works: that is Music Assistant's grouping alone.
+    st = house.state(source)
+    if st is not None and outside(st.attributes):
+        has = set(grouped(house, cfg, source)) | {source}
+        if source not in rooms or not set(rooms) <= has:
+            where = origin(house, cfg.room_ids, source)
+            sender = where[1] if where else None
+            what = where_from(house, cfg.room_ids, source, cfg.name_of) or "This music"
+            how = (f"add rooms from {cfg.name_of(sender)}'s own AirPlay menu" if sender
+                   else "change its speakers on the device that sends it")
+            return {"ok": False, "message": f"{what} isn't Music Assistant's: {how}."}, preset
     return pair_alone(cfg, rooms, preset), preset
 
 

@@ -106,6 +106,17 @@
   }
 
   // ------------------------------------------------------------ pure (tests)
+  // THE PLAN FOR MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25; hkMusic.contexts' `airplay` and `outside`, the engine's
+  // check_transfer): AirPlay to several rooms is the sending device's to change (Update would end the AirPlay), and a
+  // speaker playing its own app (a HomeView's Music app) can't have rooms added or the music moved -- Music Assistant
+  // can't send it anywhere; letting rooms of its group go is still Music Assistant's grouping. `pl` as is, or with no update.
+  function fixedPlan(c, pl) {
+    if (!c || !(c.airplay || c.outside) || !(c.airplay || pl.moves || pl.added.length)) return pl;
+    var out = {};
+    Object.keys(pl).forEach(function (k) { out[k] = pl[k]; });
+    out.update = null;
+    return out;
+  }
   // WHAT UPDATE ASKS FOR. `members`: the rooms in the music now; `ticks`: the
   // rooms ticked. Update plays it on exactly the ticks (null: they are where
   // it plays already -- the button is dimmed); `added` join, `dropped` let
@@ -577,13 +588,18 @@
         if (E.foot.__t !== pf) { E.foot.innerHTML = pf; E.foot.__t = pf; }
         return;
       }
-      var pl = ticksPlan(S.members, ticks);
+      var pl = fixedPlan(c, ticksPlan(S.members, ticks));
       // AIRPLAYED FROM ANOTHER DEVICE (hkMusic.contexts' `airplay`): its rooms are the sending device's to change --
-      // Update would make a Music Assistant group of them and end the AirPlay (2026-11-20)
-      var ap = c && c.airplay;
-      if (ap) pl.update = null;
+      // Update would make a Music Assistant group of them and end the AirPlay (2026-11-20). MUSIC THAT ISN'T MUSIC
+      // ASSISTANT'S (`outside`, 2026-11-25: a HomeView playing its own Music app): Music Assistant can't send it to other
+      // rooms -- Update joined every room under it, silent -- so only letting rooms go is left (the engine's rule)
+      var ap = c && (c.airplay || c.outside);
+      var og = ap ? c.origin : null, by = og && og.sender ? nameOf(og.sender) : '';
       var cap = S.err ? '<span>' + esc(S.err) + '</span>' : S.busy ? esc(S.busy)
-              : ap ? '<b>' + esc(c.title || label(c)) + '</b> is AirPlayed from another device: change its rooms there.' +
+              : ap && !pl.update ? '<b>' + esc(c.title || label(c)) + '</b> ' +
+                     (og && og.own ? 'plays from ' + esc(og.app) + ' on ' + esc(by) + ': add rooms from its own AirPlay menu.'
+                      : by ? 'is AirPlayed from ' + esc(by) + ': change its rooms there.'
+                      : 'is AirPlayed from another device: change its rooms there.') +
                      (nextHere ? ' Tap rooms for your next pick.' : '') + also
               : ticksCaption(S.members, ticks, (c && (c.title || label(c))) || 'the music', nextHere, roomsName) + also;
       var upL = S.busy ? '<span class="mpspin"></span>' + (pl.moves ? 'Moving' : 'Updating') : svg(ICON.check) + 'Update';
@@ -644,8 +660,8 @@
     // UPDATE: the music on exactly the rooms ticked (it stays on its own
     // player when that is still in them)
     function updateRooms() {
-      var c = ctx(), t = ticksNow(), pl = ticksPlan(S.members, t);
-      if (!c || c.airplay || !pl.update || S.busy) return;
+      var c = ctx(), t = ticksNow(), pl = fixedPlan(c, ticksPlan(S.members, t));
+      if (!c || !pl.update || S.busy) return;
       var to = pl.update, n = roomsName;
       request('transfer', { rooms: to, source: c.key }, to.indexOf(c.key) >= 0 ? c.key : to[0],
               pl.moves ? 'Moving the music to ' + n(to) + '…' : pl.added.length && !pl.dropped.length ? 'Adding ' + n(pl.added) + '…' : 'Updating…',
@@ -1084,6 +1100,7 @@
     try { for (; n; n = n.parentNode || n.host) if (n.getAttribute && n.getAttribute('hk-flat-force')) return n.getAttribute('hk-flat-force') === 'off'; } catch (e) { /* a stand-in */ }
     return false;
   }
-  window.hkSaverPanel = { create: create, CSS: CSS, volumeCalls: volumeCalls, turn: turn, _: { ticksPlan: ticksPlan, ticksCaption: ticksCaption, playTarget: playTarget, volumeCalls: volumeCalls } };
+  window.hkSaverPanel = { create: create, CSS: CSS, volumeCalls: volumeCalls, turn: turn,
+    _: { ticksPlan: ticksPlan, fixedPlan: fixedPlan, ticksCaption: ticksCaption, playTarget: playTarget, volumeCalls: volumeCalls } };
   try { window.dispatchEvent(new Event('hk-saver-panel')); } catch (e) { /* ignore */ }
 })();

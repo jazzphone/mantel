@@ -92,6 +92,42 @@
         return m ? m[1] : null;
       }
       function active(st) { return !!st && !ignored(st) && !leftover(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
+      // MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25; the same rules as hk_core/music/airplay.py `outside` and
+      // `where_from`): a speaker playing its own app (a HomeView's Music app) or AirPlay from a device. Music Assistant
+      // can't send it to other rooms, so no picker offers to (`outside` on the context; the engine refuses too), and the
+      // players say where it comes from (`from`): "Music on Living Room HomeView", "AirPlay from Living Room HomeView"
+      // on the rooms it sends to, "AirPlay" from a device that is no speaker of the house (an iPhone).
+      var MA_APP = 'music_assistant', RECEIVER_APPS = ['com.apple.TVAirPlay', 'com.apple.tvairplayd'];
+      function outside(st) {
+        var a = (st && st.attributes) || {};
+        if (session(st)) return true;
+        return typeof a.app_id === 'string' && a.app_id !== '' && a.app_id !== MA_APP;
+      }
+      function ownApp(a) { return !!a.app_id && RECEIVER_APPS.indexOf(a.app_id) < 0 && a.app_id !== MA_APP; }
+      function appName(a) {
+        var s = typeof a.source === 'string' ? a.source.trim() : '';
+        return s || String(a.app_id || '').split('.').pop() || 'An app';
+      }
+      // {app, sender, own}: the app's name and the speaker sending (null: no speaker of the house, an iPhone); own when the
+      // player itself plays its own app. null for Music Assistant's own music.
+      function origin(states, player) {
+        var st = states[player], a = (st && st.attributes) || {};
+        if (!st || (st.state !== 'playing' && st.state !== 'paused') || !outside(st)) return null;
+        if (ownApp(a)) return { app: appName(a), sender: player, own: true };
+        var sid = session(st);
+        var by = sid && rooms().filter(function (o) {
+          var os = states[o.entity];
+          return o.entity !== player && !!os && (os.state === 'playing' || os.state === 'paused') &&
+            ownApp(os.attributes || {}) && session(os) === sid;
+        })[0];
+        return { app: 'AirPlay', sender: by ? by.entity : null, own: false };
+      }
+      function whereFrom(states, player) {
+        var o = origin(states, player);
+        if (!o) return null;
+        if (!o.sender) return o.app;
+        return o.app + (o.own ? ' on ' : ' from ') + nameOf(o.sender);
+      }
       // MUSIC STOPPED AFTER A PAUSE (2026-11-01, hk_core/music/resume.py): Music
       // Assistant stops a queue paused for 30 s, keeping its song and where it
       // was; the integration lists those players (`resumable`), and they read
@@ -162,6 +198,11 @@
           var c = ctx(lead, members.length > 1 ? 'group' : 'room', members, states[lead] || st);
           if (sid && members.length > 1) c.airplay = true;
           else if (members.length > 1) { var pre = presetOf(members); if (pre) c.preset = pre.name; }
+          // (the sending speaker's own line when it is one of them: an AirPlay session led by a room it sends to)
+          var sender = members.filter(function (m) { return states[m] && ownApp(states[m].attributes || {}); })[0];
+          c.origin = origin(states, sender || lead);
+          c.outside = c.origin !== null;
+          c.from = whereFrom(states, sender || lead);
           out.push(c);
         });
         return out;
@@ -404,6 +445,7 @@
         speakers: function () { return ST.MUSIC.speakers.slice(); },
         rooms: rooms, presets: presets, known: known, isGroup: isGroup, fold: fold, together: together,
         nameOf: nameOf, leader: leader, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
+        outside: outside, origin: origin, whereFrom: whereFrom,
         player: function (client) { return resolve(client).player; },
         label: label, setFocus: setFocus, release: release, attach: attach,
         onChange: onChange, focus: function () { return focus.key; },

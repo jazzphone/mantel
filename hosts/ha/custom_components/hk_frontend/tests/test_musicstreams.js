@@ -239,4 +239,27 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   eq('...and then fitted to the new column (27 + 5 x 78 + 24)', p._e.house.style.maxHeight, '441px');
 })();
 
+// ------------------------------------------------------------ where it comes from (2026-11-25)
+// A speaker playing its own app, the rooms it AirPlays to, AirPlay from an iPhone, and Music Assistant's own:
+// hk_core/music/airplay.py's where_from, the same words.
+(function () {
+  var h = hassOf({});
+  h.states[e('living_room')] = airplay('Happy Xmas', { app_id: 'com.apple.sonic.music', source: 'Music',
+    media_content_id: 'apple-device://ap0001/snHome::STREAM' });
+  h.states[e('kitchen')] = airplay('Happy Xmas', { app_id: 'com.apple.TVAirPlay',
+    media_content_id: 'apple-device://ap0002/snHome::STREAM' });
+  h.states[e('office')] = airplay('Butter', { app_id: 'com.apple.TVAirPlay',
+    media_content_id: 'apple-device://ap0003/snPhone::STREAM' });
+  h.states[e('loft')] = airplay('Song', { app_id: 'music_assistant', source: '', media_content_id: 'apple_music://track/1' });
+  var by = {};
+  M.contexts(h).forEach(function (c) { c.members.forEach(function (m) { by[m] = c; }); });
+  var lr = M.nameOf(e('living_room'));
+  eq('its own app: "<app> on <speaker>"', by[e('living_room')].from, 'Music on ' + lr);
+  ok('  ...and outside', by[e('living_room')].outside === true);
+  eq('a room it sends to, the same session: one context with it', by[e('kitchen')], by[e('living_room')]);
+  eq('AirPlay from an iPhone', by[e('office')].from, 'AirPlay');
+  ok('Music Assistant\'s own: no line, not outside', by[e('loft')].from === null && by[e('loft')].outside === false);
+  eq('a receiver alone names its sender', M.whereFrom(h.states, e('kitchen')), 'AirPlay from ' + lr);
+})();
+
 H.run('MUSIC STREAMS', []);

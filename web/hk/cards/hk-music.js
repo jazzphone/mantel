@@ -886,7 +886,8 @@
         if (pic) { var box = e.art; box.innerHTML = ''; this._artImage(pic, box, '<hk-icon icon="mdi:music"></hk-icon>', 700); }
       }
       e.tt.textContent = c ? (c.title || a.media_title || this._label()) : 'Nothing Playing';
-      e.st.textContent = c ? [c.artist || a.media_artist, a.media_album_name].filter(Boolean).join(' · ') : 'Pick a playlist, or search, to start';
+      // (music that isn't Music Assistant's says where it comes from in the album's place: hkMusic.contexts' `from`)
+      e.st.textContent = c ? [c.artist || a.media_artist, c.from || a.media_album_name].filter(Boolean).join(' · ') : 'Pick a playlist, or search, to start';
       window.hkNpStrip.play(e.strip, !!(c && c.playing));
       this._pos = c ? { dur: Number(a.media_duration) || 0, pos: Number(a.media_position) || 0,
                         at: Date.parse(a.media_position_updated_at) || 0, playing: !!c.playing } : null;

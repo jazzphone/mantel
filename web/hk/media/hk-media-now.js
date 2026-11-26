@@ -1483,9 +1483,9 @@
         return (p && p.attributes && p.attributes.media_title) || 'Nothing Playing';
       }
       _artist(p) {
-        var a = (p && p.attributes) || {};
-        var artist = a.media_artist || '';
-        var album = a.media_album_name || a.media_album || '';
+        var a = (p && p.attributes) || {}, artist = a.media_artist || '';
+        var M = window.hkMusic, from = p && this.client && M && M.whereFrom ? M.whereFrom(this.client.states || {}, p.entity_id) : null;
+        var album = from || a.media_album_name || a.media_album || '';   // (music not Music Assistant's: where it comes from)
         return (artist && album) ? (artist + ' · ' + album) : (artist || album || '');
       }
 

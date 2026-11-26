@@ -40,6 +40,16 @@ ok('a room in and a room out: one request', same(p.update, [LR, O, G]) && same(p
 p = U.ticksPlan(group, [L, G]);
 ok('none of its rooms ticked: it moves to the ticks', same(p.update, [L, G]) && p.moves, p);
 
+// MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25: Update joined every room under a HomeView playing its own Music app,
+// silent): no room added and no move; letting a room of its group go still is. AirPlay to several rooms: no Update at all.
+var own = { outside: true, airplay: false };
+ok('its own music: a room ticked -- no Update', U.fixedPlan(own, U.ticksPlan(group, [LR, K, O, L])).update === null);
+ok('...nor a move', U.fixedPlan(own, U.ticksPlan(group, [L, G])).update === null);
+ok('...but a room of its group let go still is', same(U.fixedPlan(own, U.ticksPlan(group, [LR, K])).update, [LR, K]));
+ok('AirPlay to several rooms: no Update, even to let one go',
+   U.fixedPlan({ airplay: true, outside: true }, U.ticksPlan(group, [LR, K])).update === null);
+ok('Music Assistant\'s own: as it was', same(U.fixedPlan({ outside: false }, U.ticksPlan(group, [LR, K, O, L])).update, [LR, K, O, L]));
+
 // A PRESET is its rooms ticked
 var everywhere = [LR, K, O, L, G, 'bed'];
 ok('a preset: Update asks for exactly its rooms (the engine plays its sync group)', same(U.ticksPlan(group, everywhere).update, everywhere));

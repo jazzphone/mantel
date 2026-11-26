@@ -837,6 +837,24 @@ c._sel = new Set([ent('loft'), ent('office')]);
 ok('the group is already exactly that -> no', c._canTransfer() === false);
 c._sel = new Set([ent('loft'), ent('office'), ent('extra_room')]);
 ok('  ...but adding one more IS work', c._canTransfer() === true);
+// MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25): a HomeView playing its own Music app. Music Assistant
+// can't send it to other rooms (Update joined every room under one, silent), so neither Add Rooms nor Move
+// Music is offered -- the engine refuses them too; letting a room of its group go still is.
+function ownMusic(c) {
+  var a = (c.client || c.hass).states[ent('loft')].attributes;
+  a.app_id = 'com.apple.sonic.music'; a.source = 'Music';
+  a.media_content_id = 'apple-device://ap0001/snHome::STREAM';
+  return c;
+}
+c = ownMusic(xfer('Loft', [ent('loft')]));
+c._sel = new Set([ent('loft'), ent('office')]);
+ok('its own music: no rooms added', c._canTransfer() === false);
+c._sel = new Set([ent('office')]);
+ok('  ...nor moved', c._canTransfer() === false);
+c = ownMusic(xfer('Loft', [ent('loft'), ent('office'), ent('extra_room')],
+                  [ent('loft'), ent('office'), ent('extra_room')]));
+c._sel = new Set([ent('loft'), ent('office')]);
+ok('  ...but a room it was joined to can be let go', c._canTransfer() === true);
 // Nothing playing where the page is pointed -> nothing to move.
 c = card('Loft');
 c._sel = new Set([ent('office')]);

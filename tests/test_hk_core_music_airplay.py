@@ -118,3 +118,36 @@ def test_where_an_airplayed_song_is_counted_from_when_it_was_first_seen():
     # ...until its next song, or a real position
     assert c.see("t", "song2", True, 400.0, known_start=False) == (0.0, 400.0)
     assert c.see("u", "song1", True, 500.0, known_start=False, reported=(80.0, 499.0)) == (80.0, 499.0)
+
+
+def test_music_that_isnt_music_assistants_says_where_it_comes_from():
+    # A HomeView playing its own Music app, two HomePods it AirPlays to (the same session), a HomePod AirPlayed
+    # from an iPhone, and Music Assistant's own music (2026-11-25: Mantel offered to add rooms to the HomeView).
+    hv = {"app_id": "com.apple.sonic.music", "source": "Music",
+          "media_content_id": "apple-device://ap0001/snHome::STREAM"}
+    rx = {"app_id": "com.apple.TVAirPlay", "media_content_id": "apple-device://ap0002/snHome::STREAM"}
+    phone = {"app_id": "com.apple.TVAirPlay", "media_content_id": "apple-device://ap0004/snPhone::STREAM"}
+    ma = {"app_id": "music_assistant", "media_content_id": "apple_music://track/1"}
+    h = House({"media_player.living_room": ("playing", hv), "media_player.den": ("playing", rx),
+               "media_player.porch": ("paused", dict(rx, media_content_id="apple-device://ap0003/snHome::STREAM")),
+               "media_player.office": ("playing", phone), "media_player.kitchen": ("playing", ma),
+               "media_player.loft": ("idle", hv)})
+    rooms = list(h.states_)
+    names = {"media_player.living_room": "Living Room HomeView", "media_player.den": "Den"}.get
+    assert A.outside(hv) and A.outside(rx) and A.outside({"app_id": "com.apple.Safari"}) and not A.outside(ma)
+    assert not A.outside({}) and not A.outside({"app_id": ""})
+    assert A.where_from(h, rooms, "media_player.living_room", names) == "Music on Living Room HomeView"
+    assert A.where_from(h, rooms, "media_player.den", names) == "AirPlay from Living Room HomeView"
+    assert A.where_from(h, rooms, "media_player.porch", names) == "AirPlay from Living Room HomeView", "paused too"
+    assert A.where_from(h, rooms, "media_player.office", names) == "AirPlay", "an iPhone is no speaker of the house"
+    assert A.where_from(h, rooms, "media_player.kitchen", names) is None, "Music Assistant's own"
+    assert A.where_from(h, rooms, "media_player.loft", names) is None, "not playing"
+    assert A.origin(h, rooms, "media_player.den") == ("AirPlay", "media_player.living_room")
+    # a receiver that names Music Assistant as its app, with an AirPlay session: still sent to
+    h3 = House({"media_player.living_room": ("playing", hv),
+                "media_player.den": ("playing", dict(rx, app_id="music_assistant", source="com.apple.tvairplayd"))})
+    assert A.where_from(h3, list(h3.states_), "media_player.den", names) == "AirPlay from Living Room HomeView"
+    # no source name: the app id's last part
+    h2 = House({"media_player.x": ("playing", {"app_id": "com.apple.Safari"})})
+    assert A.where_from(h2, ["media_player.x"], "media_player.x", lambda e: "Office") == "Safari on Office"
+
