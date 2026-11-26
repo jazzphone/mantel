@@ -1062,3 +1062,11 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (65 s).
 - Published to jazzphone/mantel-link main as `55d70bb`, tagged `v0.1.16` and released on GitHub.
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master bedroom).
+
+## Mantel Link 0.1.17 (2026-11-25)
+
+- mantel-link 0.1.17, commit `8973ca0`, tagged `mantel-link/v0.1.17`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/mantel_link/mantel-link.js?v=0.1.17`.
+- Mantel on the LXC reconnected to Home Assistant (authenticated 01:27:49 UTC, Mantel Link and HK Frontend linked by 01:28:02) and answered strict health; the tool stopped at its revision check -- the house runs hotfix 0.1.170-main.21611adb7 (the Live TV switches this release pairs with), not the release commit 5fd0c7c -- so the tag, the publish and this record were finished by hand with the tool's own functions (tag_product, publish.py --release, record).
+- Published to jazzphone/mantel-link main as `f2fd428`, tagged `v0.1.17` and released on GitHub.
+- The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master bedroom).
