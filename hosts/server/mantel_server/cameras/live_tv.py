@@ -75,6 +75,8 @@ from urllib.parse import urlsplit
 import aiohttp
 from aiohttp import web
 
+from hk_core import live_tv_buttons as LB
+
 from ..connectors import (
     Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, read_routes, resolve, split_quality, ws_handlers,
 )
@@ -156,15 +158,37 @@ def go2rtc_source(url: str, quality: str = "720", hardware: str = "") -> str:
     return f"ffmpeg:{url}#input=mantel_tv_in{hw}#video=mantel_tv_{q}{hw}#audio=opus"
 
 
-def hls_name(name: str) -> str:
-    """The HLS stream made from a channel's stream (hk_tv/hls): its own name, under STREAM_PREFIX."""
-    return name + "_hls"
+HLS_TAIL = "_hls"
 
 
-def hls_source(name: str) -> str:
+def hls_name(name: str, picture: str | None = None) -> str:
+    """The HLS stream made from a channel's stream (hk_tv/hls): its own name, under STREAM_PREFIX; a cropped picture
+    (hk_core.live_tv_buttons.FILTERS: a square screen's Fill, Zoom, Stretch, Fit with Blurred Edges) is a stream of
+    its own beside it."""
+    return name + HLS_TAIL + (f"_{picture}" if picture in LB.FILTERS else "")
+
+
+def hls_base(src: str) -> str | None:
+    """The channel's stream an HLS stream reads (``hls_name``'s inverse), or None for a stream that isn't one."""
+    for picture in (None, *LB.FILTERS):
+        tail = hls_name("", picture)
+        if src.endswith(tail) and len(src) > len(tail):
+            return src[: -len(tail)]
+    return None
+
+
+def hls_source(name: str, picture: str | None = None) -> str:
     """go2rtc's source for a channel's HLS stream: the channel's own stream, the picture as it is and the sound as AAC
-    (Apple's player wants AAC; WebRTC's Opus stays as it was). No second tuner: it reads go2rtc's own stream."""
-    return f"ffmpeg:{name}#video=copy#audio=aac"
+    (Apple's player wants AAC; WebRTC's Opus stays as it was). No second tuner: it reads go2rtc's own stream.
+
+    Another look (``picture``: a key of hk_core.live_tv_buttons.FILTERS) is encoded again (go2rtc's h264, a key frame a second as the channel's), its ffmpeg filter given as
+    separate ``#raw`` parts: go2rtc joins them with spaces, and refuses a space inside one (probed on the house's go2rtc
+    1.9.9, 2026-11-26: each 720 x 720 from 720p). Inline, not a go2rtc.yaml template: a hotfix never
+    changes the LXC's go2rtc.yaml."""
+    vf = LB.FILTERS.get(picture or "")
+    if vf is None:
+        return f"ffmpeg:{name}#video=copy#audio=aac"
+    return f"ffmpeg:{name}#video=h264#raw=-vf#raw={vf}#raw=-g#raw=30#audio=aac"
 
 
 def gpu_reason(detail: str) -> str:
@@ -760,14 +784,15 @@ class MantelLiveTv:
         page while it plays (``stop``: let it go now). The page fetches go2rtc's playlist through Mantel's own
         /go2rtc/ door, whose per-stream gate (media_proxy) asks the same question on every request."""
         from ..ha.readproxy import ReadBlocked
-        if set(msg) - {"type", "id", "entity_id", "stop"} or not isinstance(msg.get("entity_id"), str) \
-                or not isinstance(msg.get("stop", False), bool):
-            raise ReadBlocked("hk_tv/hls carries entity_id and stop only")
+        if set(msg) - {"type", "id", "entity_id", "stop", "picture"} or not isinstance(msg.get("entity_id"), str) \
+                or not isinstance(msg.get("stop", False), bool) or not (msg.get("picture") in (None, LB.FIT) or msg.get("picture") in LB.FILTERS):
+            raise ReadBlocked("hk_tv/hls carries entity_id, stop and picture only")
         if not self.ours(msg):
             raise ConnectionError("unavailable")          # Live TV not Mantel's here: the page plays WebRTC
         ch = await self._gate(ctx, msg["entity_id"])
         name = stream_name(ch["number"])
-        hname = hls_name(name)
+        picture = msg.get("picture")                # (an AirPlay screen's: airplay_out.Sender.play)
+        hname = hls_name(name, picture)
         if msg.get("stop"):
             for n in (hname, name):
                 self.hls_leases.pop(n, None)
@@ -784,7 +809,7 @@ class MantelLiveTv:
                     await self._put_checked(name, ch)
                     self.streams[name] = ch["number"]
                     self._proxy_gate(name, True, ch["camera"])
-                await self.go2rtc.put_stream(hname, hls_source(name))
+                await self.go2rtc.put_stream(hname, hls_source(name, picture))
             except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
                 self.error = f"{type(exc).__name__}: {exc}"[:200]
                 raise ConnectionError("Live TV's transcoder is unavailable") from exc
@@ -815,10 +840,9 @@ class MantelLiveTv:
         """A screen fetching an HLS stream under its key (media_proxy.keyed) holds it, and the channel's stream it
         reads, as the page's renewal does: an AirPlayed show plays on after the page that sent it is gone. Each fetch
         holds it SCREEN_HOLD_S (a screen that left the stream lets it go in half a minute, not Live TV's 90 s)."""
-        tail = hls_name("")
-        if not src.endswith(tail) or src not in self.streams:
+        base = hls_base(src)
+        if base is None or src not in self.streams:
             return
-        base = src[: -len(tail)]
         self._lease(*((base, src) if base in self.streams else (src,)), hold=SCREEN_HOLD_S)
 
     def _leased(self, name: str) -> bool:

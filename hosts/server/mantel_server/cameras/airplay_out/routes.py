@@ -17,7 +17,7 @@ iPhone app ask it.
   left it, nobody fetched it for live_tv.SCREEN_HOLD_S); and, whatever the screen does, MAX_SHOW_S after it started (2026-11-25, the owner: "We probably should close a
   stream after 2 hours or so as well as a safety net"), so a screen left playing never holds the tuner for good.
   Playing it again starts the time again. ``on_change`` hears each screen whose show started or ended (the Home app's
-  switches, cameras/live_tv_buttons.py).
+  TVs, cameras/live_tv_buttons.py).
 """
 from __future__ import annotations
 
@@ -67,7 +67,12 @@ class Sender:
         detail = {"channel": number, "channel_name": ch.get("name"), "screen": sid, "screen_name": screen.get("name"),
                   **({"via": via} if via else {})}
         # Live TV's own question first (feature, the channel's camera): a refused play leaves no audit row
-        got = await tv.hls(Ctx(send=_quiet, identity=principal), {"type": "hk_tv/hls", "entity_id": ch["camera"]})
+        # the screen's picture (a square HomeView's Fill, say: Home App's Picture and Blurred Edges,
+        # cameras/live_tv_buttons.py)
+        buttons = self.app.get("live_tv_buttons")
+        picture = buttons.look(sid) if buttons is not None else None
+        got = await tv.hls(Ctx(send=_quiet, identity=principal), {"type": "hk_tv/hls", "entity_id": ch["camera"],
+                                                                  **({"picture": picture} if picture else {})})
         if not isinstance(got, dict) or not got.get("shared"):
             raise ConnectionError("Live TV gave no address a screen can play")
         audit.config(None, principal, "live_tv.airplay.play", detail, app=self.app)

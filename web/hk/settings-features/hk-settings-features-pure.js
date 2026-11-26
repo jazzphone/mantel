@@ -184,35 +184,77 @@
       return of === null ? String(n) : n + ' of ' + of;
     }
 
-    // LIVE TV IN THE HOME APP (the server's cameras/live_tv_buttons.py): the switch list after a channel is checked or
-    // unchecked on a screen, in the order chosen ([{screen, channel}]; one each)
+    // LIVE TV IN THE HOME APP (the server's cameras/live_tv_buttons.py): a TV a screen, its inputs the channels checked
+    // for it. The channel list after one is checked or unchecked on a screen, in the order chosen ([{screen, channel}])
     function tvButtonsAfter(buttons, screen, channel, on) {
       var rest = (buttons || []).filter(function (b) { return !(b.screen === screen && b.channel === channel); });
       return on ? rest.concat([{ screen: screen, channel: channel }]) : rest;
     }
     function tvButtonCount(home) { return ((home && home.buttons) || []).length; }
-    // the last switch unchecked while the bridge is in the Home app: ask whether it goes too (kept, its old switches no
-    // longer answer until one comes back; removed, adding it again needs the Home app's code)
-    function tvLastButton(home, next) {
-      return !!(home && home.homekit_wanted && tvButtonCount(home) && !(next || []).length);
+    // how many screens have a TV (a channel checked)
+    function tvCountTvs(home) {
+      var seen = {};
+      ((home && home.buttons) || []).forEach(function (b) { seen[b.screen] = true; });
+      return Object.keys(seen).length;
     }
-    // the names the server gives its parts (its own, its integration in Home Assistant, the bridge, where it links)
+    // a screen's last channel unchecked while the TVs are in the Home app: its TV leaves the Home app, so ask first
+    function tvLastButton(home, next, screen) {
+      var had = function (list) { return (list || []).some(function (b) { return b.screen === screen; }); };
+      return !!(home && home.homekit_wanted && had(home.buttons) && !had(next));
+    }
+    // what turning a screen's TV on can play: Last Watched, or one of its channels, in its order ([value, label])
+    function tvPowerOptions(home, screen, chans) {
+      var names = {};
+      (chans || []).forEach(function (c) { names[c.number] = c.name; });
+      return [['last', 'Last Watched']].concat(((home && home.buttons) || []).filter(function (b) { return b.screen === screen; })
+        .map(function (b) { return [b.channel, names[b.channel] || b.channel]; }));
+    }
+    // ...and what it plays now: the saved one while it is one of the TV's, else Last Watched
+    function tvPowerOn(home, screen) {
+      var v = ((home && home.power_on) || {})[screen];
+      return v && ((home.buttons || []).some(function (b) { return b.screen === screen && b.channel === v; })) ? v : 'last';
+    }
+    // whose volume a screen's TV sets: Automatic (the speaker named as the screen, when there is one), a speaker, or
+    // None ([value, label]); the server's `speakers` are [entity, its player's name]
+    function tvVolumeOptions(home, screen) {
+      var names = {};
+      ((home && home.speakers) || []).forEach(function (p) { names[p[0]] = p[1]; });
+      var auto = screen && screen.speaker_auto;
+      return [['auto', auto ? 'Automatic (' + (names[auto] || auto) + ')' : 'Automatic (None Found)']]
+        .concat(((home && home.speakers) || []).map(function (p) { return [p[0], p[1]]; })).concat([['none', 'None']]);
+    }
+    // a screen's picture: Automatic (Fill on a square screen such as a HomeView, else Fit), or one chosen
+    var TV_PICTURES = { fill: 'Fill', zoom: 'Zoom', fit: 'Fit', stretch: 'Stretch' };
+    function tvPictureOptions(screen) {
+      var auto = TV_PICTURES[(screen && screen.picture_auto) || 'fit'];
+      return [['auto', 'Automatic (' + auto + ')'], ['fill', 'Fill'], ['zoom', 'Zoom'], ['fit', 'Fit'], ['stretch', 'Stretch']];
+    }
+    function tvPictureNote(picture, blur) {
+      var bars = blur === false ? 'black bars' : 'a blur of the picture';
+      return picture === 'fill' ? 'Fill crops the sides so the picture fills a square screen.'
+        : picture === 'zoom' ? 'Zoom keeps more of the sides, with ' + bars + ' above and below on a square screen.'
+        : picture === 'stretch' ? 'Stretch squeezes the whole picture into a square screen: everything shows, a little narrow.'
+        : 'Fit shows the whole picture, with ' + bars + ' above and below on a square screen.';
+    }
+    // Blurred Edges is for the pictures that leave bars (Fit, Zoom)
+    function tvHasBars(picture) { return picture === 'fit' || picture === 'zoom'; }
+    // the names the server gives its parts (its own, its integration in Home Assistant, where it links)
     function tvHomeNames(home) {
       var n = (home && home.names) || {};
-      return { host: n.host || 'this server', link: n.link || 'The integration', bridge: n.bridge || 'The bridge', ha: n.ha_page || null };
+      return { host: n.host || 'this server', link: n.link || 'The integration', ha: n.ha_page || null };
     }
-    // ...and how Home Assistant stands for them: the rows, what to do next, and whether the bridge can be added (any
-    // version of the integration mirrors the switches; only a newer one, `home`, keeps their bridge)
+    // ...and how Home Assistant stands for them: the rows, what to do next, and whether the TVs can be added (only an
+    // integration that says `home` mirrors the TVs and makes their HomeKit entries)
     function tvHomeLink(home) {
       var l = (home && home.link) || {}, runs = !!(l.house && l.linked_on), N = tvHomeNames(home);
       var rows = [
         { label: N.link, value: !l.connected ? 'Not Connected' : !l.home ? 'Needs an Update' : 'Connected' },
         { label: 'The House', value: runs ? 'Run by ' + N.host : 'Run by Home Assistant' },
-        { label: 'Switches in Home Assistant', value: l.connected ? String((home && home.published) || 0) : 'None' }];
+        { label: 'TVs in Home Assistant', value: l.connected ? String((home && home.published) || 0) : 'None' }];
       var footer = !l.connected ? N.link + ' links Home Assistant to this server. Add it in Home Assistant, Devices & Services, with a pairing code from Home Assistant here.'
         : !runs ? 'Home Assistant shows ' + N.host + '’s entities once the house is run by ' + N.host + ': Home Assistant, The House.'
-        : !l.home ? 'The switches are in Home Assistant. To put them in the Home app, update ' + N.link + ' in Home Assistant.'
-        : N.link + ' makes the switches in Home Assistant and puts only them in a HomeKit Bridge of their own. Nothing else in Home Assistant changes.';
+        : !l.home ? 'To show the TVs in Home Assistant and the Home app, update ' + N.link + ' in Home Assistant.'
+        : N.link + ' makes the TVs in Home Assistant and gives each its own HomeKit entry. Nothing else in Home Assistant changes.';
       return { rows: rows, footer: footer, ready: !!(l.connected && l.home && runs) };
     }
 
@@ -223,7 +265,7 @@
               ['Picture Quality', 'page/live_tv', 'live tv 720p 1080p resolution'],
               ['Tuner Address', 'page/live_tv', 'live tv hdhomerun ip host'],
               ['Guide Address', 'page/live_tv', 'live tv xmltv schedule epg'],
-              ['Home App', 'features/tv/home', 'live tv apple home app homekit bridge switches buttons airplay homeview screen']],
+              ['Home App', 'features/tv/home', 'live tv apple home app homekit tv television input channel turned on last watched airplay homeview screen']],
       hk_music: [['Speakers', 'features/music/speakers', 'music rooms hk music speaker order'],
                  ['Speaker Pairs', 'features/music/speakers', 'music pair two homepods stereo left right one room'],
                  ['Home Rooms', 'features/music/homes', 'music tablet user room home'],
@@ -283,7 +325,9 @@
     KIT.pairsAfter = pairsAfter; KIT.plural = plural; KIT.roomCount = roomCount; KIT.roomLists = roomLists;
     KIT.search = search; KIT.speakerLists = speakerLists; KIT.speakerName = speakerName; KIT.stateOf = stateOf;
     KIT.tvButtonCount = tvButtonCount; KIT.tvButtonsAfter = tvButtonsAfter; KIT.tvHomeLink = tvHomeLink;
-    KIT.tvHomeNames = tvHomeNames; KIT.tvLastButton = tvLastButton;
+    KIT.tvHomeNames = tvHomeNames; KIT.tvLastButton = tvLastButton; KIT.tvCountTvs = tvCountTvs;
+    KIT.tvPowerOptions = tvPowerOptions; KIT.tvPowerOn = tvPowerOn; KIT.tvVolumeOptions = tvVolumeOptions;
+    KIT.tvPictureOptions = tvPictureOptions; KIT.tvPictureNote = tvPictureNote; KIT.tvHasBars = tvHasBars;
     KIT.tvCount = tvCount; KIT.tvLists = tvLists; KIT.vacuumsAfter = vacuumsAfter; KIT.vacuumSub = vacuumSub;
     KIT.virtualPair = virtualPair;
   };

@@ -93,7 +93,8 @@
   var addHref, batteriesStored, cooldownLabel, dndRows, dndSummary, energyFound, integrationHref, LIST, listed,
       musicTop, notifySummary, own, page, pairChoices, pairNote, pairsAfter, playlistSub, roomCount, roomLists, SCOPE,
       search, sectionsAfter, setFeature, speakerLists, speakerName, stateOf, stayLabel, trigWord, tvButtonsAfter, tvCount,
-      tvHomeLink, tvLastButton, tvLists, vacuumsAfter, vacuumSub, wakesOf, whenControl;
+      tvCountTvs, tvHomeLink, tvLastButton, tvLists, tvHasBars, tvPictureNote, tvPictureOptions, tvPowerOn, tvPowerOptions,
+      tvVolumeOptions, vacuumsAfter, vacuumSub, wakesOf, whenControl;
 
   // ----------------------------------------------------------------- pages
   var K = null;
@@ -203,6 +204,9 @@
     setFeature = KIT.setFeature; speakerLists = KIT.speakerLists; speakerName = KIT.speakerName;
     stateOf = KIT.stateOf; stayLabel = KIT.stayLabel; trigWord = KIT.trigWord; tvCount = KIT.tvCount;
     tvLists = KIT.tvLists; tvButtonsAfter = KIT.tvButtonsAfter; tvHomeLink = KIT.tvHomeLink; tvLastButton = KIT.tvLastButton;
+    tvCountTvs = KIT.tvCountTvs; tvPowerOn = KIT.tvPowerOn; tvPowerOptions = KIT.tvPowerOptions;
+    tvVolumeOptions = KIT.tvVolumeOptions; tvPictureOptions = KIT.tvPictureOptions; tvPictureNote = KIT.tvPictureNote;
+    tvHasBars = KIT.tvHasBars;
     vacuumsAfter = KIT.vacuumsAfter; vacuumSub = KIT.vacuumSub; wakesOf = KIT.wakesOf;
     whenControl = KIT.whenControl;
     bindLate();
@@ -216,6 +220,8 @@
       integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
       featureList: featureList, featuresOn: featuresOn, featureSub: featureSub, NEEDS: NEEDS, SETTINGS_AT: SETTINGS_AT,
       _: { tvLists: tvLists, tvCount: tvCount, tvButtonsAfter: tvButtonsAfter, tvHomeLink: tvHomeLink, tvLastButton: tvLastButton,
+        tvCountTvs: tvCountTvs, tvPowerOn: tvPowerOn, tvPowerOptions: tvPowerOptions, tvVolumeOptions: tvVolumeOptions,
+        tvPictureOptions: tvPictureOptions, tvPictureNote: tvPictureNote, tvHasBars: tvHasBars,
         speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub,
         vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
            roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,

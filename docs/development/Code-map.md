@@ -365,7 +365,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `glyphs.py` — AN ACCESSORY'S GLYPH, as the screens draw it, for what draws it elsewhere (2026-11-24, the owner
   - `house.py` — THE HOUSE PORT
   - `laundry.py` — Laundry
-  - `live_tv_buttons.py` — Live TV switches for Apple's Home app (2026-11-25, the owner), the rules with no host in them.
+  - `live_tv_buttons.py` — Live TV in Apple's Home app as a TV (2026-11-26, the owner), the rules with no host in them.
   - `live_tv_guide.py` — THE LIVE TV GUIDE, as plain functions, shared by every host (hk_core; was features/live_tv/guide.py).
   - `needs.py` — WHETHER A FEATURE HAS WHAT IT NEEDS (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The needs check").
   - `pairing.py` — Pairing Mantel Link with Mantel, the words both sides use
@@ -530,7 +530,7 @@ Mantel Server.
   - `image_work.py` — THE PICTURE WORK ITSELF
   - `imaging.py` — IMAGE WORK IN ITS OWN PROCESS (docs/phase4/PHOTOS.md, "Where the work runs").
   - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
-  - `live_tv_buttons.py` — LIVE TV SWITCHES FOR APPLE'S HOME APP (2026-11-25, the owner)
+  - `live_tv_buttons.py` — LIVE TV IN APPLE'S HOME APP AS A TV (2026-11-26, the owner)
   - `media_proxy.py` — Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
   - `notify_snaps.py` — Notification snapshots on Mantel (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `photos.py` — MANTEL PHOTOS
@@ -810,7 +810,9 @@ Home Assistant's integrations (HK Frontend, Mantel Link).
   - `entity.py` — Mantel's entities, as Home Assistant shows them (bridge.py mirrors them).
   - `frontend.py` — Mantel's screens in Home Assistant's sidebar
   - `homekit_entry.py` — MANTEL'S HOMEKIT BRIDGE ENTRIES
+  - `homekit_tvs.py` — LIVE TV'S TVS IN APPLE'S HOME APP
   - `mantel_link.py` — THE LINK TO MANTEL SERVER (linked mode; docs/phase5/LINKED-MODE.md in the Mantel repository the whole story)
+  - `media_player.py` — Mantel's media players (bridge.py mirrors them; entity.py draws them)
   - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST, for Mantel
   - `pairing.py` — Pairing by code (Mantel's linked_pairing.py is the other half; docs/phase9/MANTEL-LINK.md 9.4).
   - `phones.py` — The Companion app's phones, for Mantel's notifications (docs/phase9/MANTEL-LINK.md 9.7).
