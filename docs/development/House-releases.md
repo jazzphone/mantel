@@ -1145,3 +1145,15 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - `refresh-kiosks` reported 4 Kiosk Satellite tablets reloaded, but their entities in Home Assistant had been
   unavailable since 14:59 UTC (before this hotfix), and no page connected in the first 13 minutes, so the fix was not
   yet seen on a page.
+
+## Hotfix 0.1.170-main.cba750c95 (2026-11-26)
+
+- The owner: "Yes, hotfix it". The house ran hotfix 0.1.170-main.d348ab55f (the registry flap fix); main since then:
+  9f5ced8c (its record) and cba750c9 (the Cameras page: a summary row -- how many cameras, the latest detection --
+  names and detection badges on the live tiles, the camera's own light and lock in its sheet). All ship.
+- Before: `tools/ci.py quick` 7/7 (the push hook) and `full --only hk-frontend-js` 2/2; the Cameras page drawn on the
+  house twin at 1280 x 800 and 390 x 844 in WebKit and Chromium, the badge and the sheet's keys with a device stood in
+  for one (the twin's registry has none).
+- Hotfix `0.1.170-main.cba750c95`: healthy (strict health, Home Assistant connected), no error in the log, disk 45%.
+  The house's 14 cameras each have 4-5 detection sensors on their device (badges and the row's latest detection); none
+  has a light or a lock on its device, so no sheet shows those keys yet. No wall tablets to reload (HomeViews now).
