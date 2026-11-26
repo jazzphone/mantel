@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.19 - 2026-11-26
+
 **Added**
 - **Volume on Live TV's TVs:** volume up and down (the iPhone's volume buttons in Control Center's Remote) set the volume of the screen's music speaker in Mantel, the HomeView's own volume. Shown only while Mantel names a speaker for the screen.
 - **More of the Remote:** every arrow changes the channel (up and right next, down and left previous), Back stops the show, and Select goes to the TV's home channel (its When Turned On channel, or the one watched before).
