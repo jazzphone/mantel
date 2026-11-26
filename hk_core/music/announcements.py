@@ -61,7 +61,8 @@ def hidden(cfg: MusicConfig, source: str, aliases: set[str]) -> set[str] | None:
     if not source.startswith("media_player."):
         return None
     players = set(aliases)
-    got = cfg.groups.rooms_of(source, cfg.room_ids) if cfg.groups is not None else None
+    virtual = {r: [r, p] for r, p in (getattr(cfg, "partners", None) or {}).items()}   # (a virtual pair's second: its room's)
+    got = cfg.groups.rooms_of(source, cfg.room_ids, virtual) if cfg.groups is not None else None
     if got is not None:
         players.update(got.rooms)
     if not players.intersection(cfg.players()):

@@ -217,9 +217,12 @@ def groups_page(cfg: MusicConfig, players: Iterable[str]) -> dict[str, Any]:
     if g is None:
         return {"ma_groups": False, "pairs": {}, "groups": {}}
     order = [r.entity for r in sorted(cfg.rooms, key=lambda r: r.index)]
+    # (a virtual pair's second player is its room's: not "isn't one of Music's speakers", 2026-11-26, the owner's
+    # Office Right and Master Bedroom Right HomePods in Music Assistant's groups)
+    virtual = {r: [r, p] for r, p in cfg.partners.items()}
     groups = {}
     for e in players:
-        got = g.rooms_of(e, order) if e not in cfg.pairs else None
+        got = g.rooms_of(e, order, virtual) if e not in cfg.pairs else None
         if got is not None:
             groups[e] = {"rooms": got.rooms, "problems": problems(cfg, got.problems)}
     return {"ma_groups": True, "groups": groups,

@@ -268,4 +268,15 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   eq('...on its own line too', M.whereFrom(h.states, e('living_room')), 'Music on Living Room HomeView');
 })();
 
+// (2026-11-26) a stream named by pyatv's 64-hex hash of the song (no id from the sender) is no session: two devices
+// playing the same song stay two things to command, drawn as one stream
+(function () {
+  var h = hassOf({}), hash = 'apple-device://ap0001/' + Array(17).join('ab12');
+  h.states[e('kitchen')] = airplay('Same', { media_content_id: hash });
+  h.states[e('office')] = airplay('Same', { media_content_id: hash.replace('ap0001', 'ap0002') });
+  var cs = M.contexts(h);
+  eq('a fallback hash folds nothing: two contexts', cs.length, 2);
+  eq('...still one stream to draw', M.streams(cs, NOW).length, 1);
+})();
+
 H.run('MUSIC STREAMS', []);

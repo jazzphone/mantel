@@ -728,6 +728,19 @@ def test_a_virtual_pair_is_one_room_its_second_player_folded_in(house):
     assert "knows" in E.validate(house, v, [SR])["message"]
 
 
+def test_the_settings_page_folds_a_virtual_pair_into_its_room(house):
+    # 2026-11-26: Music Assistant's groups holding both halves of a virtual pair said of the second "isn't one of
+    # Music's speakers, so no screen shows it" -- it is the pair's room's (Office Right, Master Bedroom Right)
+    v = vbuild(house)
+    page = S.groups_page(v, [EVERY, "media_player.half"])
+    assert page["groups"][EVERY] == {"rooms": [K, SL, LR], "problems": []}, page["groups"][EVERY]
+    # half of the pair in a group still says so
+    assert page["groups"]["media_player.half"]["rooms"] == [K]
+    assert any("without" in p for p in page["groups"]["media_player.half"]["problems"]), page["groups"]["media_player.half"]
+    # an announcement on a group holding the pair hides the pair's room
+    assert SL in A.hidden(v, EVERY, {EVERY})
+
+
 def test_music_assistants_own_group_of_the_two_is_found_and_presets_fold_the_pair(house):
     v = vbuild(house)
     g = G.Groups.read(V_PLAYERS, VPIDS)

@@ -87,9 +87,11 @@
         return st.state !== 'playing' && a.media_title === 'com.apple.tvairplayd' && !a.media_artist;
       }
       // the AirPlay session a speaker's stream is part of (`apple-device://<player>/<session>::STREAM`), else null
+      // (a 64-hex id is pyatv's hash of the song's details, the same for two plays of one song from two devices: no
+      // session -- hk_core/music/airplay.py session_of; the same song in several rooms is still drawn as one, streams())
       function session(st) {
         var m = /^apple-device:\/\/[^/]+\/(.+?)(?:::STREAM)?$/.exec(String(((st && st.attributes) || {}).media_content_id || ''));
-        return m ? m[1] : null;
+        return m && !/^[0-9a-f]{64}$/.test(m[1]) ? m[1] : null;
       }
       function active(st) { return !!st && !ignored(st) && !leftover(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
       // MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25; the same rules as hk_core/music/airplay.py `outside` and

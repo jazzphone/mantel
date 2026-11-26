@@ -28,6 +28,10 @@ def test_a_session_is_the_streams_last_part():
     assert A.session_of(SID) == "sn9Fake"
     assert A.session_of("apple-device://ap0002/sn9Fake") == "sn9Fake"
     assert A.session_of("apple_music://track/1") is None and A.session_of(None) is None
+    # pyatv's fallback when the sender gives no id: a hash of the song's details, the same for two devices -- no session
+    assert A.session_of("apple-device://ap0001/" + "ab12" * 16) is None
+    assert A.stream_id("apple-device://ap0001/" + "ab12" * 16) == "ab12" * 16, "its cover and clock still go by it"
+    assert A.stream_id(SID) == "sn9Fake" and A.stream_id("apple_music://track/1") is None
 
 
 def test_play_pause_reaches_every_room_of_a_session_and_never_toggles_each():

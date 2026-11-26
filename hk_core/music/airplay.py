@@ -46,10 +46,26 @@ START_KNOWN_AFTER = 10.0      # seconds after the host read Music Assistant whol
 LIVE = ("playing", "paused")
 
 
-def session_of(content_id: Any) -> str | None:
-    """The AirPlay session a speaker's stream belongs to (``media_content_id``), or None for anything else."""
+FALLBACK_HASH = re.compile(r"^[0-9a-f]{64}$")
+
+
+def stream_id(content_id: Any) -> str | None:
+    """Any AirPlayed stream's id (``apple-device://<player>/<id>``), a fallback hash too: what its cover and its song
+    clock are kept by. ``session_of`` is the stricter one, for which rooms are one thing playing."""
     m = SESSION.match(content_id) if isinstance(content_id, str) else None
     return m.group(1) if m else None
+
+
+def session_of(content_id: Any) -> str | None:
+    """The AirPlay session a speaker's stream belongs to (``media_content_id``), or None for anything else. Music
+    Assistant names the stream by the sender's own id for what plays (``PguBhzzib``); with none it falls back to pyatv's
+    hash of the song's title, artist, album and length -- the same for two plays of one song from two devices, so a
+    64-hex hash is no session (2026-11-26, Codex's review): those rooms aren't one thing to command, though the pages
+    still draw the same song in several rooms as one (hkMusic.streams)."""
+    m = SESSION.match(content_id) if isinstance(content_id, str) else None
+    if not m or FALLBACK_HASH.match(m.group(1)):
+        return None
+    return m.group(1)
 
 
 def session_players(house: House, rooms: Iterable[str], player: str) -> list[str]:

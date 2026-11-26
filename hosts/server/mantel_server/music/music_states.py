@@ -344,7 +344,7 @@ class MusicStates:
     def _stream_extras(self, eid: str, p: Mapping[str, Any], state: str, attrs: dict[str, Any]) -> None:
         """An AirPlayed song's cover, and its length and position for the progress bar (hk_core.music.airplay)."""
         media = p.get("current_media") if isinstance(p.get("current_media"), Mapping) else {}
-        sid = AP.session_of(media.get("uri"))
+        sid = AP.stream_id(media.get("uri"))        # (any AirPlayed stream, a fallback hash too: its cover and clock)
         if sid is None:
             return
         song = (attrs.get("media_title"), attrs.get("media_artist"), attrs.get("media_album_name"))
