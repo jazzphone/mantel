@@ -191,7 +191,13 @@
   "web/shim/settings/tablet-app.js",
   "web/shim/settings/tablet-release.js",
   "web/shim/settings/tablets.js",
-  "web/shim/settings/timeline.js"
+  "web/shim/settings/timeline.js",
+  "web/hk/cards/hk-hv.js",
+  "web/hk/cards/hk-hv-home.js",
+  "web/hk/cards/hk-hv-care.js",
+  "web/hk/cards/hk-hv-media.js",
+  "web/hk/cards/hk-hv-energy.js",
+  "web/hk/cards/hk-hv-info.js"
  ],
  "unchecked_allowed": [
   "hosts/ha/frontend/hk-ha-elements.js",

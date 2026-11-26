@@ -8,7 +8,7 @@
   'use strict';
   (window.hkStrategyParts = window.hkStrategyParts || {})['hk-strategy-views'] = function (K) {
     var accName = K.accName, added = K.added, areaOf = K.areaOf, boardOf = K.boardOf, cameraStrip = K.cameraStrip,
-        cardsReady = K.cardsReady, categoryPages = K.categoryPages, catPlace = K.catPlace, clientOf = K.clientOf,
+        cardsReady = K.cardsReady, categoryPages = K.categoryPages, catPlace = K.catPlace, climateMembers = K.climateMembers, clientOf = K.clientOf,
         COL2 = K.COL2, column = K.column, customPages = K.customPages, customView = K.customView, dashSeg = K.dashSeg,
         dockCard = K.dockCard, energyLinks = K.energyLinks, energyView = K.energyView, favorites = K.favorites,
         firstOf = K.firstOf, fold = K.fold, friendly = K.friendly, fullName = K.fullName, gridReady = K.gridReady,
@@ -468,6 +468,31 @@
           trigger: [{ condition: 'flag', flag: 'hk-music-mini' }].concat(dockBar.trigger) });
         out.forEach(function (v) {
           if (v && MUSIC_PAGE[v.path] && Array.isArray(v.cards)) v.cards = v.cards.concat([dockCard(musicBar)]);
+        });
+      }
+      // AN APPLE HOMEVIEW'S APPS (docs/phase36/PLAN.md, 2026-11-26, the owner: "instead of forcing our existing pages to fit ...
+      // It needs to look and function like it belongs on the homeview"): on a HomeView's own Safari (web/shim/homeview.js; not the
+      // iPhone app's car screen), each page its Apps screen opens is drawn by a HomeView page card (cards/hk-hv-*.js), handed the
+      // cards built above as `src`. It reads its accessories -- which, in what order, under which room, named and drawn how --
+      // from them, so what a page shows stays this build's decision; only how it is laid out is the HomeView's. Every other
+      // device, and every page not listed, keeps the page as it is.
+      var hv = window.hkHomeView;
+      if (hv && !hv.car) {
+        var HV_TAG = { lights: 'lights', climate: 'climate', 'doors-windows': 'doors', water: 'water', security: 'security',
+                       timers: 'timers', vacuums: 'vacuums', cameras: 'cameras', 'live-tv': 'tv', playmusic: 'music',
+                       energy: 'energy', weather: 'weather', calendar: 'calendar', timeline: 'timeline' };
+        out = out.map(function (v) {
+          var tag = !v || !Array.isArray(v.cards) ? null : v === pwv ? 'power' : HV_TAG[v.path];
+          if (!tag) return v;
+          var extra = {};
+          // (what the page's own cards don't carry: Lights' scenes, the screen's own; Climate's readings, the status row's)
+          if (tag === 'lights') extra.scenes = listOf(b, 'scenes').filter(function (id) { return /^(scene|script|input_button)\./.test(id) && client.states[id]; });
+          if (tag === 'climate') extra.readings = guarded('the HomeView Climate readings', function () { return climateMembers(client, opts); }) || {};
+          if (tag === 'weather') extra.weather = weather;
+          var card = { type: 'custom:hk-hv-' + tag + '-card', page: v.path, title: v.title, src: v.cards, extra: extra };
+          // (no card margin of its own: the page's frame sets every edge -- DESIGN.md "Exact gaps")
+          return Object.assign({}, v, { cards: [column([card], { layout: { 'grid-template-columns': 'minmax(0, 1fr)', 'grid-column-gap': '0px',
+            'grid-row-gap': '0px', 'card-margin': '0px', margin: '0px', padding: '0px' } })] });
         });
       }
       return out;
