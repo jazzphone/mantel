@@ -1094,3 +1094,23 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
   platform; it mirrors nothing while Mantel Link holds the bridge). Not turned on (would play sound).
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master
   bedroom).
+
+## Mantel Link 0.1.19 and hotfix 0.1.170-main.8bbd294bb (2026-11-26)
+
+- The owner: "Yes, release both". The house ran hotfix 0.1.170-main.8e549b5a5; main since then is this session's
+  only: 79af5924 (the record above), ded7f23d (Live TV's TVs: volume through the screen's music speaker, the Remote's
+  arrows, Back and Select), 7996a0b8 (a square screen's Picture: Fill, Zoom, Fit, Stretch, with Blurred Edges),
+  db8de672 (one Unreleased section in Mantel Link's changelog), 8bbd294b (Mantel Link 0.1.19's version). All ship.
+- Before: `tools/ci.py full --release` on `7996a0b8`: 94 passed, 5 unchanged, 0 failed. Every picture's ffmpeg filter
+  was probed on the house's go2rtc 1.9.9 first, as streams read from NBC's (720 x 720 each; about two thirds of a core
+  while watched).
+- mantel-link 0.1.19, commit `8bbd294`, tagged `mantel-link/v0.1.19`, copied with rsync --inplace; Home Assistant
+  restarted; Mantel reconnected and stayed healthy; the tool stopped at its revision check (the house runs a hotfix),
+  and the tag and public release were finished by hand with its own steps. Published to jazzphone/mantel-link main as
+  `cc5c177`, tagged `v0.1.19` and released on GitHub.
+- Hotfix `0.1.170-main.8bbd294bb` (from 8bbd294b): healthy (strict health, Home Assistant connected), no error or
+  warning in the stack's log, disk 45%. Both TVs (Kitchen and Master Bathroom HomeView) now offer volume
+  (VOLUME_STEP: each found its music speaker by name); both HomeKit entries loaded, none re-paired; no HomeKit warning
+  in Home Assistant's log. Not played (sound): volume and the pictures are still to be seen on a HomeView.
+- The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master
+  bedroom).
