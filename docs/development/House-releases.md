@@ -1157,3 +1157,16 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Hotfix `0.1.170-main.cba750c95`: healthy (strict health, Home Assistant connected), no error in the log, disk 45%.
   The house's 14 cameras each have 4-5 detection sensors on their device (badges and the row's latest detection); none
   has a light or a lock on its device, so no sheet shows those keys yet. No wall tablets to reload (HomeViews now).
+
+## Hotfix 0.1.170-main.a998685d9 (2026-11-26)
+
+- The owner: "yes, hotfix it". The house ran hotfix 0.1.170-main.cba750c95; main since then: fdd42e02 (its record)
+  and 408f516f (where the music comes from on every player: the sending speaker by its own name, "Music on Living Room
+  HomeView"; an AirPlay session led by the speaker it comes from; the screensaver, Side Pane, widgets and Playing in the
+  House; the app API's contexts carry `from` / `outside`). 04900665 (no rooms added to or moved from music that isn't
+  Music Assistant's) was already on the house with d348ab55f. All ship.
+- Before: `tools/ci.py quick` 7/7 from local disk; HK Frontend's music, saver, Side Pane, picker and CSS suites; the
+  Music page drawn on the house twin at 1280 x 800 in WebKit from the live states.
+- Hotfix `0.1.170-main.a998685d9`: healthy, no error in the log, disk 45%. Pairs with ma-airplay-groups 0.3.27 on the
+  Music Assistant computer (not yet installed there).
+
