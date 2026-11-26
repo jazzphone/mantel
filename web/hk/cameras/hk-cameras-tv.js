@@ -56,6 +56,9 @@
         return [
           '.tv-hd{font-size:20px;font-weight:700;margin:0 4px 10px}',
           '.tv-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}',
+          // (an Apple HomeView's 440 px page: two across -- the owner, 2026-11-25, "2 columns ... instead of just 1";
+          // homeview.js's window.hkHomeView, set on the card when it draws)
+          ':host([hv]) .tv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}',
           '.tv-tile{' + M.glass + ';border:' + M.border + ';border-radius:' + M.radius + ';',
           '  box-shadow:' + M.shSm + ';overflow:hidden;cursor:pointer;display:flex;flex-direction:column;',
           '  text-align:left;padding:0;color:inherit;font:inherit;-webkit-tap-highlight-color:transparent}',
@@ -191,6 +194,7 @@
       _render() {
         var h = this.client, self = this;
         if (!h) return;
+        this.toggleAttribute('hv', !!window.hkHomeView);
         this._watchConn();
         if (!this._channels) { this._fetchChannels(); return; }
         this._root.innerHTML = '';

@@ -297,6 +297,12 @@
  * A media query cannot be OR'd with an attribute, so the declarations are
  * repeated: KEEP THE TWO BLOCKS IDENTICAL -- tests/test_pillsize.js compares
  * them, declaration by declaration. The reasons are in the block above. */
+/* An Apple HomeView (web/shim/homeview.js marks the page): its 440 px page is a phone's width, but the owner wants the
+   Cameras page two across there, as Live TV's guide (2026-11-25, "Cameras would be great with 2 columns as well!"). */
+:root[hk-homeview] {
+  --hk-cameras: repeat(2, minmax(0, 1fr));
+}
+
 :root[data-hk-band]:not([data-hk-zoomed]) {
   --hk-pill: 170px;
   --hk-track: var(--hk-pill);
