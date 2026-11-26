@@ -117,7 +117,7 @@ def plan(entry: str, saved: Any, channels: Mapping[str, str], screens: Mapping[s
 
 def is_on(playing: Mapping[str, Any] | None, channel: str) -> bool:
     """A switch is on while its channel plays on its screen (``playing``: the screen's show, {channel, ...}, or None)."""
-    return bool(playing) and playing.get("channel") == channel
+    return playing is not None and playing.get("channel") == channel
 
 
 def cameras(saved: Any, channel_cameras: Mapping[str, str], screens: Mapping[str, Any]) -> tuple[str, ...]:
