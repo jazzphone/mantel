@@ -3,8 +3,9 @@
 // HomeView from the page the build made (hk-hv.js: the kit, the frame, harvest()), with the data and the calls the page has always had.
 //
 //   hk-hv-music-card     Playing / Speakers / Library (the mode switch). Playing: the cover, the song, the transport, the rooms and the
-//                        volume, then Up Next (Music Assistant's queue, hk_music/queue). Speakers: each room a level you drag, ticked
-//                        rooms lit pink (a tap on the ring adds or removes it; Update moves the music there, as the Speakers panel does).
+//                        volume, then Up Next (Music Assistant's queue, hk_music/queue). Speakers: the Music page's own Speakers panel
+//                        (hk-saver-panel.js: the capsule rows, the presets, Clear All, Reset, Update, Stop, each room's volume) laid out for
+//                        this frame, told what the Music page tells it.
 //                        Library: search (the Music page's own library card, a step deeper), the playlists, Radio. What plays, where and
 //                        how loud is hkMusic's (the music model), every call the Music page's (hk_frontend.music_*).
 //   hk-hv-cameras-card   the camera with the latest motion first and live, the rest two across as stills (a page of nine live streams
@@ -139,8 +140,8 @@
     '.pquiet{display:flex;flex-direction:column;gap:' + P(10) + ';margin-top:auto;align-items:flex-start}',
     '.where{display:flex;align-items:center;gap:' + P(12) + ';min-height:' + P(56) + ';margin-top:' + P(16) + '}',
     '.where .cap{flex:none;max-width:' + P(240) + ';overflow:hidden}',
-    '.vol{flex:1;min-width:0;display:flex;align-items:center;gap:' + P(10) + ';height:' + P(44) + ';padding-right:' + P(8) + ';touch-action:pan-y}',
-    '.vol.off{opacity:.4;pointer-events:none}',
+    '.pvol{flex:1;min-width:0;display:flex;align-items:center;gap:' + P(10) + ';height:' + P(44) + ';padding-right:' + P(8) + ';touch-action:pan-y}',
+    '.pvol.off{opacity:.4;pointer-events:none}',
     '.vt{flex:1;height:' + P(8) + ';border-radius:' + P(4) + ';background:' + v('line-strong') + ';position:relative;overflow:hidden}',
     '.vt>i{position:absolute;left:0;top:0;bottom:0;width:var(--v,0%);border-radius:' + P(4) + ';background:currentColor}',
     '.qlist{padding:' + P(4) + ' 0}',
@@ -150,16 +151,6 @@
     '.qrow .mid{flex:1;min-width:0}',
     '.qrow .len{font-size:' + P(14) + ';font-weight:500;color:' + v('ink-2') + ';font-variant-numeric:tabular-nums}',
     '.qrow.busy{opacity:.5}',
-    // SPEAKERS
-    '.rm{display:flex;align-items:center;gap:' + P(13) + ';padding:0 ' + P(18) + ';text-align:left}',
-    '.ring{width:' + P(24) + ';height:' + P(24) + ';border-radius:50%;border:2px solid rgba(255,255,255,.55);flex:none}',
-    '.tick{width:' + P(24) + ';height:' + P(24) + ';border-radius:50%;background:#ff375f;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}',
-    '.tkw{display:flex;align-items:center;justify-content:center;width:' + P(44) + ';height:' + P(44) + ';margin-left:' + P(-10) + ';flex:none;cursor:pointer}',
-    '.pl.lit.tkd{background:#ffe3ea}',
-    '.rm .words,.tkd .words{display:flex;flex-direction:column;min-width:0;flex:1}',
-    '.tkd{display:flex;align-items:center;gap:' + P(3) + ';padding:0 ' + P(18) + '}',
-    '.upd{display:flex;align-items:center;gap:' + P(14) + ';padding:' + P(10) + ' ' + P(14) + ' ' + P(10) + ' ' + P(18) + '}',
-    '.upd .tx{flex:1;min-width:0;font-size:' + P(15) + ';font-weight:600}',
     // LIBRARY
     '.lbar{display:flex;gap:' + P(10) + ';margin-bottom:' + P(14) + '}',
     '.lbar .sr{flex:1;justify-content:flex-start;color:' + v('ink-2') + '}',
@@ -189,6 +180,32 @@
     if (c.members.length > 1) return [{ entity_id: c.members.slice(), volume_level: level }];
     return [{ entity_id: c.key, volume_level: level }];
   }
+
+  // THE SPEAKERS PANEL LAID OUT FOR THE HOMEVIEW'S FRAME (after the panel's own rules, and scoped so these win at any window size): the page's
+  // title row has the mode switch, so the panel's tabs, its song line and its cover are left out. One column, the page's width: the
+  // presets and Clear All across the top (scrolling sideways), the rooms as the panel's own capsules, full width, then the panel's
+  // line and its Update / Reset / Stop in a row under them (2026-11-26: a narrow column beside the rooms squeezed the line and cut
+  // the presets; and nothing in a page is sticky -- the HomeView's scrolling doesn't carry it). Its sizes stay the panel's own (its
+  // rows are 56 px), so a room is the same pill here as on the Music page. Nothing loops: the bars that dance in a playing room stand still.
+  var SPK_CSS = [
+    '.spkp{position:relative;color:' + v('ink') + '}',
+    '.spkp .mpanel{position:relative;display:block;overflow:visible;background:none;inset:auto;width:auto;height:auto}',
+    '.spkp .mpbg,.spkp .mpshade,.spkp .mphd,.spkp .mpmini,.spkp .mptoast{display:none}',
+    '.spkp .mpin{position:relative;width:auto!important;height:auto!important;zoom:1!important;display:flex;flex-direction:column;gap:' + P(14) +
+      ';text-shadow:none}',
+    '.spkp .mpbody{position:static;min-width:0}',
+    '.spkp .mpt{position:static;overflow:visible;padding:0;-webkit-mask-image:none;mask-image:none}',
+    '.spkp .mpt[hidden]{display:none}',
+    '.spkp .mpchips{margin:0 0 ' + P(12) + ';padding:0}',
+    '.spkp .mpfoot{position:static;display:flex;flex-direction:row;align-items:center;gap:' + P(12) + ';width:auto;overflow:visible;padding:0 ' + P(4) + ';border:0}',
+    '.spkp .mpcap:not(.err){flex:1;min-width:0;min-height:0;margin:0;font-size:' + P(13) + ';line-height:1.35;color:' + v('ink-2') +
+      ';display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;overflow-wrap:anywhere}',
+    '.spkp .mpacts{display:flex;gap:' + P(8) + ';flex:none}',
+    '.spkp .mpact{height:48px}',
+    '.spkp .mpact.upd{width:auto;min-width:' + P(118) + ';padding:0 ' + P(18) + ';flex:none;white-space:nowrap}',
+    '.spkp .mpact.rst,.spkp .mpact.stop{width:48px;flex:none;padding:0}.spkp .mpact.rst .w{display:none}',
+    '.spkp .mpeq i{animation:none;transform:scaleY(.65)}'
+  ].join('\n');
 
   class HvMusic extends MediaPage {
     static get CSS() { return MUSIC_CSS; }
@@ -220,6 +237,7 @@
     disconnectedCallback() {
       super.disconnectedCallback();
       if (this._musicOff) { this._musicOff(); this._musicOff = null; }
+      this._dropSpeakers();
       if (this._onVis) {
         document.removeEventListener('visibilitychange', this._onVis);
         window.removeEventListener('hk-saver', this._onVis); window.removeEventListener('hk-black', this._onVis);
@@ -271,6 +289,8 @@
         return H.head({ title: title }) + '<div class="pl quiet">There are no speakers to play music on yet. Add them in ' + H.esc(H.where('Music')) + '.</div>';
       }
       var c = this._c = this._ctx(), mode = this.mode() || 'play', deep = this.deep();
+      // (rooms ticked for the music that played are not for the music that plays now)
+      if ((c ? c.key : '') !== this._ctxKey) { this._ctxKey = c ? c.key : ''; this._ticks = null; }
       if (deep && deep.search) return H.head({ title: 'Search Music', back: true }) + '<div class="libslot"></div>';
       var rooms = c ? c.members.length : 0;
       var sum = c ? '<b>' + rooms + (rooms === 1 ? ' Room' : ' Rooms') + '</b>' + (c.playing ? '' : ' · Paused') : 'Nothing Playing';
@@ -284,7 +304,7 @@
     _where(c, label, level) {
       var q = c ? H.key({ g: H.svg('list', 20), cls: 'sm', act: 'queue', label: 'Up Next' }) : '';
       return '<div class="where">' + H.cap({ g: H.svg('airplay', 20), t: label || 'Choose Speakers', cls: 'lg', act: 'rooms' }) +
-        '<div class="vol' + (c && level >= 0 ? '' : ' off') + '" data-hk-control>' + H.svg('volume', 20, 'var(--hk-ink-2)') +
+        '<div class="pvol' + (c && level >= 0 ? '' : ' off') + '" data-hk-control>' + H.svg('volume', 20, 'var(--hk-ink-2)') +
         '<div class="vt" style="--v:' + Math.round(Math.max(0, level) * 100) + '%"><i></i></div></div>' + q + '</div>';
     }
     /** @param {any} c */
@@ -373,9 +393,10 @@
     _after() {
       var c = this._c, mode = this.mode() || 'play', deep = this.deep();
       this._tickOn();
-      if (deep && deep.search) { this._mountLib(); return; }
+      if (deep && deep.search) { this._dropSpeakers(); this._mountLib(); return; }
       if (mode === 'play') this._fetchQueue(c);
       if (mode === 'lib') this._loadRadio();
+      if (mode === 'spk' && !deep) this._mountSpeakers(); else this._dropSpeakers();
     }
     // UP NEXT: Music Assistant's queue, asked once a song (hk_music/queue)
     /** @param {any} c */
@@ -391,59 +412,64 @@
     }
 
     // ------------------------------------------------------------ Speakers
+    // THE MUSIC PAGE'S OWN SPEAKERS PANEL (hk-saver-panel.js: the capsule rows, the presets, Clear All, Reset, Update, Stop, each room in the
+    // music its own volume), made a part of this page and told the same things the Music page tells it. Drawn here is only its slot; the
+    // panel is mounted in it once the page is drawn (_mountSpeakers), and it reads the house when told (every redraw), as the sheet's does.
+    // The rooms and the music's own state are read here, so the page's signature watches them.
     /** @param {any} c */
     _speakers(c) {
-      var Mu = this._M(), self = this, rooms = Mu.rooms(), members = c ? c.members : [];
-      var ticks = c ? (this._ticks || members) : this._targetRooms();
-      var others = /** @type {Record<string, string>} */ ({});
-      Mu.contexts(this.client).forEach(function (/** @type {any} */ x) {
-        if (c && x.key === c.key) return;
-        x.members.forEach(function (/** @type {string} */ r) { others[r] = x.title || Mu.label(x); });
-      });
-      var air = !!(c && c.airplay), out = '';
-      var presets = Mu.presets();
-      if (presets.length && !air) {
-        out += '<div class="cr" style="margin-bottom:' + P(14) + '">' + presets.map(function (/** @type {any} */ p) {
-          return H.cap({ t: p.name, cls: same(ticks, p.members) ? 'w' : '', act: 'preset', data: { id: p.entity } });
-        }).join('') + '</div>';
+      var Mu = this._M(), self = this;
+      Mu.rooms().forEach(function (/** @type {any} */ r) { self.st(r.entity); });
+      if (c) this.st(c.key);
+      return '<div class="spkp"><div class="pl quiet">Loading the speakers…</div></div>';
+    }
+    // what the panel is told (the Music page's _panelOpts): the rooms picked for the next music while nothing plays (this page's _target),
+    // the rooms ticked while it does (_ticks, where a library pick goes too), and the music it follows
+    _panelOpts() {
+      var self = this;
+      return {
+        tabs: ['speakers'],
+        client: function () { return self.client; },
+        ctx: function () { return self._ctx(); },
+        art: function () { return null; },
+        stop: true,
+        target: function () { return self._targetRooms(); },
+        setTarget: function (/** @type {string[]} */ rooms) { self._target = rooms.slice(); self._hkSig = null; },
+        next: function () { var c = self._ctx(); return c ? (self._ticks || c.members).slice() : self._targetRooms(); },
+        setNext: function (/** @type {string[] | null} */ rooms) { var c = self._ctx(); self._ticks = rooms && c && !same(rooms, c.members) ? rooms.slice() : null; },
+        follow: function (/** @type {string} */ key) { var Mu = self._M(); if (key && Mu && Mu.known(key)) Mu.setFocus(key); },
+        done: function () { /* a page, not a pop-up: it stays on the rooms */ },
+        wide: function () { return false; }
+      };
+    }
+    // the panel's look goes in this card's own shadow root, once its module is there
+    _panelCss() {
+      var P = /** @type {any} */ (window).hkSaverPanel;
+      if (!P) return false;
+      if (!this._pcss) {
+        var st = document.createElement('style');
+        st.textContent = P.CSS + SPK_CSS;
+        this.shadowRoot.appendChild(st);
+        this._pcss = true;
       }
-      if (air) out += '<div class="pl quiet" style="margin-bottom:' + P(12) + '"><b>' + esc(c.title || Mu.label(c)) + '</b> is AirPlayed from another device: change its rooms there.</div>';
-      if (c && !air && this._ticks && !same(this._ticks, members)) out += this._updateRow(c, this._ticks);
-      if (!c) out += '<div class="sum" style="margin:0 ' + P(8) + ' ' + P(12) + ';white-space:normal">Tap the rooms the next music plays on.</div>';
-      out += '<div class="grid">' + rooms.map(function (/** @type {any} */ r) {
-        var k = r.entity, st = self.st(k), on = ticks.indexOf(k) >= 0, mem = members.indexOf(k) >= 0;
-        var off = !st || st.state === 'unavailable' || st.state === 'unknown';
-        var sub = mem ? (c && c.playing ? 'Playing' : 'Paused') : off ? 'Unavailable' : on ? (c ? 'Joins' : 'Next music plays here') : others[k] ? 'Playing ' + others[k] : 'Not playing';
-        var tkd = '<span class="tick">' + H.svg('check', 14) + '</span>';
-        var lv = on && mem ? H.levelNow(self, k, st) : null;
-        if (lv) {
-          return '<div class="pl lv lit c2" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + lv.pct + '" aria-label="' + esc(r.name) + ', volume" data-lv="' +
-            esc(k) +
-            '" style="--v:' + lv.pct + '%;--f:#ffd6e0"><i class="fill"></i><div class="row"><span class="tkw" data-act="tick" data-id="' + esc(k) +
-              '" role="checkbox" aria-checked="true" aria-label="' + esc(r.name) + '">' + tkd +
-            '</span><div class="words"><div class="nm">' + esc(r.name) + '</div><div class="st">' + esc(sub) + '</div></div><div class="pct">' + lv.pct + '%</div></div></div>';
-        }
-        if (on) {
-          return '<div class="pl lit tkd c2"><span class="tkw" data-act="tick" data-id="' + esc(k) + '" role="checkbox" aria-checked="true" aria-label="' + esc(r.name) + '">' + tkd +
-            '</span><div class="words"><div class="nm">' + esc(r.name) + '</div><div class="st">' + esc(sub) + '</div></div></div>';
-        }
-        return '<button class="pl rm c2" data-act="tick" data-id="' + esc(k) + '" role="checkbox" aria-checked="false"' + (off ? ' disabled' : '') + '><span class="ring"></span>' +
-          '<span class="words"><span class="nm">' + esc(r.name) + '</span><span class="st">' + esc(sub) + '</span></span></button>';
-      }).join('') + '</div>';
-      if (c) out += '<div style="margin-top:' + P(16) + '">' + H.cap({ g: H.svg('pause', 16), t: 'Stop Music', act: 'stop' }) + '</div>';
-      return out;
+      return true;
     }
-    // what Update will do, in a few words, with the button
-    /** @param {any} c @param {string[]} t */
-    _updateRow(c, t) {
-      var Mu = this._M(), nm = function (/** @type {string[]} */ a) { return a.map(function (r) { return Mu.nameOf(r); }).join(', '); };
-      var added = t.filter(function (r) { return c.members.indexOf(r) < 0; }), dropped = c.members.filter(function (/** @type {string} */ r) { return t.indexOf(r) < 0; });
-      var words = dropped.length === c.members.length ? 'The music moves to ' + nm(t)
-        : added.length && dropped.length ? nm(added) + (added.length === 1 ? ' joins' : ' join') + ', ' + nm(dropped) + (dropped.length === 1 ? ' stops' : ' stop')
-        : added.length ? nm(added) + (added.length === 1 ? ' joins' : ' join') : nm(dropped) + (dropped.length === 1 ? ' stops' : ' stop');
-      return '<div class="pl upd" style="margin-bottom:' + P(12) + '"><div class="tx">' + esc(words) + '</div>' +
-        H.cap({ g: H.svg('check', 16), t: this._busyU ? 'Updating…' : 'Update', cls: 'w', act: 'update', off: !!this._busyU }) + '</div>';
+    _mountSpeakers() {
+      var self = this, slot = this._root.querySelector('.spkp'), P = /** @type {any} */ (window).hkSaverPanel;
+      if (!slot) return;
+      if (!P || !this._panelCss()) {
+        if (!this._pWait) { this._pWait = true; needFile('hk-saver-panel.js').then(function () { self._pWait = false; if (self.isConnected && window.hkSaverPanel) self.redraw(); }); }
+        return;
+      }
+      if (!this._pnl) {
+        this._pnl = P.create(this._panelOpts());
+        this._pnl.el.classList.add('up');
+        this._pnl.show('speakers');
+      }
+      if (this._pnl.el.parentNode !== slot) { slot.textContent = ''; slot.appendChild(this._pnl.el); }
+      this._pnl.update(true);
     }
+    _dropSpeakers() { if (this._pnl) { this._pnl.destroy(); this._pnl = null; } }
 
     // ------------------------------------------------------------ Library
     _library() {
@@ -580,36 +606,6 @@
       };
       if (c) go(); else this._askThenPlay(rooms, go);
     }
-    // UPDATE: the music on exactly the rooms ticked (it stays on its own player when that is still in them)
-    _update() {
-      var c = this._c, t = this._ticks, self = this, Mu = this._M();
-      if (!c || c.airplay || !t || !t.length || same(t, c.members) || this._busyU) return;
-      var target = t.indexOf(c.key) >= 0 ? c.key : t[0];
-      this._busyU = true;
-      if (Mu.known(target)) Mu.setFocus(target, { hold: true });
-      this.redraw();
-      this._callResp('hk_frontend', 'music_transfer', { rooms: t, source: c.key }).then(function (res) {
-        var r = (res && res.response) || {};
-        self._busyU = false;
-        if (!res.ok || r.ok === false) { Mu.release(target); self._say('That did not work' + (r.message ? ': ' + r.message : '')); self.redraw(); return; }
-        var lead = r.leader || target;
-        if (lead && Mu.known(lead)) Mu.setFocus(lead, { hold: true });
-        self._ticks = null;
-        self._say('Now playing on ' + self._roomsLabel(t));
-        self.redraw();
-      });
-    }
-    // a room ticked in or out (one stays ticked: none is Stop)
-    /** @param {string} room */
-    _tick(room) {
-      var c = this._c;
-      if (c && c.airplay) return;
-      var st = this.st(room), free = st && st.state !== 'unavailable' && st.state !== 'unknown';
-      var t = c ? (this._ticks || c.members).slice() : this._targetRooms(), i = t.indexOf(room);
-      if (i >= 0) { if (t.length > 1) t.splice(i, 1); } else if (free) t.push(room);
-      if (c) this._ticks = same(t, c.members) ? null : t; else this._target = t;
-      this.redraw();
-    }
     /** @param {string} cmd */
     _transport(cmd) {
       var c = this._c;
@@ -646,7 +642,7 @@
       };
       root.addEventListener('pointerdown', function (/** @type {PointerEvent} */ ev) {
         if (ev.button > 0 || !self._c) return;
-        var el = /** @type {any} */ (ev.target) && /** @type {any} */ (ev.target).closest ? /** @type {any} */ (ev.target).closest('.vol') : null;
+        var el = /** @type {any} */ (ev.target) && /** @type {any} */ (ev.target).closest ? /** @type {any} */ (ev.target).closest('.pvol') : null;
         var tr = el && el.querySelector('.vt');
         if (!tr || el.classList.contains('off')) return;
         s = { el: el, tr: tr, x: ev.clientX, y: ev.clientY, pid: ev.pointerId, moved: false, side: false, last: 0, t: null };
@@ -704,20 +700,6 @@
           if (r && r.ok === false) self._say('Could not play that song' + (r.message ? ': ' + r.message : ''));
           self.redraw();
         }, function () { self._qBusy = null; self._say('Could not play that song'); self.redraw(); });
-        return true;
-      }
-      if (act === 'tick') { if (id) this._tick(id); return true; }
-      if (act === 'preset') {
-        var p = Mu.presets().filter(function (/** @type {any} */ x) { return x.entity === id; })[0], cur = this._c;
-        if (!p || (cur && cur.airplay)) return true;
-        if (cur) this._ticks = same(p.members, cur.members) ? null : p.members.slice(); else this._target = p.members.slice();
-        this.redraw();
-        return true;
-      }
-      if (act === 'update') { this._update(); return true; }
-      if (act === 'stop') {
-        var sc = this._c;
-        if (sc) this._callResp('hk_frontend', 'music_stop', { rooms: sc.members.slice() }).then(function (r) { self._say(r.ok ? 'Stopped' : 'Could not stop'); });
         return true;
       }
       var pls = (Mu && Mu.playlists()) || [];

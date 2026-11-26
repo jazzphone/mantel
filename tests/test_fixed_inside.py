@@ -30,7 +30,7 @@ WINDOW = ("fixed to the whole window: declared in hk-pageswipe.js FIXED_WINDOW, 
 WHERE = {
     "hk/base/hk-base-card-core.js": BODY, "hk/base/hk-base-sheets.js": BODY, "hk/cards/hk-base.js": BODY,
     "hk/calendar/hk-calendar-sheet.js": BODY, "hk/calendar/hk-calendar-todo.js": BODY, "hk/cameras/hk-cameras-tv.js": BODY,
-    "hk/cards/hk-intercom.js": BODY, "hk/cards/hk-popup.js": BODY, "hk/cards/hk-timeline.js": BODY,
+    "hk/cards/hk-intercom.js": BODY, "hk/cards/hk-popup.js": BODY, "hk/cards/hk-timeline.js": BODY, "hk/cards/hk-hv.js": BODY,
     "hk/layout/hk-layout-grid.js": BODY, "hk/media/hk-media-now.js": BODY, "hk/modules/hk-notify.js": BODY,
     "hk/modules/hk-radar.js": BODY, "hk/modules/hk-timer-ring.js": BODY, "hk/sheets/hk-detail-frame.js": BODY,
     "hk/shell/hk-overlays.js": BODY, "shim/mantel-host.js": BODY, "shim/mantel-photos.js": BODY,

@@ -392,6 +392,22 @@
     return (m && g && g[m[1]]) ? 'hk:' + m[1] : icon;
   }
 
+  // A ROOM'S GLYPH: its own icon in Home Assistant, else one its name says (a house that gave its areas none would draw every
+  // room the same floor plan -- the owner, 2026-11-26: "all the glyphs are the same"), through glyph() for Apple's artwork
+  var ROOM_WORDS = [[/kitchen|pantry/, 'silverware-fork-knife'], [/dining|breakfast/, 'table-furniture'], [/closet|wardrobe/, 'hanger'],
+    [/bath|shower|powder|restroom/, 'shower'], [/nursery|kid|child|play/, 'teddy-bear'], [/bed|guest|primary|master|suite/, 'bed-outline'],
+    [/living|family|lounge|den\b|great room|sitting/, 'sofa-outline'], [/office|study|desk|library/, 'desk'], [/garage|carport/, 'garage'],
+    [/laundry|utility|mud/, 'washing-machine'], [/theater|theatre|media|tv\b|movie/, 'television'], [/gym|fitness|workout/, 'dumbbell'],
+    [/foyer|entry|entrance|front door|vestibule/, 'door'], [/stair|basement|cellar/, 'stairs'],
+    [/yard|garden|patio|porch|deck|outside|outdoor|lawn|pool|driveway|balcony|terrace/, 'tree']];
+  function roomGlyph(name, icon) {
+    if (!icon) {
+      var n = String(name || '').toLowerCase();
+      for (var i = 0; i < ROOM_WORDS.length && !icon; i++) if (ROOM_WORDS[i][0].test(n)) icon = 'mdi:' + ROOM_WORDS[i][1];
+    }
+    return glyph(icon || ROOM_ICON);
+  }
+
   function esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -482,7 +498,7 @@
     out.splice(1, 0, it);
     return out;
   }
-  window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths, pagesAfterHome: pagesAfterHome,
+  window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, roomGlyph: roomGlyph, chipPaths: chipPaths, pagePaths: pagePaths, pagesAfterHome: pagesAfterHome,
                                            haItems: haItems, hostItems: hostItems, editItems: editItems, editKey: editKey,
                                            sidebarSource: sidebarSource,
                                            haNav: haNav, haList: haList, haOpen: haOpen, haKey: haKey,

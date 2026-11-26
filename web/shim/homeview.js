@@ -58,9 +58,21 @@
     el.style.setProperty('overscroll-behavior-x', 'none');
     el.style.setProperty('touch-action', 'pan-y');
   };
+  // THE TOP ROOM, ONCE (2026-11-26, the owner: "sometimes when I scroll down on a page, it bounces back up"): Safari may move
+  // its safe area as its bar folds to a pill and back; read through env() live, the room under the bar changed with it and
+  // every page jumped by the difference mid-scroll. It is measured once, as the page starts, and kept.
+  var freeze = function () {
+    var p = document.createElement('div');
+    p.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;top:0;left:0;padding-top:var(--hk-safe-top)';
+    document.body.appendChild(p);
+    var px = parseFloat(getComputedStyle(p).paddingTop);
+    p.remove();
+    if (px >= 0) root.style.setProperty('--hk-safe-top', px + 'px');
+  };
+  var onBody = function () { if (!document.body) return; lock(document.body); if (!car) freeze(); };
   lock(root);
-  if (document.body) lock(document.body);
-  else document.addEventListener('DOMContentLoaded', function () { if (document.body) lock(document.body); }, { once: true });
+  if (document.body) onBody();
+  else document.addEventListener('DOMContentLoaded', onBody, { once: true });
   if (car) return;
 
   // SAFARI'S BARS IN THE SKY'S COLOR (2026-11-24, the owner: "the address bar in safari isn't color matching"). Safari 26
