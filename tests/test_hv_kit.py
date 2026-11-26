@@ -106,3 +106,27 @@ def test_every_page_the_strategy_hands_over_is_registered_and_lazy():
     assert {f.name for f in files} <= hk_cards.LAZY
     for f in files:
         assert hk_cards.tags_of(f), f.name                    # a lazy file names its elements, or it would load at the start
+
+
+def test_homeview_pages_is_a_screens_own_option_off_by_default():
+    # a screen's HomeView Pages (the owner, 2026-11-26: "an option to enable these 'HomeView' pages on a Dashboard/Screen so
+    # that way you can see them on a desktop computer"): off unless set, and written as a plain true / false
+    from hk_core.settings import changes
+    from hk_core.settings.model import dashboard_rules
+    assert dashboard_rules.board({})["homeview_pages"] is False
+    assert dashboard_rules.board({"homeview_pages": True})["homeview_pages"] is True
+    assert dashboard_rules.board({"homeview_pages": "yes"})["homeview_pages"] is False
+    assert changes.BOARD["homeview_pages"](True) is True
+    views = (ROOT / "web/hk/strategy/hk-strategy-views.js").read_text()
+    assert "b.homeview_pages === true" in views
+
+
+def test_the_kit_floats_a_switch_without_changing_the_pages_height_and_frames_it_elsewhere():
+    kit = KIT.read_text()
+    # the float is a sticky layer of no height (a page that barely scrolls must not bounce), shown by an observer
+    assert ".flt{position:sticky;top:var(--hv-float);height:0;" in kit
+    assert "new IntersectionObserver" in kit
+    # a HomeView is the screen's width; anywhere else the HomeView's 544, centered
+    assert ":host{--hvw:min(100vw, 544px)" in kit and ":host([hvdev]){--hvw:100vw" in kit
+    shim = (ROOT / "web/shim/homeview.js").read_text()
+    assert "'touch-action', 'pan-y'" in shim and "'overflow-x', 'clip'" in shim

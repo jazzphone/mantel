@@ -175,9 +175,9 @@
         var el = /** @type {any} */ (document.createElement('hk-radar-card'));
         el.setAttribute('slot', 'radar');
         // (nearly a screen tall: the map is the section; the owner, 2026-11-26: "the radar ... should be a lot taller". In pt of
-        // the screen, written with vw: the card is slotted, outside the page's root, where --pt is not set)
-        el.style.setProperty('--hk-wx-radar-h', 'calc(390 * 100vw / 544)');
-        el.style.setProperty('--hk-wx-radar-h-phone', 'calc(390 * 100vw / 544)');
+        // the frame, through the host's --hvw: the card is slotted, outside the page's root, where --pt is not set)
+        el.style.setProperty('--hk-wx-radar-h', 'calc(390 * var(--hvw, 100vw) / 544)');
+        el.style.setProperty('--hk-wx-radar-h-phone', 'calc(390 * var(--hvw, 100vw) / 544)');
         el.setConfig({ type: 'custom:hk-radar-card' });
         this.appendChild(el);
         this._radarEl = el;

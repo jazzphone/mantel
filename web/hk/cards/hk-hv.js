@@ -208,10 +208,16 @@
   // ------------------------------------------------------------------ the styles
   var CSS = [
     ':host{display:block}',
-    // (the page is the screen's width, whatever the view's column: a pt is the HomeView's 544th of it. The top: 8 under the
-    // view's own room for Safari's buttons and the column's 4 px, so the title row sits where the mockups put it)
+    // THE FRAME: on a HomeView (hvdev) the screen's width, whatever the view's column; on any other device (a screen with
+    // HomeView Pages on, 2026-11-26: a computer, for a look and a screenshot) the HomeView's own 544, centered. A pt is the
+    // frame's 544th. The top: 8 under the view's own room for Safari's buttons and the column's 4 px, so the title row sits
+    // where the mockups put it.
     '.hv{container-type:inline-size}',
-    '.hvi{--pt:calc(100vw / 544);box-sizing:border-box;width:100vw;margin-left:calc(50% - 50vw);padding:' + P(8) + ' ' + P(14) + ' ' + P(64) + ';color:' + v('ink') +
+    // (on the host, in the frame's own terms: --pt is the page root's, below it)
+    ':host{--hvw:min(100vw, 544px);--hv-float:calc(12 * var(--hvw) / 544)}',
+    // (Safari's bar on a HomeView: scrolled, it is a pill over the page's top; a tab switch floats clear below it)
+    ':host([hvdev]){--hvw:100vw;--hv-float:calc(var(--hk-safe-top, 0px) + 34 * var(--hvw) / 544)}',
+    '.hvi{--pt:calc(var(--hvw) / 544);box-sizing:border-box;width:var(--hvw);margin-left:calc(50% - var(--hvw) / 2);padding:' + P(8) + ' ' + P(14) + ' ' + P(64) + ';color:' + v('ink') +
       ';font-family:' + v('font-body') + ';-webkit-font-smoothing:antialiased;text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
     '.hvi *{box-sizing:border-box}',
     'button{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}',
@@ -225,6 +231,15 @@
     '.warn{color:' + v('warn', '#ffb340') + ';font-weight:600}',
     '.bad{color:' + v('fail', '#ff6961') + ';font-weight:600}',
     '.hdr{margin-left:auto;display:flex;gap:' + P(8) + ';align-items:center;flex:none}',
+    // A SWITCH THAT FLOATS (the owner, 2026-11-26: "they should probably float above the content as your scroll down ... Be
+    // careful on pages that have barely enough content to scroll"): a copy of the title row's switch in a sticky layer of no
+    // height, so the page is exactly as tall with it as without (no bounce on a page that barely scrolls); it shows once the
+    // title row has gone under the top (an IntersectionObserver, HvPage._float), on the near-solid overlay so it reads over
+    // whatever scrolls beneath it
+    '.flt{position:sticky;top:var(--hv-float);height:0;z-index:6;pointer-events:none}',
+    '.flt .fin{position:absolute;right:0;top:0;opacity:0;transform:translateY(' + P(-6) + ');transition:opacity .2s ease,transform .34s cubic-bezier(.32,.72,0,1)}',
+    '.flt.show .fin{opacity:1;transform:none;pointer-events:auto}',
+    '.flt .seg{background:' + v('overlay-solid', 'rgba(24,24,28,0.93)') + ';box-shadow:0 ' + P(6) + ' ' + P(20) + ' rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.16)}',
     // A SECTION'S HEADING
     '.sh{display:flex;align-items:baseline;gap:' + P(8) + ';margin:' + P(24) + ' ' + P(8) + ' ' + P(10) + ';font-size:' + P(20) + ';font-weight:700;letter-spacing:' + P(-0.35) + '}',
     '.sh .sum{font-size:' + P(15) + '}',
@@ -240,7 +255,8 @@
       '--hk-key:rgba(0,0,0,.065);--hk-key-strong:rgba(0,0,0,.12);--hk-line:rgba(0,0,0,.1);border-color:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}',
     '.pl:active{filter:brightness(.93)}',
     // A CENTERED TILE (HomeView's): the glyph bare, the name, the state
-    '.tl{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 ' + P(10) + '}',
+    // (12 a side: a long name's ellipsis keeps clear of the plate's edge, as the Centered tile's words do)
+    '.tl{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 ' + P(12) + '}',
     '.tl>.g{margin-bottom:' + P(9) + '}',
     // WORDS
     '.nm{font-size:' + P(15) + ';font-weight:600;letter-spacing:' + P(-0.23) + ';line-height:' + P(19) + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}',
@@ -306,10 +322,11 @@
   function data(d) {
     return Object.keys(d || {}).filter(function (k) { return d && d[k] != null; }).map(function (k) { return ' data-' + k + '="' + esc(/** @type {any} */ (d)[k]) + '"'; }).join('');
   }
-  // the title row: o { title, sum (html), right (html), back (bool) }
+  // the title row: o { title, sum (html), right (html), back (bool) }. A switch at its right (H.seg) also floats (.flt).
   /** @param {any} o */
   function head(o) {
-    return '<div class="hd">' + (o.back ? '<button class="key sm" data-act="back" aria-label="Back">' + chev('left', 16) + '</button>' : '') +
+    var float = o.right && /class="seg"/.test(o.right) ? '<div class="flt" aria-hidden="true" inert><div class="fin">' + o.right + '</div></div>' : '';
+    return float + '<div class="hd">' + (o.back ? '<button class="key sm" data-act="back" aria-label="Back">' + chev('left', 16) + '</button>' : '') +
       '<div class="ttl">' + esc(o.title) + '</div>' + (o.sum ? '<div class="sum">' + o.sum + '</div>' : '') +
       (o.right ? '<div class="hdr">' + o.right + '</div>' : '') + '</div>';
   }
@@ -425,6 +442,7 @@
       // its own padding. Read as plates, a page that grew after it was measured -- a step deeper, channels arriving -- was
       // clipped at its first height.
       this.setAttribute('data-hk-foot', '0');
+      if (window.hkHomeView && !window.hkHomeView.car) this.setAttribute('hvdev', ''); else this.removeAttribute('hvdev');
       super.setConfig(config);
     }
     // the states this page read when it last drew, and the clock's minute for the pages that say "4m ago"
@@ -455,10 +473,32 @@
       if (html !== this._html) {
         this._html = html;
         this._root.innerHTML = '<div class="hvi">' + html + '</div>';
+        this._float();
       }
       this._hkSig = this._sigOf();
     }
     draw() { return ''; }
+    // THE FLOATING SWITCH shows while the title row is under the top (the float's own line): one observer, made again for each
+    // new drawing of the page, and gone with the card
+    _float() {
+      if (this._io) { this._io.disconnect(); this._io = null; }
+      var flt = this._root.querySelector('.flt'), hd = this._root.querySelector('.hd');
+      if (!flt || !hd || typeof IntersectionObserver === 'undefined') return;
+      var top = parseFloat(getComputedStyle(flt).top) || 0, shown = false;
+      this._io = new IntersectionObserver(function (es) {
+        var e = es[es.length - 1], show = !e.isIntersecting && e.boundingClientRect.top < top;
+        if (show !== shown) { shown = show; flt.classList.toggle('show', show); flt.setAttribute('aria-hidden', show ? 'false' : 'true'); flt.inert = !show; }
+      }, { rootMargin: '-' + Math.round(top) + 'px 0px 0px 0px', threshold: 0 });
+      this._io.observe(hd);
+    }
+    disconnectedCallback() {
+      if (this._io) { this._io.disconnect(); this._io = null; }
+      if (super.disconnectedCallback) super.disconnectedCallback();
+    }
+    connectedCallback() {
+      if (super.connectedCallback) super.connectedCallback();
+      if (this._html && !this._io) this._float();
+    }
     // a mode switch, a step deeper and back: drawn again at once
     /** @param {any} m */
     mode(m) { if (m !== undefined) { this._hv.mode = m; this.redraw(); } return this._hv.mode; }

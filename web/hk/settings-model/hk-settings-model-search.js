@@ -366,7 +366,7 @@
       ['favorites', 'Favorites', ['favorites'], false],
       ['header', 'Header', ['phone_header', 'kiosk', 'kiosk_header', 'kiosk_sidebar', 'kiosk_admins', 'kiosk_engine', 'kiosk_options'], true],
       // the pages, Home among them, and where each sits in the menu (set on Pages)
-      ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers', 'pages_screen'], true],
+      ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers', 'pages_screen', 'homeview_pages'], true],
       ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'motion', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'bars_blur',
         'text_glow', 'sky',
         'sky_animations',

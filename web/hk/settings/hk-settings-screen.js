@@ -382,6 +382,15 @@
             'land there. What this screen doesn’t change follows All Screens.' : 'What this screen doesn’t change follows All Screens.') :
           'This screen is written in YAML, so it draws its own Home page. These lists apply where its cards read them: the chip row, the scenes row, the camera strip and the room order.' }, home));
 
+        // HOMEVIEW PAGES (phase 36, 2026-11-26, the owner: "it would be great to have an option to enable these 'HomeView' pages on
+        // a Dashboard/Screen so that way you can see them on a desktop computer")
+        if (gen && !only) {
+          c.appendChild(K.group({ header: 'HomeView', footer: 'Draws this screen’s pages the way an Apple HomeView does, at its width, on any ' +
+            'device: to see them on a computer, and for screenshots. A HomeView always draws its pages this way.' },
+            [K.toggle({ label: 'HomeView Pages', sk: 'b:homeview_pages', on: !!b.homeview_pages,
+                        onChange: function (on) { self.setB(path, { homeview_pages: on }); } })]));
+        }
+
         // LOOK & FEEL (phase 33): the sidebar's own group, its rows and icons in its order, each saying whose it is
         c.appendChild(K.group({ header: 'Look & Feel', footer: 'Same as All Screens follows the sidebar’s Look & Feel; Just This Screen is set here.' },
           this.lookFeelRows(x, b)));

@@ -48,6 +48,19 @@
   root.style.setProperty('--hk-view-top', 'var(--hk-safe-top)');
   var m = document.querySelector('meta[name="viewport"]');
   if (m) m.setAttribute('content', 'width=' + LAYOUT + ', user-scalable=no, viewport-fit=cover');
+  // LOCKED SIDEWAYS (the owner, 2026-11-26, with a video: the page "allows for movement left to right which makes its not
+  // really feel locked into to place or 'native'"): Safari's own sideways rubber band and pinch, on a page no wider than the
+  // screen. The page scrolls up and down only; a control that drags sideways (a level, a volume) still has its moves, which
+  // touch-action leaves to script, and a row that scrolls sideways on its own keeps its scroll. Set once, before the first
+  // layout (nothing is written on the root at a landing).
+  var lock = function (/** @type {HTMLElement} */ el) {
+    el.style.setProperty('overflow-x', 'clip');
+    el.style.setProperty('overscroll-behavior-x', 'none');
+    el.style.setProperty('touch-action', 'pan-y');
+  };
+  lock(root);
+  if (document.body) lock(document.body);
+  else document.addEventListener('DOMContentLoaded', function () { if (document.body) lock(document.body); }, { once: true });
   if (car) return;
 
   // SAFARI'S BARS IN THE SKY'S COLOR (2026-11-24, the owner: "the address bar in safari isn't color matching"). Safari 26

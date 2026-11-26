@@ -476,8 +476,10 @@
       // cards built above as `src`. It reads its accessories -- which, in what order, under which room, named and drawn how --
       // from them, so what a page shows stays this build's decision; only how it is laid out is the HomeView's. Every other
       // device, and every page not listed, keeps the page as it is.
+      // (HomeView Pages, the screen's option: the same pages on any other device -- a computer's look at them; the kit frames
+      // them at the HomeView's own width there)
       var hv = window.hkHomeView;
-      if (hv && !hv.car) {
+      if (hv ? !hv.car : b.homeview_pages === true) {
         var HV_TAG = { lights: 'lights', climate: 'climate', 'doors-windows': 'doors', water: 'water', security: 'security',
                        timers: 'timers', vacuums: 'vacuums', cameras: 'cameras', 'live-tv': 'tv', playmusic: 'music',
                        energy: 'energy', weather: 'weather', calendar: 'calendar', timeline: 'timeline' };
