@@ -5,10 +5,10 @@
 //   hk-hv-security-card   the alarm (its state, Arm Home / Arm Away or Disarm) beside the locks and garage doors; a code's keypad is a
 //                         step deeper on the same frame; then Doors & Windows (what is open, lit) and Recent (the alarm's and the locks'
 //                         last changes -- from last_changed, no history calls).
-//   hk-hv-timers-card     what is running as rings (cancel, pause or resume), Start a Timer (1, 5, 10 min, Other: the wheels a step
-//                         deeper), Recent (the quick timers that ran and the House Timers, one tap to start again).
-//   hk-hv-vacuums-card    per vacuum: the robot (drawn, its state, battery, water tank) beside its Clean Rooms picker; History and
-//                         Maintenance from the sensors on its own device.
+//   hk-hv-timers-card     what is running as rings (cancel, pause or resume), Start a Timer (the quick lengths, then the phone's
+//                         New Timer card inline: wheels, name, quick names, Start), Recent (the quick timers that ran and the House Timers, one tap to start again).
+//   hk-hv-vacuums-card    per vacuum: one plate (the robot drawn, its state, battery, water tank, Clean / Pause / Dock and a Rooms...
+//                         key that opens the house's Rooms to Clean sheet); History and Maintenance from the sensors on its own device.
 //
 // Every state is read through this.st() while drawing (rule 13); service calls go through the base's _call / _callErr / _callResp,
 // the same services the existing cards send (hk-security.js, hk-home-timers.js, hk-home-shared.js).
@@ -116,52 +116,30 @@
       '.tt.hrs{font-size:' + P(25) + '}',
       '.tmb .hl{margin-top:' + P(12) + ';max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.tmr>.key{position:absolute;top:' + P(12) + '}.tmr>.key.l{left:' + P(12) + '}.tmr>.key.r{right:' + P(12) + '}',
-      '.qk{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}',
-      '.qk .fig{font-size:' + P(34) + ';line-height:' + P(36) + '}',
-      '.qk>.g{margin-bottom:' + P(6) + '}',
-      '.chips{display:flex;flex-wrap:wrap;gap:' + P(8) + '}',
-      '.chip{height:' + P(44) + ';padding:0 ' + P(16) + ';border-radius:' + P(22) + ';display:inline-flex;align-items:center;font-size:' + P(15) + ';font-weight:600;background:' + v('key') +
-        ';box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);white-space:nowrap}',
-      '.chip.sel{background:#fff;color:#1c1c1e;box-shadow:none;text-shadow:none}',
-      '.tw{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:' + P(8) + ';min-height:' + P(260) + '}',
-      '.tw .hkr{--hkr-row:' + P(44) + ';--hkr-fs:' + P(24) + ';--hkr-w:' + P(26) + ';--hkr-uw:' + P(30) + ';--hkr-gap:' + P(8) + ';--hkr-ink:' + v('ink') + ';--hkr-ink2:' + v('ink-2') +
-        ';--hkr-band:' + v('key') + ';--hkr-band-r:' + P(14) + '}',
-      '.tn{display:flex;flex-direction:column;gap:' + P(14) + ';padding:' + P(18) + ';min-height:' + P(260) + '}',
-      '.tn .ends{font-size:' + P(15) + ';font-weight:500;color:' + v('ink-2') + ';min-height:' + P(20) + '}',
-      '.tn .cap{margin-top:auto;width:100%}',
+      // START A TIMER: the quick lengths in a row, then the phone's New Timer card on one plate
+      '.ql{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:' + P(10) + ';margin-bottom:' + P(12) + '}',
+      '.qk{display:flex;align-items:center;justify-content:center;height:' + P(48) + ';padding:0 ' + P(8) + ';font-size:' + P(16) + ';font-weight:600;white-space:nowrap;text-align:center}',
+      '.tmk{padding:' + P(16) + ' ' + P(16) + ' ' + P(14) + '}',
+      '.tmk>hk-timer-new-card{display:block}',
       // VACUUMS: the robot's plate and the rooms' plate
-      '.vh{display:flex;flex-direction:column;padding:' + P(18) + ' ' + P(18) + ' ' + P(18) + '}',
-      '.vh .hero{display:block;width:100%;text-align:left}',
-      '.vh .hkva{width:68%;margin:0 auto}',
-      '.vh .big{font-size:' + P(30) + ';font-weight:700;letter-spacing:' + P(-0.6) + ';margin-top:' + P(8) + ';line-height:1.1}',
-      '.vh .line{font-size:' + P(15) + ';font-weight:500;color:' + v('ink-2') + ';margin-top:' + P(2) + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.vh .pills{display:flex;flex-wrap:wrap;gap:' + P(8) + ';margin-top:' + P(12) + '}',
+      '.vh{display:flex;flex-direction:column;gap:' + P(12) + ';padding:' + P(16) + ' ' + P(18) + ' ' + P(18) + ';margin-bottom:' + P(4) + '}',
+      '.vh .hero{display:flex;align-items:center;gap:' + P(16) + ';width:100%;text-align:left}',
+      '.vh .art{display:block;width:' + P(124) + ';flex:none;margin-left:' + P(-8) + '}',
+      '.vh .txt{display:flex;flex-direction:column;min-width:0;flex:1}',
+      '.vh .big{font-size:' + P(30) + ';font-weight:700;letter-spacing:' + P(-0.6) + ';line-height:1.1}',
+      '.vh .line{font-size:' + P(15) + ';font-weight:500;color:' + v('ink-2') + ';margin-top:' + P(3) + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.vh .pills{display:flex;flex-wrap:wrap;gap:' + P(8) + '}',
       '.vp{display:inline-flex;align-items:center;gap:' + P(7) + ';height:' + P(30) + ';padding:0 ' + P(12) + ';border-radius:' + P(15) + ';font-size:' + P(13) + ';font-weight:700;background:' +
         v('key') +
         ';box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);white-space:nowrap}',
       '.vp.warn{background:rgba(255,179,64,.92);color:#000;box-shadow:none;text-shadow:none}',
       '.vp.err{background:rgba(255,69,58,.9);color:#fff;box-shadow:none;text-shadow:none}',
       '.vp.low{color:' + AMBER + '}',
-      '.vcmds{margin-top:auto;padding-top:' + P(16) + ';display:flex;gap:' + P(10) + '}',
-      '.vcmds .cap{flex:1;min-width:0}',
-      '.vr{display:flex;flex-direction:column;padding:' + P(16) + ' ' + P(14) + ' ' + P(14) + '}',
-      '.vr .lbl{padding:0 ' + P(4) + ' ' + P(10) + '}',
-      '.rooms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:' + P(8) + '}',
-      '.rooms.one{grid-template-columns:minmax(0,1fr)}',
-      '.rm{height:' + P(44) + ';border-radius:' + P(22) + ';display:flex;align-items:center;gap:' + P(8) + ';padding:0 ' + P(14) + ' 0 ' + P(12) + ';font-size:' + P(15) +
-        ';font-weight:600;background:' + v('key') +
-        ';box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);white-space:nowrap;min-width:0}',
-      '.rm span.t{overflow:hidden;text-overflow:ellipsis;min-width:0}',
-      '.rm .ck{width:' + P(18) + ';height:' + P(18) + ';border-radius:50%;border:1.5px solid rgba(255,255,255,.5);display:grid;place-items:center;flex:none;color:#fff}',
-      '.rm .ck .g{display:none}',
-      '.rm.sel{background:#fff;color:#1c1c1e;text-shadow:none;box-shadow:none}',
-      '.rm.sel .ck{background:#2fb8b4;border-color:transparent}.rm.sel .ck .g{display:inline-flex}',
-      '.vr .go{margin-top:auto}.vr .go .cap{width:100%}',
-      '.vr .rowgap{height:' + P(14) + ';flex:none}',
-      '.vr .why{font-size:' + P(13) + ';color:' + v('ink-2') + ';text-align:center;min-height:' + P(18) + ';padding-top:' + P(8) + '}',
-      '.vr .why.bad{color:' + v('fail', '#ff6961') + '}',
-      '.vr .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:' + P(6) + ';padding:0 ' + P(10) + '}',
-      '.vr .empty .hl{margin-top:' + P(6) + '}',
+      '.rml{display:flex;align-items:center;gap:' + P(8) + ';min-height:' + P(20) + ';font-size:' + P(15) + ';font-weight:500;color:' + v('ink-2') + ';min-width:0}',
+      '.rml.on{color:' + v('ink') + ';font-weight:600}.rml.bad{color:' + v('fail', '#ff6961') + ';font-weight:600}',
+      '.rml .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}',
+      '.vcmds{display:flex;gap:' + P(10) + '}',
+      '.vcmds .cap{flex:1;min-width:0;padding:0 ' + P(12) + ';white-space:nowrap}',
       '.mt{display:grid;grid-template-columns:' + P(120) + ' 1fr ' + P(52) + ';align-items:center;column-gap:' + P(14) + ';height:' + P(50) + ';border-top:1px solid ' + v('line') + ';padding:0 ' +
         P(10) + ' 0 ' + P(8) + '}',
       '.mt:first-child{border-top-color:transparent}',
@@ -408,9 +386,9 @@
   class HvTimers extends H.Page {
     constructor() {
       super();
-      this._dur = { h: 0, m: 5, s: 0 }; this._pick = ''; this._note = ''; this._busy = false;
+      this._note = ''; this._busy = false; this._maker = null;
     }
-    static get CSS() { return H.CSS + (CARE || (CARE = careCss())) + (window.hkRoller ? window.hkRoller.CSS : ''); }
+    static get CSS() { return H.CSS + (CARE || (CARE = careCss())); }
     disconnectedCallback() { clearTimeout(this._noteT); super.disconnectedCallback(); }
     // the page's timers: the card's list (quick slots, then the others) and the ones Mantel made
     _list() {
@@ -428,9 +406,8 @@
       return !l || /^Quick( Timer)? ?\d*$/i.test(l) ? 'Timer' : l;
     }
     draw() {
-      var self = this, T = window.hkTimers, deep = this.deep();
+      var self = this, T = window.hkTimers;
       var list = this._list(), quick = !!this.st('script.quick_timer_start');
-      if (deep && deep.k === 'other') return this._other(quick);
       /** @type {any[]} */
       var run = [], seen = /** @type {any} */ ({});
       list.forEach(function (/** @type {any} */ t) {
@@ -449,12 +426,13 @@
         sum: run.length ? '<b>' + run.length + ' Running</b>' + (paused ? ' · ' + paused + ' Paused' : '') : 'Nothing Running' });
       if (run.length) out += '<div class="grid">' + run.map(function (r) { return self._ring(r); }).join('') + '</div>';
 
-      // START A TIMER: 1, 5, 10 min and Other (the quick timers' script makes it); a house with no script has only what is below
+      // START A TIMER: the phone's New Timer sheet, inline (the card itself, hk-timer-new-card: wheels, when it ends, a name, its quick names, Start),
+      // under the quick lengths the Timers page offers; a house with no quick-timer script has only what is below
       if (quick) {
         out += H.section('Start a Timer', this._note ? '<span class="warn">' + esc(this._note) + '</span>' : '');
-        out += '<div class="grid">' + [1, 5, 10].map(function (m) {
-          return H.plate({ cls: 'qk', act: 'tstart', data: { m: m }, label: m + ' minutes' }, '<div class="fig">' + m + '</div><div class="st">min</div>');
-        }).join('') + H.plate({ cls: 'qk', act: 'tother', label: 'Other length' }, H.svg('plus', 28, rest(H.hue('orange'))) + '<div class="st">Other</div>') + '</div>';
+        out += '<div class="ql">' + this._lengths().map(function (/** @type {number} */ m) {
+          return H.plate({ cls: 'qk', act: 'tstart', data: { m: m }, label: words(m * 60) }, esc(words(m * 60)));
+        }).join('') + '</div><div class="pl tmk" data-maker></div>';
       }
 
       // RECENT: the quick slots that are idle with a length they ran at (newest first), then the House Timers; a tap starts it again
@@ -521,38 +499,25 @@
         '</div><div class="st">' +
         esc(sub) + '</div></button>' + keys + '</div>';
     }
-    // OTHER: the wheels at the left (hk-roller.js), the quick names and Start at the right
-    /** @param {boolean} quick */
-    _other(quick) {
-      var chips = (H.cardOf(this.h, 'hk-timers-start-card') || H.cardOf(this.h, 'hk-timers-page-card') || {}).name_chips || [];
-      var self = this;
-      return H.head({ title: 'New Timer', back: true }) + '<div class="kg"><div class="pl tw" data-roller></div><div class="pl tn">' +
-        '<div class="ends" data-ends></div>' +
-        (chips.length ? '<div class="lbl">Name</div><div class="chips">' + chips.slice(0, 6).map(function (/** @type {string} */ n) {
-          return '<button class="chip' + (self._pick === n ? ' sel' : '') + '" data-act="tname" data-n="' + esc(n) + '" aria-pressed="' + (self._pick === n) + '">' + esc(n) + '</button>';
-        }).join('') + '</div>' : '') +
-        (quick ? H.cap({ cls: 'lg w', t: 'Start Timer', act: 'tbegin', off: true }) : '<div class="st">Quick timers are not set up on this house.</div>') + '</div></div>';
+    // the quick lengths in minutes (Settings -> Pages -> Timers' presets, as the Timers page's Quick Start has them)
+    _lengths() {
+      var pr = (H.cardOf(this.h, 'hk-timers-start-card') || H.cardOf(this.h, 'hk-timers-page-card') || {}).presets;
+      var out = (Array.isArray(pr) ? pr : [5, 10, 15, 20, 30, 60]).map(Number).filter(function (/** @type {number} */ m) { return m > 0; });
+      return out.slice(0, 6);
     }
     _render() { super._render(); this._mount(); }
-    // the wheels go into their place once the page is drawn, and stay while it only repaints
+    // THE NEW TIMER CARD, the phone's own, made once and kept: put into the page's place for it each time the page is drawn (its wheels,
+    // its name and its caret stay), the client handed on each time. Its names are the page's Quick Start names.
     _mount() {
-      var R = window.hkRoller, at = this._root.querySelector('[data-roller]'), self = this;
-      if (!R || !at) { this._roller = null; return; }
-      if (!at.firstChild) {
-        this._roller = R.create(R.timerCols(this._dur), { label: 'Timer length', onChange: function (/** @type {any} */ d) { self._dur = d; self._paintOther(); } });
-        at.appendChild(this._roller.el);
+      var at = this._root.querySelector('[data-maker]'), K = window.hkCards;
+      if (!at || !K || !K.create) return;
+      if (!this._maker) {
+        var chips = (H.cardOf(this.h, 'hk-timers-start-card') || H.cardOf(this.h, 'hk-timers-page-card') || {}).name_chips;
+        this._maker = K.create({ type: 'custom:hk-timer-new-card', layout: 'sheet', glass: false, tint: 'rgba(255, 159, 10, 0.95)', name_chips: Array.isArray(chips) ? chips : undefined });
       }
-      this._paintOther();
-    }
-    // when it would end, and what Start says it starts
-    _paintOther() {
-      var d = this._dur, t = d.h * 3600 + d.m * 60 + d.s, root = this._root;
-      var ends = root.querySelector('[data-ends]'), go = root.querySelector('[data-act="tbegin"]');
-      if (ends) ends.textContent = t ? 'Ends ' + H.clock(Date.now() + t * 1000) : 'Set a length';
-      if (go) {
-        go.toggleAttribute('disabled', !t || this._busy);
-        go.textContent = this._busy ? 'Starting…' : t ? 'Start ' + words(t) : 'Start Timer';
-      }
+      if (!this._maker) return;
+      if (this._maker.parentNode !== at) at.appendChild(this._maker);
+      if (this.client && this._maker.hkSetClient) this._maker.hkSetClient(this.client);
     }
     /** @param {string} text */
     _say(text) {
@@ -567,14 +532,12 @@
       var self = this;
       if (!secs || this._busy) return;
       this._busy = true;
-      this._paintOther();
       this._callResp('script', 'quick_timer_start', Object.assign({ duration: hms(secs) }, name ? { name: name } : {})).then(function (/** @type {any} */ r) {
         self._busy = false;
         var res = r.response || {};
         if (!r.ok) self._say('Could not reach Home Assistant.');
         else if (res.started === false) self._say(res.reason === 'no_free_slot' ? 'Too many timers are running.' : 'That is no time at all.');
         else { if (then) then(); }
-        self._paintOther();
       });
     }
     /** @param {string} name @param {any} el */
@@ -588,13 +551,6 @@
         return true;
       }
       if (name === 'tstart') { this._begin(Number(el.getAttribute('data-m')) * 60); return true; }
-      if (name === 'tother') { this._pick = ''; this.deep({ k: 'other' }); return true; }
-      if (name === 'tname') { var n = el.getAttribute('data-n') || ''; this._pick = this._pick === n ? '' : n; this.redraw(); return true; }
-      if (name === 'tbegin') {
-        var d = this._dur, self = this;
-        this._begin(d.h * 3600 + d.m * 60 + d.s, this._pick, function () { self._pick = ''; self.deep(null); });
-        return true;
-      }
       if (name === 'tgo') {
         var s = Number(el.getAttribute('data-s')) || 0;
         // (a timer that ran at a length starts again at it; a House Timer, at its own)
@@ -639,9 +595,15 @@
       this._sel = /** @type {any} */ ({}); this._offer = null; this._cover = null; this._asked = false; this._note = null; this._busy = false;
     }
     static get CSS() { return H.CSS + (CARE || (CARE = careCss())) + (window.hkVacuumArt ? window.hkVacuumArt.CSS : ''); }
-    connectedCallback() { super.connectedCallback(); this._subscribe(); }
+    connectedCallback() {
+      super.connectedCallback(); this._subscribe();
+      var self = this;
+      if (!this._onPick) window.addEventListener('hk-vacuum-rooms', this._onPick = function () { self.redraw(); });
+      if (!window.hkHome && window.hkNeed && window.hkNeed.file) window.hkNeed.file('hk-home.js').then(function () { self.redraw(); });
+    }
     disconnectedCallback() {
       clearTimeout(this._noteT);
+      if (this._onPick) { window.removeEventListener('hk-vacuum-rooms', this._onPick); this._onPick = null; }
       var close = this._areaSub; this._areaSub = null;
       if (typeof close === 'function') close();
       super.disconnectedCallback();
@@ -786,9 +748,20 @@
       } else if (can(VF.START)) {
         cmds = H.cap({ cls: 'lg', g: H.glyph('hk:robot-vacuum', 18, rest(TEAL)), t: 'Clean Everywhere', act: 'vsvc', data: { v: w.id, s: 'start' } });
       }
-      out += '<div class="sec2"><div class="pl vh"><button class="hero" data-act="sheet" data-id="' + esc(w.id) + '" aria-label="' + esc(w.name + ', ' + w.word) + '">' + draw +
-        '<div class="big">' + esc(w.word) + '</div><div class="line">' + esc(line) + '</div></button>' + (pills ? '<div class="pills">' + pills + '</div>' : '') +
-        (cmds ? '<div class="vcmds">' + cmds + '</div>' : '') + '</div>' + this._picker(w) + '</div>';
+      // THE ROOMS, when it can be sent to some: a Rooms... key beside Clean (a sheet picks them: the house's own Rooms to Clean sheet), and what
+      // is picked said on the plate with a Clean N Rooms key; it is only offered while the vacuum is at rest
+      var rest0 = !w.gone && w.state !== 'cleaning' && w.state !== 'returning' && w.state !== 'paused', rl = '';
+      if (rest0 && this._canRooms(w.id)) {
+        var picked = this._pickedNames(w.id), n = picked.length;
+        rl = '<div class="rml' + (n ? ' on' : '') + '">' + H.glyph('mdi:floor-plan', 16) + '<span class="t">' + esc(n ? picked.join(', ') : 'Whole House') + '</span></div>';
+        cmds = (n ? H.cap({ cls: 'lg w', g: H.glyph('mdi:play', 18), t: 'Clean ' + n + (n === 1 ? ' Room' : ' Rooms'), act: 'vgo', data: { v: w.id }, off: this._busy }) : cmds) +
+          H.cap({ cls: 'lg', g: H.glyph('mdi:floor-plan', 18), t: 'Rooms\u2026', act: 'vpick', data: { v: w.id } });
+      }
+      var note = this._note && this._note.v === w.id ? this._note : null;
+      if (note) rl = '<div class="rml' + (note.bad ? ' bad' : ' on') + '"><span class="t">' + esc(note.text) + '</span></div>';
+      out += '<div class="pl vh"><button class="hero" data-act="sheet" data-id="' + esc(w.id) + '" aria-label="' + esc(w.name + ', ' + w.word) + '"><span class="art">' + draw +
+        '</span><span class="txt"><span class="big">' + esc(w.word) + '</span><span class="line">' + esc(line) + '</span></span></button>' + (pills ? '<div class="pills">' + pills + '</div>' : '') +
+        rl + (cmds ? '<div class="vcmds">' + cmds + '</div>' : '') + '</div>';
 
       // HISTORY: what the vacuum's own sensors say of its runs (a house whose vacuum says none gets its last change, said so)
       var rows = [];
@@ -812,31 +785,32 @@
       }
       return out;
     }
-    // THE ROOMS PLATE: the rooms to tick and the one key that sends them (the page's picker's rules)
-    /** @param {any} w */
-    _picker(w) {
-      var rooms = this._rooms(w.id), sel = this._sel[w.id] || (this._sel[w.id] = new Set()), svcs = this.client && this.client.services;
-      var script = C.setting && C.setting('features.vacuum_script'), ca = !!(C.added && C.added('clean_areas'));
-      var can = !!script || ca || !!(svcs && svcs.vacuum && svcs.vacuum.clean_area);
-      var note = this._note && this._note.v === w.id ? this._note : null;
-      if (!can || (rooms && !rooms.length)) {
-        return '<div class="pl vr"><div class="lbl">Clean Rooms</div><div class="empty">' + H.glyph('hk:robot-vacuum', 40, 'rgba(255,255,255,.5)') + '<div class="hl">' +
-          (can ? 'No Rooms Offered' : 'Rooms Are Not Set Up') + '</div><div class="st" style="white-space:normal">' +
-          (can ? 'This vacuum has no mapped rooms yet.' : 'Set up Clean Areas in ' + H.esc(H.where('Accessories → Vacuums')) + ' to clean by room.') + '</div></div></div>';
-      }
-      if (!rooms) return '<div class="pl vr"><div class="lbl">Clean Rooms</div><div class="empty"><div class="st">Loading rooms…</div></div></div>';
-      var n = 0;
-      var pills = rooms.map(function (/** @type {any} */ r) {
-        var on = sel.has(r.id); if (on) n++;
-        return '<button class="rm' + (on ? ' sel' : '') + '" data-act="vroom" data-v="' + esc(w.id) + '" data-a="' + esc(r.id) + '" aria-pressed="' + on + '"><span class="ck">' + H.svg('check', 11) +
-          '</span><span class="t">' + esc(r.name) + '</span></button>';
-      }).join('');
-      var go = H.cap({ cls: 'lg ' + (n ? 'w' : ''), g: n ? H.glyph('mdi:play', 18) : '', t: n ? 'Clean ' + n + (n === 1 ? ' Room' : ' Rooms') : 'Choose Rooms', act: 'vgo', data: { v: w.id },
-        off: !n || this._busy || w.gone });
-      var wide = rooms.some(function (/** @type {any} */ r) { return String(r.name).length > 8; });
-      return '<div class="pl vr"><div class="lbl">Clean Rooms</div><div class="rooms' + (wide ? ' one' : '') + '">' + pills + '</div><div class="go"><div class="why' +
-        (note && note.bad ? ' bad' : '') + '">' +
-        esc(note ? note.text : '') + '</div>' + go + '</div></div>';
+    // can this vacuum be sent to rooms: Clean Areas added, the house's script, or the service; and has it any to offer
+    /** @param {string} vid */
+    _canRooms(vid) {
+      var svcs = this.client && this.client.services, script = C.setting && C.setting('features.vacuum_script'), ca = !!(C.added && C.added('clean_areas'));
+      var can = !!script || ca || !!(svcs && svcs.vacuum && svcs.vacuum.clean_area), rooms = this._rooms(vid);
+      return can && (!rooms || rooms.length > 0);
+    }
+    // THE ROOMS PICKED, shared with the vacuum block and its Rooms sheet (hkHome.picked: one Set a vacuum, told by hk-vacuum-rooms)
+    /** @param {string} vid */
+    _set(vid) {
+      var K = window.hkHome && window.hkHome.picked;
+      return K ? (K[vid] || (K[vid] = new Set())) : (this._sel[vid] || (this._sel[vid] = new Set()));
+    }
+    // the names of the rooms picked, in the order the rooms are offered
+    /** @param {string} vid */
+    _pickedNames(vid) {
+      var sel = this._set(vid), A = (this.client && this.client.areas) || {}, offered = this._rooms(vid) || [];
+      var ids = offered.map(function (/** @type {any} */ r) { return r.id; }).filter(function (/** @type {string} */ id) { return sel.has(id); });
+      sel.forEach(function (/** @type {string} */ id) { if (ids.indexOf(id) < 0 && offered.length === 0 && A[id]) ids.push(id); });
+      return ids.map(function (/** @type {string} */ id) { return (A[id] && A[id].name) || id; });
+    }
+    // THE ROOMS SHEET: the house's own (the vacuum block's), over the page: this vacuum's rooms to tick, Done shuts it
+    /** @param {string} vid */
+    _pick(vid) {
+      var D = window.hkDetail;
+      if (D && D.open) D.open(null, { name: 'Rooms to Clean', icon: 'mdi:floor-plan' }, { cards: { cards: [{ type: 'custom:hk-area-select-card', layout: 'panel', rows: true, pick: vid }] } });
     }
     /** @param {string} v @param {string} text @param {boolean} [bad] */
     _say(v, text, bad) {
@@ -848,10 +822,13 @@
     // SEND THE ROOMS, as the picker does: this vacuum alone where Home Assistant maps its rooms, else the house's script, else Clean Areas
     /** @param {string} vid */
     _clean(vid) {
-      var self = this, sel = this._sel[vid], c = this.client;
+      var self = this, sel = this._set(vid), c = this.client;
       if (!sel || !sel.size || !c || this._busy) return;
       var areas = Array.from(sel), svcs = c.services, script = C.setting && C.setting('features.vacuum_script'), ca = !!(C.added && C.added('clean_areas'));
-      var sent = function () { sel.clear(); self._busy = false; self._say(vid, areas.length === 1 ? 'Sent 1 room to clean.' : 'Sent ' + areas.length + ' rooms to clean.'); };
+      var sent = function () {
+        sel.clear(); window.dispatchEvent(new Event('hk-vacuum-rooms')); self._busy = false;
+        self._say(vid, areas.length === 1 ? 'Sent 1 room to clean.' : 'Sent ' + areas.length + ' rooms to clean.');
+      };
       var fail = function (/** @type {string} */ m) { self._busy = false; self._say(vid, m || 'Could not start. Tap to try again.', true); };
       this._busy = true; this.redraw();
       if (ca && svcs && svcs.vacuum && svcs.vacuum.clean_area && svcs.hk_frontend) {
@@ -870,12 +847,7 @@
       var v = el.getAttribute('data-v') || '';
       if (name === 'vsvc') { this._call('vacuum', el.getAttribute('data-s') || 'start', { entity_id: v }); return true; }
       if (name === 'vclear') { this._call('script', 'vacuum_water_clear', { vacuum: v }); return true; }
-      if (name === 'vroom') {
-        var sel = this._sel[v] || (this._sel[v] = new Set()), a = el.getAttribute('data-a') || '';
-        if (sel.has(a)) sel.delete(a); else sel.add(a);
-        this.redraw();
-        return true;
-      }
+      if (name === 'vpick') { this._pick(v); return true; }
       if (name === 'vgo') { this._clean(v); return true; }
       return false;
     }

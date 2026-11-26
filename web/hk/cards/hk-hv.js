@@ -214,9 +214,8 @@
     // where the mockups put it.
     '.hv{container-type:inline-size}',
     // (on the host, in the frame's own terms: --pt is the page root's, below it)
-    ':host{--hvw:min(100vw, 544px);--hv-float:calc(12 * var(--hvw) / 544)}',
-    // (Safari's bar on a HomeView: scrolled, it is a pill over the page's top; a tab switch floats clear below it)
-    ':host([hvdev]){--hvw:100vw;--hv-float:calc(var(--hk-safe-top, 0px) + 34 * var(--hvw) / 544)}',
+    ':host{--hvw:min(100vw, 544px)}',
+    ':host([hvdev]){--hvw:100vw}',
     '.hvi{--pt:calc(var(--hvw) / 544);box-sizing:border-box;width:var(--hvw);margin-left:calc(50% - var(--hvw) / 2);padding:' + P(8) + ' ' + P(14) + ' ' + P(64) + ';color:' + v('ink') +
       ';font-family:' + v('font-body') + ';-webkit-font-smoothing:antialiased;text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
     '.hvi *{box-sizing:border-box}',
@@ -231,15 +230,6 @@
     '.warn{color:' + v('warn', '#ffb340') + ';font-weight:600}',
     '.bad{color:' + v('fail', '#ff6961') + ';font-weight:600}',
     '.hdr{margin-left:auto;display:flex;gap:' + P(8) + ';align-items:center;flex:none}',
-    // A SWITCH THAT FLOATS (the owner, 2026-11-26: "they should probably float above the content as your scroll down ... Be
-    // careful on pages that have barely enough content to scroll"): a copy of the title row's switch in a sticky layer of no
-    // height, so the page is exactly as tall with it as without (no bounce on a page that barely scrolls); it shows once the
-    // title row has gone under the top (an IntersectionObserver, HvPage._float), on the near-solid overlay so it reads over
-    // whatever scrolls beneath it
-    '.flt{position:sticky;top:var(--hv-float);height:0;z-index:6;pointer-events:none}',
-    '.flt .fin{position:absolute;right:0;top:0;opacity:0;transform:translateY(' + P(-6) + ');transition:opacity .2s ease,transform .34s cubic-bezier(.32,.72,0,1)}',
-    '.flt.show .fin{opacity:1;transform:none;pointer-events:auto}',
-    '.flt .seg{background:' + v('overlay-solid', 'rgba(24,24,28,0.93)') + ';box-shadow:0 ' + P(6) + ' ' + P(20) + ' rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.16)}',
     // A SECTION'S HEADING
     '.sh{display:flex;align-items:baseline;gap:' + P(8) + ';margin:' + P(24) + ' ' + P(8) + ' ' + P(10) + ';font-size:' + P(20) + ';font-weight:700;letter-spacing:' + P(-0.35) + '}',
     '.sh .sum{font-size:' + P(15) + '}',
@@ -322,11 +312,10 @@
   function data(d) {
     return Object.keys(d || {}).filter(function (k) { return d && d[k] != null; }).map(function (k) { return ' data-' + k + '="' + esc(/** @type {any} */ (d)[k]) + '"'; }).join('');
   }
-  // the title row: o { title, sum (html), right (html), back (bool) }. A switch at its right (H.seg) also floats (.flt).
+  // the title row: o { title, sum (html), right (html), back (bool) }. A switch at its right (H.seg) also floats (floatShow).
   /** @param {any} o */
   function head(o) {
-    var float = o.right && /class="seg"/.test(o.right) ? '<div class="flt" aria-hidden="true" inert><div class="fin">' + o.right + '</div></div>' : '';
-    return float + '<div class="hd">' + (o.back ? '<button class="key sm" data-act="back" aria-label="Back">' + chev('left', 16) + '</button>' : '') +
+    return '<div class="hd">' + (o.back ? '<button class="key sm" data-act="back" aria-label="Back">' + chev('left', 16) + '</button>' : '') +
       '<div class="ttl">' + esc(o.title) + '</div>' + (o.sum ? '<div class="sum">' + o.sum + '</div>' : '') +
       (o.right ? '<div class="hdr">' + o.right + '</div>' : '') + '</div>';
   }
@@ -422,6 +411,89 @@
   /** @param {string[]} rowsHtml @param {string} [cls] */
   function list(rowsHtml, cls) { return '<div class="pl list ' + (cls || 'c4') + '"><div class="rows">' + rowsHtml.join('') + '</div></div>'; }
 
+  // ------------------------------------------------------------------ THE FLOATING SWITCH, ON THE BODY
+  // (the owner, 2026-11-26: "All the pages that have tabs at the top, they should probably float above the content as your
+  // scroll down"; then, of a sticky copy inside the page, on the HomeView: "sometimes it appears as you scroll back up, but it
+  // never floats and follows as you scroll" -- Safari on a Mac moved it, the HomeView's only once a scroll had ended.) So the
+  // floating copy lives on the document's body, fixed to the window (rule 13: nothing fixed inside a page), one for the
+  // document: the page on the screen lends it its switch while its title row is above the float's line, and takes it back
+  // when the row comes back or the page goes (a swipe, Back, another page). It takes no room in any page, so a page that
+  // barely scrolls is exactly as tall with it as without.
+  var FLOAT_CSS = [
+    ':host{position:fixed;z-index:6;top:0;right:0;pointer-events:none;opacity:0;transform:translateY(calc(-6 * var(--pt)));' +
+      'transition:opacity .2s ease,transform .34s cubic-bezier(.32,.72,0,1);font-family:' + v('font-body') + ';-webkit-font-smoothing:antialiased}',
+    ':host([show]){opacity:1;transform:none;pointer-events:auto}',
+    ':host([still]){transition:none}',
+    'button{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}',
+    '.seg{display:inline-flex;height:calc(36 * var(--pt));padding:calc(3 * var(--pt));box-sizing:border-box;border-radius:calc(18 * var(--pt));' +
+      'background:' + v('overlay-solid', 'rgba(24,24,28,0.93)') + ';box-shadow:0 calc(6 * var(--pt)) calc(20 * var(--pt)) rgba(0,0,0,.35),' +
+      'inset 0 0 0 1px rgba(255,255,255,.16)}',
+    '.seg button{display:inline-flex;align-items:center;padding:0 calc(13 * var(--pt));border-radius:calc(15 * var(--pt));font-size:calc(14 * var(--pt));' +
+      'font-weight:600;color:rgba(255,255,255,.94);white-space:nowrap}',
+    '.seg button.on{background:#fff;color:#1c1c1e}'
+  ].join('');
+  /** @type {{ el: any, card: any }} */
+  var FLOAT = { el: null, card: null };
+  function floatEl() {
+    if (FLOAT.el && FLOAT.el.isConnected) return FLOAT.el;
+    var el = /** @type {any} */ (document.createElement('div'));
+    el.id = 'hk-hv-float';
+    var sr = el.attachShadow({ mode: 'open' }), st = document.createElement('style');
+    st.textContent = FLOAT_CSS;
+    sr.appendChild(st);
+    el._fin = document.createElement('div');
+    sr.appendChild(el._fin);
+    sr.addEventListener('click', function (/** @type {any} */ ev) {
+      var b = ev.target && ev.target.closest ? ev.target.closest('[data-act]') : null;
+      if (b && FLOAT.card) { ev.stopPropagation(); FLOAT.card._do(b, ev); }
+    });
+    document.body.appendChild(el);
+    return FLOAT.el = el;
+  }
+  /** @param {any} card @param {string} html @param {number} top @param {number} right @param {number} pt */
+  function floatShow(card, html, top, right, pt) {
+    var el = floatEl(), S = window.hkSettings, still = false;
+    try { still = !!(S && S.rendering && S.rendering().motion === false); } catch (e) { still = false; }
+    FLOAT.card = card;
+    if (el._html !== html) { el._html = html; el._fin.innerHTML = html; }
+    el.style.setProperty('--pt', pt + 'px');
+    el.style.top = Math.round(top) + 'px';
+    el.style.right = Math.round(right) + 'px';
+    el.toggleAttribute('still', still);
+    if (!el.hasAttribute('show')) el.setAttribute('show', '');
+  }
+  /** @param {any} card */
+  function floatHide(card) {
+    if (!FLOAT.el || (card && FLOAT.card !== card)) return;
+    FLOAT.el.removeAttribute('show');
+    FLOAT.card = null;
+  }
+  // THE WINDOW'S HEIGHTS, measured once: its smallest (Safari's bar out, 100svh) and its largest (the bar a pill, 100lvh), and
+  // the room the view keeps at the top for Safari's buttons (--hk-safe-top). A probe on the body, absolutely placed.
+  /** @type {{ s: number, l: number, top: number } | null} */
+  var VH = null;
+  function heights() {
+    if (VH) return VH;
+    var d = document.createElement('div');
+    d.style.cssText = 'position:absolute;left:-9999px;top:0;width:1px;visibility:hidden;pointer-events:none;box-sizing:border-box;height:100svh;padding-top:var(--hk-safe-top,0px)';
+    document.body.appendChild(d);
+    var s = d.getBoundingClientRect().height, top = parseFloat(getComputedStyle(d).paddingTop) || 0;
+    d.style.height = '100lvh';
+    var l = d.getBoundingClientRect().height;
+    d.remove();
+    return VH = { s: s || window.innerHeight, l: l || window.innerHeight, top: top };
+  }
+  window.addEventListener('resize', function () { VH = null; }, { passive: true });
+  // on a page that has gone off the screen (kept beside the one shown, for a swipe: data-hk-offstage), or hidden
+  /** @param {any} el */
+  function offstage(el) {
+    for (var i = 0; el && i < 60; i++) {
+      if (el.hasAttribute && el.hasAttribute('data-hk-offstage')) return true;
+      el = el.parentNode || el.host;
+    }
+    return false;
+  }
+
   // ------------------------------------------------------------------ THE PAGE CARD (each page's base)
   // A page subclasses it and answers draw() (the page's HTML) and, where it has its own, act(name, el, ev). It reads its
   // states through st(id) while drawing, so the ids it reads are its signature (rule 13: told when one changes).
@@ -474,30 +546,71 @@
         this._html = html;
         this._root.innerHTML = '<div class="hvi">' + html + '</div>';
         this._float();
+        var self = this;
+        requestAnimationFrame(function () { self._settle(); });
       }
       this._hkSig = this._sigOf();
     }
     draw() { return ''; }
-    // THE FLOATING SWITCH shows while the title row is under the top (the float's own line): one observer, made again for each
-    // new drawing of the page, and gone with the card
+    // THE FLOATING SWITCH (floatShow, on the body): lent while the title row's switch has gone under the top, shown on its
+    // line -- under Safari's pill on a HomeView -- and only by a page on the screen. Watched by a passive scroll listener (one check a
+    // frame) and an IntersectionObserver beside it (a momentum scroll on the HomeView can hold either back a moment).
     _float() {
+      var self = this;
+      if (!this._onScroll) {
+        this._onScroll = function () {
+          if (self._scrollRaf) return;
+          self._scrollRaf = requestAnimationFrame(function () { self._scrollRaf = 0; self._floatCheck(); });
+        };
+      }
       if (this._io) { this._io.disconnect(); this._io = null; }
-      var flt = this._root.querySelector('.flt'), hd = this._root.querySelector('.hd');
-      if (!flt || !hd || typeof IntersectionObserver === 'undefined') return;
-      var top = parseFloat(getComputedStyle(flt).top) || 0, shown = false;
-      this._io = new IntersectionObserver(function (es) {
-        var e = es[es.length - 1], show = !e.isIntersecting && e.boundingClientRect.top < top;
-        if (show !== shown) { shown = show; flt.classList.toggle('show', show); flt.setAttribute('aria-hidden', show ? 'false' : 'true'); flt.inert = !show; }
-      }, { rootMargin: '-' + Math.round(top) + 'px 0px 0px 0px', threshold: 0 });
-      this._io.observe(hd);
+      var hd = this._root.querySelector('.hd');
+      this._floatOn = !!(hd && hd.querySelector('.seg'));
+      if (!this._floatOn) { floatHide(this); return; }
+      if (!this._scrolling) { window.addEventListener('scroll', this._onScroll, { passive: true }); this._scrolling = true; }
+      if (typeof IntersectionObserver !== 'undefined') {
+        this._io = new IntersectionObserver(function () { self._floatCheck(); }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+        this._io.observe(hd);
+      }
+      this._floatCheck();
+    }
+    _floatCheck() {
+      var hd = this._floatOn && this.isConnected ? this._root.querySelector('.hd') : null, hdr = hd && hd.querySelector('.hdr');
+      if (!hd || !hdr || offstage(this)) { floatHide(this); return; }
+      var r = hdr.getBoundingClientRect(), hvi = this._root.firstElementChild;
+      if (!r.height || !hvi) { floatHide(this); return; }
+      var w = hvi.getBoundingClientRect(), pt = w.width / 544, V = heights();
+      // its line: under Safari's pill on a HomeView (the view's top room and 34 more), 12 below the window's top elsewhere
+      var line = this.hasAttribute('hvdev') ? V.top + 34 * pt : 12 * pt;
+      // (handed over once the row's own switch is half under the top -- the view's top room, Safari's buttons on a HomeView --
+      // and back as it comes out: the line is lower than the row at rest, so the row itself is never doubled)
+      if (r.top + r.height / 2 < V.top) floatShow(this, hdr.innerHTML, line, window.innerWidth - (w.right - 14 * pt), pt);
+      else floatHide(this);
+    }
+    // A PAGE THAT BARELY SCROLLS DOESN'T BOUNCE (the owner, 2026-11-26: "sometimes when I scroll down on a page, it bounces back
+    // up"). Safari's bar folds to a pill as a page scrolls, and the window grows by what it gave back; the view is at least the
+    // window tall (home.html: 100dvh), so a page between the small window and the large one stopped being taller than the
+    // window the moment the bar folded, and Safari put it back at the top. Such a page is made a little taller than the large
+    // window, so it scrolls the same whichever way the bar is; one that fits the small window doesn't scroll at all.
+    _settle() {
+      var hvi = this._root.firstElementChild;
+      if (!hvi || !this.isConnected) return;
+      var V = heights(), want = '';
+      if (V.l > V.s + 2) {
+        var top = this.getBoundingClientRect().top + (window.scrollY || 0), end = top + hvi.getBoundingClientRect().height;
+        if (end > V.s + 1 && end < V.l + 24) want = Math.ceil(V.l + 24 - top) + 'px';
+      }
+      if (this.style.minHeight !== want) this.style.minHeight = want;
     }
     disconnectedCallback() {
       if (this._io) { this._io.disconnect(); this._io = null; }
+      if (this._scrolling) { window.removeEventListener('scroll', this._onScroll); this._scrolling = false; }
+      floatHide(this);
       if (super.disconnectedCallback) super.disconnectedCallback();
     }
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
-      if (this._html && !this._io) this._float();
+      if (this._html) this._float();
     }
     // a mode switch, a step deeper and back: drawn again at once
     /** @param {any} m */
@@ -514,6 +627,11 @@
       if (!el || el.hasAttribute('disabled')) return;
       if (this._eat) { this._eat = false; return; }
       ev.stopPropagation();
+      this._do(el, ev);
+    }
+    // what a tap on an element with data-act does (the page's own, or the floating switch's: floatShow)
+    /** @param {any} el @param {Event} ev */
+    _do(el, ev) {
       var act = el.getAttribute('data-act'), id = el.getAttribute('data-id');
       if (this.act && this.act(act, el, ev) === true) return;
       if (act === 'back') { this.deep(null); return; }

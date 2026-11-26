@@ -121,12 +121,32 @@ def test_homeview_pages_is_a_screens_own_option_off_by_default():
     assert "b.homeview_pages === true" in views
 
 
-def test_the_kit_floats_a_switch_without_changing_the_pages_height_and_frames_it_elsewhere():
+def test_the_kit_floats_a_switch_on_the_body_keeps_short_pages_steady_and_frames_pages_elsewhere():
     kit = KIT.read_text()
-    # the float is a sticky layer of no height (a page that barely scrolls must not bounce), shown by an observer
-    assert ".flt{position:sticky;top:var(--hv-float);height:0;" in kit
-    assert "new IntersectionObserver" in kit
+    # the float lives on the body, fixed to the window (a sticky copy inside the page didn't follow the HomeView's own
+    # scrolling), lent by the page on the screen while its title row is under the line; it takes no room in any page
+    assert "document.body.appendChild(el)" in kit and ":host{position:fixed;" in kit
+    assert "window.addEventListener('scroll', this._onScroll, { passive: true })" in kit and "new IntersectionObserver" in kit
+    # a page between Safari's small and large window is made taller than the large one, so its bar folding can't bounce it
+    assert "height:100svh" in kit and "d.style.height = '100lvh'" in kit and "_settle()" in kit
     # a HomeView is the screen's width; anywhere else the HomeView's 544, centered
     assert ":host{--hvw:min(100vw, 544px)" in kit and ":host([hvdev]){--hvw:100vw" in kit
     shim = (ROOT / "web/shim/homeview.js").read_text()
     assert "'touch-action', 'pan-y'" in shim and "'overflow-x', 'clip'" in shim
+    assert "root.style.setProperty('--hk-safe-top', px + 'px')" in shim          # the top room, measured once
+
+
+def test_a_room_without_an_icon_takes_one_its_name_says_and_the_vacuum_rooms_are_checked_rows():
+    # (the house gave its areas no icons, so every room drew the same floor plan -- the owner, 2026-11-26)
+    js = r"""
+globalThis.window = globalThis; globalThis.addEventListener = () => {}; globalThis.document = { addEventListener() {} };
+(0, eval)(require('fs').readFileSync(process.argv[1], 'utf8'));
+const g = window.hkMenu._.roomGlyph;
+console.log(JSON.stringify([g('Guest Bathroom'), g('Bedroom Closet'), g('Garage Entry'), g('Kitchen'), g('Hallway'), g('Kitchen', 'mdi:stove')]));
+"""
+    out = subprocess.run([NODE, "-e", js, str(ROOT / "web/hk/modules/hk-menu.js")], capture_output=True, text=True, check=True)
+    assert json.loads(out.stdout) == ["mdi:shower", "mdi:hanger", "mdi:garage", "mdi:silverware-fork-knife", "mdi:floor-plan", "mdi:stove"]
+    # the HomeView's Rooms sheet: the speaker list's capsule rows with a check at the right, not two columns of pills
+    assert "layout: 'panel', rows: true, pick: vid" in (ROOT / "web/hk/cards/hk-hv-care.js").read_text()
+    vac = (ROOT / "web/hk/home-cards/hk-home-vacuum.js").read_text()
+    assert "rw ? 'rws' : 'grid'" in vac and "H.roomGlyph(a.name || id, icon)" in vac

@@ -594,7 +594,26 @@
           ':host([data-fill]){display:block;height:100%}',
           ':host([data-fill]) .plate{height:100%;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}',
           ':host([data-fill]) .plate::-webkit-scrollbar{display:none}',
-          '.pill:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}'
+          '.pill:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+          // `rows` (the HomeView's Rooms sheet, 2026-11-26, the owner: "a list of rooms with a check mark on the right side ... similar
+          // to how it looks on the speaker page"): each room a capsule as hk-saver-panel.js's .mproom, its glyph bare, its name, an
+          // empty ring at the right; picked, the light row and Apple's dark disc with its white check
+          // (the rows lie on the sheet itself, as the speakers lie on their panel: no plate of their own, out of the shared blur)
+          '.plate.bare{background:none;border:none;box-shadow:none;--hk-glass-surface:0;backdrop-filter:none;-webkit-backdrop-filter:none;padding:0}',
+          '.rws{display:flex;flex-direction:column;gap:6px;margin:0 0 16px 0}.rws:last-child{margin-bottom:0}',
+          '.rw{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px 6px 16px;border-radius:' + window.hkCards.R.capsule('56px') + ';min-width:0;box-sizing:border-box;' +
+            'background:var(--hk-pill-bg, rgba(255,255,255,0.07));color:' + window.hkCards.v('ink') + ';cursor:pointer;touch-action:manipulation;' +
+            '-webkit-tap-highlight-color:transparent;transition:background-color .22s ease}',
+          '.rw .ri{flex:none;width:34px;height:34px;display:flex;align-items:center;justify-content:center}',
+          '.rw .ri hk-icon{--mdc-icon-size:28px;width:28px;height:28px;color:' + window.hkCards.v('ink') + '}',
+          '.rw b{flex:1;min-width:0;' + window.hkCards.typeCss('headline') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.rw .tk{flex:none;width:28px;height:28px;border-radius:50%;box-shadow:inset 0 0 0 2px ' + window.hkCards.v('mark') +
+            ';display:flex;align-items:center;justify-content:center}',
+          '.rw .tk svg{width:17px;height:17px;fill:#fff;visibility:hidden}',
+          '.rw[aria-pressed="true"]{background:rgba(255,255,255,0.94);color:rgba(0,0,0,0.88);text-shadow:none}',
+          '.rw[aria-pressed="true"] .ri hk-icon{color:rgba(0,0,0,0.78)}',
+          '.rw[aria-pressed="true"] .tk{background:rgba(0,0,0,0.82);box-shadow:none}.rw[aria-pressed="true"] .tk svg{visibility:visible}',
+          '.rw:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}'
         ].join('');
       }
       // AUTOMATIC ROOMS: a card whose YAML names
@@ -694,7 +713,7 @@
         var had = this._root.activeElement && this._root.activeElement.getAttribute('data-area');
         var hadGo = this._root.activeElement && this._root.activeElement.classList.contains('go');
         this._root.innerHTML = '';
-        var plate = document.createElement('div'); plate.className = 'plate';
+        var plate = document.createElement('div'); plate.className = this._config.rows ? 'plate bare' : 'plate';
         var bar = document.createElement('div'); bar.className = 'bar';
         var cnt = document.createElement('div'); cnt.className = 'n';
         var pk = !!this._config.pick;          // (the vacuum block's Rooms sheet: what is picked is the block's to clean, Done shuts the sheet)
@@ -726,11 +745,23 @@
           var hd = document.createElement('div');
           hd.className = 'floor'; hd.textContent = f.name;
           rows.appendChild(hd);
-          var g = document.createElement('div'); g.className = 'grid';
+          var rw = !!self._config.rows;
+          var g = document.createElement('div'); g.className = rw ? 'rws' : 'grid';
           g.setAttribute('role', 'group'); g.setAttribute('aria-label', f.name);
           (f.areas || []).forEach(function (a) {
             var b = document.createElement('div');
-            b.className = 'pill';
+            b.className = rw ? 'rw' : 'pill';
+            if (rw) {
+              button(b, function () { self._toggle(a.id); });
+              b.setAttribute('aria-pressed', self._sel.has(a.id) ? 'true' : 'false');
+              b.setAttribute('data-area', a.id); b.setAttribute('aria-label', a.name);
+              b.innerHTML = '<span class="ri"><hk-icon></hk-icon></span><b></b><span class="tk"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+                '<path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>';
+              b.querySelector('hk-icon').setAttribute('icon', self._glyph(a.id));
+              b.querySelector('b').textContent = a.name;
+              g.appendChild(b);
+              return;
+            }
             button(b, function () { self._toggle(a.id); });
             b.setAttribute('aria-pressed', self._sel.has(a.id) ? 'true' : 'false');
             b.setAttribute('data-area', a.id);
@@ -745,6 +776,15 @@
         if (back && back.focus) back.focus();
       }
 
+      // a room's glyph (hk-grid-room.js's _roomGlyph): its room page's icon, else its area's own, else one its name says (hkMenu)
+      _glyph(id) {
+        var M = window.hkCards.menu, cfg = null, icon = null;
+        try { cfg = M && M.config ? M.config() : null; } catch (e) { cfg = null; }
+        ((cfg && cfg.views) || []).forEach(function (w) { if (!icon && w && w.icon && (w.area === id || (w.strategy && w.strategy.area === id))) icon = w.icon; });
+        var A = (this.client && this.client.areas) || {}, a = A[id] || {}, H = window.hkMenu && window.hkMenu._;
+        icon = icon || a.icon;
+        return H && H.roomGlyph ? H.roomGlyph(a.name || id, icon) : icon || 'mdi:floor-plan';
+      }
       // The same markup as hk-speaker-picker-card's `_pill`, down to the
       // aria-pressed="false" -- these never light, they act. Same markup means
       // the two pages' action rows cannot drift apart.
