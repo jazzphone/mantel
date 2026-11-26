@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.16 - 2026-11-25
+
 **Added**
 - **Live TV buttons in Apple's Home app** (Mantel's phase 35): a `button` for each Live TV button Mantel sets up (Mantel Settings → Live TV → Home App: a channel on a paired AirPlay screen, "NBC on Den HomeView"), and each screen's Stop button for automations. Pressing one has Mantel play that channel on that screen. Mantel Link keeps a HomeKit Bridge entry of their own, **"Mantel Live TV"** (bridge mode, beside "Mantel Alerts"), holding the channel buttons only, so the Home app shows each as a switch; Mantel Settings shows its code to add it once. The entry follows Mantel's list (updated and reloaded when it changes, keeping its pairing). No other HomeKit entry is touched.
 - **`mantel.live_tv_play`** `{channel, screen}` and **`mantel.live_tv_stop`** `{screen}` for scripts and automations: Mantel plays only what one of its Live TV buttons plays.
