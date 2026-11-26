@@ -103,6 +103,12 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-home-timers.js` — the running timers grid and the new timer card
     - `hk-home-timer-page.js` — the timers page and the timer strip
   - `hk-house-status.js` — House Status (docs/phase11/HOUSE-STATUS.md)
+  - `hk-hv-care.js` — AN APPLE HOMEVIEW'S CARE PAGES (docs/phase36/PLAN.md, 2026-11-26)
+  - `hk-hv-energy.js` — AN APPLE HOMEVIEW'S ENERGY PAGES (docs/phase36/PLAN.md, 2026-11-26)
+  - `hk-hv-home.js` — AN APPLE HOMEVIEW'S HOUSE PAGES (docs/phase36/PLAN.md, 2026-11-26)
+  - `hk-hv-info.js` — AN APPLE HOMEVIEW'S INFORMATION PAGES (docs/phase36/PLAN.md, 2026-11-26)
+  - `hk-hv-media.js` — AN APPLE HOMEVIEW'S MEDIA PAGES (docs/phase36/PLAN.md, 2026-11-26)
+  - `hk-hv.js` — THE HOMEVIEW APPS' KIT (docs/phase36/PLAN.md, 2026-11-26).
   - `hk-intercom.js` — the Intercom
   - `hk-laundry-card.js` — the Laundry block (`laundry` in hk-grid-catalog.js; docs/phase22/LAUNDRY.md), 2026-11-10.
   - `hk-layout.js` — building blocks *(a shell: its parts are in `web/hk/layout/`, `tools/split_manifests/layout.json`)*

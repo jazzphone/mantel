@@ -44,6 +44,8 @@ LAZY = frozenset({
     "hk-tv-card.js",
     # the Pages screen (Phase J): only on its own page, while a screen has it on
     "hk-pages-screen.js",
+    # an Apple HomeView's Apps (docs/phase36/PLAN.md): the kit and its pages, asked for only on a HomeView
+    "hk-hv.js", "hk-hv-home.js", "hk-hv-care.js", "hk-hv-media.js", "hk-hv-energy.js", "hk-hv-info.js",
 })
 # hk-strategy.js is not a card list entry at all: home.js imports it with the bootstrap modules
 NOT_CARDS = frozenset({"hk-strategy.js"})

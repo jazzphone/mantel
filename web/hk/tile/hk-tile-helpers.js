@@ -501,6 +501,8 @@
 
     // what the shell and the later parts use of this one
     K.brightnessLabel = brightnessLabel; K.C = C; K.colourFor = colourFor; K.HEAT_STATES = HEAT_STATES;
+    // (the HomeView pages' level tiles drag what a Tall or Wide block drags, the same way: cards/hk-hv.js)
+    if (window.hkTile) { window.hkTile.levelOf = levelOf; window.hkTile.lightRgb = lightRgb; }
     K.hexOf = hexOf; K.iconColour = iconColour; K.LABEL_MODES = LABEL_MODES; K.LAYOUTS = LAYOUTS; K.levelOf = levelOf;
     K.levelTile = levelTile; K.lightRgb = lightRgb; K.NAME_MAP = NAME_MAP; K.OFF_WELL = OFF_WELL;
     K.ON_STATES = ON_STATES; K.ownTint = ownTint; K.readingOf = readingOf; K.sentence = sentence;
