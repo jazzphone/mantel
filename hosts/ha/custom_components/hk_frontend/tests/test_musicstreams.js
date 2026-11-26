@@ -257,9 +257,15 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   eq('its own app: "<app> on <speaker>"', by[e('living_room')].from, 'Music on ' + lr);
   ok('  ...and outside', by[e('living_room')].outside === true);
   eq('a room it sends to, the same session: one context with it', by[e('kitchen')], by[e('living_room')]);
+  eq('...led by the speaker it comes from ("Living Room + 1", not the first room)', by[e('kitchen')].key, e('living_room'));
+  eq('...first of its rooms', by[e('kitchen')].members[0], e('living_room'));
   eq('AirPlay from an iPhone', by[e('office')].from, 'AirPlay');
   ok('Music Assistant\'s own: no line, not outside', by[e('loft')].from === null && by[e('loft')].outside === false);
   eq('a receiver alone names its sender', M.whereFrom(h.states, e('kitchen')), 'AirPlay from ' + lr);
+  // the sending speaker by its own name, not its room's (a room can have a HomePod and a HomeView)
+  h.states[e('living_room')].attributes.friendly_name = 'Living Room HomeView';
+  eq('...by its own name', M.whereFrom(h.states, e('kitchen')), 'AirPlay from Living Room HomeView');
+  eq('...on its own line too', M.whereFrom(h.states, e('living_room')), 'Music on Living Room HomeView');
 })();
 
 H.run('MUSIC STREAMS', []);

@@ -147,6 +147,11 @@ def test_music_that_isnt_music_assistants_says_where_it_comes_from():
     h3 = House({"media_player.living_room": ("playing", hv),
                 "media_player.den": ("playing", dict(rx, app_id="music_assistant", source="com.apple.tvairplayd"))})
     assert A.where_from(h3, list(h3.states_), "media_player.den", names) == "AirPlay from Living Room HomeView"
+    # the sending speaker by its own name, not its room's (a room with a HomePod and a HomeView)
+    h4 = House({"media_player.living_room": ("playing", dict(hv, friendly_name="Living Room HomeView")),
+                "media_player.den": ("playing", rx)})
+    assert A.where_from(h4, list(h4.states_), "media_player.living_room", names) == "Music on Living Room HomeView"
+    assert A.where_from(h4, list(h4.states_), "media_player.den", names) == "AirPlay from Living Room HomeView"
     # no source name: the app id's last part
     h2 = House({"media_player.x": ("playing", {"app_id": "com.apple.Safari"})})
     assert A.where_from(h2, ["media_player.x"], "media_player.x", lambda e: "Office") == "Safari on Office"

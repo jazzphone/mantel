@@ -122,11 +122,17 @@
         })[0];
         return { app: 'AirPlay', sender: by ? by.entity : null, own: false };
       }
+      // the sending speaker by its own name ("Living Room HomeView"), not its room's: a room can have two speakers (2026-11-26,
+      // the owner: "It's living room homeview not homepod")
+      function speakerName(states, e) {
+        var a = (states[e] && states[e].attributes) || {};
+        return (typeof a.friendly_name === 'string' && a.friendly_name.trim()) || nameOf(e);
+      }
       function whereFrom(states, player) {
         var o = origin(states, player);
         if (!o) return null;
         if (!o.sender) return o.app;
-        return o.app + (o.own ? ' on ' : ' from ') + nameOf(o.sender);
+        return o.app + (o.own ? ' on ' : ' from ') + speakerName(states, o.sender);
       }
       // MUSIC STOPPED AFTER A PAUSE (2026-11-01, hk_core/music/resume.py): Music
       // Assistant stops a queue paused for 30 s, keeping its song and where it
@@ -200,6 +206,12 @@
           else if (members.length > 1) { var pre = presetOf(members); if (pre) c.preset = pre.name; }
           // (the sending speaker's own line when it is one of them: an AirPlay session led by a room it sends to)
           var sender = members.filter(function (m) { return states[m] && ownApp(states[m].attributes || {}); })[0];
+          // ...and it leads the session's rooms: "Living Room + 12", where the music comes from (2026-11-26, the owner's
+          // screenshot read "Kitchen + 12" for the Living Room HomeView's music). A session's Play / Pause is every room's
+          if (sid && sender && members.length > 1 && members[0] !== sender) {
+            members.splice(members.indexOf(sender), 1); members.unshift(sender);
+            c = ctx(sender, 'group', members, states[sender] || st); c.airplay = true;
+          }
           c.origin = origin(states, sender || lead);
           c.outside = c.origin !== null;
           c.from = whereFrom(states, sender || lead);
@@ -445,7 +457,7 @@
         speakers: function () { return ST.MUSIC.speakers.slice(); },
         rooms: rooms, presets: presets, known: known, isGroup: isGroup, fold: fold, together: together,
         nameOf: nameOf, leader: leader, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
-        outside: outside, origin: origin, whereFrom: whereFrom,
+        outside: outside, origin: origin, whereFrom: whereFrom, speakerName: speakerName,
         player: function (client) { return resolve(client).player; },
         label: label, setFocus: setFocus, release: release, attach: attach,
         onChange: onChange, focus: function () { return focus.key; },

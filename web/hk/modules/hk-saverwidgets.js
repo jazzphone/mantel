@@ -998,7 +998,8 @@
       inline: {
         read: function (X) {
           var m = musicOn(X);
-          return m ? { text: String(m.title) + (m.artist ? DOT + m.artist : ''), gl: 1 } : { off: true, text: '' };
+          var by = [m && m.artist, m && m.from].filter(Boolean).join(DOT);   // (where it comes from: hkMusic.contexts' `from`)
+          return m ? { text: String(m.title) + (by ? DOT + by : ''), gl: 1 } : { off: true, text: '' };
         },
         draw: function (s) { return inl(NOTE, s.text); },
         text: function (s) { return s.text; },
@@ -1009,7 +1010,7 @@
         read: function (X) {
           var m = musicOn(X);
           var w = m ? roomsOf(m) : null;
-          return m ? { title: String(m.title), artist: String(m.artist || ''), room: w.one, more: w.more, pic: String(m.pic || ''),
+          return m ? { title: String(m.title), artist: [m.artist, m.from].filter(Boolean).join(DOT), room: w.one, more: w.more, pic: String(m.pic || ''),
                        glyph: (window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(m.key) : 'hk:homepod') } : { off: true };
         },
         draw: function (s) {

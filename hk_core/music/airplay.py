@@ -119,6 +119,14 @@ def origin(house: House, rooms: Iterable[str], player: str) -> tuple[str, str | 
     return "AirPlay", None
 
 
+def speaker_name(house: House, entity: str, name_of: Callable[[str], str]) -> str:
+    """A sending speaker by its own name ("Living Room HomeView"), not its room's: a room can have two speakers
+    (2026-11-26, the owner: "It's living room homeview not homepod")."""
+    st = house.state(entity)
+    name = st.attributes.get("friendly_name") if st is not None else None
+    return name.strip() if isinstance(name, str) and name.strip() else name_of(entity)
+
+
 def where_from(house: House, rooms: Iterable[str], player: str, name_of: Callable[[str], str]) -> str | None:
     """``origin`` as the players' line: "Music on Living Room HomeView", "AirPlay from Living Room HomeView",
     "AirPlay"; None for Music Assistant's own music."""
@@ -128,7 +136,8 @@ def where_from(house: House, rooms: Iterable[str], player: str, name_of: Callabl
     app, sender = got
     if sender is None:
         return app
-    return f"{app} from {name_of(sender)}" if sender != player else f"{app} on {name_of(sender)}"
+    who = speaker_name(house, sender, name_of)
+    return f"{app} from {who}" if sender != player else f"{app} on {who}"
 
 
 # -- the cover --------------------------------------------------------------------------------------------------------

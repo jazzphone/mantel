@@ -109,7 +109,9 @@
       // (the speaker line's rooms: the player's, then the ones joined to it -- hk-np-strip.js rooms)
       return { idle: false, key: ctx.key, members: members, room: M.label ? M.label(ctx) : ctx.key, rooms: window.hkNpStrip.rooms(h, ctx.key, members),
                playing: st.state === 'playing',
-               title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '', album: a.media_album_name || '',
+               // (music that isn't Music Assistant's: where it comes from in the album's place -- hkMusic.contexts' `from`)
+               title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '', album: ctx.from || a.media_album_name || '',
+               from: ctx.from || '',
                pic: pic, dur: Number(a.media_duration) || 0, pos: Number(a.media_position) || 0,
                posAt: Date.parse(a.media_position_updated_at) || 0, vol: vol };
     }

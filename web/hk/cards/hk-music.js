@@ -953,6 +953,9 @@
         gi.setAttribute('icon', window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(rooms[0]) : 'hk:homepod');
         var sp = document.createElement('span'); sp.setAttribute('data-fit', rooms.join(','));
         s.appendChild(gi); s.appendChild(sp);
+        // (music that isn't Music Assistant's says where it comes from, as " · Paused" says it is: hkMusic.contexts' `from`)
+        var fr = !idle && x.ctxs[0] && x.ctxs[0].from;
+        if (fr) { var fs = document.createElement('i'); fs.style.cssText = 'font-style:normal;flex:none'; fs.textContent = ' · ' + fr; s.appendChild(fs); }
         if (!idle && !x.playing) { var ps = document.createElement('i'); ps.style.cssText = 'font-style:normal;flex:none'; ps.textContent = ' · Paused'; s.appendChild(ps); }
         t.appendChild(b); t.appendChild(s); d.appendChild(t);
         if (on && !idle) d.insertAdjacentHTML('beforeend', '<span class="eq"><i></i><i></i><i></i></span>');

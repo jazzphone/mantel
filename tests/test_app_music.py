@@ -48,6 +48,26 @@ def play(**over):
 
 
 # ------------------------------------------------------------------------------------------- what plays
+def test_contexts_say_where_music_that_isnt_music_assistants_comes_from():
+    # 2026-11-26: a HomeView playing its own Music app AirPlays to a HomePod; an iPhone AirPlays to another; Music
+    # Assistant plays in a third room. The app's contexts carry `from` / `outside` as the pages' do, the sender first.
+    HV, K, D, C = "media_player.living_room", "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
+    cfg = {"speakers": [{"name": "Kitchen", "entity": K}, {"name": "Living Room", "entity": HV},
+                        {"name": "Den", "entity": D}, {"name": "Cody's Room", "entity": C}]}
+    def st(s, **a):
+        return {"s": s, "a": a, "lc": 5.0}
+    states = {HV: st("playing", app_id="com.apple.sonic.music", source="Music", media_title="Song",
+                     media_content_id="apple-device://ap01/snHome::STREAM"),
+              K: st("playing", app_id="com.apple.tvairplayd", media_title="Song", media_content_id="apple-device://ap02/snHome::STREAM"),
+              D: st("playing", app_id="com.apple.tvairplayd", media_title="Other", media_content_id="apple-device://ap03/snPhone::STREAM"),
+              C: st("playing", app_id="music_assistant", media_title="Mine", media_content_id="apple_music://track/1")}
+    by = {m: c for c in app_music.contexts(cfg, states) for m in c["members"]}
+    assert by[K] is by[HV] and by[HV]["key"] == HV and by[HV]["members"] == [HV, K], "the sender leads its session"
+    assert by[HV]["from"] == "Music on Living Room" and by[HV]["outside"] is True
+    assert by[D]["from"] == "AirPlay" and by[D]["outside"] is True, "an iPhone is no speaker of the house"
+    assert by[C]["from"] is None and by[C]["outside"] is False, "Music Assistant's own"
+
+
 def test_contexts_group_the_house_as_the_screens_do():
     K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
     cfg = {"speakers": [{"name": "Downstairs", "entity": "preset:pre1", "members": [K, D]},

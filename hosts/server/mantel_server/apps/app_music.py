@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
+from types import SimpleNamespace
 from typing import Any
 
 from aiohttp import web
@@ -115,6 +116,17 @@ def _active(eid: str, states: dict, cfg: dict) -> bool:
         st.get("s") in ("playing", "paused") or _held(eid, st, cfg))
 
 
+class _StatesHouse:
+    """The app's compact states ({s, a}) as hk_core's House reads one (``state(entity).state / .attributes``)."""
+
+    def __init__(self, states: dict) -> None:
+        self._states = states
+
+    def state(self, entity: str) -> Any:
+        st = self._states.get(entity)
+        return None if st is None else SimpleNamespace(state=st.get("s"), attributes=st.get("a") or {})
+
+
 def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
     """EVERY SEPARATE THING THE HOUSE IS PLAYING, as hkMusic.contexts (hk-base.js) derives it: a group keyed by its
     leader (group_members[0]), its `preset` the name of the preset whose rooms it is exactly, or one room. A preset is
@@ -123,6 +135,7 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
     presets = [s for s in speakers if s.get("members")]
     rooms = [s for s in speakers if not s.get("members")]
     known = {s["entity"] for s in rooms}
+    names = {s["entity"]: str(s.get("name") or s["entity"]) for s in rooms}
     seen: set[str] = set()
     out: list[dict[str, Any]] = []
 
@@ -148,8 +161,16 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
                         and _active(o["entity"], states, cfg)
                         and AP.session_of(((states.get(o["entity"]) or {}).get("a") or {}).get("media_content_id")) == sid]
         seen.update(members)
+        # MUSIC THAT ISN'T MUSIC ASSISTANT'S (hk_core.music.airplay.origin, as hkMusic.contexts): the speaker it comes
+        # from leads its AirPlay session's rooms, and `from` says where it comes from ("Music on Living Room HomeView")
+        house = _StatesHouse(states)
+        sender = next((m for m in members if (AP.origin(house, known, m) or (None, None))[1] == m), None)
+        if sid is not None and sender is not None and len(members) > 1 and members[0] != sender:
+            members = [sender] + [m for m in members if m != sender]
         lead = members[0]
         c = ctx(lead, "group" if len(members) > 1 else "room", members, states.get(lead) or st)
+        c["from"] = AP.where_from(house, known, sender or lead, lambda e: names.get(e, e))
+        c["outside"] = c["from"] is not None
         pre = next((p for p in presets if len(members) > 1 and sorted(p["members"]) == sorted(members)), None)
         if sid is not None and len(members) > 1:
             c["airplay"] = True

@@ -35,7 +35,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from ..house import House
-from .airplay import origin, outside, where_from
+from .airplay import origin, outside, speaker_name, where_from
 from .config import MusicConfig, Playlist, Preset
 from .const import VOLUME_STEP
 from .groups import kind
@@ -337,7 +337,7 @@ def check_transfer(house: House, cfg: MusicConfig, rooms: list[str],
             where = origin(house, cfg.room_ids, source)
             sender = where[1] if where else None
             what = where_from(house, cfg.room_ids, source, cfg.name_of) or "This music"
-            how = (f"add rooms from {cfg.name_of(sender)}'s own AirPlay menu" if sender
+            how = (f"add rooms from {speaker_name(house, sender, cfg.name_of)}'s own AirPlay menu" if sender
                    else "change its speakers on the device that sends it")
             return {"ok": False, "message": f"{what} isn't Music Assistant's: {how}."}, preset
     return pair_alone(cfg, rooms, preset), preset

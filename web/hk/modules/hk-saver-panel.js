@@ -594,7 +594,7 @@
       // ASSISTANT'S (`outside`, 2026-11-25: a HomeView playing its own Music app): Music Assistant can't send it to other
       // rooms -- Update joined every room under it, silent -- so only letting rooms go is left (the engine's rule)
       var ap = c && (c.airplay || c.outside);
-      var og = ap ? c.origin : null, by = og && og.sender ? nameOf(og.sender) : '';
+      var og = ap ? c.origin : null, by = og && og.sender ? (m && m.speakerName ? m.speakerName(h, og.sender) : nameOf(og.sender)) : '';
       var cap = S.err ? '<span>' + esc(S.err) + '</span>' : S.busy ? esc(S.busy)
               : ap && !pl.update ? '<b>' + esc(c.title || label(c)) + '</b> ' +
                      (og && og.own ? 'plays from ' + esc(og.app) + ' on ' + esc(by) + ': add rooms from its own AirPlay menu.'
