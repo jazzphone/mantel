@@ -1054,3 +1054,11 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Published to jazzphone/hk-frontend main as `b842a87`, untagged.
 - The Wiki pushed (publish.py had committed changes to it).
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master bedroom).
+
+## Mantel Link 0.1.16 (2026-11-25)
+
+- mantel-link 0.1.16, commit `24b3970`, tagged `mantel-link/v0.1.16`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/mantel_link/mantel-link.js?v=0.1.16` (38 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (65 s).
+- Published to jazzphone/mantel-link main as `55d70bb`, tagged `v0.1.16` and released on GitHub.
+- The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master bedroom).
