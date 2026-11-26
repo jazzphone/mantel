@@ -171,3 +171,46 @@ def test_the_digest_follows_the_registry():
     assert r.digest == d
     r.update(areas=renamed("porch", "Front Porch"))
     assert r.digest != d
+
+
+def test_overlays_merging_in_turn_leave_the_registry_as_it_was():
+    """The house, 2026-11-26: every page read the registry again every 5 minutes. Protect's refresh merged its own
+    detection sensors in, then the direct cameras' 30 s tick merged the camera in, and each merge put its entries at
+    the end: the same entries in another order, a new digest, a `registry` frame to every page. A merge of what is
+    already there changes nothing; a real change lands where its entry was."""
+    from types import SimpleNamespace
+
+    from mantel_server.cameras.live_tv import LocalEntities
+    from mantel_server.ha.registry import Registry
+    reg = Registry()
+    reg.load(HOUSE_AREAS, [], HOUSE_ENTITIES)
+    hub = SimpleNamespace(registry=reg, store=SimpleNamespace(states={}))
+    cams, protect = LocalEntities(hub, flag="mantel_direct_camera"), LocalEntities(hub, flag="mantel_protect")
+
+    def entry(eid, flag, **extra):
+        return {"entity_id": eid, "platform": flag, "device_id": "mantel_cam_loft", "area_id": None, flag: True, **extra}
+
+    cams.registry = {"camera.mantel_loft": entry("camera.mantel_loft", "mantel_direct_camera")}
+    sensors = [f"binary_sensor.mantel_loft_{k}" for k in ("animal_detected", "motion", "person_detected")]
+    protect.registry = {eid: entry(eid, "mantel_protect") for eid in sensors}
+
+    def merge(overlay):
+        merged = overlay.merged_entities(list(reg.entity_entries))
+        if merged is not None:
+            reg.update(entities=merged)
+        return merged is not None
+
+    assert merge(cams) and merge(protect)
+    digest, order = reg.digest, [e["entity_id"] for e in reg.entity_entries]
+    for _ in range(3):                          # the refresh and the tick, in turn
+        assert not merge(cams) and not merge(protect)
+    assert reg.digest == digest
+    protect.registry[sensors[0]] = entry(sensors[0], "mantel_protect", area_id="kitchen")
+    assert merge(protect) and [e["entity_id"] for e in reg.entity_entries] == order
+    assert reg.entries[sensors[0]]["area_id"] == "kitchen" and reg.digest != digest
+    del protect.registry[sensors[1]]
+    protect.registry["binary_sensor.mantel_loft_vehicle_detected"] = entry("binary_sensor.mantel_loft_vehicle_detected",
+                                                                         "mantel_protect")
+    assert merge(protect)
+    assert [e["entity_id"] for e in reg.entity_entries][-4:] == [
+        "camera.mantel_loft", sensors[0], sensors[2], "binary_sensor.mantel_loft_vehicle_detected"]

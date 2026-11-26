@@ -388,11 +388,22 @@ class LocalEntities:
         return back
 
     def merged_entities(self, ha_entities: list[dict]) -> list[dict] | None:
-        """HA's entity registry plus ours (HA's own entry wins for an id it has); None if unchanged."""
-        base = [e for e in ha_entities if not e.get(self.flag)]
-        have = {e.get("entity_id") for e in base}
-        extra = [dict(e) for eid, e in sorted(self.registry.items()) if eid not in have]
-        merged = base + extra
+        """HA's entity registry plus ours (HA's own entry wins for an id it has); None if unchanged.
+
+        Each of ours keeps its place, and a new one goes at the end (2026-11-26: they all went at the end, so two
+        overlays merging in turn -- Protect's refresh, then the direct cameras' 30 s tick -- reordered the same
+        entries each time, and every open page was told the registry changed and read it again)."""
+        have = {e.get("entity_id") for e in ha_entities if not e.get(self.flag)}
+        ours = {eid: e for eid, e in self.registry.items() if eid not in have}
+        merged, placed = [], set()
+        for e in ha_entities:
+            eid = e.get("entity_id")
+            if not e.get(self.flag):
+                merged.append(e)
+            elif eid in ours and eid not in placed:
+                merged.append(dict(ours[eid]))
+                placed.add(eid)
+        merged += [dict(e) for eid, e in sorted(ours.items()) if eid not in placed]
         return None if merged == ha_entities else merged
 
 
