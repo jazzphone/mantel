@@ -17,7 +17,7 @@ iPhone app ask it.
   left it, nobody fetched it for live_tv.SCREEN_HOLD_S); and, whatever the screen does, MAX_SHOW_S after it started (2026-11-25, the owner: "We probably should close a
   stream after 2 hours or so as well as a safety net"), so a screen left playing never holds the tuner for good.
   Playing it again starts the time again. ``on_change`` hears each screen whose show started or ended (the Home app's
-  switches, cameras/live_tv_buttons.py).
+  TVs, cameras/live_tv_buttons.py).
 """
 from __future__ import annotations
 

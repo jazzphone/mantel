@@ -24,9 +24,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
     # `go2rtc_once`: Mantel has started with its own go2rtc and turned Live TV on for it, once (host._live_tv_once)
-    # `buttons` / `homekit`: Live TV's buttons for Apple's Home app and their HomeKit Bridge (hk_core.live_tv_buttons)
+    # `buttons` / `power_on` / `homekit`: Live TV in Apple's Home app, a TV a screen: its channels, what turning it on
+    # plays, and whether the TVs are in HomeKit (hk_core.live_tv_buttons)
     "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720",
-                "go2rtc_once": False, "buttons": [], "homekit": False},
+                "go2rtc_once": False, "buttons": [], "power_on": {}, "homekit": False},
     # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
     # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
     "tablets": {"enabled": False},
@@ -165,8 +166,12 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
         tv["buttons"] = LB.buttons(tv["buttons"])
     except LB.Invalid:
         raise ValueError("live_tv.buttons: [{screen: a paired screen's id, channel: \"4.1\"}]") from None
+    try:
+        tv["power_on"] = LB.power_on(tv["power_on"])
+    except LB.Invalid:
+        raise ValueError("live_tv.power_on: {screen: \"last\" or a channel number}") from None
     if not isinstance(tv["homekit"], bool):
-        raise ValueError("live_tv.homekit: true or false (the Live TV switches' HomeKit Bridge)")
+        raise ValueError("live_tv.homekit: true or false (Live TV's TVs in HomeKit)")
     au = out["auto"]
     if not isinstance(au["decided"], Mapping) or not all(
             k in AUTO_PIECES and isinstance(m, Mapping) and set(m) <= {"by", "at", "why"} and m.get("by") in ("auto", "owner")
@@ -267,7 +272,7 @@ async def import_features(panel: Any, read: Callable[[dict], Awaitable[Any]], cu
         if kind == "live_tv" and live_tv_on and piece.get("tuner"):
             piece["enabled"] = True
         if kind == "live_tv":
-            # Mantel's own, which Home Assistant never had: the Home app's switches stay through an import
-            piece.update({k: copy.deepcopy(out["live_tv"][k]) for k in ("buttons", "homekit")})
+            # Mantel's own, which Home Assistant never had: the Home app's TVs stay through an import
+            piece.update({k: copy.deepcopy(out["live_tv"][k]) for k in ("buttons", "power_on", "homekit")})
         out[kind] = piece
     return check_settings(out)

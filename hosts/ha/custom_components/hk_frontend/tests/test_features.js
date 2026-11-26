@@ -69,30 +69,41 @@ ok('the count: saved of the lineup', F._.tvCount(tv) === '3 of 4');
 ok('...just the saved number when the tuner did not answer', F._.tvCount({ channels: tv.channels, lineup: null }) === '3');
 ok('an empty answer is an empty list, not an error', eq(F._.tvLists({}), { rows: [], more: [] }));
 
-// the Home app's switches (Live TV -> Home App): a channel checked or unchecked on a screen, the list kept in its order
+// the Home app's TVs (Live TV -> Home App): a channel checked or unchecked on a screen, the list kept in its order
 var den = 's0123456789ab', study = 'sba9876543210';
 var btns = [{ screen: den, channel: '4.1' }, { screen: study, channel: '4.1' }];
-ok('checking a channel adds its switch at the end, once',
+ok('checking a channel adds it to its screen’s TV at the end, once',
    eq(F._.tvButtonsAfter(btns, den, '13.1', true), btns.concat([{ screen: den, channel: '13.1' }])) &&
    eq(F._.tvButtonsAfter(btns, den, '4.1', true), [{ screen: study, channel: '4.1' }, { screen: den, channel: '4.1' }]));
 ok('...unchecking takes only that screen’s', eq(F._.tvButtonsAfter(btns, den, '4.1', false), [{ screen: study, channel: '4.1' }]) &&
    eq(F._.tvButtonsAfter(undefined, den, '4.1', false), []));
-var home = { buttons: [{ screen: den, channel: '4.1' }], homekit_wanted: true };
-ok('the last switch unchecked while the bridge is in the Home app asks whether it goes too',
-   F._.tvLastButton(home, []) && !F._.tvLastButton(home, btns) && !F._.tvLastButton({ buttons: home.buttons }, []) &&
-   !F._.tvLastButton({ buttons: [], homekit_wanted: true }, []));
-var names = { host: 'Hearth', link: 'Hearth Link', bridge: 'Hearth TV', ha_page: '#/hearth/ha' };
+ok('a TV a screen with a channel', F._.tvCountTvs({ buttons: btns.concat([{ screen: den, channel: '7.1' }]) }) === 2 &&
+   F._.tvCountTvs({}) === 0);
+var home = { buttons: [{ screen: den, channel: '4.1' }, { screen: study, channel: '4.1' }], homekit_wanted: true };
+ok('a screen’s last channel unchecked while the TVs are in the Home app asks first (its TV leaves the Home app)',
+   F._.tvLastButton(home, [{ screen: study, channel: '4.1' }], den) &&
+   !F._.tvLastButton(home, home.buttons, den) && !F._.tvLastButton(home, [{ screen: study, channel: '4.1' }], study) &&
+   !F._.tvLastButton({ buttons: home.buttons }, [], den) && !F._.tvLastButton({ buttons: [], homekit_wanted: true }, [], den));
+var chans = [{ number: '4.1', name: 'NBC' }, { number: '7.1', name: 'WFAK-DT' }];
+var two = { buttons: [{ screen: den, channel: '7.1' }, { screen: study, channel: '4.1' }, { screen: den, channel: '4.1' }],
+            power_on: { s0123456789ab: '4.1', sba9876543210: '7.1' } };
+ok('When Turned On: Last Watched, then the screen’s channels in its order',
+   eq(F._.tvPowerOptions(two, den, chans), [['last', 'Last Watched'], ['7.1', 'WFAK-DT'], ['4.1', 'NBC']]) &&
+   eq(F._.tvPowerOptions({}, den, chans), [['last', 'Last Watched']]));
+ok('...the saved one while it is one of the TV’s channels, else Last Watched',
+   F._.tvPowerOn(two, den) === '4.1' && F._.tvPowerOn(two, study) === 'last' && F._.tvPowerOn({}, den) === 'last');
+var names = { host: 'Hearth', link: 'Hearth Link', ha_page: '#/hearth/ha' };
 var link = function (l, n) { return F._.tvHomeLink({ link: l, published: n, names: names }); };
 var ready = link({ connected: true, home: true, house: true, linked_on: true }, 3);
-ok('ready: Mantel Link connected and keeping the bridge, the house Mantel’s',
+ok('ready: Mantel Link connected and making the TVs, the house Mantel’s',
    ready.ready && eq(ready.rows.map(function (r) { return [r.label, r.value]; }),
-                     [['Hearth Link', 'Connected'], ['The House', 'Run by Hearth'], ['Switches in Home Assistant', '3']]) &&
-   /^Hearth Link makes the switches/.test(ready.footer));
+                     [['Hearth Link', 'Connected'], ['The House', 'Run by Hearth'], ['TVs in Home Assistant', '3']]) &&
+   /^Hearth Link makes the TVs/.test(ready.footer));
 ok('...each thing missing says what to do, first things first',
    /Add it in Home Assistant/.test(link({}, 0).footer) && !link({}, 0).ready &&
    link({ connected: true }, 4).rows[0].value === 'Needs an Update' && link({}, 4).rows[2].value === 'None' &&
    /update Hearth Link/.test(link({ connected: true, house: true, linked_on: true }, 2).footer) &&
-   link({ connected: true, house: true, linked_on: true }, 2).rows[2].value === '2' &&     // an older one mirrors them
+   link({ connected: true, house: true, linked_on: true }, 2).rows[2].value === '2' &&     // what Mantel publishes
    !link({ connected: true, house: true, linked_on: true }, 2).ready &&
    /run by Hearth/.test(link({ connected: true, home: true, house: true }, 0).footer) &&
    link({ connected: true, home: true, house: true }, 0).rows[1].value === 'Run by Home Assistant');

@@ -203,7 +203,7 @@
     },
     "live_tv_play": {
       "name": "Play Live TV on a screen",
-      "description": "Plays a Live TV channel on a paired AirPlay screen (an Apple HomeView), as its switch in the Home app does. Only a channel a Live TV switch plays (Mantel's Settings, Live TV, Home App).",
+      "description": "Plays a Live TV channel on a paired AirPlay screen (an Apple HomeView), as its TV in the Home app does. Only a channel checked for that screen (Mantel's Settings, Live TV, Home App).",
       "fields": {
         "channel": {
           "name": "Channel",
