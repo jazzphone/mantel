@@ -339,7 +339,7 @@ class FeaturePages:
             "lineup": [{"number": c["number"], "station": c.get("name") or c["number"], "network": networks.get(c["number"])}
                        for c in h.tv.lineup] if h.tv.lineup else None,
             "lineup_error": None if h.tv.lineup else (h.tv.error or TV_MSG["no_lineup"]),
-            # Live TV's buttons for Apple's Home app (cameras/live_tv_buttons.py): where Mantel plays on AirPlay screens
+            # Live TV's switches for Apple's Home app (cameras/live_tv_buttons.py): where Mantel plays on AirPlay screens
             **({"home_app": h.app["live_tv_buttons"].status()}
                if "live_tv_buttons" in h.app and "airplay_sender" in h.app else {}),
         }
@@ -577,7 +577,7 @@ class FeaturePages:
             else:
                 piece["homekit"] = changes["homekit"]
         if "buttons" in changes:
-            # Apple's Home app (hk_core.live_tv_buttons): a new button names a paired screen and a chosen channel; one
+            # Apple's Home app (hk_core.live_tv_buttons): a new switch names a paired screen and a chosen channel; one
             # already saved may stay while its screen or channel is away (it is published again when they come back)
             from hk_core import live_tv_buttons as LB
             screens = self.host.app.get("airplay_screens")

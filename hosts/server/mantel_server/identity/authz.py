@@ -107,13 +107,13 @@ def intercom_grants(speakers: Iterable[str]) -> tuple[Grant, ...]:
                        roles=INTERCOM_ROLES, note=INTERCOM_NOTE) for s in sorted(speakers))
 
 
-# LIVE TV'S BUTTONS FOR APPLE'S HOME APP (cameras/live_tv_buttons.py): a press plays a channel on an AirPlay screen as the
+# LIVE TV'S SWITCHES FOR APPLE'S HOME APP (cameras/live_tv_buttons.py): turned on, plays a channel on an AirPlay screen as the
 # linked Service actor (alarm_pin.LINKED_ACTOR), and Live TV's gate and the stream's key decide with this policy, not
-# the command gateway's (linked_actions.py's grants never reach them). So the actor gets, only while a button is set up:
-# Live TV (view on the feature) and view on exactly the cameras of the channels a button plays (policy_for), and live
+# the command gateway's (linked_actions.py's grants never reach them). So the actor gets, only while a switch is set up:
+# Live TV (view on the feature) and view on exactly the cameras of the channels a switch plays (policy_for), and live
 # view of the same cameras (`camera.live`, control.sensitive) only where live view is decided (doorbell_policy).
 LINKED_TV_ACTOR = "mantel:linked"        # alarm_pin.LINKED_ACTOR, spelled out here (tests pin the two equal)
-LINKED_TV_NOTE = "Live TV's buttons in Apple's Home app (Settings -> Live TV -> Home App): the channels they play"
+LINKED_TV_NOTE = "Live TV's switches in Apple's Home app (Settings -> Live TV -> Home App): the channels they play"
 
 
 def live_tv_button_grants(cameras: tuple[str, ...]) -> tuple[Grant, ...]:
@@ -311,13 +311,13 @@ class Authz:
             return frozenset()
 
     def tv_button_cameras(self) -> tuple[str, ...]:
-        """The Live TV channel cameras the Home app's buttons play (cameras/live_tv_buttons.py ``cameras``): none while
-        no button is set up. Read as it is (worked out when the buttons or the house change), never computed here."""
+        """The Live TV channel cameras the Home app's switches play (cameras/live_tv_buttons.py ``cameras``): none while
+        no switch is set up. Read as it is (worked out when the switches or the house change), never computed here."""
         got = getattr(self.app.get("live_tv_buttons"), "cameras", None)
         return got if isinstance(got, tuple) else ()
 
     def doorbell_policy(self, subject: Subject) -> Policy:
-        """The house policy plus DOORBELL_GRANTS, and live view of the Live TV buttons' channels for the linked actor.
+        """The house policy plus DOORBELL_GRANTS, and live view of the Live TV switches' channels for the linked actor.
         Used ONLY for camera live view and talk-back."""
         base = self.policy_for(subject)
         cached = getattr(self, "_doorbell_cache", None)

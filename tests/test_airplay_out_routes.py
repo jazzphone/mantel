@@ -187,3 +187,38 @@ async def test_a_show_ends_by_itself_after_the_safety_net(rig, monkeypatch):  # 
         await ws.close()
     finally:
         await screen.close()
+
+
+async def test_a_show_paused_on_the_screens_remote_ends_soon_after(rig, monkeypatch):  # noqa: F811
+    """The remote's pause reaches Mantel at once (a paused player goes on fetching for minutes): the show ends
+    PAUSE_END_S later unless it is played again (2026-11-25, the owner: "Should we kill after 5 seconds")."""
+    r = await rig()
+    screen = await FakeScreen().start()
+    try:
+        sender = r.app["airplay_sender"]
+        monkeypatch.setattr(sender, "_base", lambda: "https://house.example")
+        from mantel_server.cameras.airplay_out import routes as R
+        assert sender.pause_end == R.PAUSE_END_S == 5
+        changed = []
+        sender.on_change.append(changed.append)
+        ws = await r.socket("owner1", "owner")
+        sid = await _paired(r, ws, screen)
+        sender.pause_end = 0.15
+        await r.ask(ws, 61, {"type": "hk_tv/play_on", "channel": "4.1", "screen": sid})
+        assert changed == [sid]
+        # paused and played again in time: it plays on
+        await screen.event({"type": "sendMediaRemoteCommand", "value": "paus"})
+        await asyncio.sleep(0.05)
+        await screen.event({"type": "sendMediaRemoteCommand", "value": "play"})
+        await asyncio.sleep(0.25)
+        assert sender.playing(sid) is not None and not sender._pauses
+        # play/pause toggles it paused, and it ends
+        await screen.event({"type": "sendMediaRemoteCommand", "value": "plps"})
+        for _ in range(100):
+            if sender.playing(sid) is None and any(w.startswith("TEARDOWN") for w, h, d in screen.requests):
+                break
+            await asyncio.sleep(0.02)
+        assert sender.playing(sid) is None and not sender._pauses and changed == [sid, sid]
+        await ws.close()
+    finally:
+        await screen.close()

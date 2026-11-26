@@ -1,6 +1,7 @@
-"""Live TV's buttons for Apple's Home app in Home Assistant (Mantel's cameras/live_tv_buttons.py): Mantel's buttons are
-mirrored (the button platform; the link says `buttons`), a press goes to Mantel as an entity command, the
-"Mantel Live TV" HomeKit Bridge entry is made through HomeKit's import flow in bridge mode with exactly the buttons
+"""Live TV's switches for Apple's Home app in Home Assistant (Mantel's cameras/live_tv_buttons.py): Mantel's switches
+are mirrored (on while Mantel says the channel plays), turning one on or off goes to Mantel as an entity command, the
+"Mantel Live TV" HomeKit Bridge entry (the link says `live_tv_home`) is made through HomeKit's import flow in bridge mode
+with exactly the switches
 Mantel names, changed (and reloaded) when they change, removed with Remove from HomeKit, and reported to Mantel
 (`report.homekit_tv`). mantel.live_tv_play / live_tv_stop are forwarded as called. Home Assistant's HomeKit integration
 itself is not loaded here: the entry's shape is checked, not HomeKit's own work."""
@@ -14,12 +15,13 @@ from conftest import linked
 from mantel_fake import ENTRY, until
 
 DEN = "s0123456789ab"
-PLAY, STOP, CARRIER = f"{ENTRY}_live_tv_{DEN}_4_1", f"{ENTRY}_live_tv_{DEN}_stop", f"{ENTRY}_live_tv_buttons"
+PLAY, CARRIER = f"{ENTRY}_live_tv_{DEN}_4_1", f"{ENTRY}_live_tv_buttons"
+NBC = "switch.den_homeview_live_tv_nbc"
 
 
-def button(uid: str, name: str, eid: str) -> dict:
-    return {"unique_id": uid, "platform": "button", "entity_id": eid, "name": name, "has_entity_name": False,
-            "state": None, "attributes": {"screen": DEN}}
+def switch(uid: str, name: str, eid: str, state: str = "off") -> dict:
+    return {"unique_id": uid, "platform": "switch", "entity_id": eid, "name": name, "has_entity_name": False,
+            "state": state, "attributes": {"screen": DEN}, "features": {"live_tv_home": True}}
 
 
 def carrier(include: list[str], want: bool = True) -> dict:
@@ -29,20 +31,24 @@ def carrier(include: list[str], want: bool = True) -> dict:
 
 
 def tv(want: bool = True) -> list[dict]:
-    return [button(PLAY, "NBC on Den HomeView", "button.den_homeview_live_tv_nbc"),
-            button(STOP, "Stop Live TV on Den HomeView", "button.den_homeview_live_tv_stop"),
-            carrier([PLAY], want)]
+    return [switch(PLAY, "NBC on Den HomeView", NBC), carrier([PLAY], want)]
 
 
-async def test_the_link_says_it_mirrors_buttons_and_a_press_goes_to_mantel(hass, mantel):
+async def test_a_switch_turns_to_mantel_and_shows_what_mantel_says_plays(hass, mantel):
     mantel.entities += tv(want=False)
     await linked(hass, mantel)
-    assert "features=bridge,live_tv,buttons" in mantel.headers[-1]["X-Mantel-Link"]
-    await until(hass, lambda: hass.states.get("button.den_homeview_live_tv_nbc") is not None)
-    assert hass.states.get("button.den_homeview_live_tv_nbc").attributes["friendly_name"] == "NBC on Den HomeView"
-    await hass.services.async_call("button", "press", {"entity_id": "button.den_homeview_live_tv_nbc"}, blocking=True)
+    assert "features=bridge,live_tv,live_tv_home" in mantel.headers[-1]["X-Mantel-Link"]
+    await until(hass, lambda: hass.states.get(NBC) is not None)
+    assert hass.states.get(NBC).attributes["friendly_name"] == "NBC on Den HomeView"
+    assert hass.states.get(NBC).state == "off"
+    await hass.services.async_call("switch", "turn_on", {"entity_id": NBC}, blocking=True)
     cmd = mantel.calls("entity_command")[-1]
-    assert (cmd["unique_id"], cmd["command"], cmd["data"]) == (PLAY, "press", {})
+    assert (cmd["unique_id"], cmd["command"], cmd["data"]) == (PLAY, "turn_on", {})
+    assert hass.states.get(NBC).state == "off", "on only once Mantel says the screen plays it"
+    await mantel.push({"type": "state", "unique_id": PLAY, "state": "on", "attributes": {"screen": DEN}, "available": True})
+    await until(hass, lambda: hass.states.get(NBC).state == "on")
+    await hass.services.async_call("switch", "turn_off", {"entity_id": NBC}, blocking=True)
+    assert mantel.calls("entity_command")[-1]["command"] == "turn_off"
     # the script actions: forwarded as called, never under HK Frontend's name
     await hass.services.async_call("mantel", "live_tv_play", {"channel": "4.1", "screen": "Den HomeView"}, blocking=True)
     await hass.services.async_call("mantel", "live_tv_stop", {"screen": "Den HomeView"}, blocking=True)
@@ -76,18 +82,17 @@ async def test_the_live_tv_bridge_is_made_changed_and_removed_as_mantel_says(has
     domain, ctx, data = made[0]
     assert (domain, ctx) == ("homekit", {"source": SOURCE_IMPORT})
     assert (data["name"], data["port"], data["mode"], data["filter"]["include_entities"]) == (
-        "Mantel Live TV", 21131, "bridge", ["button.den_homeview_live_tv_nbc"])
+        "Mantel Live TV", 21131, "bridge", [NBC])
     await until(hass, lambda: {"homekit_tv": {"state": "starting"}} in mantel.reports)
     assert not any("homekit" in (r or {}) for r in mantel.reports), "the Apple TV camera's entry is another matter"
 
-    # another button: the same entry, its filter changed and reloaded (the bridge keeps its pairing)
-    more = button(f"{ENTRY}_live_tv_{DEN}_7_1", "WFAK-DT on Den HomeView", "button.den_homeview_live_tv_wfak_dt")
+    # another switch: the same entry, its filter changed and reloaded (the bridge keeps its pairing)
+    more = switch(f"{ENTRY}_live_tv_{DEN}_7_1", "WFAK-DT on Den HomeView", "switch.den_homeview_live_tv_wfak_dt")
     await mantel.push({"type": "entity", "entity": more})
     await mantel.push({"type": "entity", "entity": carrier([PLAY, more["unique_id"]])})
     await until(hass, lambda: reloaded)
     entry = H.ours(hass, H.TV_BRIDGE_NAME)
-    assert entry.options["filter"]["include_entities"] == [
-        "button.den_homeview_live_tv_nbc", "button.den_homeview_live_tv_wfak_dt"]
+    assert entry.options["filter"]["include_entities"] == [NBC, "switch.den_homeview_live_tv_wfak_dt"]
     assert len(made) == 1 and H.ours(hass) is None
 
     # Remove from HomeKit
@@ -103,7 +108,7 @@ async def test_the_live_tv_bridge_is_made_changed_and_removed_as_mantel_says(has
     await until(hass, lambda: {"homekit_tv": {"state": "none"}} in mantel.reports)
 
 
-async def test_mantel_publishing_no_buttons_leaves_the_bridge_alone(hass, mantel, monkeypatch):
+async def test_mantel_publishing_no_switches_leaves_the_bridge_alone(hass, mantel, monkeypatch):
     from custom_components.mantel import homekit_entry as H
     e = MockConfigEntry(domain="homekit", source=SOURCE_IMPORT, data={"name": H.TV_BRIDGE_NAME, "port": 21131})
     e.add_to_hass(hass)
@@ -116,3 +121,20 @@ async def test_mantel_publishing_no_buttons_leaves_the_bridge_alone(hass, mantel
     for _ in range(20):
         await hass.async_block_till_done()
     assert H.ours(hass, H.TV_BRIDGE_NAME) is e
+
+
+async def test_the_buttons_of_0_1_16_leave_the_registry(hass, mantel):
+    """0.1.16 made Live TV buttons (a channel's, and a Stop); since 0.1.17 they are switches with the same unique ids:
+    the buttons' registry entries go at setup (an upgrade is a restart), the switch takes the channel's place."""
+    from homeassistant.helpers import entity_registry as er
+    mantel.entities += tv(want=False)
+    e = await linked(hass, mantel)
+    await until(hass, lambda: hass.states.get(NBC) is not None)
+    reg = er.async_get(hass)
+    old = [reg.async_get_or_create("button", "mantel", u, suggested_object_id=o, config_entry=e)
+           for u, o in ((PLAY, "den_homeview_live_tv_nbc"), (f"{ENTRY}_live_tv_{DEN}_stop", "den_homeview_live_tv_stop"))]
+    assert await hass.config_entries.async_reload(e.entry_id)
+    await hass.async_block_till_done()
+    assert all(reg.async_get(x.entity_id) is None for x in old)
+    await until(hass, lambda: hass.states.get(NBC) is not None)
+    assert reg.async_get(NBC).unique_id == PLAY

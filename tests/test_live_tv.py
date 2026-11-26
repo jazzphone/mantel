@@ -723,8 +723,14 @@ async def test_an_airplayed_screen_plays_the_channel_by_its_key_and_nothing_else
     await r.ask(ws, 3, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc", "stop": True})
     assert (await m.client.get(base + f"api/hls/playlist.m3u8?id={sid}")).status == 200
     assert r.tv._leased("mantel_tv_4_1_hls") and r.tv._leased("mantel_tv_4_1")
+    left = r.tv.hls_leases["mantel_tv_4_1_hls"] - r.tv.monotonic()
+    assert L.SCREEN_HOLD_S - 5 < left <= L.SCREEN_HOLD_S == 30       # a screen's fetch holds it half a minute
     await r.tv._drop_if_idle("mantel_tv_4_1_hls")
     assert "mantel_tv_4_1_hls" in r.tv.streams
+    # a page's longer hold is never cut short by a screen's fetch
+    await r.ask(ws, 4, {"type": "hk_tv/hls", "entity_id": "camera.tv_nbc"})
+    assert (await m.client.get(base + f"api/hls/playlist.m3u8?id={sid}")).status == 200
+    assert r.tv.hls_leases["mantel_tv_4_1_hls"] - r.tv.monotonic() > L.HLS_LEASE_S - 5
     # dropped: the key is forgotten with it
     await r.tv._drop("mantel_tv_4_1_hls")
     assert (await m.client.get(base + "api/stream.m3u8?src=mantel_tv_4_1_hls&mp4")).status == 404

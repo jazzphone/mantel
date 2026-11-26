@@ -24,8 +24,8 @@ pop-ups and the photo / black switches. This module adds, behind the same hook p
     used only to make that row when there is none (``keypad_for``: tablets off, no house code, a
     config audit row); afterwards a disagreement is logged and the row wins, for commands and for the
     mirror alike, so the panel always shows the alarm its commands go to.
-  - Live TV's buttons for Apple's Home app (cameras/live_tv_buttons.py): a press plays a channel on a paired AirPlay
-    screen as the linked Service actor, audited; only to a Mantel Link that has buttons.
+  - Live TV's switches for Apple's Home app (cameras/live_tv_buttons.py): on plays a channel on a paired AirPlay
+    screen as the linked Service actor, audited, off stops it; each is on while its channel plays there.
   - Live TV's viewers, now-on sensors and channel cameras: now-on from Mantel's guide (the
     ``live_tv`` piece). Where Mantel serves Live TV (live_tv.py: its own go2rtc, or through Mantel
     Link's transcode) the viewers are its count and the channels it serves are available; through
@@ -282,7 +282,7 @@ class LinkedHouse:
             out.update(tv.descriptors(entry))       # phase 31: the Apple TVs' camera and its motion sensor
         buttons = self.app.get("live_tv_buttons")
         if buttons is not None:
-            out.update(buttons.descriptors(entry))  # Live TV's buttons for Apple's Home app, a Stop each, their sensor
+            out.update(buttons.descriptors(entry))  # Live TV's switches for Apple's Home app and their sensor
         return out
 
     def _homepod_alarms(self, entry: str, out: dict[str, tuple[dict[str, Any], tuple[str, Any]]]) -> None:
@@ -414,11 +414,11 @@ class LinkedHouse:
             return {"on": on}
         if kind == "alarm" and command in ALARM_COMMANDS:
             return await self._alarm(detail, command, data.get("code"), ctx)
-        if kind == "live_tv_button" and command == "press":
+        if kind == "live_tv_switch":
             buttons = self.app.get("live_tv_buttons")
             if buttons is None:
-                raise LinkedError("not_set_up", "this Mantel has no Live TV buttons")
-            return await buttons.press(detail, ctx)
+                raise LinkedError("not_set_up", "this Mantel has no Live TV switches")
+            return await buttons.switch(detail, command, ctx)
         raise LinkedError("not_supported", f"{command} is not handled by this Mantel Server")
 
     async def _set_decorations(self, on: bool, ctx: Any) -> None:

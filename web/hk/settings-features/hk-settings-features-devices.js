@@ -95,11 +95,11 @@
           K.nav({ label: 'AirPlay Screens', value: nScreens === null ? '' : String(nScreens), href: '#/features/tv/screens',
                   fk: 'tv:screens' })]));
       }
-      // LIVE TV IN THE HOME APP: buttons in Apple's Home app that play a channel on a screen (where this server plays them)
+      // LIVE TV IN THE HOME APP: switches in Apple's Home app that play a channel on a screen (where this server plays them)
       if (d.home_app) {
         var nb = tvButtonCount(d.home_app);
         c.appendChild(K.group({ header: 'Home App', footer: 'A channel on a screen from a tap in Apple’s Home app, with no other app.' }, [
-          K.nav({ label: 'Home App', value: nb ? (nb === 1 ? '1 Button' : nb + ' Buttons') : 'Off', href: '#/features/tv/home',
+          K.nav({ label: 'Home App', value: nb ? (nb === 1 ? '1 Switch' : nb + ' Switches') : 'Off', href: '#/features/tv/home',
                   fk: 'tv:home' })]));
       }
       // (a page served from outside Home Assistant says its Live TV has no integration there to open)
@@ -202,17 +202,17 @@
     // settings (`buttons`, `homekit`); the page's answer is the page again.
     function tvHome(P, c, d) {
       var H = d.home_app;
-      if (!H) { c.appendChild(K.group({ footer: 'The Home app’s buttons need Live TV played by this server.' }, [])); return; }
+      if (!H) { c.appendChild(K.group({ footer: 'The Home app’s switches need Live TV played by this server.' }, [])); return; }
       var set = function (ch) { return P.featSet('hk_tv', ch); };
       // (read again keeping what it shows: a screen just paired, the bridge's state)
       var again = function () { if (P.feats && P.feats.hk_tv && !P.feats.hk_tv.loading) P.featLoad('hk_tv'); };
       var chans = d.channels || [], screens = H.screens || [], err = P.err('f:hk_tv:buttons'), N = tvHomeNames(H);
-      // 1. THE BUTTONS: a group a paired screen, a row a channel
+      // 1. THE SWITCHES: a group a paired screen, a row a channel
       screens.forEach(function (s) {
         var mine = (H.buttons || []).filter(function (b) { return b.screen === s.id; });
         c.appendChild(K.group({ header: s.name, sk: 'f:hk_tv:buttons', footer: (err ? err + ' ' : '') + (s.playing ? 'Playing ' + s.playing + '. ' : '') +
-            (mine.length ? 'Each checked channel is a button in the Home app. Stop Live TV on ' + s.name + ' is in Home Assistant only, for automations.'
-                         : 'Check a channel to make it a button in the Home app.') },
+            (mine.length ? 'Each checked channel is a switch in the Home app, on while it plays on ' + s.name + '. Turn it off to stop.'
+                         : 'Check a channel to make it a switch in the Home app.') },
           chans.map(function (ch) {
             var on = mine.some(function (b) { return b.channel === ch.number; });
             return K.check({ label: ch.name, sub: ch.number, multi: true, on: on, fk: 'tv:home:' + s.id + ':' + ch.number,
@@ -222,7 +222,7 @@
                                var save = function (more) { H.buttons = next; if (more) H.homekit_wanted = false; set(Object.assign({ buttons: next }, more || {})); };
                                if (!tvLastButton(H, next)) { save(); return; }
                                K.confirm(P.shadowRoot, { title: 'Remove ' + N.bridge + ' from the Home app too?', ok: 'Remove', cancel: 'Keep', destructive: true,
-                                 message: 'That was its last button. Kept, it stays paired and its switches don’t answer until you add a button; removed, adding it again needs the Home app’s code.' })
+                                 message: 'That was its last switch. Kept, it stays paired and its old switches don’t answer until you add one; removed, adding it again needs the Home app’s code.' })
                                  .then(function (yes) { save(yes ? { homekit: false } : null); });
                              } });
           })));
@@ -233,7 +233,7 @@
         c.appendChild(K.group({ footer: 'First pair a screen that plays video over AirPlay, such as an Apple HomeView. It shows a code to type here.' }, []));
       }
       tvPairing(P, c, again);
-      // 3. HOME ASSISTANT: Mantel Link, who runs the house, the buttons there
+      // 3. HOME ASSISTANT: Mantel Link, who runs the house, the switches there
       var L = tvHomeLink(H);
       c.appendChild(K.group({ header: 'Home Assistant', footer: L.footer }, L.rows.map(function (r) {
         return K.info({ label: r.label, value: r.value });
@@ -242,15 +242,15 @@
       var hk = H.homekit || { state: 'none' }, rows = [], footer;
       if (!H.homekit_wanted) {
         rows.push(K.button({ label: 'Add to Home App', fk: 'tv:home:add', disabled: !tvButtonCount(H), onClick: function () { H.homekit_wanted = true; set({ homekit: true }); } }));
-        footer = tvButtonCount(H) ? N.link + ' adds a HomeKit Bridge named ' + N.bridge + ' with just these buttons. The Home app then asks for its code.'
-                                  : 'Check a channel first: the bridge holds only these buttons.';
+        footer = tvButtonCount(H) ? N.link + ' adds a HomeKit Bridge named ' + N.bridge + ' with just these switches. The Home app then asks for its code.'
+                                  : 'Check a channel first: the bridge holds only these switches.';
       } else if (hk.state === 'unpaired') {
         if (hk.qr) rows.push(K.qr({ svg: hk.qr, alt: 'HomeKit setup code for ' + N.bridge }));
         rows.push(K.info({ label: 'Setup Code', sub: 'In the Home app: +, Add Accessory, then scan the code or type it', value: hk.code || '' }));
-        footer = 'Waiting for the Home app. Once it is added, put each button in a room; this says Paired.';
+        footer = 'Waiting for the Home app. Once it is added, put each switch in a room; this says Paired.';
       } else if (hk.state === 'paired') {
         rows.push(K.info({ label: N.bridge, sub: 'In the Home app', value: 'Paired' }));
-        footer = 'Each button is a switch in the Home app that turns itself off again. A new button shows there by itself.';
+        footer = 'Each switch is on while its channel plays, and off when the show ends however it ends. A new one shows there by itself.';
       } else if (hk.state === 'error') {
         rows.push(K.info({ label: N.bridge, sub: hk.error || 'Home Assistant refused it', value: 'Not Added' }));
         footer = N.link + ' tries again when anything changes. Home Assistant’s log says more.';
@@ -262,7 +262,7 @@
       if (H.homekit_wanted) {
         rows.push(K.button({ label: 'Remove from Home App…', destructive: true, fk: 'tv:home:remove', onClick: function () {
           K.confirm(P.shadowRoot, { title: 'Remove ' + N.bridge + ' from the Home app?', ok: 'Remove', destructive: true,
-                                    message: 'Its buttons leave the Home app. Adding it again needs the Home app’s code again.' })
+                                    message: 'Its switches leave the Home app. Adding it again needs the Home app’s code again.' })
             .then(function (yes) { if (yes) { H.homekit_wanted = false; set({ homekit: false }); } });
         } }));
         // while it is being added or waits for the Home app, look again every few seconds (the code stays until replaced)

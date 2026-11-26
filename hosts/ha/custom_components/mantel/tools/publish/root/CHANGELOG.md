@@ -5,6 +5,11 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **Live TV in Apple's Home app is a switch now, not a button** (the owner: "If the Switch is on, its playing, when you turn it off, it stops"). Each channel on a screen is `switch.<screen>_live_tv_<channel>`, on exactly while Mantel plays that channel on that screen; turning it off stops the show, so there is no Stop any more. However a show ends (paused on the screen, the screen's own close, the 2-hour safety net, another channel) the switch turns off by itself. The "Mantel Live TV" HomeKit Bridge holds the switches, keeping its pairing: the Home app shows them as new accessories, to put in their rooms again.
+- 0.1.16's Live TV buttons (`button.*_live_tv_*`) leave Home Assistant's registry at setup; the switches keep their unique ids. An automation that pressed one turns the switch on instead.
+- Needs the Mantel of 2026-11-26 or newer for the HomeKit Bridge; with an older Mantel the bridge waits, untouched.
+
 ## 0.1.16 - 2026-11-25
 
 **Added**

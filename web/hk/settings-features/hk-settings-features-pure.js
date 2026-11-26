@@ -184,15 +184,15 @@
       return of === null ? String(n) : n + ' of ' + of;
     }
 
-    // LIVE TV IN THE HOME APP (the server's cameras/live_tv_buttons.py): the button list after a channel is checked or
+    // LIVE TV IN THE HOME APP (the server's cameras/live_tv_buttons.py): the switch list after a channel is checked or
     // unchecked on a screen, in the order chosen ([{screen, channel}]; one each)
     function tvButtonsAfter(buttons, screen, channel, on) {
       var rest = (buttons || []).filter(function (b) { return !(b.screen === screen && b.channel === channel); });
       return on ? rest.concat([{ screen: screen, channel: channel }]) : rest;
     }
     function tvButtonCount(home) { return ((home && home.buttons) || []).length; }
-    // the last button unchecked while the bridge is in the Home app: ask whether it goes too (kept, its switches no longer
-    // answer until a button comes back; removed, adding it again needs the Home app's code)
+    // the last switch unchecked while the bridge is in the Home app: ask whether it goes too (kept, its old switches no
+    // longer answer until one comes back; removed, adding it again needs the Home app's code)
     function tvLastButton(home, next) {
       return !!(home && home.homekit_wanted && tvButtonCount(home) && !(next || []).length);
     }
@@ -201,18 +201,19 @@
       var n = (home && home.names) || {};
       return { host: n.host || 'this server', link: n.link || 'The integration', bridge: n.bridge || 'The bridge', ha: n.ha_page || null };
     }
-    // ...and how Home Assistant stands for them: the rows, what to do next, and whether the buttons can be there
+    // ...and how Home Assistant stands for them: the rows, what to do next, and whether the bridge can be added (any
+    // version of the integration mirrors the switches; only a newer one, `home`, keeps their bridge)
     function tvHomeLink(home) {
       var l = (home && home.link) || {}, runs = !!(l.house && l.linked_on), N = tvHomeNames(home);
       var rows = [
-        { label: N.link, value: !l.connected ? 'Not Connected' : !l.buttons ? 'Needs an Update' : 'Connected' },
+        { label: N.link, value: !l.connected ? 'Not Connected' : !l.home ? 'Needs an Update' : 'Connected' },
         { label: 'The House', value: runs ? 'Run by ' + N.host : 'Run by Home Assistant' },
-        { label: 'Buttons in Home Assistant', value: l.connected && l.buttons ? String((home && home.published) || 0) : 'None' }];
+        { label: 'Switches in Home Assistant', value: l.connected ? String((home && home.published) || 0) : 'None' }];
       var footer = !l.connected ? N.link + ' links Home Assistant to this server. Add it in Home Assistant, Devices & Services, with a pairing code from Home Assistant here.'
-        : !l.buttons ? 'This ' + N.link + ' makes no buttons yet. Update ' + N.link + ' in Home Assistant.'
         : !runs ? 'Home Assistant shows ' + N.host + '’s entities once the house is run by ' + N.host + ': Home Assistant, The House.'
-        : N.link + ' makes the buttons in Home Assistant and puts only them in a HomeKit Bridge of their own. Nothing else in Home Assistant changes.';
-      return { rows: rows, footer: footer, ready: !!(l.connected && l.buttons && runs) };
+        : !l.home ? 'The switches are in Home Assistant. To put them in the Home app, update ' + N.link + ' in Home Assistant.'
+        : N.link + ' makes the switches in Home Assistant and puts only them in a HomeKit Bridge of their own. Nothing else in Home Assistant changes.';
+      return { rows: rows, footer: footer, ready: !!(l.connected && l.home && runs) };
     }
 
     // SEARCH: each installed feature's settings, [label, route, words]
@@ -222,7 +223,7 @@
               ['Picture Quality', 'page/live_tv', 'live tv 720p 1080p resolution'],
               ['Tuner Address', 'page/live_tv', 'live tv hdhomerun ip host'],
               ['Guide Address', 'page/live_tv', 'live tv xmltv schedule epg'],
-              ['Home App', 'features/tv/home', 'live tv apple home app homekit bridge buttons airplay homeview screen']],
+              ['Home App', 'features/tv/home', 'live tv apple home app homekit bridge switches buttons airplay homeview screen']],
       hk_music: [['Speakers', 'features/music/speakers', 'music rooms hk music speaker order'],
                  ['Speaker Pairs', 'features/music/speakers', 'music pair two homepods stereo left right one room'],
                  ['Home Rooms', 'features/music/homes', 'music tablet user room home'],

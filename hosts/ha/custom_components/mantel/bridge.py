@@ -56,7 +56,7 @@ _LOGGER = logging.getLogger(__name__)
 VALIDATION = {"invalid", "unknown_service", "unknown_target", "unknown_entity", "unknown_command",
               "not_a_black_screen", "invalid_code", "code_required", "code_locked", "unknown_popup",
               "not_owned", "commands_disabled", "forbidden", "not_set_up", "unpaired"}
-PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel", "button")
+PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel")
 TAKE_TIMEOUT = 120.0     # how long a hand-over waits for HK Frontend to let go of one entity
 TAKE_POLL = 0.25
 
@@ -151,10 +151,10 @@ class Bridge:
         link = link_of(entry)
         assert link is not None
         self.hass, self.entry = hass, entry
-        # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here; buttons: it
-        # mirrors Mantel's buttons (Live TV's for Apple's Home app), which Mantel sends only to a side that says so
+        # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here; live_tv_home: it
+        # keeps the HomeKit Bridge of Live TV's switches for Apple's Home app (homekit_entry.py)
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv", "buttons"),
+                               domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv", "live_tv_home"),
                                frames=self.frames(), on_auth_failed=self.on_auth_failed, ca=link.get("ca"),
                                **({"timeout": timeout} if timeout is not None else {}))
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor (all of them)
@@ -172,7 +172,7 @@ class Bridge:
         self.waiting: set[str] = set()                       # entities HK Frontend has not let go of yet
         from .homekit_entry import ALERTS, LIVE_TV, HomeKitLink
         self.homekit = HomeKitLink(self, ALERTS)             # phase 31: the Apple TV camera's HomeKit Bridge entry
-        self.homekit_tv = HomeKitLink(self, LIVE_TV)         # Live TV's buttons' own bridge, "Mantel Live TV"
+        self.homekit_tv = HomeKitLink(self, LIVE_TV)         # Live TV's switches' own bridge, "Mantel Live TV"
 
     @callback
     def on_auth_failed(self, status: int) -> None:

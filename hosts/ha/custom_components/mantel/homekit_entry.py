@@ -1,5 +1,5 @@
 """MANTEL'S HOMEKIT BRIDGE ENTRIES: the Apple TV camera (phase 31, docs/phase31/PLAN.md "Who serves the camera") and
-Live TV's buttons for Apple's Home app (Mantel's cameras/live_tv_buttons.py).
+Live TV's switches for Apple's Home app (Mantel's cameras/live_tv_buttons.py).
 
 Home Assistant's own HomeKit Bridge serves Mantel's entities to HomeKit. This module makes, keeps and removes those
 HomeKit Bridge entries when Mantel says so, and tells Mantel how each stands, so the owner does everything from Mantel's
@@ -11,10 +11,10 @@ Settings. Two kinds (``Kind``), each its own entry:
   linked motion sensor, no audio (the entity settings checked by HomeKit's own ``validate_entity_config``). Reported
   as ``report.homekit``.
 * **"Mantel Live TV"** (``LIVE_TV``): a channel AirPlayed to a screen from a tap in the Home app. Mantel publishes the
-  buttons and a sensor, "Mantel Live TV", whose ``features.homekit`` ``{bridge: "live_tv", want, include}`` names the
-  buttons (by unique id) the bridge shows. Bridge mode, exactly those buttons (each a switch in the Home app that
-  turns itself off again). When Mantel's list changes, the entry's filter is changed and the entry reloaded: the
-  bridge keeps its pairing, and the Home app shows the new buttons. Reported as ``report.homekit_tv``.
+  switches (``features.live_tv_home``; each on while its channel plays on its screen) and a sensor, "Mantel Live TV",
+  whose ``features.homekit`` ``{bridge: "live_tv", want, include}`` names the switches (by unique id) the bridge shows.
+  Bridge mode, exactly those switches. When Mantel's list changes, the entry's filter is changed and the entry
+  reloaded: the bridge keeps its pairing, and the Home app shows the new switches. Reported as ``report.homekit_tv``.
 
 Each is made through HomeKit's own import flow (named, the next free port), so Home Assistant lists it as set up in
 YAML and nobody edits it by hand. **How it stands** (to Mantel): ``none``, ``starting``, ``unpaired`` with the setup
@@ -71,9 +71,9 @@ def import_data(camera: str, sensor: str, port: int) -> dict[str, Any]:
             "entity_config": _validate({camera: {"linked_motion_sensor": sensor, "support_audio": False}})}
 
 
-def tv_import_data(buttons: list[str], port: int) -> dict[str, Any]:
-    """Live TV's buttons' entry, as its YAML import takes it: a bridge of exactly those buttons."""
-    return {"name": TV_BRIDGE_NAME, "port": port, "mode": "bridge", "filter": _filter(sorted(buttons)),
+def tv_import_data(switches: list[str], port: int) -> dict[str, Any]:
+    """Live TV's switches' entry, as its YAML import takes it: a bridge of exactly those switches."""
+    return {"name": TV_BRIDGE_NAME, "port": port, "mode": "bridge", "filter": _filter(sorted(switches)),
             "entity_config": {}}
 
 
@@ -149,12 +149,12 @@ class _Alerts(Kind):
 
 
 class _LiveTv(Kind):
-    name, report, what = TV_BRIDGE_NAME, "homekit_tv", "Live TV's buttons"
+    name, report, what = TV_BRIDGE_NAME, "homekit_tv", "Live TV's switches"
 
     def concerns(self, d: dict[str, Any]) -> bool:
         hk = (d.get("features") or {}).get("homekit")
-        return d.get("platform") == "button" or (d.get("platform") == "sensor" and isinstance(hk, dict)
-                                                 and hk.get("bridge") == "live_tv")
+        return (d.get("platform") == "switch" and bool((d.get("features") or {}).get("live_tv_home"))) or (
+            d.get("platform") == "sensor" and isinstance(hk, dict) and hk.get("bridge") == "live_tv")
 
     def wish(self, bridge: Any) -> tuple[bool, Any] | None:
         for d in bridge.descs.values():
@@ -162,9 +162,9 @@ class _LiveTv(Kind):
             if d.get("platform") == "sensor" and isinstance(hk, dict) and hk.get("bridge") == "live_tv":
                 include = [u for u in hk.get("include") or [] if isinstance(u, str)]
                 reg = er.async_get(bridge.hass)
-                ids = [reg.async_get_entity_id("button", DOMAIN, u) for u in include]
+                ids = [reg.async_get_entity_id("switch", DOMAIN, u) for u in include]
                 if not include or not all(ids):
-                    return bool(hk.get("want")), None      # no button yet, or not in the registry yet
+                    return bool(hk.get("want")), None      # no switch yet, or not in the registry yet
                 return bool(hk.get("want")), sorted(ids)
         return None
 

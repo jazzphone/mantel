@@ -102,6 +102,7 @@ CONFIG, OFFER, CANDIDATE = "camera/webrtc/get_client_config", "camera/webrtc/off
 CHANNELS_TYPE = "hk_tv/channels"
 HLS_TYPE = "hk_tv/hls"
 HLS_LEASE_S = 90.0                          # an HLS player's hold on its channel, renewed while it plays (hls)
+SCREEN_HOLD_S = 30.0                        # an AirPlayed screen's: each fetch (a playing one fetches every few s)
 VIEWERS_ID = "sensor.tv_viewers"
 _CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
 _HOSTNAME = re.compile(r"^[A-Za-z0-9.\-]{1,253}$")
@@ -798,25 +799,27 @@ class MantelLiveTv:
             out["shared"] = f"key/{keys.mint(ctx.identity, hname)}/" + out["path"]
         return out
 
-    def _lease(self, *names: str) -> None:
-        until = self.monotonic() + HLS_LEASE_S
+    def _lease(self, *names: str, hold: float = HLS_LEASE_S) -> None:
+        now = self.monotonic()
         for n in names:                                 # both held: the HLS stream reads the channel's
             self._cancel_stop(n)
+            until = max(now + hold, self.hls_leases.get(n, now))     # a shorter hold never cuts a longer one
             self.hls_leases[n] = until
             old = self._lease_timers.pop(n, None)
             if old is not None:
                 old.cancel()
             self._lease_timers[n] = asyncio.get_running_loop().call_later(
-                HLS_LEASE_S + 1, lambda n=n: self.spawn(self._drop_if_idle(n)))
+                until - now + 1, lambda n=n: self.spawn(self._drop_if_idle(n)))
 
     def hold(self, src: str) -> None:
         """A screen fetching an HLS stream under its key (media_proxy.keyed) holds it, and the channel's stream it
-        reads, as the page's renewal does: an AirPlayed show plays on after the page that sent it is gone."""
+        reads, as the page's renewal does: an AirPlayed show plays on after the page that sent it is gone. Each fetch
+        holds it SCREEN_HOLD_S (a screen that left the stream lets it go in half a minute, not Live TV's 90 s)."""
         tail = hls_name("")
         if not src.endswith(tail) or src not in self.streams:
             return
         base = src[: -len(tail)]
-        self._lease(*((base, src) if base in self.streams else (src,)))
+        self._lease(*((base, src) if base in self.streams else (src,)), hold=SCREEN_HOLD_S)
 
     def _leased(self, name: str) -> bool:
         return self.hls_leases.get(name, float("-inf")) > self.monotonic()

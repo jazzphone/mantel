@@ -166,7 +166,7 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
     except LB.Invalid:
         raise ValueError("live_tv.buttons: [{screen: a paired screen's id, channel: \"4.1\"}]") from None
     if not isinstance(tv["homekit"], bool):
-        raise ValueError("live_tv.homekit: true or false (the Live TV buttons' HomeKit Bridge)")
+        raise ValueError("live_tv.homekit: true or false (the Live TV switches' HomeKit Bridge)")
     au = out["auto"]
     if not isinstance(au["decided"], Mapping) or not all(
             k in AUTO_PIECES and isinstance(m, Mapping) and set(m) <= {"by", "at", "why"} and m.get("by") in ("auto", "owner")
@@ -267,7 +267,7 @@ async def import_features(panel: Any, read: Callable[[dict], Awaitable[Any]], cu
         if kind == "live_tv" and live_tv_on and piece.get("tuner"):
             piece["enabled"] = True
         if kind == "live_tv":
-            # Mantel's own, which Home Assistant never had: the Home app's buttons stay through an import
+            # Mantel's own, which Home Assistant never had: the Home app's switches stay through an import
             piece.update({k: copy.deepcopy(out["live_tv"][k]) for k in ("buttons", "homekit")})
         out[kind] = piece
     return check_settings(out)

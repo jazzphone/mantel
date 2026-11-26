@@ -65,17 +65,14 @@ SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
 # protocol 2 also forwards HK Frontend's other actions, run by Mantel's own engines (linked_actions.py)
 SERVICES_2 = SERVICES + ("music_play", "music_transfer", "music_stop", "music_transport", "music_play_media",
                          "clean_areas", "pause_automation", "resume_automation", "live_tv_play", "live_tv_stop")
-# (mantel.live_tv_play / live_tv_stop: Live TV on a paired AirPlay screen, as a Home app button presses it; Mantel
-# Link's own, never HK Frontend's: cameras/live_tv_buttons.py)
+# (mantel.live_tv_play / live_tv_stop: Live TV on a paired AirPlay screen, as a Home app switch turns it on and off;
+# Mantel Link's own, never HK Frontend's: cameras/live_tv_buttons.py)
 TV_SERVICES = ("live_tv_play", "live_tv_stop")
-PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel", "button")
-# a platform an older client can't mirror goes only to a client whose link names its feature (Live TV's buttons for
-# Apple's Home app: Mantel Link with `buttons`, cameras/live_tv_buttons.py)
-PLATFORM_FEATURES = {"button": "buttons"}
+PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel")
 ALARM_COMMANDS = frozenset({"alarm_disarm", "alarm_arm_home", "alarm_arm_away", "alarm_arm_night",
                             "alarm_arm_vacation", "alarm_arm_custom_bypass", "alarm_trigger"})
 COMMANDS: dict[str, frozenset[str]] = {"switch": frozenset({"turn_on", "turn_off", "toggle"}),
-                                       "alarm_control_panel": ALARM_COMMANDS, "button": frozenset({"press"})}
+                                       "alarm_control_panel": ALARM_COMMANDS}
 CLIENT_TYPES = frozenset({"call_service", "entity_command", "ping"})
 # protocol 2 adds `report`: what Mantel Link tells about its Home Assistant (is HK Frontend there?)
 CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action", "camera_image"}
@@ -114,7 +111,7 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
 # a report's parts (protocol 2), each checked by its own key
 _REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards", "versions", "homekit", "homekit_tv"})
 # (phase 31) report.homekit: the Apple TVs' camera in Home Assistant's HomeKit Bridge (Mantel Link's homekit_entry.py);
-# report.homekit_tv: the Live TV buttons' own bridge, "Mantel Live TV" (cameras/live_tv_buttons.py), in the same shape
+# report.homekit_tv: the Live TV switches' own bridge, "Mantel Live TV" (cameras/live_tv_buttons.py), in the same shape
 _HOMEKIT_STATES = frozenset({"none", "starting", "unpaired", "paired", "error"})
 _SETUP_CODE = re.compile(r"^\d{3}-\d{2}-\d{3}$")
 _SETUP_URI = re.compile(r"^X-HM://[0-9A-Z]{9,20}$")
@@ -166,8 +163,7 @@ def check_entity(desc: Mapping[str, Any]) -> dict[str, Any]:
 
     unique_id     the entity's unique id in HA, exactly as hk_frontend made it (it is what keeps the
                   entity id, history and automations: PLAN §6 "change nothing")
-    platform      switch | sensor | binary_sensor | camera | alarm_control_panel | button (only to a client with
-                  `buttons`: PLATFORM_FEATURES)
+    platform      switch | sensor | binary_sensor | camera | alarm_control_panel
     entity_id     the id to suggest the first time HA registers it ("switch.hall_black_screen");
                   HA's registry keeps the existing one for a known unique_id
     name, translation_key, has_entity_name, icon, unit   how HA names and shows it
@@ -279,15 +275,14 @@ class LinkedRegistry:
         d = self.entities.get(unique_id)
         return _copy(d) if d is not None else None
 
-    def snapshot(self, client: "LinkedClient | None" = None) -> list[dict[str, Any]]:
-        """Every entity, or those ``client`` takes (``LinkedClient.takes``)."""
-        return [_copy(d) for d in self.entities.values() if client is None or client.takes(d)]
+    def snapshot(self) -> list[dict[str, Any]]:
+        return [_copy(d) for d in self.entities.values()]
 
     async def publish(self, desc: Mapping[str, Any]) -> dict[str, Any]:
         """Add or replace one entity (its descriptor and state)."""
         d = check_entity(desc)
         self.entities[d["unique_id"]] = d
-        await self._push({"type": "entity", "entity": d}, only=d)
+        await self._push({"type": "entity", "entity": d})
         return _copy(d)
 
     async def update(self, unique_id: str, *, state: Any = _KEEP, attributes: Mapping[str, Any] | None = None,
@@ -329,13 +324,9 @@ class LinkedRegistry:
         """The connected clients of one integration (``hk_frontend`` or ``mantel``)."""
         return [c for c in self.clients if c.domain == domain and not c.ws.closed]
 
-    async def _push(self, msg: dict[str, Any], only: Mapping[str, Any] | None = None) -> None:
-        """To every client (``only``: an entity's frame, to those that take it; a state or removal of one a client never
-        had is ignored there)."""
+    async def _push(self, msg: dict[str, Any]) -> None:
         text = json.dumps(msg)
         for client in list(self.clients):
-            if only is not None and not client.takes(only):
-                continue
             if not await client.send_text(text):
                 self.clients.discard(client)
 
@@ -350,11 +341,6 @@ class LinkedClient:
         self.report: dict[str, Any] = {}       # protocol 2: the last `report` (HK Frontend there or not)
         self.since: float | None = None
         self.lock = asyncio.Lock()
-
-    def takes(self, desc: Mapping[str, Any]) -> bool:
-        """Does this client mirror the entity's platform (PLATFORM_FEATURES: a newer one only where the link names it)?"""
-        need = PLATFORM_FEATURES.get(desc.get("platform"))
-        return need is None or need in self.features
 
     def describe(self) -> dict[str, Any]:
         """For Mantel Settings: which integration, how it speaks, what it reported (never a credential)."""
@@ -788,7 +774,7 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
             # which credential Mantel Link uses: the HA App's discovery stands down for one set up by hand
             owners.remember(LINK_ACCOUNT_KEY, {"account": account.id})
     hello = {"type": "hello", "protocol": protocol, "services": list(SERVICES_2 if protocol >= 2 else SERVICES),
-             "entities": registry.snapshot(client),
+             "entities": registry.snapshot(),
              "owners": _copy(registry.owners)}
     if protocol >= 2:
         # Mantel Link: which Mantel this is (its config entry's unique id), never a secret

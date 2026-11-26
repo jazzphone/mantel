@@ -12,17 +12,19 @@ iPhone app ask it.
   (the paired ones with their addresses, and those on the network), ``hk_tv/screen_pair`` (begin: the code shows;
   finish: the code), ``hk_tv/screen_remove``, ``hk_tv/screen_rename``.
 * The app (``apps/app_tv.py``): ``POST /api/app/tv/play`` and ``/api/app/tv/stop`` for the Live TV widget's Play On.
-* **A show ends by itself**: paused on the screen, once its stream goes unwatched (``stream_dropped``, Live TV's 90 s
-  lease); and, whatever the screen does, MAX_SHOW_S after it started (2026-11-25, the owner: "We probably should close a
+* **A show ends by itself**: paused on the screen's remote, PAUSE_END_S after (the remote's press reaches Mantel at
+  once; a paused player goes on fetching for minutes); once its stream goes unwatched (``stream_dropped``: the screen
+  left it, nobody fetched it for live_tv.SCREEN_HOLD_S); and, whatever the screen does, MAX_SHOW_S after it started (2026-11-25, the owner: "We probably should close a
   stream after 2 hours or so as well as a safety net"), so a screen left playing never holds the tuner for good.
-  Playing it again starts the time again.
+  Playing it again starts the time again. ``on_change`` hears each screen whose show started or ended (the Home app's
+  switches, cameras/live_tv_buttons.py).
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import Any, Callable
 
 from ...connectors import Ctx, Forbidden, read_routes
 from ...storage import audit
@@ -35,14 +37,17 @@ log = logging.getLogger("mantel.airplay_out")
 
 START_TIMEOUT = 20.0
 MAX_SHOW_S = 2 * 3600.0           # the safety net: a show ends this long after it started
+PAUSE_END_S = 5.0                 # a show paused on the screen's remote ends this long after, unless played again
 
 
 class Sender:
     def __init__(self, app: Any, screens: Screens) -> None:
         self.app, self.screens = app, screens
         self.shows: dict[str, tuple[Show, dict]] = {}          # screen id -> (its show, {channel, name, by})
-        self.max_show = MAX_SHOW_S
+        self.max_show, self.pause_end = MAX_SHOW_S, PAUSE_END_S
         self._limits: dict[str, asyncio.TimerHandle] = {}      # screen id -> its show's safety net
+        self._pauses: dict[str, asyncio.TimerHandle] = {}      # screen id -> its paused show's end
+        self.on_change: list[Callable[[str], None]] = []       # a screen's show started or ended (its id)
 
     def _base(self) -> str:
         url = getattr(self.app.get("cfg"), "public_url", "") or ""
@@ -72,13 +77,15 @@ class Sender:
             await old[0].stop()
         creds = hap.Credentials.loads(screen["creds"])
         show = Show(screen["host"], creds, int(screen.get("port") or 7000), psi=screen.get("psi") or None,
-                    on_end=lambda s, sid=sid: self._ended(sid, s))
+                    on_end=lambda s, sid=sid: self._ended(sid, s),
+                    on_pause=lambda s, paused, sid=sid: self._paused(sid, s, paused))
         self.shows[sid] = (show, {"channel": number, "name": ch.get("name"), "by": getattr(user, "id", None),
                                   "stream": got["shared"].split("src=", 1)[-1].split("&", 1)[0]})
         try:
             await asyncio.wait_for(show.start(url), START_TIMEOUT)
         except (AirPlayError, hap.PairingError, OSError, asyncio.TimeoutError) as exc:
             self.shows.pop(sid, None)
+            self._changed(sid)
             if isinstance(exc, hap.PairingError) and exc.code == 2:
                 raise PermissionError("the screen no longer knows Mantel: pair it again in Settings") from exc
             raise ConnectionError(f"the screen didn't play it ({type(exc).__name__})") from exc
@@ -86,6 +93,7 @@ class Sender:
         if old_limit is not None:
             old_limit.cancel()
         self._limits[sid] = asyncio.get_running_loop().call_later(self.max_show, self._too_long, sid, show)
+        self._changed(sid)
         return {"playing": {"channel": number, "name": ch.get("name")}, "screen": sid}
 
     async def stop(self, principal: Any, sid: str, via: str | None = None) -> dict:
@@ -118,17 +126,43 @@ class Sender:
                      self.max_show / 3600)
             asyncio.ensure_future(show.stop())
 
+    def _paused(self, sid: str, show: Show, paused: bool) -> None:
+        """The screen's remote paused the show (or played it again). Paused, it ends PAUSE_END_S later: Live TV's
+        pause would only fall behind live, and the screen goes back to what it showed (2026-11-25, the owner: "Should
+        we kill after 5 seconds for example. Worst case, someone just has to restart right?")."""
+        old = self._pauses.pop(sid, None)
+        if old is not None:
+            old.cancel()
+        if paused:
+            self._pauses[sid] = asyncio.get_running_loop().call_later(self.pause_end, self._pause_over, sid, show)
+
+    def _pause_over(self, sid: str, show: Show) -> None:
+        self._pauses.pop(sid, None)
+        cur = self.shows.get(sid)
+        if cur is not None and cur[0] is show and show.paused and not show.ended.is_set():
+            log.info("airplay show of %s: paused on the screen; ending it", cur[1].get("name"))
+            asyncio.ensure_future(show.stop())
+
+    def _changed(self, sid: str) -> None:
+        for fn in list(self.on_change):
+            try:
+                fn(sid)
+            except Exception:                                   # a listener's fault never stops a show
+                log.exception("airplay show listener")
+
     def _ended(self, sid: str, show: Show) -> None:
         cur = self.shows.get(sid)
         if cur is not None and cur[0] is show:
             del self.shows[sid]
-            limit = self._limits.pop(sid, None)
-            if limit is not None:
-                limit.cancel()
+            for timers in (self._limits, self._pauses):
+                t = timers.pop(sid, None)
+                if t is not None:
+                    t.cancel()
+            self._changed(sid)
 
     async def close(self, _app: Any = None) -> None:
-        for limit in self._limits.values():
-            limit.cancel()
+        for t in [*self._limits.values(), *self._pauses.values()]:
+            t.cancel()
         for show, _ in list(self.shows.values()):
             await show.stop()
 

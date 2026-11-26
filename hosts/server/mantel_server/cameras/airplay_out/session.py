@@ -27,6 +27,9 @@ FEEDBACK_S = 2.0                          # an AirPlay 2 sender's keep-alive
 SENDER_MODEL = "Mac16,10"                 # what Mantel says it is (a HomeView shows the picture for any model)
 CLIENT_TYPE = "A6B27562-B43A-4F2D-B75F-82391E250194"   # the remote-control stream's client type (an iPhone's)
 EVENTS_KEPT = 40
+# a press on the screen's remote (its event channel's sendMediaRemoteCommand, the value a four-letter code; the
+# airplay-cli notes): pause, play, play/pause. None: not a pause either way
+REMOTE = {"paus": True, "play": False, "plps": None}
 
 
 def _uuid() -> str:
@@ -121,9 +124,11 @@ class Show:
     """A stream address playing on one screen (docs/phase35/PLAN.md, "What was found", 4)."""
 
     def __init__(self, host: str, creds: hap.Credentials, port: int = 7000, name: str = SENDER,
-                 psi: str | None = None, on_end: Callable[["Show"], None] | None = None) -> None:
+                 psi: str | None = None, on_end: Callable[["Show"], None] | None = None,
+                 on_pause: Callable[["Show", bool], None] | None = None) -> None:
         self.host, self.port, self.creds, self.name, self.psi = host, port, creds, name, psi
-        self.on_end = on_end
+        self.on_end, self.on_pause = on_end, on_pause
+        self.paused = False                     # the screen's remote paused it (and has not played it again)
         self.conn: Connection | None = None
         self.events: EventChannel | None = None
         self.stream_id = "1"
@@ -213,14 +218,29 @@ class Show:
 
     def _event(self, start: str, headers: dict[str, str], body: bytes) -> None:
         kind = start.split(" ")[1] if " " in start else start
+        d: Any = None
         if body.startswith(b"bplist"):
             with contextlib.suppress(Exception):
                 d = plistlib.loads(body)
                 if isinstance(d, dict):
                     kind = str(d.get("type") or kind)
-        if kind not in self.seen:                    # what a screen says on pause or close, learned from the log
+        if kind == "sendMediaRemoteCommand" and isinstance(d, dict):
+            self._pressed(str(d.get("value") or ""))
+        elif kind not in self.seen:                  # what a screen says on pause or close, learned from the log
             log.info("airplay show on %s: the screen says %s", self.host, kind)
         self.seen = (self.seen + [kind])[-EVENTS_KEPT:]
+
+    def _pressed(self, value: str) -> None:
+        """A press on the screen's remote: it arrives the moment it is pressed (2026-11-25 on the house: the pause
+        came at once, the paused player went on fetching the stream for two minutes more)."""
+        log.info("airplay show on %s: the screen's remote pressed %s", self.host, value or "?")
+        if value not in REMOTE:
+            return
+        paused = (not self.paused) if REMOTE[value] is None else bool(REMOTE[value])
+        if paused != self.paused:
+            self.paused = paused
+            if self.on_pause is not None and not self.ended.is_set():
+                self.on_pause(self, paused)
 
     def _lost(self) -> None:
         if not self.ended.is_set():
