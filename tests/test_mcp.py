@@ -359,7 +359,7 @@ async def test_the_schema_comes_from_hk_cores_checks(mantel):
     token, _ = await setup(mantel)
     got, _ = await Rpc(mantel, token).tool("settings_schema", scope="board")
     assert set(got["keys"]) == set(C.BOARD), "every key the check takes, and no other"
-    assert got["keys"]["home_style"]["choices"] == ["generated", "grid"]
+    assert got["keys"]["home_style"]["choices"] == ["generated", "grid", "launcher"]
     house_keys, _ = await Rpc(mantel, token).tool("settings_schema", scope="house", prefix="clock.")
     assert house_keys["keys"] and all(k.startswith("clock.") for k in house_keys["keys"])
 

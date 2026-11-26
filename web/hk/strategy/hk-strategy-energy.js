@@ -12,13 +12,16 @@
 
     // Pages follows Home and reads its icons, rooms and widgets live.
     // It wears Home's sky and uses /pages-screen when /pages is already taken.
-    // Opens On: Pages Screen marks it `opens`: the view host lands there (hk-view-host.js land()).
+    // HOME STYLE: LAUNCHER (2026-11-25, the owner, for an Apple HomeView: "We probably should call it Launcher"): it is
+    // there whatever Pages Screen says, marked `opens`, the screen's only Home (hk-view-host.js land(), hk-pageswipe.js
+    // noHome, hk-layout-grid.js's Home Pill on its pages).
     function pagesScreen(list, b) {
       var HS = window.hkSettings, home = list[0], ps = HS && HS.pagesScreen ? HS.pagesScreen(b) : null;
-      if (!home || !ps || ps.show !== 'on') return;
+      var launcher = !!(b && b.home_style === 'launcher');
+      if (!home || !ps || (ps.show !== 'on' && !launcher)) return;
       var path = list.some(function (v) { return v && v.path === 'pages'; }) ? 'pages-screen' : 'pages';
       var v = { type: 'custom:hk-grid-view', title: 'Pages', path: path, subview: true, icon: 'mdi:view-grid',
-                pages_screen: true, opens: ps.opens === 'pages', background: home.background || '#05070e',
+                pages_screen: true, opens: launcher, background: home.background || '#05070e',
                 layout: { 'grid-template-columns': 'minmax(0, 1fr)', margin: '0px', padding: '0px' },
                 cards: [{ type: 'custom:hk-pages-screen-card', glass: false }] };
       // Pages is inserted after the ordinary views received their docked player.

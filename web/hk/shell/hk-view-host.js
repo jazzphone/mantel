@@ -1551,7 +1551,7 @@
       }
       return route();
     }
-    // WHERE THE SCREEN OPENS (Opens On, hkSettings.pagesScreen().opens; 2026-11-25, the owner: an Apple HomeView is
+    // WHERE THE SCREEN OPENS (Home Style: Launcher, its Pages screen's view marked `opens`; 2026-11-25, the owner: an Apple HomeView is
     // itself the dashboard): a screen opened on Home -- no view, `0` or Home's own path -- opens on the view marked
     // `opens` (hk-strategy-energy.js pagesScreen) instead, its address replaced, so Back doesn't go to a Home never
     // shown. And on every way Home after (2026-11-25, the owner: "there is still a Main Dashboard screen ... so the

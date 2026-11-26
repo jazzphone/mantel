@@ -362,17 +362,24 @@
                                    href: base + '/favorites', sk: 'b:favorites' }));
         home.push(K.nav({ label: 'Rooms', value: roomsVal, href: base + '/rooms', sk: 'b:rooms_custom' }));
         if (gen && !only) {
+          // (Launcher, 2026-11-25: the Pages screen is the screen's only Home -- an Apple HomeView, itself the dashboard)
           home.unshift(K.select({ label: 'Home Style', value: b.home_style || 'generated',
-            options: [['generated', 'Generated'], ['grid', 'Home Grid']],
+            options: [['generated', 'Generated'], ['grid', 'Home Grid'], ['launcher', 'Launcher']],
             onChange: function (v) {
               if (v === 'grid') self.back(base + '/home-grid');
-              else self.setB(path, { home_style: 'generated' });
+              else self.setB(path, { home_style: v === 'launcher' ? 'launcher' : 'generated' });
             } }));
+          if (b.home_style === 'launcher') {
+            home.splice(1, 0, K.nav({ label: 'Launcher', href: base + '/pages-screen', sk: 'b:launcher',
+                                      sub: 'Its icons, widgets and rooms: the Pages Screen.' }));
+          }
           home.splice(1, 0, K.nav({ label: 'Arrange Home Grid', href: base + '/home-grid',
             sub: 'Arrange on a desktop. Save when ready.', value: b.home_grid ? b.home_grid.items.length + ' Blocks' : 'Choose a Starter' }));
         }
         // only some pages: no Home page to set up here
-        if (!only) c.appendChild(K.group({ header: 'Home Page', footer: gen ? 'What this screen doesn’t change follows All Screens.' :
+        if (!only) c.appendChild(K.group({ header: 'Home Page', footer: gen ? (b.home_style === 'launcher'
+          ? 'Launcher: the Pages screen is Home, with no main dashboard. Back, the return after idle and every way Home ' +
+            'land there. What this screen doesn’t change follows All Screens.' : 'What this screen doesn’t change follows All Screens.') :
           'This screen is written in YAML, so it draws its own Home page. These lists apply where its cards read them: the chip row, the scenes row, the camera strip and the room order.' }, home));
 
         // LOOK & FEEL (phase 33): the sidebar's own group, its rows and icons in its order, each saying whose it is
@@ -757,10 +764,13 @@
         // THE ROOMS AND THE HEADER, as All Screens' has them: which rooms the menu lists, the header on every page but Home
         // (Back Button & Title), and -- on a phone held upright -- what sits at the top of Home
         var rh = [];
-        if (kinds.length) {
+        // (a Launcher with the menu off still lists the rooms, in its Rooms folder, and drops the header -- 2026-11-25, the
+        // owner: "a few options in menu that may need to be visible when menus are off")
+        var launcher = b.home_style === 'launcher';
+        if (kinds.length || launcher) {
           rh.push(K.nav({ label: 'Rooms in the Menu', value: M.roomsSummary(b), sub: b.rooms_custom ? 'Just This Screen' : null, href: base + '/rooms', sk: 'b:menu_rooms' }));
         }
-        if (M.menuMode(b) !== 'off' || M.phoneMenu(b) !== 'off') rh = rh.concat(this.headerRows(this.menuCtx(x, b)));
+        if (M.menuMode(b) !== 'off' || M.phoneMenu(b) !== 'off' || launcher) rh = rh.concat(this.headerRows(this.menuCtx(x, b)));
         if (gen) {
           rh.push(K.seg({ label: 'Header on Phones', sk: 'b:phone_header', stack: !this.hasAttribute('wide'),
                           value: b.phone_header || 'header', options: [['header', 'Clock & Weather'], ['strip', 'Weather Strip']],

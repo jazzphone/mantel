@@ -186,7 +186,7 @@
     return noHome(leftOfHome(order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
                                      pagesScreen: pagesScreen() }), left, extra), vs);
   }
-  // A SCREEN THAT OPENS ON ITS PAGES SCREEN has no Home to swipe to: that view is its Home (Opens On, hk-view-host.js
+  // A LAUNCHER SCREEN has no Home to swipe to: its Pages screen is its Home (Home Style: Launcher, hk-view-host.js
   // land(); 2026-11-25, the owner: "there is still a Main Dashboard screen")
   function noHome(items, vs) {
     vs = Array.isArray(vs) ? vs : [];

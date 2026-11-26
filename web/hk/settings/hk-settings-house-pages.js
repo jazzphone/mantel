@@ -1404,7 +1404,13 @@
           this.psSelect(ctx, ps, 'show', 'Pages Screen', M.PAGES_SCREEN_SHOW)]));
         // OFF: nothing else but the way back (2026-10-30: what depends on a
         // switch that is off isn't drawn, as in iOS)
-        var on = val.show !== 'off';
+        // (a Launcher screen's is its Home: always there -- Home Style, on the screen's page)
+        var launcher = !ctx.house && !!(ctx.b && ctx.b.home_style === 'launcher');
+        if (launcher) {
+          c.appendChild(K.group({ footer: 'This screen’s Home Style is Launcher: the Pages screen is its Home, so it shows ' +
+              'whatever Pages Screen says above.' }, []));
+        }
+        var on = val.show !== 'off' || launcher;
         if (on) this.pagesScreenParts(c, ctx, ps, val);
         if (!ctx.house && Object.keys(ps.own).length) {
           c.appendChild(K.group({}, [K.button({ label: 'Reset to All Screens', sk: 'b:pages_screen:reset', onClick: function () { ps.reset(); } })]));
@@ -1423,12 +1429,6 @@
       }
       // ...ITS PARTS, while it is on: the icons, the widgets, and what else is on it
       pagesScreenParts(c, ctx, ps, val) {
-        // WHERE THE SCREEN OPENS (2026-11-25, the owner: an Apple HomeView is itself the dashboard, so a screen there opens
-        // on its Pages screen)
-        c.appendChild(K.group({ footer: 'Where the screen starts when it’s opened: Home, or the Pages screen, for a screen ' +
-            'that is a dashboard already, like an Apple HomeView. On Pages Screen, it is the screen’s Home: Back and the ' +
-            'return after idle go there, and the main dashboard isn’t shown.' }, [
-          this.psSelect(ctx, ps, 'opens', 'Opens On', [['home', 'Home'], ['pages', 'Pages Screen']])]));
         var icons = Array.isArray(val.icons) ? val.icons.length + (val.icons.length === 1 ? ' Page' : ' Pages') : 'Same as the Menu';
         c.appendChild(K.group({ header: 'Icons', footer: 'Each page as a large icon in its Accent Color. Calendar shows today’s date, ' +
             'Weather the temperature, and a red badge shows what’s waiting: timers running, a door open, a notification.' }, [

@@ -73,8 +73,7 @@
         }
         return out;
       },
-      pill: function (v) { return ['auto', 'on', 'off'].indexOf(v) >= 0 ? v : null; },
-      opens: function (v) { return v === 'home' || v === 'pages' ? v : null; }
+      pill: function (v) { return ['auto', 'on', 'off'].indexOf(v) >= 0 ? v : null; }
     };
     function pagesScreen(b) {
       if (b === undefined) b = boardHere();

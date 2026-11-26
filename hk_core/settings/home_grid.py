@@ -17,7 +17,9 @@ import copy
 import re
 from typing import Any, Mapping
 
-HOME_STYLES = ("generated", "grid")
+# (and "launcher": Home is the screen's Pages screen, the only Home it has -- an Apple HomeView, which is itself the
+# dashboard; 2026-11-25, the owner: "We probably should call it Launcher". It replaced Pages Screen -> Opens On.)
+HOME_STYLES = ("generated", "grid", "launcher")
 VERSION = 1
 # (4 and 5 since 2026-10-30, the owner: "I could easily do 4" -- square cells beside the Side Pane, mostly)
 COLS = (6, 5, 4, 3, 2)

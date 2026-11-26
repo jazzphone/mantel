@@ -227,7 +227,8 @@
     // other header settings
     var PAGE_HEADERS = [['current', 'Back & Title'], ['smart', 'Context When Needed'], ['none', 'No Header']];
     var PAGE_HEADER_SAYS =
-      'With the side menu open or a tab bar, Context When Needed drops a repeated title and keeps a short label; No Header removes both. The full header returns when the menu folds into a button.';
+      'With the side menu open or a tab bar, Context When Needed drops a repeated title and keeps a short label; No Header removes both. ' +
+      'The full header returns when the menu folds into a button, except on a Launcher screen, where No Header leaves a Home Pill at the foot of each page.';
     var MENU_KEYS = { page_header: 'page_header', menu: 'style', tab_position: 'tab_at', tab_size: 'tab_size',
                       tab_size_phone: 'tab_size_phone', dock_min: 'open_min', time_weather: 'time_weather_at',
                       ha_row: 'ha_row', ha_place: 'ha_at', accent: 'accent', glyph: 'glyph', clock: 'clock', swipe: 'swipe',

@@ -564,6 +564,12 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     hv = str(d.get("home_view") or "").strip()
     out["home_view"] = hv if PAGE_PATH.match(hv) else ""
     out["home_style"] = pick("home_style", HG.HOME_STYLES)
+    # (Pages Screen -> Opens On: Pages Screen, 2026-11-25 only, is Home Style: Launcher now: it said the same, whatever
+    # the Home Style. The field is gone from what's written, so the screen's next choice is its own -- its Home Grid's
+    # layout kept for it.)
+    ps_was = d.get("pages_screen")
+    if isinstance(ps_was, dict) and ps_was.get("opens") == "pages":
+        out["home_style"] = "launcher"
     out["home_grid"] = HG.layout(d.get("home_grid"))
     out["menu_top"] = list(dict.fromkeys(k for k in (strs(d.get("menu_top")) or []) if VIEW_PATH.match(k)))
     t = tab_position(d.get("tab_position"))

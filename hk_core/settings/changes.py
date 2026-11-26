@@ -1661,7 +1661,13 @@ def apply_board(data: Mapping[str, Any], changes: Mapping[str, Any]
     if "menu_custom" in clean:
         # an older page's Same as All Screens switch: every menu setting, or none
         clean.setdefault("menu_own", list(S.MENU_KEYS) if clean.pop("menu_custom") else [])
-    out = S.board({**dict(data), **clean})
+    merged = {**dict(data), **clean}
+    # (an old Opens On: Pages reads as Home Style: Launcher -- dashboard_rules -- until a Home Style is chosen: the
+    # choice wins, and the old field goes with it)
+    ps_was = merged.get("pages_screen")
+    if "home_style" in clean and isinstance(ps_was, Mapping) and "opens" in ps_was:
+        merged["pages_screen"] = {k: v for k, v in ps_was.items() if k != "opens"}
+    out = S.board(merged)
     if "home_grid" not in clean and "home_grid" in data:
         # a save that doesn't touch the grid keeps it as stored: board() reads it the tolerant way (a block or
         # option this build doesn't know is left out), and storing THAT would delete it for good

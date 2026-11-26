@@ -50,6 +50,48 @@
       if (choice === 'none') return 'none';
       return choice === 'smart' ? (nav.exact ? 'none' : 'context') : 'current';
     }
+    // A LAUNCHER SCREEN (Home Style: Launcher, 2026-11-25): its Pages screen is its Home, and the way around without a
+    // menu -- so Back Button & Title's No Header holds there, and leaves a Home Pill at the page's foot instead (the
+    // owner: "I also can't find where to get rid of the back arrow and heading on the pages"). The Launcher's path, or
+    // null on any other screen.
+    function launcherPath() {
+      var m = menu(), cfg = m.config && m.config(), vs = (cfg && cfg.views) || [];
+      for (var i = 1; i < vs.length; i++) if (vs[i] && vs[i].pages_screen && vs[i].opens && vs[i].path) return String(vs[i].path);
+      return null;
+    }
+    // THE HOME PILL, one on the document's body (nothing fixed inside a page), shown on a Launcher screen's page whose
+    // header is off: a tap, or a swipe up from it, goes to the Launcher. `path` null hides it.
+    var PILL_SWIPE = 24;
+    function launcherPill(path) {
+      if (typeof document.getElementById !== 'function' || !document.body) return;
+      var el = document.getElementById('hk-launcher-pill');
+      if (!path) { if (el && el.style.display !== 'none') el.style.display = 'none'; return; }
+      if (!el) {
+        el = document.createElement('button');
+        el.id = 'hk-launcher-pill'; el.type = 'button'; el.setAttribute('aria-label', 'Home');
+        var s = el.style;
+        s.position = 'fixed'; s.left = 'calc(50% - 100px)'; s.bottom = '0'; s.width = '200px'; s.zIndex = '5';
+        s.height = 'calc(env(safe-area-inset-bottom, 0px) + 30px)'; s.border = '0'; s.padding = '0'; s.margin = '0';
+        s.background = 'transparent'; s.alignItems = 'flex-start'; s.justifyContent = 'center'; s.cursor = 'pointer';
+        s.webkitTapHighlightColor = 'transparent'; s.touchAction = 'none';
+        var bar = document.createElement('span'), t = bar.style;
+        t.display = 'block'; t.width = '134px'; t.height = '5px'; t.marginTop = '16px'; t.borderRadius = '999px';
+        t.background = 'rgba(255,255,255,.85)'; t.boxShadow = '0 0 0 .5px rgba(0,0,0,.18)';
+        el.appendChild(bar);
+        var go = function () {
+          var to = el.getAttribute('data-path'), dash = String(location.pathname || '').split('/')[1];
+          if (to && dash) window.hkCards.navigate('/' + dash + '/' + to);
+        };
+        var y0 = null, swiped = false;
+        el.addEventListener('pointerdown', function (e) { y0 = e.clientY; swiped = false; });
+        el.addEventListener('pointermove', function (e) { if (y0 !== null && !swiped && y0 - e.clientY > PILL_SWIPE) { swiped = true; go(); } });
+        el.addEventListener('pointerup', function () { y0 = null; });
+        el.addEventListener('click', function () { if (!swiped) go(); swiped = false; });
+        document.body.appendChild(el);
+      }
+      el.setAttribute('data-path', path);
+      if (el.style.display !== 'flex') el.style.display = 'flex';
+    }
     var HEADER_EVENTS = ['hk-page-navigation', 'hk-module-ready', window.hkShell.navEvent, 'popstate', 'resize'];
     class HkGridCard extends HkBase {
       _isPageHeader() {
@@ -61,6 +103,7 @@
         var nav = m.tabBar && m.tabBar() ? window.hkTabBar : window.hkMenu;
         if (nav && nav.headerContext) ctx = nav.headerContext();
         var path = String(location.pathname || '').split('/')[2] || '';
+        if (!ctx.available && launcherPath()) ctx = { available: true, exact: false };
         return pageHeaderMode(b.page_header || 'current', ctx, path === 'music-browse');
       }
       // THE VIEW THIS HEADER IS ON, by its path (or index), from the hk-grid-view
@@ -85,8 +128,11 @@
         // the page again.
         var own = this._viewPath(), here = String(location.pathname || '').split('/')[2] || '';
         if (!here) { var v0 = ((menu().config && menu().config() || {}).views || [])[0]; here = v0 && v0.path != null ? String(v0.path) : '0'; }
+        var lp = launcherPath();
+        if (!lp || here === lp) launcherPill(null);
         if (own !== null && own !== here && this.hasAttribute('data-page-header')) return;
         var mode = this._headerState();
+        if (lp && here !== lp) launcherPill(mode === 'none' ? lp : null);
         if (this.getAttribute('data-page-header') !== mode) this.setAttribute('data-page-header', mode);
         // HA wraps each view card in hui-card's shadow root. Mark the direct
         // view child too, so the view can retain its responsive top gutter.

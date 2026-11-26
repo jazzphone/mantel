@@ -204,9 +204,14 @@
   }
 
   // THE HOME PILL: Automatic shows it where the screen has no tab bar
-  // (none on a screen that opens here: this is its Home -- Opens On, hk-view-host.js land())
-  function pillOn(pill, tabBar, opens) {
-    if (opens === 'pages') return false;
+  // (none on a Launcher: this is its Home -- Home Style: Launcher, hk-view-host.js land())
+  // a Launcher: the screen's Pages screen is its Home (the strategy marks its view `opens`)
+  function launcherOf() {
+    var M = window.hkCards && window.hkCards.menu, cfg = M && M.config ? M.config() : null;
+    return !!(cfg && (cfg.views || []).some(function (v) { return v && v.pages_screen && v.opens; }));
+  }
+  function pillOn(pill, tabBar, launcher) {
+    if (launcher) return false;
     return pill === 'on' || (pill !== 'off' && !tabBar);
   }
 
@@ -418,7 +423,7 @@
         var client = this.client || {}, states = client.states || {}, HS = window.hkSettings, M = C.menu;
         var b = M && M.board ? M.board() : {};
         // (this screen's own as stored -- hkSettings reads it: menu.board() keeps only the menu's keys)
-        var ps = HS && HS.pagesScreen ? HS.pagesScreen() : { icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off', opens: 'home' };
+        var ps = HS && HS.pagesScreen ? HS.pagesScreen() : { icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' };
         var cfg = M && M.config ? M.config() : null, h = H();
         var m = h && h.model && cfg ? h.model(cfg, client.areas, {
           dash: M.dash ? M.dash() : '', order: b.menu_rooms === 'order' ? 'order' : 'az', roomOrder: b.room_order,
@@ -521,7 +526,7 @@
       }
 
       _html(d, sz, now) {
-        var W = sz.W, Ht = sz.H, pill = pillOn(d.ps.pill, d.tabBar, d.ps.opens);
+        var W = sz.W, Ht = sz.H, pill = pillOn(d.ps.pill, d.tabBar, launcherOf());
         var g = grid(W, Ht, { pill: pill, homeView: !!window.hkHomeView }), s = g.s;
         g.now = now;                             // the calendar icon's day: the time this is drawn for
         var sc = place(d.list.length, d.widgets, g.cols, g.rows);
