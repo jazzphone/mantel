@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.18 - 2026-11-26
+
 **Changed**
 - **Live TV in Apple's Home app is a TV now, one for each screen** (the owner: "TV would look better though from a UI perspective than a bunch of switches"). Mantel's TV for a paired screen is `media_player.<screen>_live_tv` ("Den HomeView Live TV"), device class TV, its inputs the channels checked for that screen in Mantel's Settings. It is on while Mantel plays Live TV on that screen; turning it on plays the channel Mantel chose for it (the last one watched there, or one channel), an input plays its channel, and turning it off stops the show. However a show ends, it turns off by itself.
 - **Each TV has its own HomeKit entry**, "Mantel <TV's name>", in accessory mode: the Home app shows a TV only as an accessory of its own. Each shows its own code to scan in Mantel's Settings. A screen whose last channel is unchecked loses its entry; Remove from Home App removes them all.
