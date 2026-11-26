@@ -398,7 +398,7 @@
     '.dv .val small{font-size:' + pt(13) + ';font-weight:500;color:' + v('ink-2') + '}',
     '.dv.off .nm,.dv.off .val{color:' + v('ink-2') + '}.dv.off>.g{opacity:.55}',
     '.rw.more{min-height:' + pt(52) + ';color:' + v('ink-2') + '}.rw.more .nm{color:' + v('ink-2') + '}',
-    // A LEVEL OF A NUMBER (the battery's charge limit, reserve, charging speed): the kit's Wide level, dragged here
+    // A LEVEL OF A NUMBER (the battery's charge limit, reserve, charging speed): the kit's long slider, dragged here
     '.nlv{touch-action:pan-y}.nlv .st{font-size:' + pt(14) + ';line-height:' + pt(19) + '}.nlv .st b{font-weight:700;color:' + v('ink') + '}',
     // THE MODE: the select's choices sharing the plate's width, what the chosen one does under them
     '.md{padding:' + pt(16) + '}',
@@ -563,7 +563,7 @@
           '" data-k="' + esc(o.value) + '">' + esc(o.name || o.value) + '</button>';
       }).join('') + '</div><div class="mdesc">' + esc(on ? on.description || '' : H.sentence(cur)) + '</div>');
     }
-    // A LEVEL OF A NUMBER (Wide): the kit's level, its fill the value's share of the scale (a % of 100, else of its max), the
+    // A LEVEL OF A NUMBER (a long slider, the kit's .sl): its fill the value's share of the scale (a % of 100, else of its max), the
     // value at the right; dragged across (wireNumbers), sent once on letting go and held 2.5 s for the device to answer
     /** @param {any} l { entity, name, icon, color } */
     _numLevel(l) {
@@ -574,11 +574,11 @@
       var word = !ok ? 'No Response' : numWord(/** @type {number} */ (n), unit);
       // (the range beside the value: "90% · 80–100%"; the name keeps the line above to itself, the Wide tile too narrow for both)
       var range = a.min != null && a.max != null ? (unit === 'W' ? fx(a.min / 1000, 1) + '–' + wtext(a.max) : fx(a.min, 0) + '–' + fx(a.max, 0) + (unit === '%' ? '%' : '')) : '';
-      return '<div class="pl lv nlv c2' + (ok ? ' lit' : '') + '" role="slider" tabindex="0" aria-valuemin="' + esc(a.min) + '" aria-valuemax="' + esc(a.max) + '" aria-valuenow="' +
+      return '<div class="pl lv nlv sl' + (ok ? ' lit' : '') + '" role="slider" tabindex="0" aria-valuemin="' + esc(a.min) + '" aria-valuemax="' + esc(a.max) + '" aria-valuenow="' +
         esc(n) + '" aria-label="' + esc(l.name) + '" data-nlv="' + esc(l.entity) + '" style="--v:' + p + '%;--f:' + wash(col) + '">' +
         '<i class="fill"></i><div class="row"><span class="tg" data-act="sheet" data-id="' + esc(l.entity) + '">' + H.glyph(l.icon || 'hk:battery-arrow-up-outline', 28, ok ? H.DEEP[l.color] ||
-          col : col) + '</span><div class="words" data-act="sheet" data-id="' + esc(l.entity) + '"><div class="nm">' + esc(l.name) + '</div><div class="st"><b class="nv">' + esc(word) +
-        '</b>' + (ok && range ? ' · ' + esc(range) : '') + '</div></div></div></div>';
+          col : col) + '</span><div class="words" data-act="sheet" data-id="' + esc(l.entity) + '"><div class="nm">' + esc(l.name) + '</div><div class="st">' +
+        (ok && range ? esc(range) + ' · ' : '') + '<b class="nv">' + esc(word) + '</b></div></div></div></div>';
     }
   }
 
@@ -1255,7 +1255,10 @@
                   [c.speed, 'Charging Speed', 'hk:speedometer', 'cyan']].filter(function (l) { return l[0] && /^number\./.test(l[0]); })
           .map(function (l) { return { entity: l[0], name: l[1], icon: l[2], color: l[3] }; });
       }
-      if (levels.length) out += H.section('Levels', 'drag to set') + '<div class="grid">' + levels.map(function (/** @type {any} */ l) { return self._numLevel(l); }).join('') + '</div>';
+      // (one plate, each level a long slider across it: mockup L2's, the owner's pick for the Power page, 2026-11-26)
+      if (levels.length) {
+        out += H.section('Levels', 'drag to set') + H.plate({ cls: 'sls' }, levels.map(function (/** @type {any} */ l) { return self._numLevel(l); }).join(''));
+      }
       // ---- its packs, each with its level and temperature
       var packs = (c.packs || []).filter(function (/** @type {any} */ p) { return p && p.level; });
       if (packs.length) {

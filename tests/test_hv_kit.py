@@ -150,3 +150,27 @@ console.log(JSON.stringify([g('Guest Bathroom'), g('Bedroom Closet'), g('Garage 
     assert "layout: 'panel', rows: true, pick: vid" in (ROOT / "web/hk/cards/hk-hv-care.js").read_text()
     vac = (ROOT / "web/hk/home-cards/hk-home-vacuum.js").read_text()
     assert "rw ? 'rws' : 'grid'" in vac and "H.roomGlyph(a.name || id, icon)" in vac
+
+
+def test_lights_and_climate_share_the_glance_and_home_pills_and_power_levels_are_long_sliders():
+    # (the owner, 2026-11-26: "the heading from L4, but our standard HomeKit Pills" ... "make sure the Lights and Climate page
+    # match"; the rooms at the foot "the list layout you had before"; Power's levels as mockup L2's long sliders)
+    kit = KIT.read_text()
+    assert "pill: pill, sectionKey: sectionKey, glance: glance, wellOf: wellOf" in kit
+    assert ".grid.pills{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:' + P(70)" in kit      # Rule 5's 70 tall pill
+    home = (ROOT / "web/hk/cards/hk-hv-home.js").read_text()
+    lights, climate = home.split("class HvLights")[1].split("H.register('hk-hv-lights-card'")[0], home.split("class HvClimate")[1]
+    for page in (lights, climate):
+        assert "H.glance(" in page and "H.pill(" in page and "H.level(" not in page
+    assert "H.list(dark.map(" in lights                                    # the rooms that are all off, one list
+    assert "H.plate({ cls: 'sls' }" in (ROOT / "web/hk/cards/hk-hv-energy.js").read_text()
+
+
+def test_a_scrolled_page_keeps_its_place_through_a_shorter_draw():
+    # (the owner's video, 2026-11-26: scrolled down the Power page, it jumped to the top as a reading changed -- one draw came
+    # out short for a moment and the browser pulled the page up to its new end)
+    kit = KIT.read_text()
+    render = kit.split("    _render() {")[1].split("    draw() {")[0]
+    assert render.index("this._holdPlace();") < render.index("this._root.innerHTML =")       # held before the page is replaced
+    assert "(window.scrollY || 0) < 1" in kit and "var KEEP_MS = 8000;" in kit
+    assert "this._hv.mode = m; this._fresh = true;" in kit and "this._hv.deep = d; this._fresh = true;" in kit    # not for the person's own steps
