@@ -5,7 +5,8 @@
        / .homekit                                         hk_tv/settings/set)
     -> linked_house publishes a TV a screen and the "Mantel Live TV" sensor (``descriptors``)
     -> Mantel Link mirrors them (its media_player platform) and gives each TV its own HomeKit entry
-    -> the Home app (or the Remote in Control Center) turns it on or off, picks an input, changes the channel
+    -> the Home app (or the Remote in Control Center) turns it on or off, picks an input, changes the channel, goes
+       back to its home channel (Select), sets the volume (its screen's music speaker, through music_transport)
     -> Mantel Link's entity_command -> ``command``
     -> airplay_out's Sender.play / .stop as the linked Service actor ``mantel:linked``, audited (``via: home_app``)
     -> the sender's ``on_change`` (a show started or ended, whatever ended it) -> linked_house.refresh: each TV's state
@@ -41,6 +42,8 @@ VIA = "home_app"
 FEATURE = "live_tv_home"         # the link feature of a Mantel Link that kept Live TV's HomeKit Bridge (0.1.16 on)
 TV_FEATURE = "live_tv_tv"        # ...and of one that mirrors the TVs and makes their HomeKit entries (0.1.18 on)
 LAST_KEY = "live_tv_last"        # linked_owners' store: {screen: the channel last watched there}
+BEFORE_KEY = "live_tv_before"    # ...and {screen: the one watched before it} (the Remote's Select, LB.home_channel)
+VOLUME = ("volume_up", "volume_down")
 
 
 class LiveTvButtons:
@@ -58,6 +61,34 @@ class LiveTvButtons:
 
     def homekit_wanted(self) -> bool:
         return bool((self.host.settings.get("live_tv") or {}).get("homekit"))
+
+    def volume_setting(self) -> dict[str, str]:
+        try:
+            return LB.volume((self.host.settings.get("live_tv") or {}).get("volume") or {})
+        except LB.Invalid:
+            return {}
+
+    def speakers(self) -> dict[str, str]:
+        """{entity: its player's name} of Mantel's music speakers (the rooms), while Mantel's music is on: a TV's
+        volume is its screen's speaker's, set through the music engine."""
+        music = self.app.get("music")
+        if music is None or not getattr(music, "active", False):
+            return {}
+        try:
+            house = music.house
+            out = {}
+            for e in music.config().players():
+                st = house.state(e)
+                out[e] = str((st.attributes.get("friendly_name") if st else None) or e)
+            return out
+        except Exception:  # noqa: BLE001 -- no speakers read: no volume
+            log.exception("live tv in the home app: the music speakers could not be read")
+            return {}
+
+    def speaker(self, screen: str, speakers: dict[str, str] | None = None) -> str | None:
+        """The speaker a screen's TV sets the volume of (LB.speaker), or None."""
+        got = self.speakers() if speakers is None else speakers
+        return LB.speaker(self.screens().get(screen), self.volume_setting().get(screen), got)
 
     def power_on(self) -> dict[str, str]:
         try:
@@ -129,6 +160,7 @@ class LiveTvButtons:
         # no device: Home Assistant would put its name before the TV's, and the Home app shows that name
         published = self.plan(entry)
         sender = self.app.get("airplay_sender")
+        speakers = self.speakers()
         out: dict[str, tuple[dict[str, Any], tuple[str, Any]]] = {}
         playing = {}
         for p in published:
@@ -138,7 +170,8 @@ class LiveTvButtons:
             out[p["uid"]] = ({"unique_id": p["uid"], "platform": "media_player", "entity_id": p["entity_id"],
                               "name": p["name"], "has_entity_name": False, "icon": "mdi:television-play",
                               "state": state, "attributes": {"source": source, "screen": p["screen"]},
-                              "features": {"live_tv_home": True, "device_class": "tv", "sources": p["sources"]}},
+                              "features": {"live_tv_home": True, "device_class": "tv", "sources": p["sources"],
+                                           "volume": self.speaker(p["screen"], speakers) is not None}},
                              (LB.KIND, {"screen": p["screen"]}))
         c = LB.carrier(entry, published, self.homekit_wanted())
         out[c["uid"]] = ({"unique_id": c["uid"], "platform": "sensor", "entity_id": c["entity_id"], "name": c["name"],
@@ -153,10 +186,11 @@ class LiveTvButtons:
         """The screen's TV as published now (its channels and inputs), or None."""
         return next((p for p in self.plan(self.entry or "") if p["screen"] == screen), None)
 
-    def last(self) -> dict[str, str]:
-        """{screen: the channel its last show started with}, kept across restarts (linked_owners' small store)."""
+    def last(self, key: str = LAST_KEY) -> dict[str, str]:
+        """{screen: the channel its last show started with} (BEFORE_KEY: the one before it), kept across restarts
+        (linked_owners' small store)."""
         owners = self.app.get("linked_owners")
-        got = (owners.remembered(LAST_KEY) if owners is not None else None) or {}
+        got = (owners.remembered(key) if owners is not None else None) or {}
         return {k: v for k, v in got.items() if isinstance(k, str) and isinstance(v, str)}
 
     def watched(self, screen: str) -> None:
@@ -168,6 +202,8 @@ class LiveTvButtons:
             return
         last = self.last()
         if last.get(screen) != num:
+            if last.get(screen):
+                owners.remember(BEFORE_KEY, {**self.last(BEFORE_KEY), screen: last[screen]})
             owners.remember(LAST_KEY, {**last, screen: num})
 
     # -- a turn --------------------------------------------------------------------------------------------------
@@ -184,6 +220,8 @@ class LiveTvButtons:
             raise LinkedError("not_set_up", "that screen has no Live TV channel now")
         sender = self.app.get("airplay_sender")
         show = sender.playing(sid) if sender is not None else None
+        if command in VOLUME:
+            return await self.volume(sid, command, ctx)
         if command in ("toggle", "media_play_pause"):
             command = "turn_off" if show else "turn_on"
         if command in ("turn_off", "media_stop", "media_pause"):
@@ -196,6 +234,12 @@ class LiveTvButtons:
             num = LB.channel_of(tv, data.get("source"))
             if num is None:
                 raise LinkedError("invalid", f"{tv['name']} has no input {data.get('source')!r}")
+        elif command == "home_channel":
+            num = LB.home_channel(tv, self.power_on().get(sid), (show or {}).get("channel"),
+                                  self.last(BEFORE_KEY).get(sid) if (show or {}).get("channel") == self.last().get(sid)
+                                  else self.last().get(sid))
+            if num is None:
+                return {"playing": (show or {}).get("channel"), "screen": sid}
         elif command in ("media_next_track", "media_previous_track"):
             current = (show or {}).get("channel") or self.last().get(sid)
             num = LB.stepped(tv, current, 1 if command == "media_next_track" else -1)
@@ -204,6 +248,17 @@ class LiveTvButtons:
         if show and show.get("channel") == num:
             return {"playing": num, "screen": sid}
         return await self.press({"screen": sid, "channel": num}, ctx)
+
+    async def volume(self, sid: str, command: str, ctx: Any) -> dict[str, Any]:
+        """Volume up or down on a screen's TV: its speaker's, one step, as ``mantel.music_transport`` (the gateway, as
+        the linked actor, audited), so the HomeView's own volume is set the way the music's is."""
+        from ..linked import LinkedError
+        player = self.speaker(sid)
+        actions = self.app.get("linked_actions")
+        if player is None or actions is None:
+            raise LinkedError("not_set_up", "this screen's Live TV has no speaker to set the volume of")
+        await actions.call("music_transport", {"player": player, "command": command}, ctx)
+        return {"volume": command, "player": player, "screen": sid}
 
     async def press(self, detail: dict[str, Any], ctx: Any) -> dict[str, Any]:
         """Play ``channel`` on ``screen`` (None: stop the screen's show) as the linked actor. Refusals are Mantel Link's
@@ -271,7 +326,7 @@ class LiveTvButtons:
         published = 0
         if lk is not None and self.entry:
             published = sum(1 for p in tvs.values() if lk.registry.get(p["uid"]) is not None)
-        power, last = self.power_on(), self.last()
+        power, last, speakers, vol = self.power_on(), self.last(), self.speakers(), self.volume_setting()
 
         def homekit_of(uid: str) -> dict[str, Any]:
             got = hk.get(uid) or {"state": "none"}
@@ -280,8 +335,11 @@ class LiveTvButtons:
 
         return {
             "buttons": self.saved(), "homekit_wanted": self.homekit_wanted(), "power_on": power,
+            "speakers": [[e, nm] for e, nm in sorted(speakers.items(), key=lambda x: x[1].casefold())],
             "screens": [{"id": sid, "name": n, "playing": (sender.playing(sid) or {}).get("name") if sender else None,
-                         "last": last.get(sid),
+                         "last": last.get(sid), "volume": vol.get(sid, LB.AUTO),
+                         "speaker": self.speaker(sid, speakers),
+                         "speaker_auto": LB.speaker(n, None, speakers),
                          **({"tv": tvs[sid]["name"], "homekit": homekit_of(tvs[sid]["uid"])} if sid in tvs else {})}
                         for sid, n in self.screens().items()],
             "published": published, "link": self.link(),

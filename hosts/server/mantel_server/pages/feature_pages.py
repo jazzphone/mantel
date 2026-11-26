@@ -115,6 +115,7 @@ TV_MSG = {"guide_url": "Enter an address starting with http:// or https://, or l
           "buttons": "That screen or channel isn’t there any more. Pair the screen again, or choose another.",
           "homekit": "Add the TVs to the Home app, or remove them.",
           "power_on": "Choose Last Watched or one of its channels.",
+          "volume": "Choose a speaker, or None.",
           "no_lineup": "Mantel hasn’t read this tuner’s lineup, so only channels already chosen can be kept."}
 
 
@@ -565,7 +566,7 @@ class FeaturePages:
         from ..features import _HOST, _URL
         errors: dict[str, str] = {}
         for k in changes:
-            if k not in ("host", "guide_url", "channels", "names", "quality", "buttons", "power_on", "homekit"):
+            if k not in ("host", "guide_url", "channels", "names", "quality", "buttons", "power_on", "volume", "homekit"):
                 errors[k] = TV_MSG["unknown"]
         if "quality" in changes:
             if str(changes["quality"]) not in ("720", "1080"):
@@ -596,6 +597,13 @@ class FeaturePages:
                 piece["power_on"] = LB.power_on(changes["power_on"])
             except LB.Invalid:
                 errors["power_on"] = TV_MSG["power_on"]
+        if "volume" in changes:
+            # whose volume a screen's TV sets: a music speaker, "none", or (left out) the one named as the screen
+            from hk_core import live_tv_buttons as LB
+            try:
+                piece["volume"] = LB.volume(changes["volume"])
+            except LB.Invalid:
+                errors["volume"] = TV_MSG["volume"]
         if errors:
             raise PageError("invalid_format", fields=errors)
         if "host" in changes:

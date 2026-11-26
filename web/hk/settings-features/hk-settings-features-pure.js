@@ -214,6 +214,15 @@
       var v = ((home && home.power_on) || {})[screen];
       return v && ((home.buttons || []).some(function (b) { return b.screen === screen && b.channel === v; })) ? v : 'last';
     }
+    // whose volume a screen's TV sets: Automatic (the speaker named as the screen, when there is one), a speaker, or
+    // None ([value, label]); the server's `speakers` are [entity, its player's name]
+    function tvVolumeOptions(home, screen) {
+      var names = {};
+      ((home && home.speakers) || []).forEach(function (p) { names[p[0]] = p[1]; });
+      var auto = screen && screen.speaker_auto;
+      return [['auto', auto ? 'Automatic (' + (names[auto] || auto) + ')' : 'Automatic (None Found)']]
+        .concat(((home && home.speakers) || []).map(function (p) { return [p[0], p[1]]; })).concat([['none', 'None']]);
+    }
     // the names the server gives its parts (its own, its integration in Home Assistant, where it links)
     function tvHomeNames(home) {
       var n = (home && home.names) || {};
@@ -302,7 +311,7 @@
     KIT.search = search; KIT.speakerLists = speakerLists; KIT.speakerName = speakerName; KIT.stateOf = stateOf;
     KIT.tvButtonCount = tvButtonCount; KIT.tvButtonsAfter = tvButtonsAfter; KIT.tvHomeLink = tvHomeLink;
     KIT.tvHomeNames = tvHomeNames; KIT.tvLastButton = tvLastButton; KIT.tvCountTvs = tvCountTvs;
-    KIT.tvPowerOptions = tvPowerOptions; KIT.tvPowerOn = tvPowerOn;
+    KIT.tvPowerOptions = tvPowerOptions; KIT.tvPowerOn = tvPowerOn; KIT.tvVolumeOptions = tvVolumeOptions;
     KIT.tvCount = tvCount; KIT.tvLists = tvLists; KIT.vacuumsAfter = vacuumsAfter; KIT.vacuumSub = vacuumSub;
     KIT.virtualPair = virtualPair;
   };

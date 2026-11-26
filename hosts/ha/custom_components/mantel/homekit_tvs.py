@@ -16,8 +16,9 @@ goes loses its entry; ``want`` false removes them all.
 (homekit_entry.TV_BRIDGE_NAME), is removed, and so are the switches' registry entries Mantel no longer publishes. With a
 Mantel from before the TVs, nothing here happens: its switches' bridge is left as it is.
 
-**The Remote** in an iPhone's Control Center: HomeKit sends play/pause to the TV itself (on and off) and every other
-key as ``homekit_tv_remote_key_pressed``; up and down are channel up and down here (``REMOTE``).
+**The Remote** in an iPhone's Control Center: HomeKit sends play/pause to the TV itself (on and off), its volume
+buttons to the TV's volume (its speaker's, entity.py), and every other key as ``homekit_tv_remote_key_pressed``: the
+arrows are channel up and down here, Back stops the show and Select goes to the TV's home channel (``REMOTE``).
 
 Nothing else in Home Assistant is touched: no automation, no script, no other HomeKit entry.
 """
@@ -44,7 +45,10 @@ KIND = "live_tv_tv"                       # the sensor's features.homekit.bridge
 REPORT = "homekit_tvs"
 OLD_SWITCH = re.compile(r"_live_tv_s[0-9a-f]{12}_\d")     # 0.1.16-0.1.17's switch (and button) unique ids
 REMOTE_EVENT = "homekit_tv_remote_key_pressed"
-REMOTE = {"arrow_up": "media_next_track", "arrow_down": "media_previous_track"}
+# the Remote's keys (the owner, 2026-11-26): every arrow changes the channel, Back stops the show, Select goes to the
+# TV's home channel (its When Turned On channel, or the one watched before: Mantel's home_channel); i does nothing
+REMOTE = {"arrow_up": "media_next_track", "arrow_right": "media_next_track", "arrow_down": "media_previous_track",
+          "arrow_left": "media_previous_track", "back": "media_stop", "select": "home_channel"}
 NAME_MAX = 60
 
 
@@ -238,7 +242,7 @@ class TvHomeKit:
 
     @callback
     def _remote(self, event: Event) -> None:
-        """A key on the Remote in Control Center for one of these TVs: up and down change the channel."""
+        """A key on the Remote in Control Center for one of these TVs (``REMOTE``)."""
         command = REMOTE.get(event.data.get("key_name"))
         eid = event.data.get("entity_id")
         if command is None:

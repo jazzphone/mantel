@@ -38,6 +38,8 @@ from typing import Any
 MAX_BUTTONS = 48
 MAX_SOURCES = 40                                     # inputs a TV shows (HomeKit's own limit is a little more)
 LAST = "last"                                        # live_tv.power_on: the last channel watched on the screen
+AUTO, NO_VOLUME = "auto", "none"                     # live_tv.volume: the speaker named as the screen, or none
+SPEAKER = re.compile(r"^media_player\.[a-z0-9_]{1,120}$")
 SCREEN = re.compile(r"^s[0-9a-f]{12}$")              # cameras/airplay_out/screens.py's ids
 CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
 BRIDGE_NAME = "Mantel Live TV"                       # the sensor's name, and each TV's HomeKit entry's first words
@@ -160,6 +162,41 @@ def turn_on_channel(tv: Mapping[str, Any], how: Any, last: Any) -> str | None:
     if isinstance(how, str) and how != LAST and how in nums:
         return how
     return last if isinstance(last, str) and last in nums else nums[0]
+
+
+def home_channel(tv: Mapping[str, Any], how: Any, current: Any, before: Any) -> str | None:
+    """The channel the Remote's Select goes to: the TV's chosen channel (``power_on``) while it is one of its, else (Last
+    Watched) the one watched before ``current``, as a TV's Last button does; None: nothing to go to."""
+    nums = list(tv.get("channels") or [])
+    if isinstance(how, str) and how != LAST and how in nums:
+        return how
+    return before if isinstance(before, str) and before in nums and before != current else None
+
+
+def volume(v: Any) -> dict[str, str]:
+    """``live_tv.volume`` as saved: {screen id: a speaker's entity id, or "none"} (none said: the speaker named as the
+    screen, ``speaker``)."""
+    if not isinstance(v, Mapping) or len(v) > MAX_BUTTONS:
+        raise Invalid("volume")
+    out = {}
+    for sid, how in v.items():
+        if not isinstance(sid, str) or not SCREEN.match(sid) or not isinstance(how, str) or not (
+                how == NO_VOLUME or SPEAKER.match(how)):
+            raise Invalid("volume")
+        out[sid] = how
+    return out
+
+
+def speaker(screen_name: Any, how: Any, speakers: Mapping[str, str]) -> str | None:
+    """The music speaker a screen's TV sets the volume of. ``speakers``: {entity: its player's name} of Mantel's music
+    rooms. ``how``: a speaker chosen for it (while it is one), "none", or nothing: the speaker whose player has the
+    screen's own name ("Kitchen HomeView" is the HomeView's player in Music Assistant too)."""
+    if how == NO_VOLUME:
+        return None
+    if isinstance(how, str) and how in speakers:
+        return how
+    want = str(screen_name or "").strip().casefold()
+    return next((e for e, n in speakers.items() if want and str(n).strip().casefold() == want), None)
 
 
 def stepped(tv: Mapping[str, Any], current: Any, step: int) -> str | None:

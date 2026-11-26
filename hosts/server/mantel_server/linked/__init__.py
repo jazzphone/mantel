@@ -73,7 +73,8 @@ ALARM_COMMANDS = frozenset({"alarm_disarm", "alarm_arm_home", "alarm_arm_away", 
                             "alarm_arm_vacation", "alarm_arm_custom_bypass", "alarm_trigger"})
 # media_player: Live TV's TV a screen for Apple's Home app (cameras/live_tv_buttons.py), its only one
 TV_COMMANDS = frozenset({"turn_on", "turn_off", "toggle", "select_source", "media_play", "media_pause",
-                         "media_play_pause", "media_stop", "media_next_track", "media_previous_track"})
+                         "media_play_pause", "media_stop", "media_next_track", "media_previous_track",
+                         "volume_up", "volume_down", "home_channel"})
 COMMANDS: dict[str, frozenset[str]] = {"switch": frozenset({"turn_on", "turn_off", "toggle"}),
                                        "alarm_control_panel": ALARM_COMMANDS, "media_player": TV_COMMANDS}
 CLIENT_TYPES = frozenset({"call_service", "entity_command", "ping"})

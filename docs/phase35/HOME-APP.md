@@ -33,14 +33,24 @@ Live TV plays there.
    shows a TV only as an accessory of its own; Home Assistant warns of one in a bridge. An entry is found again by the
    TV's entity in it, never by its name. A screen whose TV goes loses its entry. Each entry's state goes back to
    Mantel as `report.homekit_tvs`; Settings draws each code and its QR.
-4. **A tap in the Home app** turns the TV on or off or picks an input; the Remote in Control Center sends play/pause
-   (on or off) and its arrows (up and down: Mantel Link's `homekit_tv_remote_key_pressed` listener, as next and
-   previous channel). Mantel Link sends `entity_command` (`select_source` with `{source}`). Mantel plays or stops the
-   screen's show as the linked Service actor `mantel:linked`, audited with `via: home_app`:
+4. **A tap in the Home app** turns the TV on or off or picks an input. **The Remote in Control Center** (the owner,
+   2026-11-26): play/pause turns it on or off; every arrow changes the channel (up and right next, down and left
+   previous); Back stops the show; Select goes to its home channel; the iPhone's volume buttons set its volume; i does
+   nothing (Home Assistant gives every HomeKit TV the Remote, with no way to leave it out). The keys reach Mantel Link
+   as `homekit_tv_remote_key_pressed` (`homekit_tvs.py` `REMOTE`), the volume as the TV's `volume_up` / `volume_down`.
+   Mantel Link sends `entity_command` (`select_source` with `{source}`). Mantel plays or stops the screen's show as the
+   linked Service actor `mantel:linked`, audited with `via: home_app`:
    - **on** (or play): what When Turned On says (`hk_core.live_tv_buttons.turn_on_channel`): its channel, or the
      channel last watched on that screen (kept across restarts in `linked_owners`' store, from every show however it
      started), else the TV's first; nothing new while the screen already plays.
    - **an input**: that channel. **Next / previous**: the TV's next or previous channel, round the end.
+   - **home channel** (Select): the When Turned On channel when one is chosen; with Last Watched, the channel watched
+     before this one (kept as `live_tv_before`), as a TV's Last button does.
+   - **volume up / down**: one step of the screen's music speaker, as `mantel.music_transport` (the gateway, as
+     `mantel:linked`, audited), so the HomeView's own volume is set the way the music's is; Live TV's stream is never
+     touched. The speaker is Settings' Volume for the screen (`live_tv.volume` `{screen: entity | "none"}`), by default
+     the music speaker whose player has the screen's name ("Kitchen HomeView" is `media_player.kitchen_homeview` in
+     Music Assistant). With none, the TV has no volume (`features.volume`).
    - **off** (pause, stop): the screen's show ends.
    A screen that is slow to start answers `starting` after 6 s (Mantel Link waits 8) and plays on.
 5. **The TV shows what plays.** The sender tells `on_change` each time a screen's show starts or ends, whatever ended
@@ -101,7 +111,8 @@ So Mantel Link 0.1.18 can go first and nothing stops working until the Mantel ho
 ## Limits
 
 - One HomeKit pairing a screen: a house with three screens scans three codes.
-- No volume: the HomeView's own volume is its own (Control Center's Remote shows no volume for these TVs).
+- Volume needs Mantel's music on and the screen's speaker in it; whether a HomeView playing AirPlay video takes the
+  music player's volume the same way was not tried on the house before it shipped.
 - Siri turns a TV on and off; picking an input by voice is HomeKit's to allow, not checked on a real Home app yet.
 - Unchecking a screen's last channel while the TVs are in the Home app asks first: its TV leaves the Home app, and adding
   a channel again needs a new code.

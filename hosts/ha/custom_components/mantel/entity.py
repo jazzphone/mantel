@@ -133,11 +133,16 @@ class LinkedTv(LinkedEntity, MediaPlayerEntity):
     """Live TV's TV a paired AirPlay screen, for Apple's Home app ("Den HomeView Live TV"; Mantel's
     cameras/live_tv_buttons.py): its inputs are the channels Mantel names (``features.sources``), its state and input
     what Mantel says plays there. Every command goes to Mantel, which plays or stops the screen's show; next and previous
-    are channel up and down (the Remote's arrows, homekit_tvs.py). The state changes only when Mantel says so, never on
-    the tap alone. HomeKit shows it as a TV in an entry of its own (homekit_tvs.py)."""
+    are channel up and down (the Remote's arrows, homekit_tvs.py). Volume up and down, while Mantel says the screen has a
+    speaker (``features.volume``), are that speaker's: the HomeView's own volume, set by Mantel's music (the iPhone's
+    buttons in the Remote). The state changes only when Mantel says so, never on the tap alone. HomeKit shows it as a TV
+    in an entry of its own (homekit_tvs.py)."""
 
     linked_platform = "media_player"
-    _attr_supported_features = TV_FEATURES
+
+    @property
+    def supported_features(self) -> MediaPlayerEntityFeature:
+        return TV_FEATURES | (MediaPlayerEntityFeature.VOLUME_STEP if self._features.get("volume") else 0)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -198,6 +203,12 @@ class LinkedTv(LinkedEntity, MediaPlayerEntity):
 
     async def async_media_previous_track(self) -> None:
         await self._send("media_previous_track")
+
+    async def async_volume_up(self) -> None:
+        await self._send("volume_up")
+
+    async def async_volume_down(self) -> None:
+        await self._send("volume_down")
 
 
 class LinkedSensor(LinkedEntity, SensorEntity):

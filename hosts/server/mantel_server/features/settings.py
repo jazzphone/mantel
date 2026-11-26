@@ -24,10 +24,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
     # `go2rtc_once`: Mantel has started with its own go2rtc and turned Live TV on for it, once (host._live_tv_once)
-    # `buttons` / `power_on` / `homekit`: Live TV in Apple's Home app, a TV a screen: its channels, what turning it on
-    # plays, and whether the TVs are in HomeKit (hk_core.live_tv_buttons)
+    # `buttons` / `power_on` / `volume` / `homekit`: Live TV in Apple's Home app, a TV a screen: its channels, what
+    # turning it on plays, whose volume it sets, and whether the TVs are in HomeKit (hk_core.live_tv_buttons)
     "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720",
-                "go2rtc_once": False, "buttons": [], "power_on": {}, "homekit": False},
+                "go2rtc_once": False, "buttons": [], "power_on": {}, "volume": {}, "homekit": False},
     # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
     # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
     "tablets": {"enabled": False},
@@ -170,6 +170,10 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
         tv["power_on"] = LB.power_on(tv["power_on"])
     except LB.Invalid:
         raise ValueError("live_tv.power_on: {screen: \"last\" or a channel number}") from None
+    try:
+        tv["volume"] = LB.volume(tv["volume"])
+    except LB.Invalid:
+        raise ValueError("live_tv.volume: {screen: a speaker's media_player entity, or \"none\"}") from None
     if not isinstance(tv["homekit"], bool):
         raise ValueError("live_tv.homekit: true or false (Live TV's TVs in HomeKit)")
     au = out["auto"]
@@ -273,6 +277,6 @@ async def import_features(panel: Any, read: Callable[[dict], Awaitable[Any]], cu
             piece["enabled"] = True
         if kind == "live_tv":
             # Mantel's own, which Home Assistant never had: the Home app's TVs stay through an import
-            piece.update({k: copy.deepcopy(out["live_tv"][k]) for k in ("buttons", "power_on", "homekit")})
+            piece.update({k: copy.deepcopy(out["live_tv"][k]) for k in ("buttons", "power_on", "volume", "homekit")})
         out[kind] = piece
     return check_settings(out)

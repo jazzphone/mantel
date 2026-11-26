@@ -92,6 +92,12 @@ ok('When Turned On: Last Watched, then the screen’s channels in its order',
    eq(F._.tvPowerOptions({}, den, chans), [['last', 'Last Watched']]));
 ok('...the saved one while it is one of the TV’s channels, else Last Watched',
    F._.tvPowerOn(two, den) === '4.1' && F._.tvPowerOn(two, study) === 'last' && F._.tvPowerOn({}, den) === 'last');
+var spk = { speakers: [['media_player.den_homeview', 'Den HomeView'], ['media_player.study_homepod', 'Study HomePod']] };
+ok('Volume: Automatic names the speaker the screen matched, then every speaker, then None',
+   eq(F._.tvVolumeOptions(spk, { speaker_auto: 'media_player.den_homeview' }),
+      [['auto', 'Automatic (Den HomeView)'], ['media_player.den_homeview', 'Den HomeView'],
+       ['media_player.study_homepod', 'Study HomePod'], ['none', 'None']]) &&
+   F._.tvVolumeOptions(spk, {})[0][1] === 'Automatic (None Found)' && eq(F._.tvVolumeOptions({}, {}).length, 2));
 var names = { host: 'Hearth', link: 'Hearth Link', ha_page: '#/hearth/ha' };
 var link = function (l, n) { return F._.tvHomeLink({ link: l, published: n, names: names }); };
 var ready = link({ connected: true, home: true, house: true, linked_on: true }, 3);

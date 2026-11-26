@@ -67,7 +67,7 @@ async def test_a_tv_in_the_home_app_plays_its_channels_and_shows_what_plays(rig,
         d = reg.get(tv)
         assert (d["platform"], d["name"], d["entity_id"], d["state"]) == (
             "media_player", "Den HomeView Live TV", "media_player.den_homeview_live_tv", "off")
-        assert d["features"] == {"live_tv_home": True, "device_class": "tv", "sources": ["NBC", "WFAK-DT"]}
+        assert d["features"] == {"live_tv_home": True, "device_class": "tv", "sources": ["NBC", "WFAK-DT"], "volume": False}
         assert [u for u in reg.entities if "_live_tv_" in u] == [tv, carrier], "one TV a screen, nothing else"
         assert reg.get(carrier)["features"]["homekit"] == {"bridge": "live_tv_tv", "want": True, "include": [tv]}
         assert authz.tv_button_cameras() == ("camera.tv_nbc", "camera.tv_wfak_dt")
@@ -221,3 +221,65 @@ def test_the_grant_names_the_linked_actor_as_alarm_pin_does():
     assert [(g.resource_kind, g.resource, tuple(g.actions)) for g in got] == [
         ("feature", "live_tv", ("view",)), ("entity", "camera.tv_nbc", ("view",))]
     assert all(g.users == frozenset({alarm_pin.LINKED_ACTOR}) and not g.roles for g in got)
+
+
+async def test_the_remotes_select_and_volume(rig, monkeypatch):  # noqa: F811
+    """Select goes back to the channel watched before (Last Watched) or to the chosen one; volume up and down are the
+    screen's speaker's (named as the screen, or chosen), through mantel.music_transport as the linked actor."""
+    r = await rig(linked=True)
+    screen = await FakeScreen().start()
+    try:
+        ws, sid = await _set_up(r, monkeypatch, screen)
+        buttons, reg = r.app["live_tv_buttons"], r.app["linked"].registry
+        monkeypatch.setattr(buttons, "speakers", lambda: {"media_player.den_homeview": "Den HomeView",
+                                                          "media_player.study_homepod": "Study HomePod"})
+        sent = []
+
+        async def call(service, data, ctx):
+            sent.append((service, data))
+            return {"ok": True}
+        monkeypatch.setattr(r.app["linked_actions"], "call", call)
+        await save(ws, 1, {"type": "hk_tv/settings/set", "changes": {
+            "buttons": [{"screen": sid, "channel": "4.1"}, {"screen": sid, "channel": "7.1"}]}})
+        await r.app["linked_house"].refresh()
+        tv = f"{LINK_ENTRY}_live_tv_tv_{sid}"
+        assert reg.get(tv)["features"]["volume"] is True
+
+        await _turn(r, tv)
+        await _shows(reg, tv, ("playing", "NBC"))
+        assert (await _turn(r, tv, "home_channel"))["playing"] == "4.1"     # nothing watched before: it stays
+        await _turn(r, tv, "select_source", source="WFAK-DT")
+        await _shows(reg, tv, ("playing", "WFAK-DT"))
+        await _turn(r, tv, "home_channel")                                   # back to NBC, and again to WFAK-DT
+        await _shows(reg, tv, ("playing", "NBC"))
+        await _turn(r, tv, "home_channel")
+        await _shows(reg, tv, ("playing", "WFAK-DT"))
+        got = await save(ws, 2, {"type": "hk_tv/settings/set", "changes": {"power_on": {sid: "4.1"}}})
+        await _turn(r, tv, "home_channel")                                   # a chosen channel: always it
+        await _shows(reg, tv, ("playing", "NBC"))
+
+        assert (await _turn(r, tv, "volume_up"))["player"] == "media_player.den_homeview"
+        await _turn(r, tv, "volume_down")
+        assert sent == [("music_transport", {"player": "media_player.den_homeview", "command": "volume_up"}),
+                        ("music_transport", {"player": "media_player.den_homeview", "command": "volume_down"})]
+        got = await save(ws, 3, {"type": "hk_tv/settings/set", "changes": {"volume": {sid: "media_player.study_homepod"}}})
+        den = got["result"]["home_app"]["screens"][0]
+        assert (den["volume"], den["speaker"], den["speaker_auto"]) == (
+            "media_player.study_homepod", "media_player.study_homepod", "media_player.den_homeview")
+        await _turn(r, tv, "volume_up")
+        assert sent[-1][1]["player"] == "media_player.study_homepod"
+        # None: no volume, and Home Assistant shows none
+        await save(ws, 4, {"type": "hk_tv/settings/set", "changes": {"volume": {sid: "none"}}})
+        await r.app["linked_house"].refresh()
+        assert reg.get(tv)["features"]["volume"] is False
+        try:
+            await _turn(r, tv, "volume_up")
+            raise AssertionError("a TV with no speaker took volume_up")
+        except LinkedError as exc:
+            assert exc.code == "not_set_up"
+        got = await save(ws, 5, {"type": "hk_tv/settings/set", "changes": {"volume": {sid: "light.lamp"}}})
+        assert "volume" in str(got)
+        await _turn(r, tv, "turn_off")
+        await ws.close()
+    finally:
+        await screen.close()

@@ -21,10 +21,10 @@ DEN_EID, STUDY_EID = "media_player.den_homeview_live_tv", "media_player.study_tv
 
 
 def tv(uid: str = TV, name: str = "Den HomeView Live TV", eid: str = DEN_EID, state: str = "off",
-       source: str | None = None) -> dict:
+       source: str | None = None, volume: bool = True) -> dict:
     return {"unique_id": uid, "platform": "media_player", "entity_id": eid, "name": name, "has_entity_name": False,
             "state": state, "attributes": {"source": source, "screen": DEN},
-            "features": {"live_tv_home": True, "device_class": "tv", "sources": ["NBC", "WFAK-DT"]}}
+            "features": {"live_tv_home": True, "device_class": "tv", "sources": ["NBC", "WFAK-DT"], "volume": volume}}
 
 
 def carrier(include: list[str], want: bool = True, bridge: str = "live_tv_tv") -> dict:
@@ -75,15 +75,25 @@ async def test_a_tv_sends_every_command_to_mantel_and_shows_what_mantel_says_pla
     assert hass.states.get(DEN_EID).attributes["source"] == "WFAK-DT"
     await hass.services.async_call("media_player", "select_source", {"entity_id": DEN_EID, "source": "NBC"}, blocking=True)
     assert mantel.calls("entity_command")[-1]["data"] == {"source": "NBC"}
-    for service in ("media_next_track", "media_previous_track", "media_pause", "turn_off"):
+    from homeassistant.components.media_player import MediaPlayerEntityFeature as F
+    assert hass.states.get(DEN_EID).attributes["supported_features"] & F.VOLUME_STEP     # its screen has a speaker
+    for service in ("media_next_track", "media_previous_track", "volume_up", "volume_down", "media_pause", "turn_off"):
         await hass.services.async_call("media_player", service, {"entity_id": DEN_EID}, blocking=True)
         assert mantel.calls("entity_command")[-1]["command"] == service
-    # the Remote in Control Center: up and down are channel up and down; any other key, or another TV, nothing
+    # the Remote in Control Center: every arrow changes the channel, Back stops, Select goes to the home channel;
+    # i, or another TV, nothing
     n = len(mantel.calls("entity_command"))
-    for key, eid in (("arrow_up", DEN_EID), ("arrow_down", DEN_EID), ("select", DEN_EID), ("arrow_up", "media_player.x")):
+    for key, eid in (("arrow_up", DEN_EID), ("arrow_right", DEN_EID), ("arrow_down", DEN_EID), ("arrow_left", DEN_EID),
+                     ("back", DEN_EID), ("select", DEN_EID), ("information", DEN_EID), ("arrow_up", "media_player.x")):
         hass.bus.async_fire("homekit_tv_remote_key_pressed", {"key_name": key, "entity_id": eid})
-    await until(hass, lambda: len(mantel.calls("entity_command")) >= n + 2)
-    assert [c["command"] for c in mantel.calls("entity_command")[n:]] == ["media_next_track", "media_previous_track"]
+        await hass.async_block_till_done()
+    await until(hass, lambda: len(mantel.calls("entity_command")) >= n + 6)
+    assert [c["command"] for c in mantel.calls("entity_command")[n:]] == [
+        "media_next_track", "media_next_track", "media_previous_track", "media_previous_track", "media_stop",
+        "home_channel"]
+    # a screen with no speaker: no volume to show
+    await mantel.push({"type": "entity", "entity": tv(volume=False)})
+    await until(hass, lambda: not hass.states.get(DEN_EID).attributes["supported_features"] & F.VOLUME_STEP)
     # the script actions: forwarded as called, never under HK Frontend's name
     await hass.services.async_call("mantel", "live_tv_play", {"channel": "4.1", "screen": "Den HomeView"}, blocking=True)
     await hass.services.async_call("mantel", "live_tv_stop", {"screen": "Den HomeView"}, blocking=True)

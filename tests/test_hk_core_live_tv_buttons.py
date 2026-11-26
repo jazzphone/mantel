@@ -95,3 +95,26 @@ def test_the_carrier_counts_the_tvs_and_carries_homekits_wish():
     # published while there is anything to say: a channel, HomeKit wanted, or a TV still in HomeKit
     assert LB.wanted([], False, "none") is False
     assert LB.wanted([], False, "some") and LB.wanted([], True, "none") and LB.wanted([{"screen": DEN}], False, "none")
+
+
+def test_select_goes_to_the_chosen_channel_or_the_one_watched_before():
+    tv = {"channels": ["4.1", "7.1", "13.1"]}
+    assert LB.home_channel(tv, "13.1", "4.1", "7.1") == "13.1"            # a chosen channel: always it
+    assert LB.home_channel(tv, "last", "4.1", "7.1") == "7.1"             # Last Watched: back to the one before
+    assert LB.home_channel(tv, None, "4.1", "7.1") == "7.1" and LB.home_channel(tv, "9.1", "4.1", "7.1") == "7.1"
+    assert LB.home_channel(tv, "last", "4.1", "4.1") is None              # nothing before it: stay
+    assert LB.home_channel(tv, "last", "4.1", "9.1") is None and LB.home_channel(tv, "last", "4.1", None) is None
+
+
+def test_a_tvs_volume_is_the_speaker_named_as_its_screen_unless_another_is_chosen():
+    speakers = {"media_player.kitchen_homeview": "Kitchen HomeView", "media_player.study_homepod": "Study HomePod"}
+    assert LB.speaker("Kitchen HomeView", None, speakers) == "media_player.kitchen_homeview"
+    assert LB.speaker(" kitchen homeview ", "auto", speakers) == "media_player.kitchen_homeview"
+    assert LB.speaker("Den HomeView", None, speakers) is None                         # none of that name
+    assert LB.speaker("Den HomeView", "media_player.study_homepod", speakers) == "media_player.study_homepod"
+    assert LB.speaker("Kitchen HomeView", "none", speakers) is None
+    assert LB.speaker("Kitchen HomeView", "media_player.gone", speakers) == "media_player.kitchen_homeview"
+    assert LB.volume({DEN: "none", STUDY: "media_player.study_homepod"}) == {DEN: "none", STUDY: "media_player.study_homepod"}
+    for bad in (None, {DEN: "light.lamp"}, {DEN: "auto"}, {"den": "none"}):
+        with pytest.raises(LB.Invalid):
+            LB.volume(bad)
