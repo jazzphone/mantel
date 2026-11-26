@@ -1127,3 +1127,21 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Hotfix `0.1.170-main.1d8db7836`: healthy (strict health, Home Assistant connected), no error in the log, disk 45%.
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master
   bedroom). The HomeView itself reloads on its next visit; not yet seen on it.
+
+## Hotfix 0.1.170-main.d348ab55f (2026-11-26)
+
+- The owner: "feel free to hotfix the house when you are done". The house ran hotfix 0.1.170-main.1d8db7836; main since
+  then: a2f8270e (the record above) and c224450e (the registry overlays keep their entries in place), merged as
+  d348ab55. All ship.
+- What it fixes: every open page read the registry again every 5 minutes and redrew every card. Protect's camera-list
+  refresh (`REFRESH_S`, 300 s) put its detection sensors at the end of the entity list, and the direct cameras' 30 s
+  tick then put `camera.mantel_*` at the end: the same entries in another order, a new digest, a `registry` frame to
+  every page. The house's access log showed it: 139,692 bytes (gzipped) at 16:44:03, after the refresh; 139,694 at
+  16:44:30, after the tick.
+- Before: `tools/ci.py quick` 7/7 on `d348ab55` from a /private/tmp worktree (on the share, six slow tests and another
+  session's untracked `docs/mockups/homegrid-touch/study.js` failed it).
+- Hotfix `0.1.170-main.d348ab55f`: healthy (strict health 200; Home Assistant, Music Assistant, Mantel Link and HK
+  Frontend connected), no error in the log, disk 45%.
+- `refresh-kiosks` reported 4 Kiosk Satellite tablets reloaded, but their entities in Home Assistant had been
+  unavailable since 14:59 UTC (before this hotfix), and no page connected in the first 13 minutes, so the fix was not
+  yet seen on a page.
