@@ -1070,3 +1070,27 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Mantel on the LXC reconnected to Home Assistant (authenticated 01:27:49 UTC, Mantel Link and HK Frontend linked by 01:28:02) and answered strict health; the tool stopped at its revision check -- the house runs hotfix 0.1.170-main.21611adb7 (the Live TV switches this release pairs with), not the release commit 5fd0c7c -- so the tag, the publish and this record were finished by hand with the tool's own functions (tag_product, publish.py --release, record).
 - Published to jazzphone/mantel-link main as `f2fd428`, tagged `v0.1.17` and released on GitHub.
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master bedroom).
+
+## Mantel Link 0.1.18 and hotfix 0.1.170-main.8e549b5a5 (2026-11-26)
+
+- The owner: "Yes, release both, and any other sessions that have commited changes since the last hotfix!" The house ran
+  hotfix 0.1.170-main.6ce2359fe; main since then: 217e0894 (HomeView apps, round 3: steady scrolling, a floating switch,
+  one-column speakers, a timer as the sheet's, rooms as checked rows; also hk-menu.js room glyphs and the vacuum block),
+  8d24a50a + 07a12d83 (Live TV in the Home app as a TV for each screen), 8e549b5a (Mantel Link 0.1.18's version). All ship.
+- Before: `tools/ci.py full --release` on `07a12d83`: 98 passed, media-card-check-webkit failed "the Side Pane's volume
+  sets every room of the group: [0.3,0.83]" (the flake recorded at 0.1.17), passed alone; a second whole run passed
+  (10 passed, 89 unchanged).
+- mantel-link 0.1.18, commit `8e549b5`, tagged `mantel-link/v0.1.18`, copied with rsync --inplace; diff -rq shows no
+  difference. Home Assistant restarted; Mantel on the LXC reconnected and answered strict health; the tool stopped at its
+  revision check (the house runs a hotfix, as at 0.1.17), and the rest was finished by hand with its own steps
+  (tag_product, publish.py --release --no-tests). Published to jazzphone/mantel-link main as `474bd3c`, tagged `v0.1.18`
+  and released on GitHub. With Mantel still on the switches, 0.1.18 mirrored the 8 switches and left their bridge alone.
+- Hotfix `0.1.170-main.8e549b5a5` (packaging/lxc/mantel-hotfix.sh from 8e549b5a): healthy (strict health, Home Assistant
+  connected), no error or warning in the stack's log, disk 45%. Home Assistant changed over by itself: the 8 switches
+  and the "Mantel Live TV" bridge gone; `media_player.kitchen_homeview_live_tv` and
+  `media_player.master_bathroom_homeview_live_tv` (inputs NBC, CBS, ABC, FOX), each in its own HomeKit entry ("Mantel
+  Kitchen HomeView Live TV", "Mantel Master Bathroom HomeView Live TV"), loaded. HK Frontend's linked mode warns
+  "ignored a linked entity Mantel Server described badly" for the two media players on each hello (it has no such
+  platform; it mirrors nothing while Mantel Link holds the bridge). Not turned on (would play sound).
+- The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master
+  bedroom).
