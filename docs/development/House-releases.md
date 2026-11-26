@@ -1114,3 +1114,16 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
   in Home Assistant's log. Not played (sound): volume and the pictures are still to be seen on a HomeView.
 - The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master
   bedroom).
+
+## Hotfix 0.1.170-main.1d8db7836 (2026-11-26)
+
+- The owner: "Yes, hotfix it". The house ran hotfix 0.1.170-main.8bbd294bb (which already carried phase 36's round 3,
+  217e0894); main since then: c8169c3a (the record above) and a62d26c8 (HomeView Lights and Climate in one frame: the
+  glance on top, each lit room's lights as Home pills, the all-off rooms as a list; Climate matched; Power's levels as
+  long sliders; a scrolled HomeView page keeps its place through a shorter redraw), merged as 1d8db783. All ship.
+- Before: `tools/ci.py quick` 7/7 and `full --only hk-frontend-js` 2/2 on `1d8db783`; Lights, Climate and Power drawn
+  on the house twin in WebKit and Chromium; a forced short draw while scrolled kept the page in place (without the hold
+  it landed at the top, as in the owner's video).
+- Hotfix `0.1.170-main.1d8db7836`: healthy (strict health, Home Assistant connected), no error in the log, disk 45%.
+- The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (kitchen, living room, master bathroom, master
+  bedroom). The HomeView itself reloads on its next visit; not yet seen on it.
