@@ -99,7 +99,7 @@ SERVER_TYPES_2 = SERVER_TYPES | {"phone_notify"}
 HANDLER_TIMEOUT = 8.0          # under HA's 10 s, so HA's call gets Mantel's own "timeout" first
 # A MUSIC REQUEST OUTLASTS THE LINK (2026-11-26, the owner: Everywhere from a Home Assistant screen "errored, although it
 # started playing"): the engine waits for the music by design (a group of 18 starting after Music Assistant restarted took
-# ~10 s; START_TIMEOUT is 15), and wait_for CANCELLED the run at 8 s -- the play had begun, a move or a join could have
+# ~10 s; START_TIMEOUT is 15), and wait_for CANCELED the run at 8 s -- the play had begun, a move or a join could have
 # been left half done, and the audit row got no result. A music request answers within MUSIC_ANSWER_S: its own answer
 # when it has one, else "still going", and the run goes on to its end in the background (logged, audited).
 MUSIC_SERVICES = frozenset({"music_play", "music_transfer", "music_stop", "music_transport", "music_play_media"})
@@ -686,7 +686,7 @@ class Linked:
         return await asyncio.wait_for(self.handler.call_service(service, data, targets, ctx), self.timeout)
 
     async def _music(self, service: str, call: Any) -> Any:
-        """A music request's answer within MUSIC_ANSWER_S, never cancelling it (MUSIC_SERVICES)."""
+        """A music request's answer within MUSIC_ANSWER_S, never canceling it (MUSIC_SERVICES)."""
         task = asyncio.ensure_future(call)
         done, _ = await asyncio.wait({task}, timeout=max(0.1, self.timeout - MUSIC_MARGIN_S))
         if task in done:

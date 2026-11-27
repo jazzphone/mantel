@@ -347,9 +347,9 @@ async def test_a_custom_handler_its_refusals_timeouts_and_bugs(tmp_path, monkeyp
     store.db.close()
 
 
-async def test_a_music_request_answers_in_time_and_is_never_cancelled():
+async def test_a_music_request_answers_in_time_and_is_never_canceled():
     # 2026-11-26: Everywhere from a Home Assistant screen took ~10 s to start 18 speakers; the link's 8 s wait_for
-    # cancelled the run and the page showed an error while the music started. A music request answers "still going" in
+    # canceled the run and the page showed an error while the music started. A music request answers "still going" in
     # time and runs on to its end; a quick one answers with its own result.
     from mantel_server.linked import Linked
     lk = Linked(None, None, None, timeout=0.3)
