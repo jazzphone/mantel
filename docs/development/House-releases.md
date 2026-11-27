@@ -1211,3 +1211,12 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Before: `tools/ci.py quick` 7/7 and `full --only hk-frontend-js --only hk-frontend-py` 3/3 from local disk.
 - Hotfix `0.1.170-main.fbdc6959a`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
   Pairs with ma-airplay-groups 0.3.35 (6895b53) on the Music Assistant computer (not yet installed).
+
+## Hotfix 0.1.170-main.46bf9cf28 (2026-11-27)
+
+- The owner: "Yes". The house ran hotfix 0.1.170-main.fbdc6959a; main since then: 6cf32c4c (its record) and 46bf9cf2
+  (Codex's follow-up: AirPlay rooms are one session by the group each speaker advertises -- `airplay_group_id`, which
+  ma-airplay-groups 0.3.36 publishes -- not by the item). All ship. Until 0.3.36 is on the Music Assistant computer no
+  speaker has the attribute, so each AirPlay room is its own player with its own Play/Pause.
+- Before: `tools/ci.py quick` 7/7 and `full --only hk-frontend-js --only hk-frontend-py` 3/3 from local disk.
+- Hotfix `0.1.170-main.46bf9cf28`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
