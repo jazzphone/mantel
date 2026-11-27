@@ -1170,3 +1170,13 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Hotfix `0.1.170-main.a998685d9`: healthy, no error in the log, disk 45%. Pairs with ma-airplay-groups 0.3.27 on the
   Music Assistant computer (not yet installed there).
 
+## Hotfix 0.1.170-main.550a6556d (2026-11-26)
+
+- The owner: "Yes, hotfix it". The house ran hotfix 0.1.170-main.a998685d9; main since then: 557ae0bf (its record) and
+  550a6556 (a virtual pair's second player is its room's in Music Assistant's groups -- the settings page's false "isn't
+  one of Music's speakers" for the Office and Master Bedroom right HomePods, and an announcement's hidden rooms; a 64-hex
+  apple-device id, pyatv's fallback hash, is no AirPlay session, so two devices playing one song stay two). All ship.
+- Before: `tools/ci.py quick` 7/7 from local disk (it first caught an announcement test's config without `partners`).
+- Hotfix `0.1.170-main.550a6556d`: healthy, no error in the log, disk 45%; Music Assistant's three groups now list no
+  problems on the settings page. Pairs with ma-airplay-groups 0.3.29 on the Music Assistant computer (not yet installed).
+
