@@ -1696,11 +1696,15 @@ async def test_play_pause_on_an_airplay_session_reaches_every_room_of_it(on):
     r = await on.command(ws, id=2, **SVC("music_transport", player=D, command="play_pause"))
     assert r["result"]["response"] == {"ok": True}, r
     assert on.ma.sent() == [("players/cmd/play_pause", {"player_id": "ma-den"})], "no sender in the house: the one asked"
-    # the Cody's Room speaker is a HomeView playing its own Music app, and sends the session the others receive
-    on.ma.model["ma-cody"]["active_source"] = "com.apple.sonic.music"
+    # The add-on supplies the actual group instead of deriving it from the shared item ID.
+    for pid, entity in (("ma-kitchen", K), ("ma-den", D), ("ma-cody", C)):
+        on.ma.model[pid]["extra_attributes"] = {"airplay_group_id": "home"}
+        on.ma.model[pid]["active_source"] = "com.apple.sonic.music" if entity == C else "com.apple.tvairplayd"
+        if entity != C:
+            await on.playing(entity)
     await on.playing(C, media_title="Song 1", media_artist="Band", media_content_id="apple-device://c/snFake::STREAM")
     await wait_for(lambda: on.app["hub"].store.states[C]["a"].get("app_id") == "com.apple.sonic.music")
-    await on.playing(D, "playing")                  # (the first press paused it)
+    await wait_for(lambda: all(on.app["hub"].store.states[e]["a"].get("airplay_group_id") == "home" for e in (K, D, C)))
     n = len(on.ma.sent())
     r = await on.command(ws, id=3, **SVC("music_transport", player=D, command="play_pause"))
     assert r["result"]["response"] == {"ok": True}, r

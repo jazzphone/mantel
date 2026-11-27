@@ -547,8 +547,7 @@ ok('...all of it when nothing was left', M.pickSaid('Song', PICK.rooms, { ok: tr
   M._configure(HK_HOUSE);
 })();
 
-// THE SESSION IS THE SENDER'S, NEVER THE SONG'S: two HomeViews each playing one song in their own app, the id the same on
-// every stream, fold nothing; one sender is a session
+// The same item ID proves no session, even with only one visible sender.
 (function () {
   function st(sid, n, app) {
     return { entity_id: '', state: 'playing', last_changed: '2026-09-22T10:00:00Z', attributes: { group_members: [], media_title: 'Same Song', media_artist: 'Band',
@@ -561,7 +560,13 @@ ok('...all of it when nothing was left', M.pickSaid('Song', PICK.rooms, { ok: tr
   ok('...so a receiver\'s rooms (hkMusic.together) are its own', M.together(h, h.states[e('loft')]).length, 0);
   h.states[e('office')].state = 'idle';
   cx = M.contexts(h);
-  ok('one sender left: its session again', cx.length + ':' + cx[0].airplay + ':' + cx[0].members.length, '1:true:3');
+  ok('one sender left: item ID still proves nothing', cx.length, 3);
+  h.states[e('kitchen')].attributes.airplay_group_id = 'group-one';
+  h.states[e('loft')].attributes.airplay_group_id = 'GROUP-ONE';
+  h.states[e('kids_room')].attributes.airplay_group_id = 'group-two';
+  cx = M.contexts(h);
+  ok('only the rooms advertising the same group share a context', cx.length + ':' + cx[0].airplay + ':' + cx[0].members.length, '2:true:2');
+  ok('the unrelated receiver has no attributed sender', M.whereFrom(h.states, e('kids_room')), 'AirPlay');
 })();
 
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' MUSIC MODEL TESTS PASS'));

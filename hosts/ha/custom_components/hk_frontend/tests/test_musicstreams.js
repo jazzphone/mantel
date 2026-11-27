@@ -167,11 +167,10 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
 })();
 
 // ONE AIRPLAY SESSION (2026-11-20, hk_core/music/airplay.py): a HomeView AirPlaying to every HomePod. Each stream names
-// the session (apple-device://<player>/<session>::STREAM) and ONE room of the house SENDS it (the HomeView, playing its own
-// Music app): its rooms are ONE context, drawn as a group, `airplay` (2026-11-26: an id on receivers alone is no session, below)
+// Receivers advertise the same AirPlay group, so its rooms share an AirPlay context.
 (function () {
   var HV = { app_id: 'com.apple.sonic.music', source: 'Music' };
-  function sess(k, sid, extra) { return airplay('Santa Tell Me', Object.assign({ media_content_id: 'apple-device://ap-' + k + '/' + sid + '::STREAM' }, extra || {})); }
+  function sess(k, sid, extra) { return airplay('Santa Tell Me', Object.assign({ airplay_group_id: sid, media_content_id: 'apple-device://ap-' + k + '/' + sid + '::STREAM' }, extra || {})); }
   var all = {};
   HK_ROOMS.forEach(function (r, i) { all[r] = i === 4 ? sess(i, 'snHomeView', HV) : sess(i, 'snHomeView'); });
   var h = hassOf(all);
@@ -220,16 +219,16 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   var card = cx.filter(function (x) { return title(x) === 'Same Song'; })[0];
   ok('...one card, every room, no play / pause of its own (it would pause one device and read as pausing all)',
      rooms(card).length === 3 && !card.children.filter(function (c) { return /\bpp\b/.test(c.className); })[0]);
-  // a room of the house that SENDS the id (a HomeView, its own Music app) makes the same rooms one session, as they were
   put('living_room', rx('living_room', 'snItem', { app_id: 'com.apple.sonic.music', source: 'Music' }));
+  eq('seeing one sender still proves nothing about the receivers', M.contexts(h).length, 4);
+  h.states[e('living_room')].attributes.airplay_group_id = 'group-home';
+  h.states[e('office')].attributes.airplay_group_id = 'GROUP-HOME';
+  h.states[e('loft')].attributes.airplay_group_id = 'group-phone';
   cs = M.contexts(h);
-  ok('with a sender in the house: one session, led by it', cs.length === 1 && cs[0].airplay === true && cs[0].members.length === 4 && cs[0].key === e('living_room'), cs);
-  eq('...every room of it for the player line', M.together(h, h.states[e('office')]).length, 4);
-  eq('...and the source line names the sender', M.whereFrom(h.states, e('office')), 'AirPlay from ' + M.nameOf(e('living_room')));
-  // two senders of one id (two HomeViews playing one song) is no proof either
-  put('master_bedroom', rx('master_bedroom', 'snItem', { app_id: 'com.apple.sonic.music', source: 'Music' }));
-  cs = M.contexts(h);
-  eq('two senders of one id: no session again', cs.filter(function (c) { return c.airplay; }).length, 0);
+  var home = cs.filter(function (c) { return c.key === e('living_room'); })[0];
+  ok('the matching receivers fold under the sender', home.airplay && home.members.length === 2, home);
+  eq('the unrelated receiver keeps its own source label', M.whereFrom(h.states, e('loft')), 'AirPlay');
+  eq('the receiver with the same group names the sender', M.whereFrom(h.states, e('office')), 'AirPlay from ' + M.nameOf(e('living_room')));
 })();
 
 // _houseFit: what the column has left once the player has its room
@@ -279,9 +278,9 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
 (function () {
   var h = hassOf({});
   h.states[e('living_room')] = airplay('Happy Xmas', { app_id: 'com.apple.sonic.music', source: 'Music',
-    media_content_id: 'apple-device://ap0001/snHome::STREAM' });
+    airplay_group_id: 'group-home', media_content_id: 'apple-device://ap0001/snHome::STREAM' });
   h.states[e('kitchen')] = airplay('Happy Xmas', { app_id: 'com.apple.TVAirPlay',
-    media_content_id: 'apple-device://ap0002/snHome::STREAM' });
+    airplay_group_id: 'group-home', media_content_id: 'apple-device://ap0002/snHome::STREAM' });
   h.states[e('office')] = airplay('Butter', { app_id: 'com.apple.TVAirPlay',
     media_content_id: 'apple-device://ap0003/snPhone::STREAM' });
   h.states[e('loft')] = airplay('Song', { app_id: 'music_assistant', source: '', media_content_id: 'apple_music://track/1' });
@@ -321,8 +320,8 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   h.states[e('kitchen')] = airplay('Same', { media_content_id: 'apple-device://ap0001/' + hash });
   h.states[e('office')] = airplay('Same', { media_content_id: 'apple-device://ap0002/' + hash });
   h.states[e('living_room')] = airplay('Solo', { app_id: 'music_assistant', source: '' });
-  h.states[e('loft')] = airplay('Sent', { media_content_id: 'apple-device://ap0003/snHome::STREAM' });
-  h.states[e('guest_bedroom')] = airplay('Sent', { media_content_id: 'apple-device://ap0004/snHome::STREAM',
+  h.states[e('loft')] = airplay('Sent', { airplay_group_id: 'group-home', media_content_id: 'apple-device://ap0003/snHome::STREAM' });
+  h.states[e('guest_bedroom')] = airplay('Sent', { airplay_group_id: 'group-home', media_content_id: 'apple-device://ap0004/snHome::STREAM',
                                                   app_id: 'com.apple.sonic.music', source: 'Music' });
   var cx = cards(page(h, e('living_room')));
   function button(x) { return x.children.filter(function (c) { return /\bpp\b/.test(c.className); })[0]; }

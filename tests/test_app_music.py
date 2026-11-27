@@ -57,8 +57,8 @@ def test_contexts_say_where_music_that_isnt_music_assistants_comes_from():
     def st(s, **a):
         return {"s": s, "a": a, "lc": 5.0}
     states = {HV: st("playing", app_id="com.apple.sonic.music", source="Music", media_title="Song",
-                     media_content_id="apple-device://ap01/snHome::STREAM"),
-              K: st("playing", app_id="com.apple.tvairplayd", media_title="Song", media_content_id="apple-device://ap02/snHome::STREAM"),
+                     media_content_id="apple-device://ap01/snHome::STREAM", airplay_group_id="home"),
+              K: st("playing", app_id="com.apple.tvairplayd", media_title="Song", media_content_id="apple-device://ap02/snHome::STREAM", airplay_group_id="home"),
               D: st("playing", app_id="com.apple.tvairplayd", media_title="Other", media_content_id="apple-device://ap03/snPhone::STREAM"),
               C: st("playing", app_id="music_assistant", media_title="Mine", media_content_id="apple_music://track/1")}
     by = {m: c for c in app_music.contexts(cfg, states) for m in c["members"]}
@@ -201,15 +201,15 @@ async def test_without_a_credential_nothing(house):
 
 
 def test_one_airplay_session_is_one_context():
-    """A HomeView AirPlaying to several HomePods (hk_core.music.airplay): no group in Music Assistant, one session each --
-    the HomeView, a room of the house, sends it through its own app, and the rooms receiving its id are its session."""
+    """The app folds receivers by advertised group even when the reported media items differ."""
     K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
     cfg = {"speakers": [{"name": "Kitchen", "entity": K}, {"name": "Den", "entity": D}, {"name": "Cody's Room", "entity": C}]}
     def st(s, sid, **a):
         return {"s": s, "a": dict(a, media_title="Song 1", group_members=[],
                                   media_content_id=f"apple-device://ap-{s}/{sid}::STREAM"), "lc": 5.0}
-    states = {K: st("playing", "snA", app_id="com.apple.sonic.music"), D: st("playing", "snA", app_id="com.apple.TVAirPlay"),
-              C: st("playing", "snB")}
+    states = {K: st("playing", "snA", app_id="com.apple.sonic.music", airplay_group_id="home"),
+              D: st("playing", "snDifferent", app_id="com.apple.TVAirPlay", airplay_group_id="HOME"),
+              C: st("playing", "snA", app_id="com.apple.TVAirPlay")}
     got = app_music.contexts(cfg, states)
     assert [(c["key"], c["kind"], c["members"], c.get("airplay")) for c in got] == [
         (K, "group", [K, D], True), (C, "room", [C], None)]
@@ -244,9 +244,9 @@ def test_two_devices_playing_one_song_are_two_contexts():
     got = app_music.contexts(cfg, {K: st("snSame", "com.apple.sonic.music"), D: st("snSame", "com.apple.sonic.music"),
                                    C: st("snSame")})
     assert [(c["key"], c["members"], c.get("airplay")) for c in got] == [(K, [K], None), (D, [D], None), (C, [C], None)]
-    # one sender, one receiver: the session (the guard the other way)
+    # Seeing one sender still gives no evidence of which room receives it.
     got = app_music.contexts(cfg, {K: st("snSame", "com.apple.sonic.music"), D: st("snSame")})
-    assert [(c["key"], c["members"], c.get("airplay")) for c in got] == [(K, [K, D], True)]
+    assert [(c["key"], c["members"], c.get("airplay")) for c in got] == [(K, [K], None), (D, [D], None)]
 
 
 def test_a_playlists_cover_is_one_the_app_can_load():

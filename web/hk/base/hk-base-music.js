@@ -86,31 +86,13 @@
         var a = st.attributes || {};
         return st.state !== 'playing' && a.media_title === 'com.apple.tvairplayd' && !a.media_artist;
       }
-      // the AirPlay session a speaker's stream is part of (`apple-device://<player>/<session>::STREAM`), else null
-      // (a 64-hex id is pyatv's hash of the song's details, the same for two plays of one song from two devices: no
-      // session -- hk_core/music/airplay.py session_of; the same song in several rooms is still drawn as one, streams())
-      function session(st) {
-        var m = /^apple-device:\/\/[^/]+\/(.+?)(?:::STREAM)?$/.exec(String(((st && st.attributes) || {}).media_content_id || ''));
-        return m && !/^[0-9a-f]{64}$/.test(m[1]) ? m[1] : null;
+      // The receiver's advertised group, independent of its current media item.
+      function airplayGroup(st) {
+        if (!st || (st.state !== 'playing' && st.state !== 'paused')) return null;
+        var gid = (st.attributes || {}).airplay_group_id;
+        return typeof gid === 'string' && gid.trim() ? gid.trim().toUpperCase() : null;
       }
       function active(st) { return !!st && !ignored(st) && !leftover(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
-      // THE SESSION IS THE SENDER'S, NEVER THE SONG'S, AND NEVER AN ID ALONE (2026-11-26, hk_core/music/airplay.py `verified`):
-      // rooms are one session only when ONE room of the house is that sender (a speaker playing its own app with the id: a
-      // HomeView's Music app) and the rest receive it. Receivers alone (two independent iPhones appear only as receivers, and
-      // two ids that match tell nothing of one device) and an id two speakers each send through their own app (two HomeViews
-      // playing one song) prove nothing: no room is folded under such an id, its rooms stay one player each, and a button
-      // sends to the one player asked. {session id: true} for the ids that are not proof
-      function unproven(states) {
-        var senders = {}, all = {}, out = {};
-        rooms().forEach(function (r) {
-          var st = states[r.entity], sid = st && (st.state === 'playing' || st.state === 'paused') ? session(st) : null;
-          if (!sid) return;
-          all[sid] = true;
-          if (ownApp(st.attributes || {})) senders[sid] = (senders[sid] || 0) + 1;
-        });
-        Object.keys(all).forEach(function (sid) { if (senders[sid] !== 1) out[sid] = true; });
-        return out;
-      }
       // MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25; the same rules as hk_core/music/airplay.py `outside` and
       // `where_from`): a speaker playing its own app (a HomeView's Music app) or AirPlay from a device. Music Assistant
       // can't send it to other rooms, so no picker offers to (`outside` on the context; the engine refuses too), and the
@@ -119,7 +101,7 @@
       var MA_APP = 'music_assistant', RECEIVER_APPS = ['com.apple.TVAirPlay', 'com.apple.tvairplayd'];
       function outside(st) {
         var a = (st && st.attributes) || {};
-        if (session(st)) return true;
+        if (airplayGroup(st) || /^apple-device:\/\/[^/]+\/.+/.test(a.media_content_id || '')) return true;
         return typeof a.app_id === 'string' && a.app_id !== '' && a.app_id !== MA_APP;
       }
       function ownApp(a) { return !!a.app_id && RECEIVER_APPS.indexOf(a.app_id) < 0 && a.app_id !== MA_APP; }
@@ -133,13 +115,12 @@
         var st = states[player], a = (st && st.attributes) || {};
         if (!st || (st.state !== 'playing' && st.state !== 'paused') || !outside(st)) return null;
         if (ownApp(a)) return { app: appName(a), sender: player, own: true };
-        var sid = session(st);
-        var by = sid && rooms().filter(function (o) {
+        var gid = airplayGroup(st);
+        var by = gid ? rooms().filter(function (o) {
           var os = states[o.entity];
-          return o.entity !== player && !!os && (os.state === 'playing' || os.state === 'paused') &&
-            ownApp(os.attributes || {}) && session(os) === sid;
-        })[0];
-        return { app: 'AirPlay', sender: by ? by.entity : null, own: false };
+          return o.entity !== player && airplayGroup(os) === gid && ownApp(os.attributes || {});
+        }) : [];
+        return { app: 'AirPlay', sender: by.length === 1 ? by[0].entity : null, own: false };
       }
       // the sending speaker by its own name ("Living Room HomeView"), not its room's: a room can have two speakers (2026-11-26,
       // the owner: "It's living room homeview not homepod")
@@ -184,7 +165,7 @@
       // (`entity`, "preset:...") is for choosing it, never for a command.
       function contexts(client) {
         var states = (client && client.states) || {};
-        var seen = {}, out = [], unsure = unproven(states);
+        var seen = {}, out = [];
         function ctx(key, kind, members, st) {
           var a = (st && st.attributes) || {};
           return {
@@ -207,28 +188,24 @@
             return known(e) && !isGroup(e) && !ignored(states[e]);
           });
           var members = gm.length > 1 ? gm : [r.entity];
-          // ONE AIRPLAY SESSION, ONE THING PLAYING (2026-11-20, hk_core/music/airplay.py): a HomeView or an iPhone
-          // AirPlaying to the HomePods is a player each to Music Assistant, no group -- but every one of them names
-          // the same session. Its rooms are one context, `airplay`: drawn as a group, Play / Pause sent to each of
-          // them (the engine), and its rooms changed only on the device sending
-          var sid = members.length === 1 ? session(st) : null;
-          if (sid && unsure[sid]) sid = null;
-          if (sid) {
+          // Native AirPlay rooms share an advertised group. MA groups use group_members above.
+          var gid = members.length === 1 ? airplayGroup(st) : null;
+          if (gid) {
             rooms().forEach(function (o) {
               var os = states[o.entity];
-              if (o.entity !== r.entity && !seen[o.entity] && active(os) && session(os) === sid) members.push(o.entity);
+              if (o.entity !== r.entity && !seen[o.entity] && active(os) && airplayGroup(os) === gid) members.push(o.entity);
             });
           }
           members.forEach(function (m) { seen[m] = 1; });
           var lead = members[0];
           var c = ctx(lead, members.length > 1 ? 'group' : 'room', members, states[lead] || st);
-          if (sid && members.length > 1) c.airplay = true;
+          if (gid && members.length > 1) c.airplay = true;
           else if (members.length > 1) { var pre = presetOf(members); if (pre) c.preset = pre.name; }
           // (the sending speaker's own line when it is one of them: an AirPlay session led by a room it sends to)
           var sender = members.filter(function (m) { return states[m] && ownApp(states[m].attributes || {}); })[0];
           // ...and it leads the session's rooms: "Living Room + 12", where the music comes from (2026-11-26, the owner's
           // screenshot read "Kitchen + 12" for the Living Room HomeView's music). A session's Play / Pause is every room's
-          if (sid && sender && members.length > 1 && members[0] !== sender) {
+          if (gid && sender && members.length > 1 && members[0] !== sender) {
             members.splice(members.indexOf(sender), 1); members.unshift(sender);
             c = ctx(sender, 'group', members, states[sender] || st); c.airplay = true;
           }
@@ -243,7 +220,7 @@
       // AirPlay session (contexts' `airplay`, 2026-11-20: a HomeView AirPlaying to every HomePod read "Guest Bedroom")
       function together(client, st) {
         var g = fold(((st && st.attributes) || {}).group_members || []);
-        if (g.length > 1 || !session(st)) return g;
+        if (g.length > 1 || !airplayGroup(st)) return g;
         var c = contexts(client).filter(function (x) { return x.airplay && x.members.indexOf(st.entity_id) >= 0; })[0];
         return c ? c.members.slice() : g;
       }

@@ -542,7 +542,7 @@ class MantelMusic:
             return fail
         async with self._tlocks[player]:
             if command == "play_pause":     # (an AirPlay session: every room of it, hk_core.music.airplay)
-                service, target = AP.toggle(self.house, [player, *[r for r in together or [] if r != player]], player)
+                service, target = AP.play_pause(self.house, together or [], player)
                 ok = await self._call("media_player", service, {"entity_id": target})
             elif command == "next":
                 ok = await self._call("media_player", "media_next_track", {"entity_id": player})

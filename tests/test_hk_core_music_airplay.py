@@ -24,111 +24,42 @@ class House:
         return self.states_.get(entity_id)
 
 
-def test_a_session_is_the_streams_last_part():
-    assert A.session_of(SID) == "sn9Fake"
-    assert A.session_of("apple-device://ap0002/sn9Fake") == "sn9Fake"
-    assert A.session_of("apple_music://track/1") is None and A.session_of(None) is None
-    # pyatv's fallback when the sender gives no id: a hash of the song's details, the same for two devices -- no session
-    assert A.session_of("apple-device://ap0001/" + "ab12" * 16) is None
-    assert A.stream_id("apple-device://ap0001/" + "ab12" * 16) == "ab12" * 16, "its cover and clock still go by it"
+def test_item_ids_are_kept_for_metadata():
     assert A.stream_id(SID) == "sn9Fake" and A.stream_id("apple_music://track/1") is None
+    assert A.stream_id("apple-device://ap0001/" + "ab12" * 16) == "ab12" * 16
+    assert A.group_id({"media_content_id": SID}) is None
 
 
 HV = {"app_id": "com.apple.sonic.music", "source": "Music"}     # a HomeView sending through its own Music app
 RX = {"app_id": "com.apple.TVAirPlay"}                             # a speaker receiving AirPlay
 
 
-def test_play_pause_reaches_every_room_of_a_session_and_never_toggles_each():
-    other = "apple-device://ap0009/snOther::STREAM"
-    h = House({"media_player.hv": ("playing", dict(HV, media_content_id=SID.replace("ap0001", "ap0005"))),
-               "media_player.kitchen": ("playing", dict(RX, media_content_id=SID)),
-               "media_player.den": ("playing", dict(RX, media_content_id=SID.replace("ap0001", "ap0002"))),
-               "media_player.loft": ("idle", {"media_content_id": SID.replace("ap0001", "ap0003")}),
-               "media_player.office": ("playing", {"media_content_id": other}),
-               "media_player.porch": ("playing", {"media_content_id": "apple_music://track/1"})})
-    rooms = ["media_player.hv", "media_player.kitchen", "media_player.den", "media_player.loft", "media_player.office",
-             "media_player.porch"]
-    assert A.session_players(h, rooms, "media_player.den") == ["media_player.den", "media_player.hv", "media_player.kitchen"]
-    assert A.play_pause(h, rooms, "media_player.kitchen") == ("media_pause", ["media_player.kitchen", "media_player.hv",
-                                                                               "media_player.den"])
-    h.states_["media_player.kitchen"] = State("media_player.kitchen", "paused", dict(RX, media_content_id=SID))
-    assert A.play_pause(h, rooms, "media_player.kitchen")[0] == "media_play"
-    # one room of a session, or anything else: the plain toggle on that player
-    assert A.play_pause(h, rooms, "media_player.office") == ("media_play_pause", "media_player.office")
-    assert A.play_pause(h, rooms, "media_player.porch") == ("media_play_pause", "media_player.porch")
+def test_play_pause_uses_advertised_group_and_never_toggles_each():
+    hv, kitchen, den, phone, old = ("media_player." + r for r in ("hv", "kitchen", "den", "phone", "old"))
+    rooms = [hv, kitchen, den, phone, old]
+    h = House({
+        hv: ("playing", dict(HV, media_content_id=SID, airplay_group_id="home")),
+        kitchen: ("playing", dict(RX, media_content_id=SID, airplay_group_id="HOME")),
+        den: ("paused", dict(RX, media_content_id="apple-device://den/another-item", airplay_group_id="home")),
+        phone: ("playing", dict(RX, media_content_id=SID, airplay_group_id="phone")),
+        old: ("idle", dict(RX, media_content_id=SID, airplay_group_id="home")),
+    })
+    assert A.session_players(h, rooms, hv) == [hv, kitchen, den]
+    assert A.play_pause(h, rooms, hv) == ("media_pause", [hv, kitchen, den])
+    assert A.play_pause(h, rooms, den) == ("media_play", [den, hv, kitchen])
+    assert A.play_pause(h, rooms, phone) == ("media_play_pause", phone)
+    assert A.where_from(h, rooms, kitchen, lambda e: e) == "AirPlay from " + hv
+    assert A.where_from(h, rooms, phone, lambda e: e) == "AirPlay"
+    assert A.toggle(h, [den], den) == ("media_play_pause", den)
 
-
-def test_the_session_is_the_senders_never_the_songs():
-    # 2026-11-26 (Codex's review): two devices playing one song are two things to command, whatever the title, the artist
-    # or the item -- only an id the SENDER gave the stream names rooms as one session.
-    song = {"media_title": "Same Song", "media_artist": "Band", "media_album_name": "Album", "app_id": "com.apple.TVAirPlay"}
-    fallback = "apple-device://ap0001/" + "cd34" * 16
-    h = House({"media_player.kitchen": ("playing", dict(song, media_content_id=fallback)),
-               "media_player.den": ("playing", dict(song, media_content_id=fallback.replace("ap0001", "ap0002"))),
-               "media_player.loft": ("playing", dict(song, media_content_id="apple_music://track/1"))})
-    rooms = list(h.states_)
-    for p in rooms:
-        assert A.session_players(h, rooms, p) == [p], "the same song, even the same item, is not a session"
-    assert A.play_pause(h, rooms, "media_player.kitchen") == ("media_play_pause", "media_player.kitchen")
-    # a sender's own id still names its rooms (the regression guard the other way): a room that SENDS it, its receivers
-    h2 = House({"media_player.kitchen": ("playing", dict(song, media_content_id=SID, app_id="com.apple.sonic.music")),
-                "media_player.den": ("playing", dict(song, media_content_id=SID.replace("ap0001", "ap0002")))})
-    assert A.session_players(h2, list(h2.states_), "media_player.kitchen") == ["media_player.kitchen", "media_player.den"]
-
-
-def test_receivers_alone_are_no_session_even_with_one_non_hash_id():
-    # 2026-11-26 (Codex's review, again): two independent iPhones appear in Mantel only as receivers. Their ids can match
-    # (an item id, not pyatv's hash), and the match tells nothing of whether one device sent both: Pause goes to the one
-    # player selected -- nothing in the house is the sender, and no group says they play together
-    rx = dict(RX, media_title="Same Song", media_artist="Band", media_album_name="Album")
-    h = House({"media_player.kitchen": ("playing", dict(rx, media_content_id="apple-device://ap0001/snItem::STREAM")),
-               "media_player.den": ("playing", dict(rx, media_content_id="apple-device://ap0002/snItem::STREAM")),
-               "media_player.loft": ("playing", dict(rx, media_content_id="apple-device://ap0003/snItem::STREAM"))})
-    rooms = list(h.states_)
-    assert A.ambiguous(h, rooms, "snItem") and not A.verified(h, rooms, "snItem") and A.senders(h, rooms, "snItem") == []
-    for p in rooms:
-        assert A.session_players(h, rooms, p) == [p]
-        assert A.play_pause(h, rooms, p) == ("media_play_pause", p), "Pause is the selected player's alone"
-    # where it comes from, the cover and the song are unchanged: it is still AirPlay from a device that is no speaker
-    assert A.origin(h, rooms, "media_player.den") == ("AirPlay", None)
-    assert A.where_from(h, rooms, "media_player.den", lambda e: e) == "AirPlay"
-    # ...and a verified multiroom session is recognized together: a room that sends it (its own app, that id) names its
-    # receivers, wherever each is asked from
-    h.states_["media_player.hv"] = State("media_player.hv", "playing", dict(HV, media_content_id="apple-device://ap0009/snItem::STREAM"))
-    rooms = list(h.states_)
-    assert A.verified(h, rooms, "snItem") and A.senders(h, rooms, "snItem") == ["media_player.hv"]
-    assert A.session_players(h, rooms, "media_player.den") == ["media_player.den", "media_player.kitchen", "media_player.loft",
-                                                               "media_player.hv"]
-    assert A.play_pause(h, rooms, "media_player.hv") == ("media_pause", ["media_player.hv", "media_player.kitchen",
-                                                                          "media_player.den", "media_player.loft"])
-    assert A.where_from(h, rooms, "media_player.den", lambda e: e) == "AirPlay from media_player.hv"
-    # a session already decided (a host that left out the rooms the person may not control): the toggle of that list
-    assert A.toggle(h, ["media_player.den", "media_player.kitchen"], "media_player.den") == (
-        "media_pause", ["media_player.den", "media_player.kitchen"])
-    assert A.toggle(h, ["media_player.den"], "media_player.den") == ("media_play_pause", "media_player.den")
-
-
-def test_an_id_two_speakers_send_is_no_proof_of_one_sender():
-    # Two HomeViews each playing the same song in their own Music app, each AirPlaying to its own HomePod, the stream id
-    # the same on all four: no room is folded under it, and a button goes to the one player asked.
-    app = {"app_id": "com.apple.sonic.music", "source": "Music"}
-    rx = {"app_id": "com.apple.TVAirPlay"}
-    h = House({"media_player.hv_one": ("playing", dict(app, media_content_id="apple-device://ap0001/snSame::STREAM")),
-               "media_player.hv_two": ("playing", dict(app, media_content_id="apple-device://ap0002/snSame::STREAM")),
-               "media_player.kitchen": ("playing", dict(rx, media_content_id="apple-device://ap0003/snSame::STREAM")),
-               "media_player.den": ("playing", dict(rx, media_content_id="apple-device://ap0004/snSame::STREAM"))})
-    rooms = list(h.states_)
-    assert A.ambiguous(h, rooms, "snSame")
-    for p in rooms:
-        assert A.session_players(h, rooms, p) == [p]
-        assert A.play_pause(h, rooms, p) == ("media_play_pause", p)
-    # one sender is proof enough: the same rooms with the second HomeView stopped are its session again
-    h.states_["media_player.hv_two"] = State("media_player.hv_two", "idle", dict(app))
-    assert not A.ambiguous(h, rooms, "snSame")
-    assert A.session_players(h, rooms, "media_player.hv_one") == ["media_player.hv_one", "media_player.kitchen",
-                                                                   "media_player.den"]
-    # the source line stays where it comes from, whatever the commands do (it may use the song's app, not the session)
-    assert A.origin(h, rooms, "media_player.den")[0] == "AirPlay"
+    # Older add-ons or HA installations without group data can report the same item on
+    # every speaker, even with the HomeView's app visible. Those controls stay individual.
+    for room in (hv, kitchen, phone):
+        st = h.states_[room]
+        h.states_[room] = State(room, st.state, {k: v for k, v in st.attributes.items() if k != "airplay_group_id"})
+    for room in (hv, kitchen, phone):
+        assert A.play_pause(h, rooms, room) == ("media_play_pause", room)
+    assert A.where_from(h, rooms, kitchen, lambda e: e) == "AirPlay"
 
 
 def test_the_cover_is_that_song_on_its_album_first():
@@ -208,8 +139,8 @@ def test_music_that_isnt_music_assistants_says_where_it_comes_from():
     # A HomeView playing its own Music app, two HomePods it AirPlays to (the same session), a HomePod AirPlayed
     # from an iPhone, and Music Assistant's own music (2026-11-25: Mantel offered to add rooms to the HomeView).
     hv = {"app_id": "com.apple.sonic.music", "source": "Music",
-          "media_content_id": "apple-device://ap0001/snHome::STREAM"}
-    rx = {"app_id": "com.apple.TVAirPlay", "media_content_id": "apple-device://ap0002/snHome::STREAM"}
+          "media_content_id": "apple-device://ap0001/snHome::STREAM", "airplay_group_id": "home"}
+    rx = {"app_id": "com.apple.TVAirPlay", "media_content_id": "apple-device://ap0002/snHome::STREAM", "airplay_group_id": "home"}
     phone = {"app_id": "com.apple.TVAirPlay", "media_content_id": "apple-device://ap0004/snPhone::STREAM"}
     ma = {"app_id": "music_assistant", "media_content_id": "apple_music://track/1"}
     h = House({"media_player.living_room": ("playing", hv), "media_player.den": ("playing", rx),

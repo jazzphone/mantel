@@ -140,6 +140,10 @@ def ha_state(entity_id: str, p: Mapping[str, Any], players: Mapping[str, Mapping
     attrs.update({"mass_player_type": p.get("type") or "player", "active_queue": queue.get("queue_id") if queue else None})
     if state == "off":
         return state, {**attrs, **base}
+    extra = p.get("extra_attributes")
+    group_id = extra.get("airplay_group_id") if isinstance(extra, Mapping) else None
+    if state in ("playing", "paused") and queue is None and isinstance(group_id, str) and group_id.strip():
+        attrs["airplay_group_id"] = group_id
     volume = p.get("group_volume") if p.get("type") == "group" else p.get("volume_level")
     media = p.get("current_media") if isinstance(p.get("current_media"), Mapping) else None
     sources = [s for s in p.get("source_list") or [] if isinstance(s, Mapping)]

@@ -7,21 +7,9 @@ art."
 An iPhone, a Mac or a HomeView AirPlaying to the HomePods is no Music Assistant group: Music Assistant sees each HomePod
 as a player of its own, playing an outside stream (its source ``com.apple.tvairplayd``), with no members.
 
-* ONE SESSION IS ONE THING PLAYING WHEN A SENDER PROVES IT (``session_of``, ``verified``). Music Assistant names that
-  stream ``apple-device://<player>/<session>::STREAM``, and every HomePod a HomeView sends to has the same ``<session>``
-  (the HomeView's eight rooms, 2026-11-20). The pages fold the rooms of one session into one group (hkMusic.contexts
-  in hk-base-music.js, and the app's contexts), and Play / Pause goes to every room of it (``session_players``): an
-  explicit pause to each, or play to each, never a toggle each (one already paused would start). Their rooms can't be
-  changed from Mantel: the device sending decides them.
-* THE SESSION IS THE SENDER'S, NEVER THE SONG'S, AND NEVER AN ID ALONE (2026-11-26, Codex's review, twice). What names
-  rooms as one session is the id the sending device gave the stream, and only when ONE room of the house is that sender:
-  a speaker playing its own app (``verified``: a HomeView's Music app) with that id, its receivers the rooms playing the
-  same id. Not the title, the artist, the album, not pyatv's hash of them (``FALLBACK_HASH``), not the same item, and not
-  an id on receivers alone: two iPhones appear in Mantel only as receivers, and two ids that match tell nothing of whether
-  one device sent both. With no sender in the house, or two (two HomeViews playing one song: ``ambiguous``), no room is
-  folded under the id and Play / Pause goes to the one player asked. The pages may still DRAW the same song in several
-  rooms as one stream (hkMusic.streams), and the song still gives the source line ("AirPlay from ..."), the cover and
-  the progress; none of them decides what a button sends to.
+* The add-on publishes the active AirPlay group advertised by each receiver as ``airplay_group_id``.
+  Mantel uses that group for room membership and Play/Pause. Track and item IDs are used for metadata.
+  Without an advertised group the selected player is the only command target.
 * MUSIC THAT ISN'T MUSIC ASSISTANT'S (``outside``, ``where_from``; 2026-11-25). A speaker playing its own app (a
   HomeView's Music app: ``app_id`` ``com.apple.sonic.music``, its own ``apple-device://`` session) or AirPlay from a
   device: Music Assistant can neither move it nor send it to other rooms (it streams only its own music), and joining
@@ -55,72 +43,35 @@ START_KNOWN_AFTER = 10.0      # seconds after the host read Music Assistant whol
 LIVE = ("playing", "paused")
 
 
-FALLBACK_HASH = re.compile(r"^[0-9a-f]{64}$")
-
-
 def stream_id(content_id: Any) -> str | None:
-    """Any AirPlayed stream's id (``apple-device://<player>/<id>``), a fallback hash too: what its cover and its song
-    clock are kept by. ``session_of`` is the stricter one, for which rooms are one thing playing."""
+    """An AirPlayed item's id, used for metadata and the progress clock."""
     m = SESSION.match(content_id) if isinstance(content_id, str) else None
     return m.group(1) if m else None
 
 
-def session_of(content_id: Any) -> str | None:
-    """The AirPlay session a speaker's stream belongs to (``media_content_id``), or None for anything else. Music
-    Assistant names the stream by the sender's own id for what plays (``PguBhzzib``); with none it falls back to pyatv's
-    hash of the song's title, artist, album and length -- the same for two plays of one song from two devices, so a
-    64-hex hash is no session (2026-11-26, Codex's review): those rooms aren't one thing to command, though the pages
-    still draw the same song in several rooms as one (hkMusic.streams)."""
-    m = SESSION.match(content_id) if isinstance(content_id, str) else None
-    if not m or FALLBACK_HASH.match(m.group(1)):
-        return None
-    return m.group(1)
+def group_id(attributes: Mapping[str, Any]) -> str | None:
+    """The active group reported by the receiver, independent of its media item."""
+    gid = attributes.get("airplay_group_id")
+    return gid.strip().upper() or None if isinstance(gid, str) else None
 
 
 def _own_app(attributes: Mapping[str, Any]) -> bool:
-    """A speaker playing its own app (a HomeView's Music app), not receiving: the sender of its session."""
+    """A speaker playing its own app, capable of being the source of the group."""
     app = attributes.get("app_id")
     return isinstance(app, str) and app not in ("", MA_APP, *RECEIVER_APPS)
 
 
-def senders(house: House, rooms: Iterable[str], sid: str) -> list[str]:
-    """The rooms that SEND session ``sid``: playing (or paused in) their own app with that id. A receiver sends nothing."""
-    out = []
-    for r in dict.fromkeys(rooms):
-        o = house.state(r)
-        if (o is not None and o.state in LIVE and session_of(o.attributes.get("media_content_id")) == sid
-                and _own_app(o.attributes)):
-            out.append(r)
-    return out
-
-
-def verified(house: House, rooms: Iterable[str], sid: str) -> bool:
-    """Exactly one room of ``rooms`` sends session ``sid`` through its own app: the id is then one sender's, and the
-    receivers playing it are that sender's session."""
-    return len(senders(house, rooms, sid)) == 1
-
-
-def ambiguous(house: House, rooms: Iterable[str], sid: str) -> bool:
-    """The id is no proof of one sender: no room of ``rooms`` sends it (receivers only: two independent iPhones, say), or
-    more than one does (two HomeViews playing one song). No receiver is folded under it."""
-    return not verified(house, rooms, sid)
-
-
 def session_players(house: House, rooms: Iterable[str], player: str) -> list[str]:
-    """``player`` and the rooms playing (or paused in) the same AirPlay session as it, ``player`` first; just
-    ``[player]`` when it plays no AirPlay stream, or when its session's id is no proof of one sender (``ambiguous``)."""
+    """The selected player and other live receivers advertising its AirPlay group."""
     st = house.state(player)
-    sid = session_of(st.attributes.get("media_content_id")) if st else None
-    if sid is None:
-        return [player]
-    rooms = list(rooms)
-    if ambiguous(house, [player, *rooms], sid):
+    gid = group_id(st.attributes) if st is not None and st.state in LIVE else None
+    if gid is None:
         return [player]
     out = [player]
-    for r in rooms:
-        o = house.state(r)
-        if r not in out and o is not None and o.state in LIVE and session_of(o.attributes.get("media_content_id")) == sid:
-            out.append(r)
+    for room in rooms:
+        other = house.state(room)
+        if room not in out and other is not None and other.state in LIVE and group_id(other.attributes) == gid:
+            out.append(room)
     return out
 
 
@@ -146,7 +97,7 @@ RECEIVER_APPS = ("com.apple.TVAirPlay", "com.apple.tvairplayd")   # a speaker's 
 def outside(attributes: Mapping[str, Any]) -> bool:
     """The player plays music that isn't Music Assistant's: an AirPlay session (``apple-device://``), or an app
     other than Music Assistant."""
-    if session_of(attributes.get("media_content_id")) is not None:
+    if group_id(attributes) or stream_id(attributes.get("media_content_id")) is not None:
         return True
     app = attributes.get("app_id")
     return isinstance(app, str) and app not in ("", MA_APP)
@@ -167,17 +118,12 @@ def origin(house: House, rooms: Iterable[str], player: str) -> tuple[str, str | 
     st = house.state(player)
     if st is None or st.state not in LIVE or not outside(st.attributes):
         return None
-    app = st.attributes.get("app_id")
-    if app and app not in RECEIVER_APPS and app != MA_APP:
+    if _own_app(st.attributes):
         return _app_name(st.attributes), player
-    sid = session_of(st.attributes.get("media_content_id"))
-    if sid is not None:
-        for r in rooms:
-            o = house.state(r)
-            if (r != player and o is not None and o.state in LIVE
-                    and o.attributes.get("app_id") not in (*RECEIVER_APPS, MA_APP, None, "")
-                    and session_of(o.attributes.get("media_content_id")) == sid):
-                return "AirPlay", r
+    senders = [room for room in session_players(house, rooms, player)[1:]
+               if (other := house.state(room)) is not None and _own_app(other.attributes)]
+    if len(senders) == 1:
+        return "AirPlay", senders[0]
     return "AirPlay", None
 
 

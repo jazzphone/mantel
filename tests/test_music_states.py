@@ -369,3 +369,12 @@ async def test_an_airplayed_songs_cover_is_looked_up_when_music_assistant_has_no
     await on.playing(C, media_title="Song 2", media_artist="Band", media_content_id="library://track/2", image=COVER)
     assert st(on, C)["a"]["entity_picture"] == COVER
     assert len([f for f in on.ma.frames if f["command"] == "music/search"]) == 1
+
+
+def test_mirror_carries_receiver_group_only_while_native_playback_is_live():
+    player = dict(LEADER, active_source="com.apple.tvairplayd", playback_state="playing",
+                  extra_attributes={"airplay_group_id": "broadcast"})
+    args = ("media_player.x", player, {}, {}, {}, None)
+    assert S.ha_state(*args)[1]["airplay_group_id"] == "broadcast"
+    player.update(playback_state="idle")
+    assert "airplay_group_id" not in S.ha_state(*args)[1]
