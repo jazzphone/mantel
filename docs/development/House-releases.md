@@ -1189,3 +1189,14 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Before: `tools/ci.py quick` 7/7 from local disk; the link's tests.
 - Hotfix `0.1.170-main.1debdea38`: healthy, no error in the log, disk 45%.
 
+
+## Hotfix 0.1.170-main.35fe10b51 (2026-11-27)
+
+- The owner: "Yes, hotfix Mantel". The house ran hotfix 0.1.170-main.1debdea38; main since then: bb092247 (its record)
+  and 35fe10b5 (from the multiroom audit: a music request the link answers "still going" carries a request id and its
+  outcome arrives on the music feed, so a page shows "Starting..." / "Moving..." until it ends and a library pick moves
+  only after it played; a linked music answer is the engine's own, not Home Assistant's {context, response}; two
+  speakers sending one session id through their own apps fold no rooms). All ship.
+- Before: `tools/ci.py quick` 7/7 and `full --only hk-frontend-js --only hk-frontend-py` from local disk.
+- Hotfix `0.1.170-main.35fe10b51`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
+  Pairs with ma-airplay-groups 0.3.34 (9ae0a6d) on the Music Assistant computer (not yet installed).
