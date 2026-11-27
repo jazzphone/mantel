@@ -1200,3 +1200,14 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Before: `tools/ci.py quick` 7/7 and `full --only hk-frontend-js --only hk-frontend-py` from local disk.
 - Hotfix `0.1.170-main.35fe10b51`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
   Pairs with ma-airplay-groups 0.3.34 (9ae0a6d) on the Music Assistant computer (not yet installed).
+
+## Hotfix 0.1.170-main.fbdc6959a (2026-11-27)
+
+- The owner: "Yes, hotfix Mantel". The house ran hotfix 0.1.170-main.35fe10b51; main since then: 8a2cc493 (its record)
+  and fbdc6959 (Codex's validation of 35fe10b5: a library pick for several rooms is one request that claims them all
+  from the start and brings in only those nobody asked for since; an AirPlay session id folds rooms only when one room
+  of the house sends it). All ship. The optional `rooms` field reaches Home Assistant screens only with the next HK
+  Frontend and Mantel Link releases, together; until then they send the two steps, which Mantel still takes.
+- Before: `tools/ci.py quick` 7/7 and `full --only hk-frontend-js --only hk-frontend-py` 3/3 from local disk.
+- Hotfix `0.1.170-main.fbdc6959a`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
+  Pairs with ma-airplay-groups 0.3.35 (6895b53) on the Music Assistant computer (not yet installed).
