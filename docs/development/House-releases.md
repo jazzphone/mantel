@@ -1220,3 +1220,14 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
   speaker has the attribute, so each AirPlay room is its own player with its own Play/Pause.
 - Before: `tools/ci.py quick` 7/7 and `full --only hk-frontend-js --only hk-frontend-py` 3/3 from local disk.
 - Hotfix `0.1.170-main.46bf9cf28`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
+
+## Hotfix 0.1.170-main.266c206ac (2026-11-27)
+
+- The owner: "Yes, hotfix it". The house ran hotfix 0.1.170-main.46bf9cf28; main since then: c9481812 (its record) and
+  266c206a (Live TV looks keep the sound with the picture: `-fps_mode passthrough` on every re-encoded look). All ship.
+  Measured on the house's go2rtc with a flash and beep test channel: every look (Fill, a HomeView's default) played the
+  sound 0.9 s before the picture; after, +0.05 to +0.10 s, as Fit without the blur always was. Server only: no web
+  change, no kiosk reload.
+- Before: `tools/ci.py quick` 7/7 from local disk.
+- Hotfix `0.1.170-main.266c206ac`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
+  The owner's check on a HomeView is still to come.
