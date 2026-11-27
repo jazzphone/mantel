@@ -358,6 +358,7 @@ the item is actually playing.
 | `player` | yes | A room. |
 | `media_content_id` | yes | A library URI, for example `library://album/42`. |
 | `media_content_type` | yes | The media type, for example `album`, `playlist`, `track` or `radio`. |
+| `rooms` | no | A pick on several rooms: all of them, `player` among them. The item plays on `player` first and the other rooms join it once it plays. It is one request that claims every room when it starts, so a Stop, a play or a move for one of them that comes later keeps that room out; the answer names the rooms it left (`left`) and says why (`message`). |
 
 ```yaml
 action: hk_frontend.music_play_media

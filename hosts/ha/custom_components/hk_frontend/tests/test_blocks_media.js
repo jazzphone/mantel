@@ -235,6 +235,15 @@ function () {
     var call = house.calls[before];
     eq('hk_frontend.music_play_media on the screen\'s player', call && [call.domain, call.service, call.data.player, call.data.media_content_id],
        ['hk_frontend', 'music_play_media', window.hkMusic.player(c), 'library://track/1']);
+    // A PRESET'S ROOMS (2026-11-26, Codex's review): ONE request for the whole pick -- the item on the room that leads, every room of
+    // the preset in `rooms` -- never a second move of its own, which a Stop for one room from another screen could not keep out
+    window.hkMusic.setFocus('media_player.downstairs_homepods_downstairs');
+    var b2 = house.calls.length;
+    mu._play(mu._items[0], document.createElement('button'));
+    var pick = house.calls.slice(b2);
+    eq('a preset: ONE music_play_media, the item on the leading room and the preset\'s rooms with it',
+       [pick.length, pick[0] && pick[0].service, pick[0] && pick[0].data.player, pick[0] && pick[0].data.rooms],
+       [1, 'music_play_media', HK_ROOMS[0], HK_ROOMS.slice(0, 5)]);
   });
 },
 function () {

@@ -395,6 +395,43 @@ def test_newest_request_wins():
     assert claims.superseded(first) and not claims.superseded(other)
 
 
+def test_a_pick_claims_every_room_when_it_starts_and_a_newer_request_takes_one_room_not_all():
+    # 2026-11-26 (Codex's review): a library pick on the Kitchen and the Office plays on one room first; its other room
+    # is still its own until a newer request for that room says otherwise, room by room
+    claims = E.Claims()
+    pick = claims.claim([K, OFF])
+    assert claims.held(pick) == {K, OFF}
+    claims.claim([OFF])                       # a Stop, a play or a move for the Office, from any screen
+    assert claims.held(pick) == {K} and claims.superseded(pick), "held says which rooms are still the pick's"
+    claims.claim([K])
+    assert claims.held(pick) == set()
+
+
+def test_a_library_pick_names_its_rooms_claims_them_all_and_answers_what_it_left(house, cfg):
+    house.set(LOFT, "unavailable")
+    assert E.pick_rooms(house, cfg, K, None) == (None, [], [])
+    assert E.pick_rooms(house, cfg, K, [K]) == (None, [], [])
+    assert E.pick_rooms(house, cfg, K, [K, OFF, LOFT, OFF]) == (None, [OFF], [LOFT]), "the player is not an other; a gone room is left out"
+    fail, others, gone = E.pick_rooms(house, cfg, K, [K, "media_player.tv"])
+    assert fail["ok"] is False and "media_player.tv" in fail["message"] and others == [] and gone == []
+    house.group(OFF, [OFF, LR])
+    assert E.pick_claims(house, cfg, K, [OFF]) == {K, OFF, LR}, "each room, and whatever is grouped with it"
+    assert E.changed_since(cfg, [OFF]) == "Study was changed since."
+    assert E.changed_since(cfg, [OFF, LR, OFF]) == "Study, Living_Room were changed since."
+    # the answer: the pick played, so ok; what did not follow is `left`, and said
+    assert E.pick_answer(cfg, K, [], None) == {"ok": True, "leader": K}
+    assert E.pick_answer(cfg, K, [OFF], None) == {"ok": True, "leader": K, "message": "Study was changed since.", "left": [OFF]}
+    moved = {"ok": True, "leader": K, "message": "Living_Room did not join.", "left": [LR]}
+    assert E.pick_answer(cfg, K, [OFF], moved, [LR]) == {
+        "ok": True, "leader": K, "message": "Study was changed since. Living_Room did not join.", "left": [OFF, LR]}
+    assert E.pick_answer(cfg, K, [], {"ok": True, "leader": LR}, [LR]) == {"ok": True, "leader": LR}, "the leader the move chose"
+    refused = {"ok": False, "message": "The music did not move."}
+    assert E.pick_answer(cfg, K, [], refused, [OFF, LR]) == {
+        "ok": True, "leader": K, "message": "The music did not move.", "left": [OFF, LR]}, "playing on the first room only"
+    house.group(K, [K, OFF])
+    assert E.not_joined(house, cfg, K, [OFF, LR]) == [LR]
+
+
 def test_stop_and_the_buttons(house, cfg):
     assert E.stop_plan(cfg, None) == (True, cfg.room_ids)
     assert E.stop_plan(cfg, [OFF, "media_player.tv"]) == (False, [OFF])

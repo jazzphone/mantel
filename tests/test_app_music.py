@@ -201,16 +201,31 @@ async def test_without_a_credential_nothing(house):
 
 
 def test_one_airplay_session_is_one_context():
-    """A HomeView AirPlaying to several HomePods (hk_core.music.airplay): no group in Music Assistant, one session each."""
+    """A HomeView AirPlaying to several HomePods (hk_core.music.airplay): no group in Music Assistant, one session each --
+    the HomeView, a room of the house, sends it through its own app, and the rooms receiving its id are its session."""
     K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
     cfg = {"speakers": [{"name": "Kitchen", "entity": K}, {"name": "Den", "entity": D}, {"name": "Cody's Room", "entity": C}]}
     def st(s, sid, **a):
         return {"s": s, "a": dict(a, media_title="Song 1", group_members=[],
                                   media_content_id=f"apple-device://ap-{s}/{sid}::STREAM"), "lc": 5.0}
-    states = {K: st("playing", "snA"), D: st("playing", "snA"), C: st("playing", "snB")}
+    states = {K: st("playing", "snA", app_id="com.apple.sonic.music"), D: st("playing", "snA", app_id="com.apple.TVAirPlay"),
+              C: st("playing", "snB")}
     got = app_music.contexts(cfg, states)
     assert [(c["key"], c["kind"], c["members"], c.get("airplay")) for c in got] == [
         (K, "group", [K, D], True), (C, "room", [C], None)]
+
+
+def test_receivers_alone_with_one_id_are_no_session():
+    """Two independent iPhones appear only as receivers (Codex's review, 2026-11-26): the same non-hash id on two HomePods is
+    no proof of one sender, so each is its own context -- the source line, cover and progress stay as they were."""
+    K, D = "media_player.kitchen_ma", "media_player.den_ma"
+    cfg = {"speakers": [{"name": "Kitchen", "entity": K}, {"name": "Den", "entity": D}]}
+    one = {"s": "playing", "a": {"media_title": "Song 1", "group_members": [], "app_id": "com.apple.TVAirPlay",
+                                 "media_content_id": "apple-device://ap-1/snSame::STREAM"}, "lc": 5.0}
+    two = {"s": "playing", "a": dict(one["a"], media_content_id="apple-device://ap-2/snSame::STREAM"), "lc": 5.0}
+    got = app_music.contexts(cfg, {K: one, D: two})
+    assert [(c["key"], c["members"], c.get("airplay")) for c in got] == [(K, [K], None), (D, [D], None)]
+    assert [c["from"] for c in got] == ["AirPlay", "AirPlay"], "where it comes from does not depend on who a button reaches"
 
 
 def test_two_devices_playing_one_song_are_two_contexts():

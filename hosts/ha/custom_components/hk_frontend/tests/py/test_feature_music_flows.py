@@ -3,6 +3,7 @@ entry), its gear, presets and playlists (items of the house's entry too) --
 and what a screen is handed over the websocket as a result."""
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -12,7 +13,7 @@ from homeassistant.helpers import area_registry as ar, floor_registry as fr
 from homeassistant.helpers import entity_registry as er
 
 from conftest import DOMAIN, FakeConnection, add_feature, entry, feature_entries, feature_gear, update_feature
-from music_sample_house import DOWNG, K, LOFT, OFF, ROOMS, music_entry
+from music_sample_house import DOWNG, K, LOFT, LR, OFF, ROOMS, music_entry
 from music_sample_house import house, music  # noqa: F401 -- the fixtures
 
 ACTIONS = {"music_play", "music_transfer", "music_stop", "music_transport", "music_play_media"}
@@ -359,6 +360,52 @@ async def test_browse_replaces_a_playing_queue_and_waits_for_the_new_music(hass,
                                          blocking=True, return_response=True)
     assert res == {"ok": True, "leader": OFF}
     assert house.called("play_media")[-1]["enqueue"] == "replace"
+
+
+async def test_a_library_pick_on_several_rooms_plays_on_one_and_brings_the_others_in(hass, music, house):
+    res = await hass.services.async_call(DOMAIN, "music_play_media",
+                                         {"player": K, "rooms": [K, OFF], "media_content_id": "library://track/1",
+                                          "media_content_type": "music"}, blocking=True, return_response=True)
+    assert res == {"ok": True, "leader": K}
+    assert house.members(K) == [K, OFF] and house.called("join") == [{"entity_id": K, "group_members": [OFF]}]
+
+
+async def test_a_stop_for_a_room_of_a_slow_pick_keeps_it_out(music, house):
+    """Codex's reproduction (2026-11-26): a library pick on two rooms waits for the music to start; another screen stops
+    the second room meanwhile. The pick claimed both rooms when it started, so the Stop is newer, and the room is not
+    taken back into the group once the music plays."""
+    house.slow_browse = 0.2
+    pick = asyncio.ensure_future(music.play_media(K, "library://track/1", "music", None, [K, OFF]))
+    await asyncio.sleep(0.05)
+    assert await music.stop([OFF]) == {"ok": True}
+    res = await pick
+    name = music.config.name_of(OFF)
+    assert res == {"ok": True, "leader": K, "message": f"{name} was changed since.", "left": [OFF]}, res
+    assert house.called("join") == [] and house.called("transfer_queue") == []
+    assert house.state(K) == "playing" and house.state(OFF) == "idle"
+
+
+async def test_a_newer_play_for_a_room_of_a_slow_pick_keeps_it_out_and_the_player_stopped_ends_it_all(music, house):
+    pk = next(p.key for p in music.config.playlists if p.name == "Country")
+    house.slow_browse = 0.2
+    pick = asyncio.ensure_future(music.play_media(K, "library://track/1", "music", None, [K, OFF]))
+    await asyncio.sleep(0.05)
+    assert (await music.play([OFF], pk))["ok"] is True                  # another screen plays a playlist on it
+    res = await pick
+    assert res["left"] == [OFF] and res["leader"] == K and res["ok"] is True, res
+    assert house.called("join") == [] and house.state(OFF) == "playing", "the newer request's music stands"
+    # the player the pick starts on is stopped: the whole pick ends, nothing is brought in
+    pick = asyncio.ensure_future(music.play_media(K, "library://track/2", "music", None, [K, LR]))
+    await asyncio.sleep(0.05)
+    await music.stop([K])
+    assert (await pick) == {"ok": False, "superseded": True, "message": "Stopped."}
+    assert house.called("join") == []
+
+
+async def test_a_pick_that_never_starts_brings_nobody_in(music, house):
+    house.dead.add(K)
+    res = await music.play_media(K, "library://track/1", "music", None, [K, OFF])
+    assert res["ok"] is False and house.called("join") == []
 
 
 async def test_still_playing_the_old_song_is_not_started_anew(music):

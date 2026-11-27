@@ -534,14 +534,15 @@ class MantelMusic:
 
     async def transport(self, player: str, command: str, level: float | None = None,
                         together: list[str] | None = None) -> dict[str, Any]:
-        """``together``: the other rooms of its AirPlay session Play / Pause may reach (the host's ``_session_rooms``)."""
+        """``together``: the other rooms of its AirPlay session Play / Pause may reach (the host's ``_session_rooms``, which
+        decided who the session is and which of them the person may control)."""
         cfg = self.config
         fail = E.check_player(cfg, player)
         if fail:
             return fail
         async with self._tlocks[player]:
             if command == "play_pause":     # (an AirPlay session: every room of it, hk_core.music.airplay)
-                service, target = AP.play_pause(self.house, together or [], player)
+                service, target = AP.toggle(self.house, [player, *[r for r in together or [] if r != player]], player)
                 ok = await self._call("media_player", service, {"entity_id": target})
             elif command == "next":
                 ok = await self._call("media_player", "media_next_track", {"entity_id": player})
@@ -558,16 +559,29 @@ class MantelMusic:
                 return {"ok": False, "message": f"Unknown command {command}."}
         return {"ok": ok} if ok else {"ok": False, "message": f"{cfg.name_of(player)} did not respond."}
 
-    async def play_media(self, player: str, content_id: str, content_type: str) -> dict[str, Any]:
+    async def play_media(self, player: str, content_id: str, content_type: str,
+                         rooms: list[str] | None = None) -> dict[str, Any]:
+        """One library item on ``player``, and -- ``rooms``, the whole pick, ``player`` among them -- the other rooms
+        brought in once it plays. ONE REQUEST FOR THE WHOLE PICK (2026-11-26, Codex's review): it claims every room of
+        it when it starts (``E.pick_claims``), so a Stop, a play or a move another screen sends for one of them while the
+        item loads is newer than the pick, and the bringing-in leaves that room alone (``_follow``): never a second
+        request that finds the room's stamp is its own."""
         rid, t0 = next(self._ids), time.monotonic()
         cfg = self.config
-        what = f"browse {content_id} on {player}"
+        what = f"browse {content_id} on {player}" + (f" with {rooms}" if rooms else "")
         fail = E.check_browse(self.house, cfg, player)
         if fail:
             return self._done(fail, what, rid, t0)
-        stamps = self._claims.claim(E.browse_rooms(self.house, cfg, player))
+        fail, others, gone = E.pick_rooms(self.house, cfg, player, rooms)
+        if fail:
+            return self._done(fail, what, rid, t0)
+        lead = E.browse_rooms(self.house, cfg, player)
+        stamps = self._claims.claim(lead | E.entangled(self.house, cfg, others))
+        first = {r: s for r, s in stamps.items() if r in lead}          # what the item's own start needs
+        following = False
+        answer: dict[str, Any] | None = None
         try:
-            async with self._request(stamps):
+            async with self._request(first):
                 # A VIRTUAL PAIR plays as one: through its own Music Assistant group, else its second player
                 # joined to its first before the item is sent
                 target, join = E.browse_target(self.house, cfg, player)
@@ -583,15 +597,50 @@ class MantelMusic:
                 if not ok:
                     return self._done({"ok": False, "message": "Music Assistant could not play that."}, what, rid, t0)
                 started = await self._wait([target], lambda: self._started_anew(target, was), START_TIMEOUT)
+                if started and others and not self._claims.superseded(first):
+                    # (a Stop of any room of the pick ends the bringing-in from here, as it ends a move)
+                    task = asyncio.current_task()
+                    if task in self._running:
+                        self._running[task] |= set(stamps)
+                    following = True
+                    answer = await self._follow(cfg, player, others, stamps, first)
         except asyncio.CancelledError:
             if self._was_stopped():
+                if following and not self._claims.superseded(first):     # the item plays; a room of the pick was stopped
+                    held = self._claims.held({r: stamps[r] for r in others if r in stamps})
+                    return self._done(E.pick_answer(cfg, player, [r for r in others if r not in held], None), what, rid, t0)
                 return self._done(dict(STOPPED), what, rid, t0)
             raise
-        if self._claims.superseded(stamps):
+        if self._claims.superseded(first):
             return self._done({"ok": True, "leader": target, "superseded": True}, what, rid, t0)
         if not started:
             return self._done({"ok": False, "message": f"It did not start on {cfg.name_of(player)}."}, what, rid, t0)
-        return self._done({"ok": True, "leader": target}, what, rid, t0)
+        res = answer if answer is not None else {"ok": True, "leader": target}
+        if gone and res.get("ok") and not res.get("superseded"):
+            res = self._left_out(cfg, gone, res)
+            res = {**res, "left": list(dict.fromkeys([*res.get("left", []), *gone]))}
+        return self._done(res, what, rid, t0)
+
+    async def _follow(self, cfg: MusicConfig, player: str, others: list[str], stamps: dict[str, int],
+                      first: dict[str, int]) -> dict[str, Any]:
+        """A library pick's item plays on ``player``: bring in the rooms of the pick that are still the pick's. The rooms
+        are held, then each is asked of the claims it made when the pick started (``Claims.held``): a room a newer
+        request took -- a Stop, another play, a move, from any screen -- is left alone and named, never taken back; the
+        pick's answer (``E.pick_answer``) says where it did play and what it left."""
+        source = E.source_of(self.house, cfg, player)
+        async with self._hold(set(stamps) | E.transfer_rooms(self.house, cfg, [player, *others], source)):
+            if self._claims.superseded(first):
+                return {"ok": True, "leader": player, "superseded": True}
+            held = self._claims.held({r: stamps[r] for r in others})
+            dropped = [r for r in others if r not in held]
+            keep = [r for r in others if r in held]
+            moved = None
+            if keep:
+                fail, preset = E.check_transfer(self.house, cfg, [player, *keep], source)
+                moved = fail or await self._move(cfg, [player, *keep], source, preset)
+                if moved.get("ok"):
+                    moved = {**moved, "left": E.not_joined(self.house, cfg, moved.get("leader") or player, keep)}
+        return E.pick_answer(cfg, player, dropped, moved, keep)
 
     async def service(self, service: str, data: dict[str, Any]) -> dict[str, Any]:
         """A page's own ``media_player.<service>`` on Music Assistant speakers (MA_SERVICES), sent as the commands HA's
@@ -1254,7 +1303,7 @@ class MusicHost:
         else:                                 # the rooms the gateway approved, not every speaker in the house
             names = list(music.get("approved") or [])
             speakers = E.own_players(cfg, names, op == SERVICE_STOP and not a.get("rooms"))
-            if op in (SERVICE_PLAY, SERVICE_TRANSFER):
+            if op in (SERVICE_PLAY, SERVICE_TRANSFER) or (op == SERVICE_PLAY_MEDIA and a.get("rooms")):
                 speakers += self._others(principal, op, cfg, a)
             if op == SERVICE_TRANSPORT and a.get("command") == "play_pause":
                 a["together"] = self._session_rooms(principal, op, cfg, a["player"])
@@ -1279,7 +1328,8 @@ class MusicHost:
             elif op == SERVICE_TRANSPORT:
                 res = await self.engine.transport(a["player"], a["command"], a.get("level"), a.get("together"))
             elif op == SERVICE_PLAY_MEDIA:
-                res = await self.engine.play_media(a["player"], a["media_content_id"], a["media_content_type"])
+                res = await self.engine.play_media(a["player"], a["media_content_id"], a["media_content_type"],
+                                                   a.get("rooms"))
             elif op == OP_SERVICE:
                 res = await self.engine.service(a["service"], a["data"])
             else:
@@ -1310,7 +1360,8 @@ class MusicHost:
         """THE ROOMS A PLAY OR A MOVE REGROUPS BUT NEVER NAMED (the rest of a group it takes a room from): the person
         needs control of them too, else the request is refused whole -- nothing is sent -- rather than moving,
         pausing or releasing a room that is not theirs."""
-        others = E.others_in_the_way(self.house, cfg, a["rooms"], a.get("source") if op == SERVICE_TRANSFER else None)
+        source = a.get("source") if op == SERVICE_TRANSFER else a.get("player") if op == SERVICE_PLAY_MEDIA else None
+        others = E.others_in_the_way(self.house, cfg, a["rooms"], source)
         gw = self.app.get("gateway")
         action = f"{DOMAIN}.{op}"
         blocked = [r for r in others if gw is None or not gw.authz.decide(

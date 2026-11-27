@@ -14,7 +14,7 @@ the action's error, in words.
 | `mantel.music_transfer` | `rooms`, `source` | Moves what one player plays to the rooms. |
 | `mantel.music_stop` | `rooms` (optional) | Stops the music there, or everywhere. |
 | `mantel.music_transport` | `player`, `command`, `level` | Play/pause, next, previous, stop, volume. |
-| `mantel.music_play_media` | `player`, `media_content_id`, `media_content_type` | Plays one item. |
+| `mantel.music_play_media` | `player`, `media_content_id`, `media_content_type`, `rooms` (optional) | Plays one item. With `rooms`, the item plays on `player` and the other rooms join it once it plays, unless a newer request took them. |
 | `mantel.clean_areas` | `areas`, `dry_run` | Mantel's Clean Areas: sends the vacuums that reach those areas. A dry run answers the plan only. |
 | `mantel.pause_automation` | `entity_id`, `until` (optional) | Turns an automation off until a time (default: midnight), then on again. |
 | `mantel.resume_automation` | `entity_id` | Turns it on again now. |

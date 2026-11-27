@@ -431,19 +431,20 @@
         var first = pre ? (Mu.leader ? Mu.leader(pre.members) : pre.members[0]) : player, rest = pre && pre.members.length > 1 ? pre.members.slice() : null;
         if (!first) { window.hkShell.toast({ message: 'That group has no speakers.' }, this); return; }
         el.classList.add('busy');
-        this._callResp('hk_frontend', 'music_play_media', { player: first, media_content_id: it.uri, media_content_type: 'music' }).then(function (res) {
+        // ONE REQUEST FOR THE WHOLE PICK (2026-11-26): the item plays on `first` and the rest of the preset's rooms join it once it
+        // does, in the engine (it claims every room when it starts, so a newer request for one keeps it out; hkMusic.pickSaid)
+        var data = { player: first, media_content_id: it.uri, media_content_type: 'music' };
+        if (rest) data.rooms = rest.slice();
+        this._callResp('hk_frontend', 'music_play_media', data).then(function (res) {
           el.classList.remove('busy');
           var r = (res && res.response) || {};
           if (res.stale) return;          // a newer request for these rooms took over (hkMusic.settle)
           if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return; }
-          if (Mu.setFocus) Mu.setFocus(first);
-          // (the other rooms join only once the item plays: _callResp answers when the request really ended)
-          if (rest) self._callResp('hk_frontend', 'music_transfer', { rooms: rest, source: first }).then(function (r2) {
-            var a = (r2 && r2.response) || {};
-            if (r2.stale) return;
-            if (!r2.ok || a.ok === false) window.hkShell.toast({ message: 'Playing on ' + Mu.nameOf(first) + ' only: the others didn’t join.' }, self);
-            else if (a.leader && Mu.known(a.leader)) Mu.setFocus(a.leader);
-          });
+          var lead = r.leader && Mu.known(r.leader) ? r.leader : first;
+          if (Mu.setFocus) Mu.setFocus(lead);
+          if (rest && r.left && r.left.length) {
+            window.hkShell.toast({ message: Mu.pickSaid(it.name, rest, r, function (list) { return list.map(Mu.nameOf).join(', '); }) }, self);
+          }
           // played: it is the last now
           self._due = 0;
         });

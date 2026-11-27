@@ -6,7 +6,10 @@ between those steps it asks these rules, which only read the house (`House.state
 
   * THE NEWEST REQUEST WINS (`Claims`). Each request stamps the rooms it wants; one that finds a
     newer stamp when its turn comes stands down (`SUPERSEDED`) instead of running stale.
-  * WHAT A REQUEST CLAIMS (`entangled`): the rooms it asks for and every room grouped with them.
+  * WHAT A REQUEST CLAIMS (`entangled`): the rooms it asks for and every room grouped with them. A library pick on
+    several rooms claims every one of them when it STARTS (`pick_claims`), though it plays on one first and brings
+    the others in once it plays (`pick_answer`): a Stop, a play or a move another screen sends for one of them in
+    between is newer, and the pick leaves that room alone (2026-11-26, Codex's review).
   * WHAT IS IN THE WAY (`in_the_way`, `split`): a group holding a wanted room -- and nothing
     wider; a group that plays on in rooms not picked keeps its music there.
   * WHO LEADS (`existing`, `lead`, `play_target`, `move_plan`), read once the rooms are held. A PRESET is its rooms,
@@ -115,6 +118,11 @@ class Claims:
 
     def superseded(self, stamps: dict[str, int]) -> bool:
         return any(self._stamp[r] != s for r, s in stamps.items())
+
+    def held(self, stamps: dict[str, int]) -> set[str]:
+        """The rooms of ``stamps`` no newer request has claimed since: what a request that wants several rooms may still
+        take, one by one (``superseded`` is for a request that is only whole)."""
+        return {r for r, s in stamps.items() if self._stamp[r] == s}
 
 
 def entangled(house: House, cfg: MusicConfig, rooms: Iterable[str]) -> set[str]:
@@ -489,3 +497,62 @@ def browse_target(house: House, cfg: MusicConfig, player: str) -> tuple[str, lis
 def browse_rooms(house: House, cfg: MusicConfig, player: str) -> set[str]:
     """What a Browse item claims: its room -- entangled."""
     return entangled(house, cfg, [player] if player in cfg.room_ids else [])
+
+
+# ------------------------------------------------------------- a library pick on several rooms
+def pick_rooms(house: House, cfg: MusicConfig, player: str,
+               rooms: Iterable[str] | None) -> tuple[dict[str, Any] | None, list[str], list[str]]:
+    """The rooms a library pick brings in after ``player``, where the item plays first: (a refusal or None, the rooms
+    that are there, the rooms left out because they are gone -- one speaker should not stop the others, as
+    ``drop_gone``). ``rooms`` is the whole pick, ``player`` among them; none (a pick on one room) is no others."""
+    others = [r for r in dict.fromkeys(rooms or []) if r != player]
+    unknown = [r for r in others if r not in cfg.room_ids]
+    if unknown:
+        return {"ok": False, "message": f"Not a speaker this house knows: {', '.join(unknown)}."}, [], []
+    gone = [r for r in others if not available(house, r)]
+    return None, [r for r in others if r not in gone], gone
+
+
+def pick_claims(house: House, cfg: MusicConfig, player: str, others: Iterable[str]) -> set[str]:
+    """What a whole library pick claims when it starts: the room the item plays on first (``browse_rooms``) and every
+    room it brings in -- each entangled -- so a request for any of them that comes later is newer than the pick."""
+    return browse_rooms(house, cfg, player) | entangled(house, cfg, others)
+
+
+def not_joined(house: House, cfg: MusicConfig, leader: str, rooms: Iterable[str]) -> list[str]:
+    """The rooms of ``rooms`` that are not in ``leader``'s group (a virtual pair: either of its players missing)."""
+    group = set(members(house, leader)) | {leader}
+    return [r for r in rooms if r != leader and any(p not in group for p in cfg.players_of([r]))]
+
+
+def changed_since(cfg: MusicConfig, rooms: Iterable[str]) -> str:
+    """"Office was changed since.": rooms a pick left alone because a newer request had taken them."""
+    names = list(dict.fromkeys(cfg.name_of(r) for r in rooms))
+    return f"{', '.join(names)} {'was' if len(names) == 1 else 'were'} changed since."
+
+
+def pick_answer(cfg: MusicConfig, player: str, dropped: Iterable[str],
+                moved: dict[str, Any] | None, others: Iterable[str] = ()) -> dict[str, Any]:
+    """HOW A LIBRARY PICK ON SEVERAL ROOMS ENDED, once its item plays on ``player``: ``{ok, leader, message?, left?}``.
+    ``dropped`` are the rooms a newer request took in the meantime (never brought in), ``moved`` the bringing-in's own
+    answer (a refusal or ``_move``'s; None when nothing was left to bring in), ``others`` the rooms it was to bring in.
+    The pick played, so ``ok`` is true; what did not follow is ``left`` (room ids) and said in ``message`` -- the screen
+    shows "Playing ... on Kitchen. Office was changed since." and not a success it did not have."""
+    left, said, leader = list(dict.fromkeys(dropped)), [], player
+    if left:
+        said.append(changed_since(cfg, left))
+    if moved is not None:
+        if moved.get("ok"):
+            leader = moved.get("leader") or player
+            left += [r for r in moved.get("left") or [] if r not in left]
+            if moved.get("message"):
+                said.append(str(moved["message"]))
+        else:
+            left += [r for r in others if r not in left]
+            said.append(str(moved.get("message") or "The other rooms did not join."))
+    out: dict[str, Any] = {"ok": True, "leader": leader}
+    if said:
+        out["message"] = " ".join(said)
+    if left:
+        out["left"] = left
+    return out

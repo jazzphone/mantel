@@ -94,17 +94,21 @@
         return m && !/^[0-9a-f]{64}$/.test(m[1]) ? m[1] : null;
       }
       function active(st) { return !!st && !ignored(st) && !leftover(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
-      // THE SESSION IS THE SENDER'S, NEVER THE SONG'S (2026-11-26, hk_core/music/airplay.py `ambiguous`): an id two speakers
-      // each send through their own app (two HomeViews playing one song) is no proof of one sender, so no room is folded
-      // under it; its rooms stay one player each, and a button sends to the one player asked. {session id: true}
-      function crowded(states) {
-        var n = {}, out = {};
+      // THE SESSION IS THE SENDER'S, NEVER THE SONG'S, AND NEVER AN ID ALONE (2026-11-26, hk_core/music/airplay.py `verified`):
+      // rooms are one session only when ONE room of the house is that sender (a speaker playing its own app with the id: a
+      // HomeView's Music app) and the rest receive it. Receivers alone (two independent iPhones appear only as receivers, and
+      // two ids that match tell nothing of one device) and an id two speakers each send through their own app (two HomeViews
+      // playing one song) prove nothing: no room is folded under such an id, its rooms stay one player each, and a button
+      // sends to the one player asked. {session id: true} for the ids that are not proof
+      function unproven(states) {
+        var senders = {}, all = {}, out = {};
         rooms().forEach(function (r) {
           var st = states[r.entity], sid = st && (st.state === 'playing' || st.state === 'paused') ? session(st) : null;
-          if (!sid || !ownApp(st.attributes || {})) return;
-          n[sid] = (n[sid] || 0) + 1;
-          if (n[sid] > 1) out[sid] = true;
+          if (!sid) return;
+          all[sid] = true;
+          if (ownApp(st.attributes || {})) senders[sid] = (senders[sid] || 0) + 1;
         });
+        Object.keys(all).forEach(function (sid) { if (senders[sid] !== 1) out[sid] = true; });
         return out;
       }
       // MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25; the same rules as hk_core/music/airplay.py `outside` and
@@ -180,7 +184,7 @@
       // (`entity`, "preset:...") is for choosing it, never for a command.
       function contexts(client) {
         var states = (client && client.states) || {};
-        var seen = {}, out = [], many = crowded(states);
+        var seen = {}, out = [], unsure = unproven(states);
         function ctx(key, kind, members, st) {
           var a = (st && st.attributes) || {};
           return {
@@ -208,7 +212,7 @@
           // the same session. Its rooms are one context, `airplay`: drawn as a group, Play / Pause sent to each of
           // them (the engine), and its rooms changed only on the device sending
           var sid = members.length === 1 ? session(st) : null;
-          if (sid && many[sid]) sid = null;
+          if (sid && unsure[sid]) sid = null;
           if (sid) {
             rooms().forEach(function (o) {
               var os = states[o.entity];
@@ -394,19 +398,22 @@
         if (service === 'music_play') list = data.rooms;
         else if (service === 'music_transfer') list = (data.rooms || []).concat(data.source ? [data.source] : []);
         else if (service === 'music_stop') list = data.rooms && data.rooms.length ? data.rooms : rooms().map(function (s) { return s.entity; });
-        else if (service === 'music_play_media') list = data.player ? [data.player] : null;
+        else if (service === 'music_play_media') list = data.player ? [data.player].concat(data.rooms || []) : null;
         else if (service === 'music_transport') list = data.player && !/^volume_/.test(String(data.command)) ? [data.player] : null;
         return Array.isArray(list) && list.length ? fold(list) : null;
       }
-      // {n, rooms} for a request that takes rooms (a volume change takes none), else null
+      // {n, rooms, lead} for a request that takes rooms (a volume change takes none), else null. `lead` is what its own
+      // fate hangs on: a library pick on several rooms is still the pick when a newer request of this page took one of
+      // its other rooms (the engine leaves that room alone and says so, `left`), but not when it took the room the item
+      // plays on
       function claim(service, data) {
         var r = requestRooms(service, data);
         if (!r) return null;
         var n = ++claimSeq;
         r.forEach(function (e) { claimed[e] = n; });
-        return { n: n, rooms: r };
+        return { n: n, rooms: r, lead: service === 'music_play_media' && data.player ? fold([data.player]) : r };
       }
-      function stale(c) { return !!c && c.rooms.some(function (e) { return claimed[e] > c.n; }); }
+      function stale(c) { return !!c && c.lead.some(function (e) { return claimed[e] > c.n; }); }
       function outcomeOf(id) { var r = ST.MUSIC.requests; return (r && id && r[id]) || null; }
       // the outcome of request `id` once the feed has it; not confirmed in WAIT_MS (or an answer with no id: an older
       // Mantel) is an answer too, said in words
@@ -425,6 +432,15 @@
       function marked(c, res, r) {
         if (!stale(c) && r.superseded !== true) return res;
         return Object.assign({}, res, { stale: true, response: Object.assign({}, r, { superseded: true }) });
+      }
+      // WHAT A LIBRARY PICK SAYS WHEN IT ENDED (hk_core/music/engine.py pick_answer): "Playing Piano Man on Kitchen." and,
+      // when a room did not follow -- a newer request for it took it, or it would not join -- the engine's own words after
+      // it ("Office was changed since."), the rooms it did play in named by `say(rooms)`
+      function pickSaid(title, rooms, response, say) {
+        var r = response || {}, left = Array.isArray(r.left) ? r.left : [];
+        var placed = (rooms || []).filter(function (e) { return left.indexOf(e) < 0; });
+        var words = 'Playing ' + title + ' on ' + say(placed.length ? placed : rooms);
+        return r.message ? words + '. ' + String(r.message).replace(/\.?\s*$/, '.') : words;
       }
       // `p`: the host's answer to a music call ({response}); the same shape back, its response the real outcome
       function settle(service, data, p) {
@@ -538,7 +554,7 @@
         outside: outside, origin: origin, whereFrom: whereFrom, speakerName: speakerName,
         player: function (client) { return resolve(client).player; },
         label: label, setFocus: setFocus, release: release, attach: attach,
-        settle: settle, claim: claim, stale: stale, outcome: outcomeOf, when: when,
+        settle: settle, pickSaid: pickSaid, claim: claim, stale: stale, outcome: outcomeOf, when: when,
         onChange: onChange, focus: function () { return focus.key; },
         configured: function () { return ST.MUSIC.configured; },
         floors: function () { return ST.MUSIC.floors.slice(); },

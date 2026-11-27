@@ -877,16 +877,22 @@
           return r;
         });
       };
-      var name = roomsName(rooms), lead = t.player;
+      var name = roomsName(rooms), lead = t.player, said = null;
       S.busy = 'node';
       toast('Starting ' + node.title + ' on ' + name + '…');
       (free ? call('music_transfer', free) : Promise.resolve()).then(function () {
-        return call('music_play_media', { player: t.player, media_content_id: node.media_content_id, media_content_type: node.media_content_type });
-      }).then(function () {
-        return t.then ? call('music_transfer', { rooms: t.then, source: t.player }).then(function (r2) { if (r2.leader) lead = r2.leader; }) : null;
+        // ONE REQUEST FOR THE WHOLE PICK (2026-11-26): the item plays on t.player and the other ticked rooms join it once it does,
+        // in the engine, which claims every room of the pick when it starts (a Stop for one of them from another screen is newer
+        // and keeps it out); its answer says where it played and what it left
+        var data = { player: t.player, media_content_id: node.media_content_id, media_content_type: node.media_content_type };
+        if (t.then) data.rooms = t.then.slice();
+        return call('music_play_media', data).then(function (r) {
+          if (r.leader) lead = r.leader;
+          said = m.pickSaid ? m.pickSaid(node.title, t.then || [t.player], r, roomsName) : null;
+        });
       }).then(function () {
         S.busy = '';
-        toast('Playing ' + node.title + ' on ' + name);
+        toast(said || 'Playing ' + node.title + ' on ' + name);
         if (m.known(lead)) m.setFocus(lead, { hold: true });
         if (o.follow) o.follow(lead);
         setTicks(null);

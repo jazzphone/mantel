@@ -99,6 +99,7 @@ class FakeHouse:
         self.slow_start = 0.0
         self.slow_unjoin = 0.0
         self.slow_transfer = 0.0
+        self.slow_browse = 0.0             # a library item (media_player.play_media) that takes this long to start
         self.lagging: set[str] = set()     # rooms that do not follow their sync group
         self.library = [{"name": "Favorites Mix", "uri": "library://playlist/147"},
                         {"name": "Country Hits", "uri": "library://playlist/124"}]
@@ -209,6 +210,8 @@ class FakeHouse:
         @rec("play_media")
         async def play_media(call):
             target = ids(call)[0]
+            if self.slow_browse:
+                await asyncio.sleep(self.slow_browse)
             if target in self.dead:
                 raise Exception("The command to the player failed.")
             self._play(target, call.data["media_content_id"])

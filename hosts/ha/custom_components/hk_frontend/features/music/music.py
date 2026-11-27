@@ -634,7 +634,7 @@ class MusicManager:
         return {"ok": ok} if ok else {"ok": False, "message": f"{cfg.name_of(player)} did not respond."}
 
     async def play_media(self, player: str, content_id: str, content_type: str,
-                         user: str | None = None) -> dict[str, Any]:
+                         user: str | None = None, rooms: list[str] | None = None) -> dict[str, Any]:
         """One item from the Music page's Browse, on the player the screen is showing.
 
         Not a playlist press: no grouping, no house volume -- Browse plays to
@@ -642,6 +642,13 @@ class MusicManager:
         player is really there (Home Assistant skips an unavailable entity
         and reports success) and an answer that says
         whether playback actually started.
+
+        `rooms` is a library pick on several rooms: the whole pick, `player`
+        among them. The item plays on `player`, and the others join it once it
+        plays. It is ONE request that claims every room of the pick when it
+        starts (engine.pick_claims), so a Stop, a play or a move another screen
+        sends for one of them while the item loads is newer, and the bringing-in
+        leaves that room alone (_follow; 2026-11-26, Codex's review).
         """
         rid, t0 = next(self._ids), time.monotonic()
         cfg = self.config
@@ -654,9 +661,16 @@ class MusicManager:
         fail = E.check_browse(self.house, cfg, player)
         if fail:
             return done(fail)
-        stamps = self._claim(E.browse_rooms(self.house, cfg, player))
+        fail, others, gone = E.pick_rooms(self.house, cfg, player, rooms)
+        if fail:
+            return done(fail)
+        lead = E.browse_rooms(self.house, cfg, player)
+        stamps = self._claim(lead | E.entangled(self.house, cfg, others))
+        first = {r: s for r, s in stamps.items() if r in lead}          # what the item's own start needs
+        following = False
+        answer: dict[str, Any] | None = None
         try:
-            async with self._request(stamps):
+            async with self._request(first):
                 # Browse starts afresh, as Apple Music does: the queue is replaced,
                 # never added to (a playlist "played" into a shuffled queue was
                 # lost among its songs, the owner 2026-10-31)
@@ -668,15 +682,50 @@ class MusicManager:
                     return done({"ok": False, "message": "Music Assistant could not play that."})
                 started = await self._wait([player], lambda: self._started_anew(player, was),
                                            START_TIMEOUT)
+                if started and others and not self._superseded(first):
+                    # (a Stop of any room of the pick ends the bringing-in from here, as it ends a move)
+                    task = asyncio.current_task()
+                    if task in self._running:
+                        self._running[task] |= set(stamps)
+                    following = True
+                    answer = await self._follow(cfg, player, others, stamps, first)
         except asyncio.CancelledError:
             if self._was_stopped():
+                if following and not self._superseded(first):      # the item plays; a room of the pick was stopped
+                    held = self._claims.held({r: stamps[r] for r in others if r in stamps})
+                    return done(E.pick_answer(cfg, player, [r for r in others if r not in held], None))
                 return done(dict(STOPPED))
             raise
-        if self._superseded(stamps):
+        if self._superseded(first):
             return done({"ok": True, "leader": player, "superseded": True})
         if not started:
             return done({"ok": False, "message": f"It did not start on {cfg.name_of(player)}."})
-        return done({"ok": True, "leader": player})
+        res = answer if answer is not None else {"ok": True, "leader": player}
+        if gone and res.get("ok") and not res.get("superseded"):
+            said = f"{', '.join(dict.fromkeys(cfg.name_of(r) for r in gone))} left out: unavailable."
+            res = {**res, "message": f"{said} {res['message']}" if res.get("message") else said,
+                   "left": list(dict.fromkeys([*res.get("left", []), *gone]))}
+        return done(res)
+
+    async def _follow(self, cfg: MusicConfig, player: str, others: list[str], stamps: dict[str, int],
+                      first: dict[str, int]) -> dict[str, Any]:
+        """A library pick's item plays on `player`: bring in the rooms of the pick that are still the pick's. The rooms
+        are held, then each is asked of the claims it made when the pick started (Claims.held): a room a newer
+        request took -- a Stop, another play, a move, from any screen -- is left alone and named, never taken back; the
+        pick's answer (engine.pick_answer) says where it did play and what it left."""
+        async with self._hold(set(stamps) | E.transfer_rooms(self.house, cfg, [player, *others], player)):
+            if self._superseded(first):
+                return {"ok": True, "leader": player, "superseded": True}
+            held = self._claims.held({r: stamps[r] for r in others})
+            dropped = [r for r in others if r not in held]
+            keep = [r for r in others if r in held]
+            moved = None
+            if keep:
+                fail, preset = E.check_transfer(self.house, cfg, [player, *keep], player)
+                moved = fail or await self._move(cfg, [player, *keep], player, preset)
+                if moved.get("ok"):
+                    moved = {**moved, "left": E.not_joined(self.house, cfg, moved.get("leader") or player, keep)}
+        return E.pick_answer(cfg, player, dropped, moved, keep)
 
     async def _missing(self, cfg: MusicConfig, items: list[str]) -> list[str]:
         """The library playlists among `items` that the library no longer has.

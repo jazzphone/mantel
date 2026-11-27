@@ -772,6 +772,10 @@
         "media_content_type": {
           "name": "Type",
           "description": "The media type."
+        },
+        "rooms": {
+          "name": "Rooms",
+          "description": "A pick on several rooms: all of them, the player among them. The item plays on the player first, then the other rooms join it, unless something newer took them."
         }
       }
     },

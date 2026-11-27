@@ -1279,28 +1279,23 @@
           return play();
         });
       };
-      // THE OTHER ROOMS JOIN ONLY ONCE THE ITEM PLAYS: _callResp answers when the request really ended (a slow one from a
-      // Home Assistant screen is "pending" until Mantel says how it went), never before; a newer request for these rooms
-      // (`stale`) leaves the screen to it
+      // ONE REQUEST FOR THE WHOLE PICK (2026-11-26, Codex's review): the item plays on `t.player` and the other rooms join
+      // it once it does -- all in the engine, which claims every room of the pick when the request starts, so a Stop, a
+      // play or a move another screen sends for one of them meanwhile is newer and the pick leaves that room alone. Its
+      // answer says where it played and what it left ({leader, message, left}); _callResp answers when the request really
+      // ended (a slow one from a Home Assistant screen is "pending" until Mantel says how it went), and `stale` leaves the
+      // screen to a newer request of this page for the same rooms
       var play = function () {
         self._nextRooms = null; self._refreshPlaylists(true);
-        return self._callResp('hk_frontend', 'music_play_media', { player: t.player, media_content_id: node.media_content_id,
-                                                           media_content_type: node.media_content_type }).then(function (res) {
+        var data = { player: t.player, media_content_id: node.media_content_id, media_content_type: node.media_content_type };
+        if (t.then) data.rooms = t.then.slice();
+        return self._callResp('hk_frontend', 'music_play_media', data).then(function (res) {
           var r = (res && res.response) || {};
           if (res.stale) return;
           if (!res.ok || r.ok === false) { self._toast('Could not play ' + node.title + (r.message ? ': ' + r.message : '')); return; }
-          self._toast('Playing ' + node.title + ' on ' + label);
-          if (Mu.known(t.player)) Mu.setFocus(t.player);
-          if (t.then) {
-            self._toast('Moving ' + node.title + ' to ' + label + '…');
-            self._callResp('hk_frontend', 'music_transfer', { rooms: t.then, source: t.player }).then(function (r2) {
-              var a = (r2 && r2.response) || {};
-              if (r2.stale) return;
-              if (!r2.ok || a.ok === false) { self._toast('Playing on ' + Mu.nameOf(t.player) + ' only' + (a.message ? ': ' + a.message : '')); return; }
-              self._toast('Playing ' + node.title + ' on ' + label);
-              if (a.leader && Mu.known(a.leader)) Mu.setFocus(a.leader);
-            });
-          }
+          self._toast(Mu.pickSaid(node.title, t.then || [t.player], r, function (list) { return self._roomsLabel(list); }));
+          var lead = r.leader && Mu.known(r.leader) ? r.leader : t.player;
+          if (Mu.known(lead)) Mu.setFocus(lead);
         });
       };
       if (c && !next) go(); else this._askThenPlay(rooms, go);

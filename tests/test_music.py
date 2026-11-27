@@ -1684,8 +1684,9 @@ async def test_a_saved_playlist_is_looked_up_in_the_background_and_the_feed_foll
 
 
 async def test_play_pause_on_an_airplay_session_reaches_every_room_of_it(on):
-    """A HomeView AirPlaying to several HomePods (hk_core.music.airplay): one Play / Pause on the screen is a pause sent
-    to every room of the session -- a pause each, never a toggle each."""
+    """A HomeView AirPlaying to several HomePods (hk_core.music.airplay): the HomeView is a room of the house sending the
+    session through its own app, so one Play / Pause on the screen is a pause sent to every room of it -- a pause each,
+    never a toggle each. Receivers alone prove nothing (two iPhones): then it is the one player asked."""
     await on.connected()
     for e in (K, D):
         await on.playing(e, media_title="Song 1", media_artist="Band", media_content_id=f"apple-device://{e}/snFake::STREAM")
@@ -1694,18 +1695,171 @@ async def test_play_pause_on_an_airplay_session_reaches_every_room_of_it(on):
     ws = await on.socket()
     r = await on.command(ws, id=2, **SVC("music_transport", player=D, command="play_pause"))
     assert r["result"]["response"] == {"ok": True}, r
-    assert sorted(on.ma.sent(), key=str) == [("players/cmd/pause", {"player_id": "ma-den"}),
-                                             ("players/cmd/pause", {"player_id": "ma-kitchen"})]
+    assert on.ma.sent() == [("players/cmd/play_pause", {"player_id": "ma-den"})], "no sender in the house: the one asked"
+    # the Cody's Room speaker is a HomeView playing its own Music app, and sends the session the others receive
+    on.ma.model["ma-cody"]["active_source"] = "com.apple.sonic.music"
+    await on.playing(C, media_title="Song 1", media_artist="Band", media_content_id="apple-device://c/snFake::STREAM")
+    await wait_for(lambda: on.app["hub"].store.states[C]["a"].get("app_id") == "com.apple.sonic.music")
+    await on.playing(D, "playing")                  # (the first press paused it)
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=3, **SVC("music_transport", player=D, command="play_pause"))
+    assert r["result"]["response"] == {"ok": True}, r
+    assert sorted(on.ma.sent()[n:], key=str) == [("players/cmd/pause", {"player_id": "ma-cody"}),
+                                                 ("players/cmd/pause", {"player_id": "ma-den"}),
+                                                 ("players/cmd/pause", {"player_id": "ma-kitchen"})]
     await ws.close()
     # one who may control only their own room of the session: their room alone (the rest are not theirs)
-    await on.playing(C, media_title="Song 1", media_artist="Band", media_content_id="apple-device://c/snFake::STREAM")
+    await on.playing(K, "playing")
+    await on.playing(D, "playing")
     await on.m.user("cody", "child")
     uid = on.app["accounts"].db.execute("SELECT id FROM users WHERE username='cody'").fetchone()["id"]
     on.app["rbac"].set_scopes("user", uid, ["cody_room"])
     await on.login("cody", "child")
     ws = await on.socket()
     n = len(on.ma.sent())
-    r = await on.command(ws, id=3, **SVC("music_transport", player=C, command="play_pause"))
+    r = await on.command(ws, id=4, **SVC("music_transport", player=C, command="play_pause"))
     assert r["result"]["response"] == {"ok": True}, r
     assert on.ma.sent()[n:] == [("players/cmd/play_pause", {"player_id": "ma-cody"})]
+    await ws.close()
+
+
+# --------------------------------------------------------------------- a library pick on several rooms (2026-11-26)
+PICK = dict(media_content_id="library://track/9", media_content_type="music")
+
+
+def joins(env):
+    """What Mantel sent to bring rooms together: the pick's Den, or any other."""
+    return [(c, a) for c, a in env.ma.sent() if c == "players/cmd/group_many"]
+
+
+async def started_pick(env, ws, **extra):
+    """A library pick on the Kitchen and the Den, one request: Music Assistant has been sent the item and has not yet
+    started it (a slow start, as MA's first load of a streaming item is)."""
+    env.ma.react = False
+    task = asyncio.ensure_future(env.command(ws, id=7, **SVC("music_play_media", player=K, rooms=[K, D], **PICK, **extra)))
+    await wait_for(lambda: any(c == "player_queues/play_media" for c, _ in env.ma.sent()))
+    return task
+
+
+async def starts(env):
+    """Music Assistant starts the item on the Kitchen."""
+    env.ma.react = True
+    await env.ma.set(K, "playing", media_content_id=PICK["media_content_id"])
+
+
+async def test_a_library_pick_on_several_rooms_plays_on_one_and_brings_the_others_in(on):
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    r = await on.command(ws, **SVC("music_play_media", player=K, rooms=[K, D], **PICK))
+    assert r["result"]["response"] == {"ok": True, "leader": K}, r
+    assert on.ma.sent() == [
+        ("player_queues/play_media", {"queue_id": "ma-kitchen", "media": ["library://track/9"], "option": "replace"}),
+        ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-den"]})]
+    await ws.close()
+
+
+async def test_a_pick_that_never_starts_brings_nobody_in(on):
+    await on.connected()
+    on.ma.react = False
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    r = await on.command(ws, **SVC("music_play_media", player=K, rooms=[K, D], **PICK))
+    assert r["result"]["response"] == {"ok": False, "message": "It did not start on Kitchen."}, r
+    assert joins(on) == []
+    await ws.close()
+
+
+async def test_a_stop_for_a_room_of_a_slow_pick_from_another_screen_keeps_it_out(on):
+    """Codex's reproduction: a library pick for the Kitchen and the Den waits for the music to start; another screen stops
+    the Den meanwhile. The pick's rooms were claimed when it started, so the Stop is newer, and the Den is not taken back."""
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws, other = await on.socket(), await on.socket()
+    pick = await started_pick(on, ws)
+    r = await on.command(other, id=8, **SVC("music_stop", rooms=[D]))
+    assert r["result"]["response"] == {"ok": True}, r
+    await starts(on)
+    r = await asyncio.wait_for(pick, 3)
+    assert r["result"]["response"] == {"ok": True, "leader": K, "message": "Den was changed since.", "left": [D]}, r
+    assert joins(on) == [] and "player_queues/transfer" not in [c for c, _ in on.ma.sent()], on.ma.sent()
+    assert on.ma.sent()[-2:] == [("players/cmd/stop", {"player_id": "ma-den"}),
+                                 ("players/cmd/ungroup", {"player_id": "ma-den"})], "the Stop is the last word on the Den"
+    await ws.close()
+    await other.close()
+
+
+async def test_a_newer_play_for_a_room_of_a_slow_pick_keeps_it_out(on):
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws, other = await on.socket(), await on.socket()
+    pick = await started_pick(on, ws)
+    on.ma.react = True
+    r = await on.command(other, id=8, **play([D]))                      # another screen plays a playlist on the Den
+    assert r["result"]["response"] == {"ok": True, "leader": D}, r
+    on.ma.react = False
+    await starts(on)
+    r = await asyncio.wait_for(pick, 3)
+    assert r["result"]["response"] == {"ok": True, "leader": K, "message": "Den was changed since.", "left": [D]}, r
+    assert joins(on) == [], "the Den plays the newer request's playlist, and is not taken into the Kitchen"
+    await ws.close()
+    await other.close()
+
+
+async def test_a_newer_move_of_a_room_of_a_slow_pick_keeps_it_out(on):
+    await on.connected()
+    await on.playing(C, media_content_id="library://playlist/1")
+    await on.login("jamie", "adult")
+    ws, other = await on.socket(), await on.socket()
+    pick = await started_pick(on, ws)
+    on.ma.react = True
+    r = await on.command(other, id=8, **SVC("music_transfer", rooms=[D], source=C))      # a newer routing choice
+    assert r["result"]["response"] == {"ok": True, "leader": D}, r
+    on.ma.react = False
+    await starts(on)
+    r = await asyncio.wait_for(pick, 3)
+    assert r["result"]["response"] == {"ok": True, "leader": K, "message": "Den was changed since.", "left": [D]}, r
+    assert joins(on) == []
+    await ws.close()
+    await other.close()
+
+
+async def test_a_stop_for_the_player_a_slow_pick_starts_on_ends_the_whole_pick(on):
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws, other = await on.socket(), await on.socket()
+    pick = await started_pick(on, ws)
+    r = await on.command(other, id=8, **SVC("music_stop", rooms=[K]))
+    assert r["result"]["response"] == {"ok": True}, r
+    r = await asyncio.wait_for(pick, 3)
+    assert r["result"]["response"].get("superseded") is True or r["result"]["response"] == {
+        "ok": False, "superseded": True, "message": "Stopped."}, r
+    assert joins(on) == []
+    await ws.close()
+    await other.close()
+
+
+async def test_a_slow_pick_nobody_changed_still_brings_every_room_in(on):
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    pick = await started_pick(on, ws)
+    await starts(on)
+    r = await asyncio.wait_for(pick, 3)
+    assert r["result"]["response"] == {"ok": True, "leader": K}, r
+    assert joins(on) == [("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-den"]})]
+    await ws.close()
+
+
+async def test_a_pick_names_only_rooms_the_person_may_control(on):
+    """The follow-up is the pick's own request now, so a room that is not the person's refuses the whole pick (the
+    gateway's checks name every room of it), nothing sent -- as the separate move it replaces was."""
+    await on.connected()
+    await on.m.user("cody", "child")
+    uid = on.app["accounts"].db.execute("SELECT id FROM users WHERE username='cody'").fetchone()["id"]
+    on.app["rbac"].set_scopes("user", uid, ["cody_room"])
+    await on.login("cody", "child")
+    ws = await on.socket()
+    r = await on.command(ws, **SVC("music_play_media", player=C, rooms=[C, D], **PICK))
+    assert "error" in r and on.ma.sent() == [], r
     await ws.close()

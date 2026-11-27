@@ -686,6 +686,9 @@ ok('  ...TARGETED AT THE SELECTED SPEAKER',
    c._calls[0][2].player, 'media_player.kitchen_homepod_ma');
 ok('  ...carrying the id', c._calls[0][2].media_content_id, 'apple_music://track/1');
 ok('  ...and the type', c._calls[0][2].media_content_type, 'music');
+// (2026-11-26) one speaker, one request: a card's track names no other rooms (a pick on several rooms sends `rooms`, and
+// the engine brings them in once the item plays: hk-music.js _playNode)
+ok('  ...for that speaker alone: no other rooms named', c._calls[0][2].rooms, undefined);
 
 // Change the selection and the SAME track goes somewhere else, with no other
 // state touched -- that is the property an iframe cannot have.

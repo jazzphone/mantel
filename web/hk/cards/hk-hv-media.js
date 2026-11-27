@@ -591,24 +591,19 @@
       var label = c ? Mu.label(c) : this._roomsLabel(rooms);
       var go = function () {
         self._say('Starting ' + node.title + ' on ' + label + '…');
-        // (the other rooms join only once the item plays: _callResp answers when the request really ended)
-        self._callResp('hk_frontend', 'music_play_media', { player: t.player, media_content_id: node.media_content_id, media_content_type: node.media_content_type }).then(function (res) {
+        // ONE REQUEST FOR THE WHOLE PICK (2026-11-26): the item plays on t.player and the other rooms join it once it does, in the
+        // engine, which claims every room of the pick when it starts (a Stop for one of them from another screen is newer and
+        // keeps it out); _callResp answers when the request really ended, and its answer says where it played and what it left
+        var data = { player: t.player, media_content_id: node.media_content_id, media_content_type: node.media_content_type };
+        if (t.then) data.rooms = t.then.slice();
+        self._callResp('hk_frontend', 'music_play_media', data).then(function (res) {
           var r = (res && res.response) || {};
           if (res.stale) return;
           if (!res.ok || r.ok === false) { self._say('Could not play ' + node.title + (r.message ? ': ' + r.message : '')); return; }
-          self._say('Playing ' + node.title + ' on ' + label);
-          if (Mu.known(t.player)) Mu.setFocus(t.player);
+          self._say(Mu.pickSaid(node.title, t.then || [t.player], r, function (list) { return c ? label : self._roomsLabel(list); }));
+          var lead = r.leader && Mu.known(r.leader) ? r.leader : t.player;
+          if (Mu.known(lead)) Mu.setFocus(lead);
           self._target = null;
-          if (t.then) {
-            self._say('Moving ' + node.title + ' to ' + label + '…');
-            self._callResp('hk_frontend', 'music_transfer', { rooms: t.then, source: t.player }).then(function (r2) {
-              var a = (r2 && r2.response) || {};
-              if (r2.stale) return;
-              if (!r2.ok || a.ok === false) { self._say('Playing on ' + Mu.nameOf(t.player) + ' only' + (a.message ? ': ' + a.message : '')); return; }
-              self._say('Playing ' + node.title + ' on ' + label);
-              if (a.leader && Mu.known(a.leader)) Mu.setFocus(a.leader);
-            });
-          }
           if (self.deep()) self.deep(null);
           self.mode('play');
         });

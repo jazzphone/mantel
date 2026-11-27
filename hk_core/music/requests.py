@@ -10,6 +10,7 @@ The outcome travels on the feed the page already follows (``hk_music/subscribe``
 ``request`` id the pending answer carried:
 
     {"ok": true}                          it played / moved / stopped
+    {"ok": true, "left": [...], "message": "..."}  a library pick played, and these rooms did not follow (and why)
     {"ok": false, "message": "..."}       it did not, and why
     {"ok": true, "superseded": true}      a newer request for those rooms took over: show nothing of this one
 
@@ -43,6 +44,8 @@ def outcome_of(result: Any = None, error: BaseException | None = None) -> dict[s
         out["superseded"] = True
     if isinstance(result.get("leader"), str):
         out["leader"] = result["leader"]
+    if isinstance(result.get("left"), list):          # a library pick's rooms that did not follow (engine.pick_answer)
+        out["left"] = [r for r in result["left"] if isinstance(r, str)][:KEEP_N]
     return out
 
 
@@ -66,5 +69,6 @@ class Outcomes:
             del self._rows[k]
         out: dict[str, dict[str, Any]] = {}
         for k, (_, o) in self._rows.items():
-            out[k] = {f: v for f, v in o.items() if f != "leader" or v in visible}
+            out[k] = {f: ([r for r in v if r in visible] if f == "left" else v) for f, v in o.items()
+                      if f != "leader" or v in visible}
         return out

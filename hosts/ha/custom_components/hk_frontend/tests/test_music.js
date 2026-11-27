@@ -505,6 +505,33 @@ track('engine', M.settle('music_play', { rooms: [e('kitchen')], playlist: 'k' },
 drain();
 ok('an answer the engine says a newer request superseded is stale', settled.engine.stale, true);
 
+// A LIBRARY PICK ON SEVERAL ROOMS is ONE request that claims every room of the pick (2026-11-26, hk_core/music/engine.py pick_claims):
+// the other screens' newer requests are the engine's to tell apart; this page's own are told apart by the room the item plays on
+M._reset(); M._configure(HK_HOUSE); settled = {};
+var PICK = { player: e('kitchen'), rooms: [e('kitchen'), e('office')], media_content_id: 'x://1', media_content_type: 'music' };
+track('pick', M.settle('music_play_media', PICK, answer({ ok: true, leader: e('kitchen'), left: [e('office')], message: 'Office was changed since.' })));
+M.claim('music_stop', { rooms: [e('office')] });                      // this page stops the Office meanwhile
+drain();
+ok('a Stop of this page\'s for another room of the pick: the pick still answers, with what it left',
+   settled.pick.stale + ':' + JSON.stringify(settled.pick.response.left), 'undefined:' + JSON.stringify([e('office')]));
+settled = {};
+track('pick2', M.settle('music_play_media', PICK, answer({ ok: true, leader: e('kitchen') })));
+M.claim('music_stop', { rooms: [e('kitchen')] });
+drain();
+ok('...a Stop for the room it plays on ends it for this page', settled.pick2.stale, true);
+settled = {};
+track('pick3', M.settle('music_play_media', PICK, answer({ ok: true, pending: true, request: 'rq7' })));
+drain();
+feed({ rq7: { ok: true, leader: e('kitchen'), left: [e('office')], message: 'Office was changed since.' } });
+drain();
+ok('a pending pick settles with the engine\'s own outcome: where it played, what it left, why',
+   JSON.stringify([settled.pick3.response.leader, settled.pick3.response.left, settled.pick3.response.message]),
+   JSON.stringify([e('kitchen'), [e('office')], 'Office was changed since.']));
+M._configure(HK_HOUSE);
+ok('its words: where it played, then why not there', M.pickSaid('Song', PICK.rooms, { left: [e('office')], message: 'Office was changed since' },
+   function (list) { return list.map(function (x) { return M.nameOf(x); }).join(' + '); }), 'Playing Song on ' + M.nameOf(e('kitchen')) + '. Office was changed since.');
+ok('...all of it when nothing was left', M.pickSaid('Song', PICK.rooms, { ok: true }, function (list) { return list.length + ' rooms'; }), 'Playing Song on 2 rooms');
+
 // the speaker picker and the music page ask through _callResp: pending is settled there, and a stale one is flagged
 (function () {
   var Card = customElements.get('hk-now-playing-card'), c = Object.create(Card.prototype);

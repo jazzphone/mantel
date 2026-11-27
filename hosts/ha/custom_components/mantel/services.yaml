@@ -185,6 +185,13 @@ music_play_media:
       required: true
       selector:
         text:
+    rooms:
+      required: false
+      selector:
+        entity:
+          multiple: true
+          domain: media_player
+          integration: music_assistant
 clean_areas:
   fields:
     areas:

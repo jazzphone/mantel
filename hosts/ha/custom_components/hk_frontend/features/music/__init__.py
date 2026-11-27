@@ -144,7 +144,7 @@ async def async_setup(hass: HomeAssistant) -> None:
     async def play_media(call: ServiceCall) -> ServiceResponse:
         return _answer(call, await _manager(hass).play_media(
             call.data[ATTR_PLAYER], call.data["media_content_id"],
-            call.data["media_content_type"], call.context.user_id))
+            call.data["media_content_type"], call.context.user_id, call.data.get(ATTR_ROOMS)))
 
     opt = SupportsResponse.OPTIONAL
     hass.services.async_register(DOMAIN, SERVICE_PLAY, play, vol.Schema({
@@ -161,7 +161,8 @@ async def async_setup(hass: HomeAssistant) -> None:
         supports_response=opt)
     hass.services.async_register(DOMAIN, SERVICE_PLAY_MEDIA, play_media, vol.Schema({
         vol.Required(ATTR_PLAYER): cv.entity_id, vol.Required("media_content_id"): cv.string,
-        vol.Required("media_content_type"): cv.string}), supports_response=opt)
+        vol.Required("media_content_type"): cv.string,
+        vol.Optional(ATTR_ROOMS): rooms}), supports_response=opt)
     websocket_api.async_register_command(hass, ws_music_subscribe)
     websocket_api.async_register_command(hass, ws_music_queue)
     websocket_api.async_register_command(hass, ws_music_queue_play)

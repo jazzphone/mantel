@@ -32,12 +32,13 @@ def classify_service(domain: Any, service: Any, data: Any, target: Any, return_r
         raise Refused("invalid_command", f"{DOMAIN}.{service} takes its fields in data")
     allowed = {SERVICE_PLAY: {"rooms", "playlist"}, SERVICE_TRANSFER: {"rooms", "source"}, SERVICE_STOP: {"rooms"},
                SERVICE_TRANSPORT: {"player", "command", "level"},
-               SERVICE_PLAY_MEDIA: {"player", "media_content_id", "media_content_type"}}[service]
+               SERVICE_PLAY_MEDIA: {"player", "media_content_id", "media_content_type", "rooms"}}[service]
     if set(data) - allowed:
         raise Refused("invalid_command", f"{DOMAIN}.{service} carries {sorted(allowed)} only")
     args: dict[str, Any] = {}
     names: list[str] = []
-    if "rooms" in allowed:
+    if "rooms" in allowed and (service != SERVICE_PLAY_MEDIA or "rooms" in data):
+        # (a library pick's `rooms` are the whole pick: its item plays on `player`, the rest join it once it plays)
         args["rooms"] = _room_list(data.get("rooms")) if "rooms" in data or service != SERVICE_STOP else None
         if service != SERVICE_STOP and not args["rooms"]:
             raise Refused("invalid_command", "pick at least one speaker")

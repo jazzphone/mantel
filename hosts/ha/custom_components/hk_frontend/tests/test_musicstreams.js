@@ -167,11 +167,13 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
 })();
 
 // ONE AIRPLAY SESSION (2026-11-20, hk_core/music/airplay.py): a HomeView AirPlaying to every HomePod. Each stream names
-// the session (apple-device://<player>/<session>::STREAM): its rooms are ONE context, drawn as a group, `airplay`
+// the session (apple-device://<player>/<session>::STREAM) and ONE room of the house SENDS it (the HomeView, playing its own
+// Music app): its rooms are ONE context, drawn as a group, `airplay` (2026-11-26: an id on receivers alone is no session, below)
 (function () {
+  var HV = { app_id: 'com.apple.sonic.music', source: 'Music' };
   function sess(k, sid, extra) { return airplay('Santa Tell Me', Object.assign({ media_content_id: 'apple-device://ap-' + k + '/' + sid + '::STREAM' }, extra || {})); }
   var all = {};
-  HK_ROOMS.forEach(function (r, i) { all[r] = sess(i, 'snHomeView'); });
+  HK_ROOMS.forEach(function (r, i) { all[r] = i === 4 ? sess(i, 'snHomeView', HV) : sess(i, 'snHomeView'); });
   var h = hassOf(all);
   var cs = M.contexts(h);
   eq('eight rooms of one AirPlay session: one context', cs.length, 1);
@@ -182,7 +184,7 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   eq('...the player line\'s rooms (hkMusic.together): every room of the session', M.together(h, h.states[HK_ROOMS[3]]).length, HK_ROOMS.length);
   // a room paused or idle in the session is a room of it while paused, not when idle; another session is its own
   h = hassOf({});
-  h.states[e('kitchen')] = sess('kitchen', 'snA');
+  h.states[e('kitchen')] = sess('kitchen', 'snA', HV);
   h.states[e('office')] = sess('office', 'snA', { media_title: 'Something Else' });
   h.states[e('loft')] = Object.assign(sess('loft', 'snA'), { state: 'idle' });
   h.states[e('living_room')] = sess('living_room', 'snB');
@@ -196,6 +198,38 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   h.states[e('living_room')] = airplay('Dynamite', { group_members: g });
   cs = M.contexts(h);
   ok('an MA group: no airplay mark', cs.length === 1 && !cs[0].airplay, cs);
+})();
+
+// (2026-11-26, Codex's review) AN ID ON RECEIVERS ALONE IS NO SESSION: two independent iPhones appear only as receivers, and
+// two ids that match (a non-hash item id) tell nothing of one device sending both. No room of the house sends it, so no room
+// is folded under it: each is its own context, a button sends to the one player asked, and only the DRAWING (one stream card,
+// no button of its own) and the words ("AirPlay", the source line) are the song's
+(function () {
+  function rx(k, sid, extra) { return airplay('Same Song', Object.assign({ media_content_id: 'apple-device://ap-' + k + '/' + sid + '::STREAM' }, extra || {})); }
+  var h = hassOf({});
+  function put(k, st) { st.entity_id = e(k); h.states[e(k)] = st; }
+  put('kitchen', rx('kitchen', 'snItem'));
+  put('office', rx('office', 'snItem'));
+  put('loft', rx('loft', 'snItem'));
+  var cs = M.contexts(h);
+  eq('receivers alone with one id: one context each, none marked airplay', cs.map(function (c) { return c.members.length + ':' + !!c.airplay; }).join(), '1:false,1:false,1:false');
+  eq('...the player line\'s rooms (hkMusic.together): the one asked', M.together(h, h.states[e('office')]), []);
+  eq('...still ONE stream to draw (the song, the source, how far in)', M.streams(cs, NOW).length, 1);
+  eq('...and where it comes from is as it was: AirPlay from a device that is no speaker', cs[0].from, 'AirPlay');
+  var cx = cards(page(h, e('living_room')));
+  var card = cx.filter(function (x) { return title(x) === 'Same Song'; })[0];
+  ok('...one card, every room, no play / pause of its own (it would pause one device and read as pausing all)',
+     rooms(card).length === 3 && !card.children.filter(function (c) { return /\bpp\b/.test(c.className); })[0]);
+  // a room of the house that SENDS the id (a HomeView, its own Music app) makes the same rooms one session, as they were
+  put('living_room', rx('living_room', 'snItem', { app_id: 'com.apple.sonic.music', source: 'Music' }));
+  cs = M.contexts(h);
+  ok('with a sender in the house: one session, led by it', cs.length === 1 && cs[0].airplay === true && cs[0].members.length === 4 && cs[0].key === e('living_room'), cs);
+  eq('...every room of it for the player line', M.together(h, h.states[e('office')]).length, 4);
+  eq('...and the source line names the sender', M.whereFrom(h.states, e('office')), 'AirPlay from ' + M.nameOf(e('living_room')));
+  // two senders of one id (two HomeViews playing one song) is no proof either
+  put('master_bedroom', rx('master_bedroom', 'snItem', { app_id: 'com.apple.sonic.music', source: 'Music' }));
+  cs = M.contexts(h);
+  eq('two senders of one id: no session again', cs.filter(function (c) { return c.airplay; }).length, 0);
 })();
 
 // _houseFit: what the column has left once the player has its room
@@ -288,7 +322,8 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   h.states[e('office')] = airplay('Same', { media_content_id: 'apple-device://ap0002/' + hash });
   h.states[e('living_room')] = airplay('Solo', { app_id: 'music_assistant', source: '' });
   h.states[e('loft')] = airplay('Sent', { media_content_id: 'apple-device://ap0003/snHome::STREAM' });
-  h.states[e('guest_bedroom')] = airplay('Sent', { media_content_id: 'apple-device://ap0004/snHome::STREAM' });
+  h.states[e('guest_bedroom')] = airplay('Sent', { media_content_id: 'apple-device://ap0004/snHome::STREAM',
+                                                  app_id: 'com.apple.sonic.music', source: 'Music' });
   var cx = cards(page(h, e('living_room')));
   function button(x) { return x.children.filter(function (c) { return /\bpp\b/.test(c.className); })[0]; }
   var same = cx.filter(function (x) { return title(x) === 'Same'; })[0], sent = cx.filter(function (x) { return title(x) === 'Sent'; })[0];
@@ -301,46 +336,78 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   eq('...the page\'s own card is not a button', cards(page(h, e('living_room'))).filter(function (x) { return /\bon\b/.test(x.className); }).length, 1);
 })();
 
-// (2026-11-26) A LIBRARY ITEM ON SEVERAL ROOMS: the other rooms join only once the item PLAYS. A request from a Home
-// Assistant screen can be answered "still going" (hkMusic.settle makes _callResp wait for its outcome), so the transfer
-// is sent when the play's outcome says it started -- never before, and never after a failure or a newer request
+// (2026-11-26) A LIBRARY ITEM ON SEVERAL ROOMS IS ONE REQUEST FOR THE WHOLE PICK (Codex's review): the item plays on one
+// player and the engine brings the others in once it plays -- claiming every room when the request starts, so a Stop, a
+// play or a move another screen sends for one of them meanwhile keeps that room out. The screen sends no second request
+// (a transfer of its own would be newer than that Stop), says "Starting..." until the answer, and then says where it played
+// and what it left. A request from a Home Assistant screen can be answered "still going" (hkMusic.settle waits for its outcome)
 (function () {
   function flush() { for (var i = 0; i < 6; i++) drainMicrotasks(); }
   function item() {
-    var p = Object.create(Card.prototype), r = { calls: [], toasts: [], answers: [], page: p };
+    var p = Object.create(Card.prototype), r = { calls: [], data: [], toasts: [], answers: [], page: p, focus: [] };
     p._M = function () { return M; };
     p._ctx = function () { return null; };
     p._rooms = function () { return [e('kitchen'), e('office')]; };
     p._nextSet = function () { return null; };
-    p._roomsLabel = function () { return 'Kitchen + Office'; };
+    p._roomsLabel = function (list) { return list.map(function (x) { return M.nameOf(x); }).join(' + '); };
     p._toast = function (m) { r.toasts.push(m); };
     p._refreshPlaylists = function () {};
     p._askThenPlay = function (rooms, go) { go(); };
-    p._callResp = function (d, s) { r.calls.push(s); return new Promise(function (res) { r.answers.push(res); }); };
+    p._callResp = function (d, s, data) { r.calls.push(s); r.data.push(data); return new Promise(function (res) { r.answers.push(res); }); };
     p._playNode({ title: 'Song', media_content_id: 'x://1', media_content_type: 'music' });
     flush();
     return r;
   }
+  var K = M.nameOf(e('kitchen')), O = M.nameOf(e('office'));
   var r = item();
-  eq('the item is sent to one player first, and said to be starting', r.calls.join() + '|' + r.toasts.join(), 'music_play_media|Starting Song on Kitchen + Office\u2026');
-  flush();
-  eq('...and until it has played the others are not asked to join', r.calls.join(), 'music_play_media');
+  eq('ONE request: the item on one player, the whole pick in `rooms`, and said to be starting', r.calls.join() + '|' + r.toasts.join(),
+     'music_play_media|Starting Song on ' + K + ' + ' + O + '\u2026');
+  eq('...the player, and every room of the pick', JSON.stringify([r.data[0].player, r.data[0].rooms]),
+     JSON.stringify([e('kitchen'), [e('kitchen'), e('office')]]));
   r.answers[0]({ ok: true, response: { ok: true, leader: e('kitchen') } });
   flush();
-  eq('once it plays they join', r.calls.join(), 'music_play_media,music_transfer');
-  ok('...with "Moving…" said until that ends', r.toasts[r.toasts.length - 1] === 'Moving Song to Kitchen + Office\u2026', r.toasts);
-  r.answers[1]({ ok: true, response: { ok: true, leader: e('kitchen') } });
+  eq('...the others are not asked to join by the screen: the engine did', r.calls.join(), 'music_play_media');
+  eq('...and "Playing" when it has', r.toasts[r.toasts.length - 1], 'Playing Song on ' + K + ' + ' + O);
+  r = item();
+  r.answers[0]({ ok: true, response: { ok: true, leader: e('kitchen'), left: [e('office')], message: O + ' was changed since.' } });
   flush();
-  eq('...and "Playing" when it has', r.toasts[r.toasts.length - 1], 'Playing Song on Kitchen + Office');
+  eq('a room a newer request took is left and named: where it played, and why not there',
+     r.toasts[r.toasts.length - 1], 'Playing Song on ' + K + '. ' + O + ' was changed since.');
+  r = item();
+  r.answers[0]({ ok: true, response: { ok: true, leader: e('kitchen'), left: [e('office')], message: 'The music did not move.' } });
+  flush();
+  eq('...or would not join', r.toasts[r.toasts.length - 1], 'Playing Song on ' + K + '. The music did not move.');
   r = item();
   r.answers[0]({ ok: true, response: { ok: false, message: 'It did not start on Kitchen.' } });
   flush();
-  ok('an item that did not start moves nothing, and says why',
+  ok('an item that did not start says why, and plays nowhere',
      r.calls.join() === 'music_play_media' && r.toasts[r.toasts.length - 1] === 'Could not play Song: It did not start on Kitchen.', r.toasts);
   r = item();
   r.answers[0]({ ok: true, stale: true, response: { ok: true, superseded: true } });
   flush();
-  ok('an item a newer request took over moves nothing and says nothing more', r.calls.join() === 'music_play_media' && r.toasts.length === 1, r.toasts);
+  ok('an item a newer request took over says nothing more', r.calls.join() === 'music_play_media' && r.toasts.length === 1, r.toasts);
+  // a pending answer from a Home Assistant screen: the page waits for the engine's real outcome (the music feed), then says it
+  var pend = M.settle('music_play_media', { player: e('kitchen'), rooms: [e('kitchen'), e('office')] },
+                      Promise.resolve({ ok: true, response: { ok: true, pending: true, request: 'rq9' } }));
+  var done = null; pend.then(function (v) { done = v; });
+  flush();
+  ok('...a "still going" answer is no answer yet', done === null);
+  M._configure(Object.assign({}, HK_HOUSE, { requests: { rq9: { ok: true, leader: e('kitchen'), left: [e('office')], message: O + ' was changed since.' } } }));
+  flush();
+  eq('...the outcome that comes carries what the pick left', JSON.stringify([done.response.left, done.response.message]),
+     JSON.stringify([[e('office')], O + ' was changed since.']));
+  // a newer request of this page for the room the item plays on is the pick's end; for another room of it, it is not
+  var tail = M.settle('music_play_media', { player: e('kitchen'), rooms: [e('kitchen'), e('office')] }, Promise.resolve({ ok: true, response: { ok: true, leader: e('kitchen') } }));
+  M.claim('music_stop', { rooms: [e('office')] });
+  var got = null; tail.then(function (v) { got = v; });
+  flush();
+  ok('a Stop of this page\'s for another room of the pick leaves the pick its answer', got && !got.stale, got);
+  tail = M.settle('music_play_media', { player: e('kitchen'), rooms: [e('kitchen'), e('office')] }, Promise.resolve({ ok: true, response: { ok: true, leader: e('kitchen') } }));
+  M.claim('music_stop', { rooms: [e('kitchen')] });
+  got = null; tail.then(function (v) { got = v; });
+  flush();
+  ok('...a Stop for the room it plays on does not', got && got.stale === true, got);
+  M._configure(HK_HOUSE);
 })();
 
 H.run('MUSIC STREAMS', []);
