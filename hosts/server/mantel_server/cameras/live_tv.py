@@ -181,14 +181,19 @@ def hls_source(name: str, picture: str | None = None) -> str:
     """go2rtc's source for a channel's HLS stream: the channel's own stream, the picture as it is and the sound as AAC
     (Apple's player wants AAC; WebRTC's Opus stays as it was). No second tuner: it reads go2rtc's own stream.
 
-    Another look (``picture``: a key of hk_core.live_tv_buttons.FILTERS) is encoded again (go2rtc's h264, a key frame a second as the channel's), its ffmpeg filter given as
-    separate ``#raw`` parts: go2rtc joins them with spaces, and refuses a space inside one (probed on the house's go2rtc
-    1.9.9, 2026-11-26: each 720 x 720 from 720p). Inline, not a go2rtc.yaml template: a hotfix never
-    changes the LXC's go2rtc.yaml."""
+    Another look (``picture``: a key of hk_core.live_tv_buttons.FILTERS) is encoded again (go2rtc's h264, whose own
+    ``-g 50`` comes after our ``-g 30``: a key frame every 50), its ffmpeg filter given as separate ``#raw`` parts:
+    go2rtc joins them with spaces, and refuses a space inside one (probed on the house's go2rtc 1.9.9, 2026-11-26: each
+    720 x 720 from 720p). Inline, not a go2rtc.yaml template: a hotfix never changes the LXC's go2rtc.yaml.
+
+    SOUND WITH THE PICTURE (2026-11-27): ``-fps_mode passthrough``, every frame at the time it came. ffmpeg's default
+    for an RTSP output is a constant frame rate, and it filled the start of the video read from go2rtc's RTSP with ~0.9 s
+    of made-up frames (5 s of frames in the first 4): on the house's go2rtc a flash and beep test channel played the
+    sound 0.9 s before the picture in every look (the copy, Fit without the blur, +0.1 s late, as every look now is)."""
     vf = LB.FILTERS.get(picture or "")
     if vf is None:
         return f"ffmpeg:{name}#video=copy#audio=aac"
-    return f"ffmpeg:{name}#video=h264#raw=-vf#raw={vf}#raw=-g#raw=30#audio=aac"
+    return f"ffmpeg:{name}#video=h264#raw=-vf#raw={vf}#raw=-g#raw=30#raw=-fps_mode#raw=passthrough#audio=aac"
 
 
 def gpu_reason(detail: str) -> str:

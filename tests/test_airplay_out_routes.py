@@ -81,7 +81,7 @@ async def test_a_channel_plays_on_a_screen_by_its_key_and_stops(rig, monkeypatch
                          item["Content-Location"])
         assert m, item["Content-Location"]
         assert r.go2rtc.streams["mantel_tv_4_1_hls_fill"] == \
-            "ffmpeg:mantel_tv_4_1#video=h264#raw=-vf#raw=crop=ih:ih#raw=-g#raw=30#audio=aac"
+            "ffmpeg:mantel_tv_4_1#video=h264#raw=-vf#raw=crop=ih:ih#raw=-g#raw=30#raw=-fps_mode#raw=passthrough#audio=aac"
         # the address is the screen's to fetch signed out, as the person who played it
         r.env.m.forget_cookies()
         assert (await r.env.m.client.get("/go2rtc/" + m.group(1))).status == 200

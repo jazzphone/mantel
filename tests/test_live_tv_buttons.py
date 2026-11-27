@@ -313,7 +313,7 @@ async def test_a_screens_picture_picks_its_stream(rig, monkeypatch):  # noqa: F8
             await sender.play(r.app["live_tv_buttons"].app["linked_actions"].principal(), "4.1", sid)
             assert src() == want
         assert r.go2rtc.streams["mantel_tv_4_1_hls_zoom"] == ("ffmpeg:mantel_tv_4_1#video=h264#raw=-vf#raw=" + LB.FILTERS["zoom"]
-                                                             + "#raw=-g#raw=30#audio=aac")
+                                                             + "#raw=-g#raw=30#raw=-fps_mode#raw=passthrough#audio=aac")
         # the screen's fetch of a cropped stream holds it and the channel's it reads
         tv.hls_leases.clear()
         tv.hold("mantel_tv_4_1_hls_zoom_bars")

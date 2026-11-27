@@ -193,6 +193,18 @@ def test_live_tv_s_sound_and_picture_start_together():
         assert m and "-ss" not in m.group(1).split("-i {input}")[0], f"{name}: an input -ss would seek the tuner"
 
 
+def test_a_look_keeps_the_sound_with_the_picture():
+    """The house's go2rtc (2026-11-27), a flash and beep test channel: every look (encoded again) played the sound
+    0.9 s before the picture. ffmpeg's default for an RTSP output is a constant frame rate, and it made up frames when
+    the video's timestamps from go2rtc jumped; each frame at the time it came (passthrough) put it back with the copy
+    (+0.1 s)."""
+    from hk_core import live_tv_buttons as LB
+    for picture in LB.FILTERS:
+        src = L.hls_source("mantel_tv_4_1", picture)
+        assert "#video=h264#" in src and "#raw=-fps_mode#raw=passthrough#" in src, picture
+    # the copy (Fit without the blur) has no frames to make up
+    assert "fps_mode" not in L.hls_source("mantel_tv_4_1") and "fps_mode" not in L.go2rtc_source("u")
+
 def test_viewers_expire_like_has():
     v = L.Viewers()
     assert v.set("device:k", {"name": "Kitchen", "person": None, "screen": "Kitchen"}, "4.1", 0.0)
