@@ -1230,4 +1230,4 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
   change, no kiosk reload.
 - Before: `tools/ci.py quick` 7/7 from local disk.
 - Hotfix `0.1.170-main.266c206ac`: healthy, no error in the log, Mantel Link and HK Frontend reconnected, disk 45%.
-  The owner's check on a HomeView is still to come.
+  The owner, watching Live TV on a HomeView after it (Fill): "Lines up".
