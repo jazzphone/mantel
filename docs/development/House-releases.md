@@ -1180,3 +1180,12 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Hotfix `0.1.170-main.550a6556d`: healthy, no error in the log, disk 45%; Music Assistant's three groups now list no
   problems on the settings page. Pairs with ma-airplay-groups 0.3.29 on the Music Assistant computer (not yet installed).
 
+## Hotfix 0.1.170-main.1debdea38 (2026-11-26)
+
+- The owner: "Yes, hotfix it". The house ran hotfix 0.1.170-main.550a6556d; main since then: fd61d6b3 (its record),
+  90d28121 and 1debdea3 (a music request over Mantel Link answers within the link's time and is never cut off: the
+  owner's Everywhere from a Home Assistant screen "errored, although it started playing" -- the link's 8 s wait_for had
+  canceled a play still starting 18 speakers). All ship.
+- Before: `tools/ci.py quick` 7/7 from local disk; the link's tests.
+- Hotfix `0.1.170-main.1debdea38`: healthy, no error in the log, disk 45%.
+
