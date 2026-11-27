@@ -213,6 +213,27 @@ def test_one_airplay_session_is_one_context():
         (K, "group", [K, D], True), (C, "room", [C], None)]
 
 
+def test_two_devices_playing_one_song_are_two_contexts():
+    """The session is the sender's, never the song's (hk_core.music.airplay): the same title and item on two receivers whose
+    stream has only pyatv's hash, or an id two HomeViews send, folds nothing -- each room is its own player to command."""
+    K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
+    cfg = {"speakers": [{"name": "Kitchen", "entity": K}, {"name": "Den", "entity": D}, {"name": "Cody's Room", "entity": C}]}
+
+    def st(sid, app="com.apple.TVAirPlay", s="playing"):
+        return {"s": s, "a": {"media_title": "Same Song", "media_artist": "Band", "group_members": [], "app_id": app,
+                              "media_content_id": f"apple-device://ap-{sid[:3]}/{sid}::STREAM"}, "lc": 5.0}
+    fallback = "ef56" * 16
+    got = app_music.contexts(cfg, {K: st(fallback), D: st(fallback), C: st(fallback)})
+    assert [(c["key"], c["members"], c.get("airplay")) for c in got] == [(K, [K], None), (D, [D], None), (C, [C], None)]
+    # two HomeViews (their own Music app) sending one id, a HomePod receiving it: three players, no session
+    got = app_music.contexts(cfg, {K: st("snSame", "com.apple.sonic.music"), D: st("snSame", "com.apple.sonic.music"),
+                                   C: st("snSame")})
+    assert [(c["key"], c["members"], c.get("airplay")) for c in got] == [(K, [K], None), (D, [D], None), (C, [C], None)]
+    # one sender, one receiver: the session (the guard the other way)
+    got = app_music.contexts(cfg, {K: st("snSame", "com.apple.sonic.music"), D: st("snSame")})
+    assert [(c["key"], c["members"], c.get("airplay")) for c in got] == [(K, [K, D], True)]
+
+
 def test_a_playlists_cover_is_one_the_app_can_load():
     """The Music widget draws each playlist's cover: Music Assistant's proxy through the app's own door, a web picture as
     it is, anything else dropped -- the pill's and each choice's."""

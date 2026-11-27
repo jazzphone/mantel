@@ -845,11 +845,20 @@
         // change bumps _playOp, so comparing against that would leave a pill lit
         // for ever after a room was tapped mid-request.
         this._busyOp = op;
+        // "STARTING..." / "MOVING..." UNTIL THE REQUEST REALLY ENDED (2026-11-26): from a Home Assistant screen a slow
+        // request is answered "still going" and _callResp waits for its outcome (hkMusic.settle), so the words stay as
+        // long as the start does, and what follows is how it went, never an early "Playing"
+        this._working = service === 'play' ? 'Starting ' + (this._lastPlaylist ? this._lastPlaylist.name : 'the music') + '…'
+          : service === 'transfer' ? 'Moving…' : 'Stopping…';
         this._paintBusy();
+        this._render();
         // `service` is the request's own name (play, transfer, stop); the
         // action is Music's, in the integration's domain.
         return this._callResp('hk_frontend', 'music_' + service, data).then(function (res) {
-          if (self._busy && op === self._busyOp) { self._busy = null; self._paintBusy(); }
+          var mine = op === self._busyOp;
+          if (mine) { self._working = ''; if (self._busy) self._busy = null; self._paintBusy(); }
+          // A NEWER REQUEST FOR THESE ROOMS TOOK OVER (hkMusic.settle): its focus, words and busy mark stand
+          if (res && res.stale) { if (mine) self._render(); return res; }
           // THREE ANSWERS. The call itself can be rejected (a dropped socket);
           // the engine can refuse, by ANSWERING `{ok: false, message}`; or it
           // can succeed WITH a message -- a Move or a preset where some rooms
@@ -862,7 +871,6 @@
             if (M && lead && M.known(lead) && lead !== target) M.setFocus(lead, { hold: true });
             if (r.message && !r.superseded && op === self._playOp) {
               self._notice = 'Playing, but ' + String(r.message).replace(/\.$/, '') + '.';
-              self._render();
             }
           } else {
             if (M && target) M.release(target);
@@ -870,9 +878,9 @@
               var why = r.message || res.error || '';
               self._notice = 'That did not work' +
                 (why ? ': ' + String(why).replace(/\.$/, '') : '') + '.';
-              self._render();
             }
           }
+          if (mine) self._render();
           return res;
         });
       }
@@ -1198,6 +1206,12 @@
           : 'Play to ' + (this._presetName() ||
               (n === 1 ? '1 speaker' : n + ' speakers'));
         this._root.appendChild(h);
+        if (this._working) {
+          var working = document.createElement('div');
+          working.className = 'notice working';
+          working.textContent = this._working;
+          this._root.appendChild(working);
+        }
         if (this._notice) {
           var notice = document.createElement('div');
           notice.className = 'notice';

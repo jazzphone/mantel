@@ -363,11 +363,47 @@ async def test_a_music_request_answers_in_time_and_is_never_canceled():
     async def quick():
         return {"ok": True, "leader": "media_player.den"}
     assert await lk._music("music_play", quick()) == {"ok": True, "leader": "media_player.den"}
+    ended = []
+    lk.music_outcome = lambda request, outcome: ended.append((request, outcome))
     got = await lk._music("music_play", slow())
-    assert got == {"ok": True, "pending": True, "message": "Still starting the music."}, got
+    assert got.pop("request") and got == {"ok": True, "pending": True, "message": "Still starting the music."}, got
     assert len(lk.running) == 1 and ran == []
     await asyncio.sleep(0.6)
     assert ran == ["done"] and not lk.running, "it ran on to its end"
+    assert len(ended) == 1 and ended[0][1] == {"ok": True, "leader": "media_player.kitchen"}
+
+
+async def test_a_pending_music_request_stays_pending_and_its_outcome_reaches_the_caller():
+    # 2026-11-26: the caller was told {ok, pending} and read it as "it played". The answer names its request, the run's
+    # real end (a failure with its words, an error, a request a newer one took over) is reported under that id, and two
+    # pending requests never share one.
+    from mantel_server.linked import Linked, LinkedError
+    lk = Linked(None, None, None, timeout=0.3)
+    ended = {}
+    lk.music_outcome = lambda request, outcome: ended.update({request: outcome})
+
+    def after(result=None, error=None):
+        async def run():
+            await asyncio.sleep(0.25)
+            if error is not None:
+                raise error
+            return result
+        return run()
+    a, b, c = await asyncio.gather(
+        lk._music("music_play", after({"ok": False, "message": "Kitchen did not start."})),
+        lk._music("music_transfer", after(error=LinkedError("not_set_up", "Mantel's music isn't on."))),
+        lk._music("music_play_media", after({"ok": True, "leader": "media_player.den", "superseded": True})))
+    assert all(x["pending"] is True and x["ok"] is True and x["request"] for x in (a, b, c))
+    assert len({a["request"], b["request"], c["request"]}) == 3 and ended == {}, "nothing is claimed before it ends"
+    await asyncio.sleep(0.4)
+    assert ended == {a["request"]: {"ok": False, "message": "Kitchen did not start."},
+                     b["request"]: {"ok": False, "message": "Mantel's music isn't on."},
+                     c["request"]: {"ok": True, "superseded": True, "leader": "media_player.den"}}, ended
+    # a reporter that breaks does not break the run or the next request
+    lk.music_outcome = lambda *_: 1 / 0
+    d = await lk._music("music_stop", after({"ok": True}))
+    await asyncio.sleep(0.4)
+    assert d["pending"] is True and not lk.running
 
 
 def test_hooks_coerce():

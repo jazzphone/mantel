@@ -234,6 +234,7 @@
       return this._callResp('hk_frontend', 'music_play', { rooms: rooms, playlist: it.playlist }).then(function (res) {
         el.classList.remove('busy');
         var r = (res && res.response) || {};
+        if (res.stale) return false;          // a newer request for these rooms took over (hkMusic.settle)
         if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return false; }
         if (r.leader && Mu.known(r.leader)) Mu.setFocus(r.leader, { hold: true });
         return true;

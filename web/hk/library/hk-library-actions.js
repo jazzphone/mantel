@@ -41,7 +41,8 @@
         // is the failure this can actually observe (it still cannot promise the
         // speaker made a sound -- see the note on _call in hk-base.js). That is
         // worth reporting honestly rather than not at all.
-        this._flash('Playing ' + node.title + ' on ' + (this._playerName() || 'this speaker'));
+        var where = this._playerName() || 'this speaker';
+        this._flash('Starting ' + node.title + ' on ' + where + '…');
         // THROUGH THE INTEGRATION: hk_frontend.music_play_media checks the
         // player again on the server, waits for playback to actually start,
         // and ANSWERS -- so "could not play" also covers a queue Music
@@ -52,10 +53,13 @@
           media_content_type: node.media_content_type
         }).then(function (res) {
           var r = (res && res.response) || {};
+          // (a newer request for this speaker took over: hkMusic.settle; a slow one answers when it really ended)
+          if (res.stale) return;
           if (!res.ok || r.ok === false) {
             self._flash('Could not play ' + node.title + (r.message ? ': ' + r.message : ''));
             return;
           }
+          self._flash('Playing ' + node.title + ' on ' + where);
           // What you just played is what this screen is about now.
           if (window.hkMusic) window.hkMusic.setFocus(player);
           // (the screensaver's Browse closes on it)

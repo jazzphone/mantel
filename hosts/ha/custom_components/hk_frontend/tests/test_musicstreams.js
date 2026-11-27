@@ -279,4 +279,68 @@ function rooms(cx) { return cx.children[1].children[1].children.filter(function 
   eq('...still one stream to draw', M.streams(cs, NOW).length, 1);
 })();
 
+// (2026-11-26) the same song in rooms that are no session is DRAWN as one card, but its buttons are no device's but one: a
+// card of several players has no play / pause of its own (it would pause one device and read as pausing both), and a card
+// of ONE thing playing -- a single room, or one AirPlay session whose sender named it -- has its button
+(function () {
+  var h = hassOf({}), hash = Array(17).join('cd34');
+  h.states[e('kitchen')] = airplay('Same', { media_content_id: 'apple-device://ap0001/' + hash });
+  h.states[e('office')] = airplay('Same', { media_content_id: 'apple-device://ap0002/' + hash });
+  h.states[e('living_room')] = airplay('Solo', { app_id: 'music_assistant', source: '' });
+  h.states[e('loft')] = airplay('Sent', { media_content_id: 'apple-device://ap0003/snHome::STREAM' });
+  h.states[e('guest_bedroom')] = airplay('Sent', { media_content_id: 'apple-device://ap0004/snHome::STREAM' });
+  var cx = cards(page(h, e('living_room')));
+  function button(x) { return x.children.filter(function (c) { return /\bpp\b/.test(c.className); })[0]; }
+  var same = cx.filter(function (x) { return title(x) === 'Same'; })[0], sent = cx.filter(function (x) { return title(x) === 'Sent'; })[0];
+  eq('two devices playing one song: one card, both rooms', rooms(same).length, 2);
+  ok('...and no play / pause for the pair', !button(same));
+  ok('...a tap on it still opens one player', !!same.getAttribute('data-ctx'));
+  ok('one AirPlay session (the sender named it): one card with its button, for the session\'s leader',
+     !!button(sent) && button(sent).getAttribute('data-ppk') === sent.getAttribute('data-ctx'));
+  // the page being on one of them: the lit card has no list button either way
+  eq('...the page\'s own card is not a button', cards(page(h, e('living_room'))).filter(function (x) { return /\bon\b/.test(x.className); }).length, 1);
+})();
+
+// (2026-11-26) A LIBRARY ITEM ON SEVERAL ROOMS: the other rooms join only once the item PLAYS. A request from a Home
+// Assistant screen can be answered "still going" (hkMusic.settle makes _callResp wait for its outcome), so the transfer
+// is sent when the play's outcome says it started -- never before, and never after a failure or a newer request
+(function () {
+  function flush() { for (var i = 0; i < 6; i++) drainMicrotasks(); }
+  function item() {
+    var p = Object.create(Card.prototype), r = { calls: [], toasts: [], answers: [], page: p };
+    p._M = function () { return M; };
+    p._ctx = function () { return null; };
+    p._rooms = function () { return [e('kitchen'), e('office')]; };
+    p._nextSet = function () { return null; };
+    p._roomsLabel = function () { return 'Kitchen + Office'; };
+    p._toast = function (m) { r.toasts.push(m); };
+    p._refreshPlaylists = function () {};
+    p._askThenPlay = function (rooms, go) { go(); };
+    p._callResp = function (d, s) { r.calls.push(s); return new Promise(function (res) { r.answers.push(res); }); };
+    p._playNode({ title: 'Song', media_content_id: 'x://1', media_content_type: 'music' });
+    flush();
+    return r;
+  }
+  var r = item();
+  eq('the item is sent to one player first, and said to be starting', r.calls.join() + '|' + r.toasts.join(), 'music_play_media|Starting Song on Kitchen + Office\u2026');
+  flush();
+  eq('...and until it has played the others are not asked to join', r.calls.join(), 'music_play_media');
+  r.answers[0]({ ok: true, response: { ok: true, leader: e('kitchen') } });
+  flush();
+  eq('once it plays they join', r.calls.join(), 'music_play_media,music_transfer');
+  ok('...with "Moving…" said until that ends', r.toasts[r.toasts.length - 1] === 'Moving Song to Kitchen + Office\u2026', r.toasts);
+  r.answers[1]({ ok: true, response: { ok: true, leader: e('kitchen') } });
+  flush();
+  eq('...and "Playing" when it has', r.toasts[r.toasts.length - 1], 'Playing Song on Kitchen + Office');
+  r = item();
+  r.answers[0]({ ok: true, response: { ok: false, message: 'It did not start on Kitchen.' } });
+  flush();
+  ok('an item that did not start moves nothing, and says why',
+     r.calls.join() === 'music_play_media' && r.toasts[r.toasts.length - 1] === 'Could not play Song: It did not start on Kitchen.', r.toasts);
+  r = item();
+  r.answers[0]({ ok: true, stale: true, response: { ok: true, superseded: true } });
+  flush();
+  ok('an item a newer request took over moves nothing and says nothing more', r.calls.join() === 'music_play_media' && r.toasts.length === 1, r.toasts);
+})();
+
 H.run('MUSIC STREAMS', []);

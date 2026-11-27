@@ -154,16 +154,19 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
         gm = list(dict.fromkeys(part_of.get(e, e) for e in ((st.get("a") or {}).get("group_members") or [])))
         gm = [e for e in gm if e in known and not _ignored(dict(states.get(e) or {}, entity_id=e), cfg)]
         members = gm if len(gm) > 1 else [eid]
-        # (one AirPlay session is one thing playing: hk_core.music.airplay, as hkMusic.contexts)
+        # (one AirPlay session is one thing playing, by the SENDER's id and never by the song: hk_core.music.airplay's
+        # session_players, as hkMusic.contexts -- two devices playing one song stay two, and an id two speakers send
+        # through their own apps folds nothing)
+        house = _StatesHouse(states)
         sid = AP.session_of((st.get("a") or {}).get("media_content_id")) if len(members) == 1 else None
         if sid is not None:
-            members += [o["entity"] for o in rooms if o["entity"] != eid and o["entity"] not in seen
-                        and _active(o["entity"], states, cfg)
-                        and AP.session_of(((states.get(o["entity"]) or {}).get("a") or {}).get("media_content_id")) == sid]
+            # (every active room is asked, the ones already placed too: a second speaker sending the id is what makes it
+            # ambiguous, whichever of them comes first)
+            members = [m for m in AP.session_players(house, [o["entity"] for o in rooms if _active(o["entity"], states, cfg)],
+                                                     eid) if m == eid or m not in seen]
         seen.update(members)
         # MUSIC THAT ISN'T MUSIC ASSISTANT'S (hk_core.music.airplay.origin, as hkMusic.contexts): the speaker it comes
         # from leads its AirPlay session's rooms, and `from` says where it comes from ("Music on Living Room HomeView")
-        house = _StatesHouse(states)
         sender = next((m for m in members if (AP.origin(house, known, m) or (None, None))[1] == m), None)
         if sid is not None and sender is not None and len(members) > 1 and members[0] != sender:
             members = [sender] + [m for m in members if m != sender]

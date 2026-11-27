@@ -13,6 +13,13 @@ as a player of its own, playing an outside stream (its source ``com.apple.tvairp
   in hk-base-music.js, and the app's contexts), and Play / Pause goes to every room of it (``session_players``): an
   explicit pause to each, or play to each, never a toggle each (one already paused would start). Their rooms can't be
   changed from Mantel: the device sending decides them.
+* THE SESSION IS THE SENDER'S, NEVER THE SONG'S (2026-11-26, Codex's review). What names rooms as one session is the id
+  the sending device gave the stream, and only that: not the title, the artist, the album, not pyatv's hash of them
+  (``FALLBACK_HASH``), not the same item. Two devices playing one song are two things to command. When the id is not
+  proof of one sender -- two speakers each sending it through their own app (``ambiguous``: two HomeViews playing one
+  song) -- no room is folded under it, and Play / Pause goes to the one player asked. The pages may still DRAW the same
+  song in several rooms as one stream (hkMusic.streams), and the song still gives the source line, the cover and the
+  progress; none of them decides what a button sends to.
 * MUSIC THAT ISN'T MUSIC ASSISTANT'S (``outside``, ``where_from``; 2026-11-25). A speaker playing its own app (a
   HomeView's Music app: ``app_id`` ``com.apple.sonic.music``, its own ``apple-device://`` session) or AirPlay from a
   device: Music Assistant can neither move it nor send it to other rooms (it streams only its own music), and joining
@@ -68,19 +75,38 @@ def session_of(content_id: Any) -> str | None:
     return m.group(1)
 
 
+def _own_app(attributes: Mapping[str, Any]) -> bool:
+    """A speaker playing its own app (a HomeView's Music app), not receiving: the sender of its session."""
+    app = attributes.get("app_id")
+    return isinstance(app, str) and app not in ("", MA_APP, *RECEIVER_APPS)
+
+
+def ambiguous(house: House, rooms: Iterable[str], sid: str) -> bool:
+    """More than one speaker of ``rooms`` sends session ``sid`` through its own app (two HomeViews playing one song, the
+    id theirs both): the id is then no proof of one sender, so no receiver is folded under it."""
+    sending = 0
+    for r in dict.fromkeys(rooms):
+        o = house.state(r)
+        if (o is not None and o.state in LIVE and session_of(o.attributes.get("media_content_id")) == sid
+                and _own_app(o.attributes)):
+            sending += 1
+    return sending > 1
+
+
 def session_players(house: House, rooms: Iterable[str], player: str) -> list[str]:
     """``player`` and the rooms playing (or paused in) the same AirPlay session as it, ``player`` first; just
-    ``[player]`` when it plays no AirPlay stream."""
+    ``[player]`` when it plays no AirPlay stream, or when its session's id is ambiguous (``ambiguous``)."""
     st = house.state(player)
     sid = session_of(st.attributes.get("media_content_id")) if st else None
     if sid is None:
         return [player]
+    rooms = list(rooms)
     out = [player]
     for r in rooms:
         o = house.state(r)
         if r not in out and o is not None and o.state in LIVE and session_of(o.attributes.get("media_content_id")) == sid:
             out.append(r)
-    return out
+    return [player] if ambiguous(house, [player, *rooms], sid) else out
 
 
 def play_pause(house: House, rooms: Iterable[str], player: str) -> tuple[str, str | list[str]]:

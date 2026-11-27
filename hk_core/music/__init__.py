@@ -8,6 +8,7 @@
   settings   the HK Settings page's changes and saves, checked and shaped
   warm       Keep Playlists Ready's rounds, against Music Assistant's own client
   queue      a queue item, as the Music page reads it
+  requests   how a request the link answered "still going" ended, kept for the screen that asked
   announcements  which service calls are announcements, and which players they hide
   airplay_groups what ma-airplay-groups' status page says, for Mantel's Connections screen
 

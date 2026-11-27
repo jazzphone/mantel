@@ -94,6 +94,19 @@
         return m && !/^[0-9a-f]{64}$/.test(m[1]) ? m[1] : null;
       }
       function active(st) { return !!st && !ignored(st) && !leftover(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
+      // THE SESSION IS THE SENDER'S, NEVER THE SONG'S (2026-11-26, hk_core/music/airplay.py `ambiguous`): an id two speakers
+      // each send through their own app (two HomeViews playing one song) is no proof of one sender, so no room is folded
+      // under it; its rooms stay one player each, and a button sends to the one player asked. {session id: true}
+      function crowded(states) {
+        var n = {}, out = {};
+        rooms().forEach(function (r) {
+          var st = states[r.entity], sid = st && (st.state === 'playing' || st.state === 'paused') ? session(st) : null;
+          if (!sid || !ownApp(st.attributes || {})) return;
+          n[sid] = (n[sid] || 0) + 1;
+          if (n[sid] > 1) out[sid] = true;
+        });
+        return out;
+      }
       // MUSIC THAT ISN'T MUSIC ASSISTANT'S (2026-11-25; the same rules as hk_core/music/airplay.py `outside` and
       // `where_from`): a speaker playing its own app (a HomeView's Music app) or AirPlay from a device. Music Assistant
       // can't send it to other rooms, so no picker offers to (`outside` on the context; the engine refuses too), and the
@@ -167,7 +180,7 @@
       // (`entity`, "preset:...") is for choosing it, never for a command.
       function contexts(client) {
         var states = (client && client.states) || {};
-        var seen = {}, out = [];
+        var seen = {}, out = [], many = crowded(states);
         function ctx(key, kind, members, st) {
           var a = (st && st.attributes) || {};
           return {
@@ -195,6 +208,7 @@
           // the same session. Its rooms are one context, `airplay`: drawn as a group, Play / Pause sent to each of
           // them (the engine), and its rooms changed only on the device sending
           var sid = members.length === 1 ? session(st) : null;
+          if (sid && many[sid]) sid = null;
           if (sid) {
             rooms().forEach(function (o) {
               var os = states[o.entity];
@@ -362,6 +376,67 @@
         if (focus.key === key && focus.hold) { focus.hold = 0; emit(); }
       }
 
+      // A REQUEST'S REAL OUTCOME (2026-11-26, hk_core/music/requests.py). From a Home Assistant screen a request goes over
+      // the link, which answers within 8 s: a slow one (18 speakers starting after Music Assistant restarted) comes back
+      // {ok, pending, request}. That is "not yet", never "it played": settle() holds the request until the music feed
+      // carries its outcome ({ok, message?, superseded?, leader?}), so a screen's "Starting..." lasts as long as the start
+      // does, a step chained after it (a library item's other rooms) waits for the item to play, and a failure says why.
+      // On Mantel's own page an answer is never pending and settle() hands it back as it came.
+      //
+      // A NEWER REQUEST FOR THE SAME ROOMS supersedes an older one, as the engine decides it: each request claims its
+      // rooms when it is sent, and an answer for rooms a later request has claimed comes back `stale` (with
+      // response.superseded): its caller shows nothing of it and leaves the screen's focus alone.
+      var UNCONFIRMED = 'It has not been confirmed yet.';
+      var WAIT_MS = 60000, claimSeq = 0, claimed = {};
+      function requestRooms(service, data) {
+        data = data || {};
+        var list = null;
+        if (service === 'music_play') list = data.rooms;
+        else if (service === 'music_transfer') list = (data.rooms || []).concat(data.source ? [data.source] : []);
+        else if (service === 'music_stop') list = data.rooms && data.rooms.length ? data.rooms : rooms().map(function (s) { return s.entity; });
+        else if (service === 'music_play_media') list = data.player ? [data.player] : null;
+        else if (service === 'music_transport') list = data.player && !/^volume_/.test(String(data.command)) ? [data.player] : null;
+        return Array.isArray(list) && list.length ? fold(list) : null;
+      }
+      // {n, rooms} for a request that takes rooms (a volume change takes none), else null
+      function claim(service, data) {
+        var r = requestRooms(service, data);
+        if (!r) return null;
+        var n = ++claimSeq;
+        r.forEach(function (e) { claimed[e] = n; });
+        return { n: n, rooms: r };
+      }
+      function stale(c) { return !!c && c.rooms.some(function (e) { return claimed[e] > c.n; }); }
+      function outcomeOf(id) { var r = ST.MUSIC.requests; return (r && id && r[id]) || null; }
+      // the outcome of request `id` once the feed has it; not confirmed in WAIT_MS (or an answer with no id: an older
+      // Mantel) is an answer too, said in words
+      function when(id) {
+        return new Promise(function (resolve) {
+          var off = null, timer = null, done = false;
+          function fin(v) { if (done) return; done = true; clearTimeout(timer); if (off) off(); resolve(v); }
+          function look() { var o = outcomeOf(id); if (o) fin(o); }
+          if (!id) { fin({ ok: false, message: UNCONFIRMED, unconfirmed: true }); return; }
+          look();
+          if (done) return;
+          off = onChange(look);
+          timer = setTimeout(function () { fin({ ok: false, message: UNCONFIRMED, unconfirmed: true }); }, WAIT_MS);
+        });
+      }
+      function marked(c, res, r) {
+        if (!stale(c) && r.superseded !== true) return res;
+        return Object.assign({}, res, { stale: true, response: Object.assign({}, r, { superseded: true }) });
+      }
+      // `p`: the host's answer to a music call ({response}); the same shape back, its response the real outcome
+      function settle(service, data, p) {
+        var c = claim(service, data);
+        if (!c) return p;
+        return Promise.resolve(p).then(function (res) {
+          var r = (res && res.response) || {};
+          if (r.pending !== true) return marked(c, res, r);
+          return when(r.request).then(function (o) { return marked(c, Object.assign({}, res, { response: o }), o); });
+        });
+      }
+
       // The server copy, followed live: the same user on another screen (your
       // phone and Chrome are one user) moves with it. Ignored while this screen
       // is mid-write, so its own older value cannot bounce back over a newer one.
@@ -380,6 +455,7 @@
           leaders: (cfg && cfg.leaders) || [],
           announce_rooms: (cfg && cfg.announce_rooms) || [],
           resumable: (cfg && cfg.resumable) || [],
+          requests: (cfg && cfg.requests) || {},
           volume: cfg && cfg.volume,
           library: (cfg && cfg.library_entry) || null
         };
@@ -462,6 +538,7 @@
         outside: outside, origin: origin, whereFrom: whereFrom, speakerName: speakerName,
         player: function (client) { return resolve(client).player; },
         label: label, setFocus: setFocus, release: release, attach: attach,
+        settle: settle, claim: claim, stale: stale, outcome: outcomeOf, when: when,
         onChange: onChange, focus: function () { return focus.key; },
         configured: function () { return ST.MUSIC.configured; },
         floors: function () { return ST.MUSIC.floors.slice(); },

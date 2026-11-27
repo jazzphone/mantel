@@ -1366,11 +1366,17 @@
           // own error toast is the wrong surface here, the card shows the
           // failure itself.
           p = act.callService(domain, service, data, undefined, false, true);
+          // A MUSIC REQUEST ANSWERED "STILL GOING" (a slow one from a Home Assistant screen: Mantel's link answers within
+          // 8 s) IS NOT DONE: it resolves with the real outcome, and `stale` when a newer request for its rooms took over
+          // (hkMusic.settle, hk-base-music.js). Anything else is handed back as it came.
+          if (domain === 'hk_frontend' && window.hkMusic && window.hkMusic.settle) p = window.hkMusic.settle(service, data, p);
         } catch (e) {
           p = Promise.reject(e);
         }
         return Promise.resolve(p).then(function (res) {
-          return { ok: true, response: (res && res.response) || {} };
+          var out = { ok: true, response: (res && res.response) || {} };
+          if (res && res.stale) out.stale = true;
+          return out;
         }, function (err) {
           console.error('hk-card: ' + domain + '.' + service + ' failed', data, err);
           return { ok: false, error: (err && (err.message || err.code)) || String(err) };

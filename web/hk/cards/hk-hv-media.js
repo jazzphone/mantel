@@ -570,6 +570,8 @@
         if (guess && Mu.known(guess)) Mu.setFocus(guess, { hold: true });
         self._callResp('hk_frontend', 'music_play', { rooms: rooms, playlist: key }).then(function (res) {
           var r = (res && res.response) || {};
+          // (a newer request for these rooms took over, or a slow one's real outcome is what this is: hkMusic.settle)
+          if (res.stale) { if (self._busyPl === pl.name) { self._busyPl = null; self.redraw(); } return; }
           self._busyPl = null;
           if (!res.ok || r.ok === false) { if (guess) Mu.release(guess); self.redraw(); self._say('Could not play ' + name + (r.message ? ': ' + r.message : '')); return; }
           if (r.leader && Mu.known(r.leader)) Mu.setFocus(r.leader, { hold: true });
@@ -588,15 +590,22 @@
       if (!t.player) { this._say('Pick a speaker first'); return; }
       var label = c ? Mu.label(c) : this._roomsLabel(rooms);
       var go = function () {
-        self._say('Playing ' + node.title + ' on ' + label);
+        self._say('Starting ' + node.title + ' on ' + label + '…');
+        // (the other rooms join only once the item plays: _callResp answers when the request really ended)
         self._callResp('hk_frontend', 'music_play_media', { player: t.player, media_content_id: node.media_content_id, media_content_type: node.media_content_type }).then(function (res) {
           var r = (res && res.response) || {};
+          if (res.stale) return;
           if (!res.ok || r.ok === false) { self._say('Could not play ' + node.title + (r.message ? ': ' + r.message : '')); return; }
+          self._say('Playing ' + node.title + ' on ' + label);
           if (Mu.known(t.player)) Mu.setFocus(t.player);
           self._target = null;
           if (t.then) {
+            self._say('Moving ' + node.title + ' to ' + label + '…');
             self._callResp('hk_frontend', 'music_transfer', { rooms: t.then, source: t.player }).then(function (r2) {
               var a = (r2 && r2.response) || {};
+              if (r2.stale) return;
+              if (!r2.ok || a.ok === false) { self._say('Playing on ' + Mu.nameOf(t.player) + ' only' + (a.message ? ': ' + a.message : '')); return; }
+              self._say('Playing ' + node.title + ' on ' + label);
               if (a.leader && Mu.known(a.leader)) Mu.setFocus(a.leader);
             });
           }

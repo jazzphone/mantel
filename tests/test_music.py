@@ -577,6 +577,26 @@ async def test_the_house_says_who_leads_not_the_order_the_rooms_came_in(on):
     await ws.close()
 
 
+async def test_a_request_the_link_answered_still_going_ends_on_the_feed(on):
+    """2026-11-26: a slow music request from a Home Assistant screen is answered {ok, pending, request}; how it ended goes
+    out on the feed the screen follows (its `requests`, by that id), a failure with its words, and a speaker the person
+    may not see is not named."""
+    await on.connected()
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    _res, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"}, rid=61)
+    assert "requests" not in ev, "nothing pending, nothing carried"
+    on.app["music"].note_outcome("rq1", {"ok": False, "message": "Kitchen did not start."})
+    got = await GF.recv(ws)
+    assert got["type"] == "read_event" and got["id"] == 61 and got["event"]["requests"] == {
+        "rq1": {"ok": False, "message": "Kitchen did not start."}}, got
+    on.app["music"].note_outcome("rq2", {"ok": True, "leader": "media_player.kitchen_ma"})
+    got = await GF.recv(ws)
+    assert got["event"]["requests"]["rq2"] == {"ok": True, "leader": "media_player.kitchen_ma"}
+    assert got["event"]["requests"]["rq1"]["ok"] is False, "the earlier outcome is still there for a page that was away"
+    await ws.close()
+
+
 async def test_a_playlist_gone_from_the_library_is_refused_not_played(on):
     await on.connected()
     await on.login("jamie", "adult")

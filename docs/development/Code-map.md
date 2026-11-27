@@ -403,6 +403,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `engine.py` — Whole-home music's engine
   - `groups.py` — SPEAKERS MADE OF SEVERAL PLAYERS, as Music Assistant has them.
   - `queue.py` — THE MUSIC PAGE'S QUEUE
+  - `requests.py` — A music request that outlasted its link, and how it ended (2026-11-26).
   - `resume.py` — MUSIC STOPPED AFTER A PAUSE, kept for the screens (2026-11-01).
   - `settings.py` — Music's settings, for the HK Settings page
   - `warm.py` — KEEP PLAYLISTS READY

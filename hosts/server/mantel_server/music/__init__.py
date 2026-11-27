@@ -84,6 +84,7 @@ from hk_core.music.const import (  # noqa: F401 -- its parts use it (tools/split
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
 from hk_core.music.covers import Covers
 from hk_core.music.groups import Groups, signature
+from hk_core.music.requests import Outcomes
 from hk_core.music.resume import Resumes
 from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
@@ -710,6 +711,8 @@ class MusicHost:
         self._subs: dict[int, tuple[Any, Callable[[dict], None]]] = {}
         self._sid = itertools.count(1)
         self._sent: dict[int, Any] = {}
+        # HOW A REQUEST ANSWERED "STILL GOING" ENDED (hk_core/music/requests.py): on the feed, for the screen that asked
+        self.outcomes = Outcomes()
         self.started = False
         # MUSIC ASSISTANT'S PLAYER LIST (hk_core/music/groups.py: pairs, and its groups), as
         # refresh_groups last read it; None until it could be. Read every GROUPS_EVERY while running.
@@ -897,9 +900,18 @@ class MusicHost:
         names = music_players(raw)
         ok = await allowed_ids(self.hooks, identity, "view", sorted(names))
         out = music_config(raw, ok)
+        pending = self.outcomes.view(ok)
+        if pending:
+            out["requests"] = pending
         home = self.home_for(identity, cfg)
         out["home"] = home if home in ok else None
         return out
+
+    def note_outcome(self, request: str, outcome: dict[str, Any]) -> None:
+        """A music request the link answered "still going" has ended (linked/__init__.py): its outcome goes out on every
+        screen's feed, and the one that asked, which holds its id, shows how it went."""
+        self.outcomes.note(request, outcome)
+        self.push()
 
     def push(self) -> None:
         for sid in list(self._subs):

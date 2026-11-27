@@ -434,10 +434,13 @@
         this._callResp('hk_frontend', 'music_play_media', { player: first, media_content_id: it.uri, media_content_type: 'music' }).then(function (res) {
           el.classList.remove('busy');
           var r = (res && res.response) || {};
+          if (res.stale) return;          // a newer request for these rooms took over (hkMusic.settle)
           if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return; }
           if (Mu.setFocus) Mu.setFocus(first);
+          // (the other rooms join only once the item plays: _callResp answers when the request really ended)
           if (rest) self._callResp('hk_frontend', 'music_transfer', { rooms: rest, source: first }).then(function (r2) {
             var a = (r2 && r2.response) || {};
+            if (r2.stale) return;
             if (!r2.ok || a.ok === false) window.hkShell.toast({ message: 'Playing on ' + Mu.nameOf(first) + ' only: the others didn’t join.' }, self);
             else if (a.leader && Mu.known(a.leader)) Mu.setFocus(a.leader);
           });

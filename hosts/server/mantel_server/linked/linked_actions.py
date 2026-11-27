@@ -45,6 +45,15 @@ KEY = "automation_snoozes"
 TICK = 30.0
 
 
+def flat(got: Any) -> Any:
+    """The engine's own answer (``{ok, leader?, message?}``) from the gateway's ``{context, response}``: what Home
+    Assistant's own ``hk_frontend.music_*`` answers, so a screen in Home Assistant reads ``ok``, ``leader`` and a failure's
+    ``message`` as the page on Mantel does (2026-11-26: they arrived one level down, so a refusal read as success)."""
+    if isinstance(got, Mapping) and isinstance(got.get("response"), Mapping):
+        return dict(got["response"])
+    return got
+
+
 def _err(code: str, message: str):
     from . import LinkedError
     return LinkedError(code, message)
@@ -135,7 +144,7 @@ class LinkedActions:
             if engine is None or not getattr(engine, "active", False):
                 raise _err("not_set_up", "Mantel's music isn't on (Music Assistant and the music settings, in "
                                          "Mantel); nothing was sent")
-            return await self.command("hk_frontend", service, data, peer, return_response=True)
+            return flat(await self.command("hk_frontend", service, data, peer, return_response=True))
         if service in DIRECT:
             return await self.act(service, data, self.as_linked(peer))
         raise _err("unknown_service", f"{service} is not one of Mantel's")
@@ -392,4 +401,14 @@ def register(app: web.Application) -> LinkedActions:
             la.task.cancel()
     app.on_startup.append(started)
     app.on_cleanup.append(stopped)
+
+    def music_outcome(request: str, outcome: dict) -> None:
+        """How a music request answered "still going" ended (linked/__init__.py _music): on the music feed, for the
+        screen that asked."""
+        host = app.get("music")
+        if host is not None:
+            host.note_outcome(request, outcome)
+    linked = app.get("linked")
+    if linked is not None:
+        linked.music_outcome = music_outcome
     return la

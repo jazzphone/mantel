@@ -868,22 +868,25 @@
       }
       if (!t.player) return;
       var call = function (sv, data) {
-        var q; try { q = act.callService('hk_frontend', sv, data, undefined, false, true); } catch (e) { q = Promise.reject(e); }
+        var q; try { q = act.callService('hk_frontend', sv, data, undefined, false, true); if (m.settle) q = m.settle(sv, data, q); } catch (e) { q = Promise.reject(e); }
         return Promise.resolve(q).then(function (res) {
           var r = (res && res.response) || {};
+          // (a newer request for these rooms took over: the rest of this one is not sent, nothing is said of it)
+          if (res && res.stale) { var stale = new Error('superseded'); stale.stale = true; throw stale; }
           if (r.ok === false) throw new Error(r.message || 'That did not work.');
           return r;
         });
       };
       var name = roomsName(rooms), lead = t.player;
       S.busy = 'node';
-      toast('Playing ' + node.title + ' on ' + name);
+      toast('Starting ' + node.title + ' on ' + name + '…');
       (free ? call('music_transfer', free) : Promise.resolve()).then(function () {
         return call('music_play_media', { player: t.player, media_content_id: node.media_content_id, media_content_type: node.media_content_type });
       }).then(function () {
         return t.then ? call('music_transfer', { rooms: t.then, source: t.player }).then(function (r2) { if (r2.leader) lead = r2.leader; }) : null;
       }).then(function () {
         S.busy = '';
+        toast('Playing ' + node.title + ' on ' + name);
         if (m.known(lead)) m.setFocus(lead, { hold: true });
         if (o.follow) o.follow(lead);
         setTicks(null);
@@ -891,7 +894,7 @@
         o.done(DONE_MS);
       }).catch(function (e) {
         S.busy = '';
-        toast('Could not play ' + node.title + (e && e.message ? ': ' + String(e.message).replace(/\.$/, '') : ''));
+        if (!(e && e.stale)) toast('Could not play ' + node.title + (e && e.message ? ': ' + String(e.message).replace(/\.$/, '') : ''));
         update(true);
       });
     }
@@ -953,9 +956,13 @@
       drawBrowse(c);
       var act = actions(), q;
       if (m.known(c.key)) m.setFocus(c.key, { hold: true });
-      try { q = act.callService('hk_frontend', 'music_play', { rooms: rooms, playlist: key }, undefined, false, true); } catch (e) { q = Promise.reject(e); }
+      try {
+        q = act.callService('hk_frontend', 'music_play', { rooms: rooms, playlist: key }, undefined, false, true);
+        if (m.settle) q = m.settle('music_play', { rooms: rooms, playlist: key }, q);     // a slow one: its real outcome
+      } catch (e) { q = Promise.reject(e); }
       Promise.resolve(q).then(function (res) {
         var r = (res && res.response) || {};
+        if (res && res.stale) { S.busy = ''; drawBrowse(ctx()); return; }          // a newer request for these rooms took over
         if (r.ok === false) throw new Error(r.message || 'That did not work.');
         if (r.leader && m.known(r.leader)) { m.setFocus(r.leader, { hold: true }); if (o.follow) o.follow(r.leader); }
         S.busy = ''; S.open = null;

@@ -435,4 +435,106 @@ ok('  ...the best of them picked', M.leader(pick.concat(e('living_room'))), e('l
 ok('none picked: an empty answer', M.leader([]), null);
 M._configure(HK_HOUSE);
 
+print('\n=== a request the link answered "still going" (2026-11-26, hk_core/music/requests.py) ===');
+// From a Home Assistant screen a slow music request comes back {ok, pending, request}. That is "not yet": settle() holds it
+// until the music feed carries the outcome, so the screen shows "Starting..." and then how it went, a step chained after it
+// never goes before the item plays, and a newer request for the same rooms takes the older one's answer from the screen.
+var settled = {};
+function track(label, p) { p.then(function (r) { settled[label] = r; }); return p; }
+function feed(requests) { M._configure(Object.assign({}, HK_HOUSE, { requests: requests })); }
+function answer(response) { return Promise.resolve({ context: { id: 'x' }, response: response }); }
+M._reset(); M._configure(HK_HOUSE);
+var pendingPlay = track('play', M.settle('music_play_media', { player: e('kitchen') }, answer({ ok: true, pending: true, request: 'rq1', message: 'Still starting the music.' })));
+drain();
+ok('a pending answer is still pending: nothing is settled, not "played"', settled.play, undefined);
+feed({ rq1: { ok: true, leader: e('kitchen') } });
+drain();
+ok('...until its outcome arrives on the feed: then the outcome is the answer', JSON.stringify(settled.play.response), JSON.stringify({ ok: true, leader: e('kitchen') }));
+ok('  ...not stale', settled.play.stale, undefined);
+
+M._reset(); M._configure(HK_HOUSE); settled = {};
+track('fail', M.settle('music_play', { rooms: [e('kitchen'), e('office')], playlist: 'k' }, answer({ ok: true, pending: true, request: 'rq2' })));
+drain();
+feed({ rq2: { ok: false, message: 'Kitchen did not start.' } });
+drain();
+ok('a failure arrives with its words', settled.fail.response.ok + ':' + settled.fail.response.message, 'false:Kitchen did not start.');
+M._configure(HK_HOUSE);
+
+// an outcome already on the feed (a page that reconnected, or a fast one): answered at once
+settled = {};
+feed({ rq3: { ok: true } });
+track('early', M.settle('music_stop', { rooms: [e('kitchen')] }, answer({ ok: true, pending: true, request: 'rq3' })));
+drain();
+ok('an outcome the feed already holds settles it at once', settled.early.response.ok, true);
+M._configure(HK_HOUSE);
+
+// an older Mantel's pending answer has no request id: said in words, never "it played"
+settled = {};
+track('noid', M.settle('music_play', { rooms: [e('kitchen')], playlist: 'k' }, answer({ ok: true, pending: true })));
+drain();
+ok('no request id: not confirmed, in words, as a failure', settled.noid.response.ok + ':' + /not been confirmed/.test(settled.noid.response.message), 'false:true');
+
+// an answer that is not pending is handed back as it came (Mantel's own page, Home Assistant's own engine)
+settled = {};
+track('plain', M.settle('music_play', { rooms: [e('kitchen')], playlist: 'k' }, answer({ ok: true, leader: e('kitchen') })));
+drain();
+ok('a plain answer is the same', settled.plain.response.leader + ':' + settled.plain.stale, e('kitchen') + ':undefined');
+var other = Promise.resolve({ response: {} });
+ok('a request that takes no room (a volume change) is not touched', M.settle('music_transport', { player: e('kitchen'), command: 'volume_set' }, other), other);
+
+// A NEWER REQUEST FOR THE SAME ROOMS takes the older one's answer from the screen
+settled = {};
+track('old', M.settle('music_play', { rooms: [e('kitchen'), e('office')], playlist: 'k' }, answer({ ok: true, pending: true, request: 'rq4' })));
+drain();
+track('newer', M.settle('music_transport', { player: e('office'), command: 'play_pause' }, answer({ ok: true })));
+track('elsewhere', M.settle('music_play', { rooms: [e('loft')], playlist: 'k' }, answer({ ok: true, leader: e('loft') })));
+feed({ rq4: { ok: false, message: 'Late failure.' } });
+drain();
+ok('a pause on one of its rooms supersedes the older play: its late failure is stale, not shown', settled.old.stale + ':' + settled.old.response.superseded, 'true:true');
+ok('...the newer one is the screen\'s', settled.newer.stale, undefined);
+ok('...another room\'s request is nobody\'s business', settled.elsewhere.stale, undefined);
+M._configure(HK_HOUSE);
+settled = {};
+track('volume', M.settle('music_play', { rooms: [e('kitchen')], playlist: 'k' }, answer({ ok: true })));
+M.settle('music_transport', { player: e('kitchen'), command: 'volume_up' }, answer({ ok: true }));
+drain();
+ok('a volume change supersedes nothing', settled.volume.stale, undefined);
+// the engine's own word (another screen's request took over): stale too
+settled = {};
+track('engine', M.settle('music_play', { rooms: [e('kitchen')], playlist: 'k' }, answer({ ok: true, leader: e('kitchen'), superseded: true })));
+drain();
+ok('an answer the engine says a newer request superseded is stale', settled.engine.stale, true);
+
+// the speaker picker and the music page ask through _callResp: pending is settled there, and a stale one is flagged
+(function () {
+  var Card = customElements.get('hk-now-playing-card'), c = Object.create(Card.prototype);
+  c._actions = function () { return { callService: function () { return answer({ ok: true, pending: true, request: 'rq9' }); } }; };
+  var got;
+  c._callResp('hk_frontend', 'music_play_media', { player: e('den'), media_content_id: 'x://1', media_content_type: 'music' }).then(function (r) { got = r; });
+  drain();
+  ok('_callResp: a pending answer is not an answer yet', got, undefined);
+  feed({ rq9: { ok: false, message: 'It did not start on Den.' } });
+  drain();
+  ok('...it answers with the real outcome, so a step chained after it never goes before the item plays',
+     got && got.ok + ':' + got.response.ok + ':' + got.response.message, 'true:false:It did not start on Den.');
+  M._configure(HK_HOUSE);
+})();
+
+// THE SESSION IS THE SENDER'S, NEVER THE SONG'S: two HomeViews each playing one song in their own app, the id the same on
+// every stream, fold nothing; one sender is a session
+(function () {
+  function st(sid, n, app) {
+    return { entity_id: '', state: 'playing', last_changed: '2026-09-22T10:00:00Z', attributes: { group_members: [], media_title: 'Same Song', media_artist: 'Band',
+      app_id: app, media_content_id: 'apple-device://ap000' + n + '/' + sid + '::STREAM' } };
+  }
+  var h = house({}), HV = 'com.apple.sonic.music', RX = 'com.apple.TVAirPlay';
+  [[e('kitchen'), 1, HV], [e('office'), 2, HV], [e('loft'), 3, RX], [e('kids_room'), 4, RX]].forEach(function (x) { h.states[x[0]] = st('snSame', x[1], x[2]); h.states[x[0]].entity_id = x[0]; });
+  var cx = M.contexts(h);
+  ok('two speakers sending one id: four players, no session', cx.length + ':' + cx.every(function (c) { return !c.airplay && c.members.length === 1; }), '4:true');
+  ok('...so a receiver\'s rooms (hkMusic.together) are its own', M.together(h, h.states[e('loft')]).length, 0);
+  h.states[e('office')].state = 'idle';
+  cx = M.contexts(h);
+  ok('one sender left: its session again', cx.length + ':' + cx[0].airplay + ':' + cx[0].members.length, '1:true:3');
+})();
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' MUSIC MODEL TESTS PASS'));

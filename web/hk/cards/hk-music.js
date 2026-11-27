@@ -959,8 +959,10 @@
         if (!idle && !x.playing) { var ps = document.createElement('i'); ps.style.cssText = 'font-style:normal;flex:none'; ps.textContent = ' · Paused'; s.appendChild(ps); }
         t.appendChild(b); t.appendChild(s); d.appendChild(t);
         if (on && !idle) d.insertAdjacentHTML('beforeend', '<span class="eq"><i></i><i></i><i></i></span>');
-        // THE OTHERS: a play / pause button for THAT player, the page stays where it is
-        if (!on && x) {
+        // THE OTHERS: a play / pause button for THAT player, the page stays where it is. Only for ONE thing playing: a
+        // card of several players drawn as one (the same song in rooms that are not one AirPlay session) has no button
+        // -- two devices playing one song never share a transport (2026-11-26); a tap on the card opens a player
+        if (!on && x && x.ctxs.length === 1) {
           var pp = document.createElement('div'); pp.className = 'pp'; pp.setAttribute('role', 'button');
           pp.setAttribute('data-ppk', d.getAttribute('data-ctx'));
           pp.setAttribute('aria-label', (x.playing ? 'Pause ' : 'Play ') + (x.title || Mu.label(x.ctxs[0])));
@@ -1237,6 +1239,8 @@
         if (guess && Mu.known(guess)) Mu.setFocus(guess, { hold: true });
         self._callResp('hk_frontend', 'music_play', { rooms: rooms, playlist: key }).then(function (res) {
           var r = (res && res.response) || {};
+          // (a newer request for these rooms took over: its own busy mark, focus and words stand; only this one's busy goes)
+          if (res.stale) { if (self._busyPl === pl.name) { self._busyPl = null; self._refreshPlaylists(true); } return; }
           self._busyPl = null; self._openOpts = null; self._refreshPlaylists(true);
           if (!res.ok || r.ok === false) { if (guess) Mu.release(guess); self._toast('Could not play ' + name + (r.message ? ': ' + r.message : '')); return; }
           if (r.leader && Mu.known(r.leader)) Mu.setFocus(r.leader, { hold: true });
@@ -1267,23 +1271,33 @@
       if (!t.player) return;
       var label = this._roomsLabel(rooms);
       var go = function () {
-        self._toast('Playing ' + node.title + ' on ' + label);
+        self._toast('Starting ' + node.title + ' on ' + label + '…');
         (free ? self._callResp('hk_frontend', 'music_transfer', free) : Promise.resolve({ ok: true })).then(function (fr) {
           var fa = (fr && fr.response) || {};
+          if (fr && fr.stale) return;
           if (fr && (!fr.ok || fa.ok === false)) { self._toast('Could not free ' + label + (fa.message ? ': ' + fa.message : '')); return; }
           return play();
         });
       };
+      // THE OTHER ROOMS JOIN ONLY ONCE THE ITEM PLAYS: _callResp answers when the request really ended (a slow one from a
+      // Home Assistant screen is "pending" until Mantel says how it went), never before; a newer request for these rooms
+      // (`stale`) leaves the screen to it
       var play = function () {
         self._nextRooms = null; self._refreshPlaylists(true);
         return self._callResp('hk_frontend', 'music_play_media', { player: t.player, media_content_id: node.media_content_id,
                                                            media_content_type: node.media_content_type }).then(function (res) {
           var r = (res && res.response) || {};
+          if (res.stale) return;
           if (!res.ok || r.ok === false) { self._toast('Could not play ' + node.title + (r.message ? ': ' + r.message : '')); return; }
+          self._toast('Playing ' + node.title + ' on ' + label);
           if (Mu.known(t.player)) Mu.setFocus(t.player);
           if (t.then) {
+            self._toast('Moving ' + node.title + ' to ' + label + '…');
             self._callResp('hk_frontend', 'music_transfer', { rooms: t.then, source: t.player }).then(function (r2) {
               var a = (r2 && r2.response) || {};
+              if (r2.stale) return;
+              if (!r2.ok || a.ok === false) { self._toast('Playing on ' + Mu.nameOf(t.player) + ' only' + (a.message ? ': ' + a.message : '')); return; }
+              self._toast('Playing ' + node.title + ' on ' + label);
               if (a.leader && Mu.known(a.leader)) Mu.setFocus(a.leader);
             });
           }

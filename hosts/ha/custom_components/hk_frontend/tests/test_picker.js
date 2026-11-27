@@ -1137,6 +1137,34 @@ settle();
 ok('a success WITH a message (some rooms did not join) is shown to the one who pressed',
    rc._notice === 'Playing, but Kitchen did not join.', rc._notice);
 
+print('\n=== "Starting..." / "Moving..." until the request really ended (2026-11-26) ===');
+// From a Home Assistant screen a slow request is answered "still going" and _callResp waits for the outcome (hkMusic.settle):
+// the picker says what it is doing until then, then how it went; a request a newer one took over shows nothing.
+var lateAnswer;
+function slowCard() {
+  var c = card('Kitchen');
+  c.isConnected = true; c.connectedCallback();
+  c._callResp = function () { return new Promise(function (res) { lateAnswer = res; }); };
+  return c;
+}
+function working(c) { return c._root.children.filter(function (x) { return /\bworking\b/.test(x.className); }).map(function (x) { return x.textContent; }).join(); }
+rc = slowCard();
+rc._playOp = 11;
+rc._request('transfer', { rooms: [ent('loft')], source: ent('kitchen') }, ent('loft'), 11);
+ok('a move says "Moving…" while it is going', rc._working === 'Moving…' && working(rc) === 'Moving…', rc._working + '|' + working(rc));
+lateAnswer({ ok: true, response: { ok: false, message: 'Loft did not join.' } });
+settle();
+ok('...then how it went, and the words are gone', rc._working === '' && working(rc) === '' && rc._notice === 'That did not work: Loft did not join.', rc._working + '|' + rc._notice);
+rc = slowCard();
+rc._playOp = 12; rc._lastPlaylist = { name: 'Jazz' };
+rc._request('play', { rooms: [ent('loft')], playlist: 'k' }, ent('loft'), 12);
+ok('a play says "Starting Jazz…"', working(rc), 'Starting Jazz\u2026');
+lateAnswer({ ok: true, stale: true, response: { ok: false, message: 'Late failure.', superseded: true, leader: ent('office') } });
+settle();
+ok('a request a newer one took over: no words, no notice, the screen\'s focus is not moved', working(rc) === '' && !rc._notice && window.hkMusic.focus() !== ent('office'),
+   working(rc) + '|' + rc._notice + '|' + window.hkMusic.focus());
+rc.disconnectedCallback();
+
 print('\n=== an old failure message does not outlive the next thing ===');
 rc = reqCard({ ok: true, response: { ok: false, message: 'The speakers did not group' } });
 rc.isConnected = true; rc.connectedCallback();

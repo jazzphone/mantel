@@ -46,10 +46,13 @@ import json
 import logging
 import math
 import re
+import secrets
 from dataclasses import dataclass, fields
 from typing import Any, Mapping
 
 from aiohttp import WSCloseCode, WSMsgType, web
+
+from hk_core.music.requests import outcome_of
 
 from ..identity.guards import WHY_LINKED, open_route
 
@@ -101,7 +104,9 @@ HANDLER_TIMEOUT = 8.0          # under HA's 10 s, so HA's call gets Mantel's own
 # started playing"): the engine waits for the music by design (a group of 18 starting after Music Assistant restarted took
 # ~10 s; START_TIMEOUT is 15), and wait_for CANCELED the run at 8 s -- the play had begun, a move or a join could have
 # been left half done, and the audit row got no result. A music request answers within MUSIC_ANSWER_S: its own answer
-# when it has one, else "still going", and the run goes on to its end in the background (logged, audited).
+# when it has one, else "still going" -- {ok, pending, request: <id>} -- and the run goes on to its end in the
+# background (logged, audited). Pending stays pending to the caller: the page shows "Starting..." until the outcome of
+# that `request` arrives on the music feed (hk_core/music/requests.py), never "it played" for an answer of "not yet".
 MUSIC_SERVICES = frozenset({"music_play", "music_transfer", "music_stop", "music_transport", "music_play_media"})
 MUSIC_MARGIN_S = 1.5           # MUSIC_ANSWER_S = the handler's timeout less this
 RECHECK_S = 60.0               # how often an idle socket re-checks that its credential is live
@@ -557,7 +562,8 @@ class Linked:
         self.file_chunk = None                # async fn(client, msg): a `file_chunk` (linked_files.py)
         self.camera_image = None              # async fn(client, msg): a `camera_image` (features/tv_alerts.py)
         self.on_disconnect: list = []         # async fn(client) once its socket has closed
-        self.running: set = set()             # music requests answered "still going" and running on (MUSIC_SERVICES)
+        self.running: dict = {}               # music requests answered "still going", running on: task -> request id
+        self.music_outcome = None             # fn(request id, outcome): how such a request ended (linked_actions.py)
 
     def verify(self, token: str, peer: str | None) -> Any:
         return self.accounts.verify(token, SCOPE, source_ip=peer)
@@ -686,26 +692,34 @@ class Linked:
         return await asyncio.wait_for(self.handler.call_service(service, data, targets, ctx), self.timeout)
 
     async def _music(self, service: str, call: Any) -> Any:
-        """A music request's answer within MUSIC_ANSWER_S, never canceling it (MUSIC_SERVICES)."""
+        """A music request's answer within MUSIC_ANSWER_S, never canceling it (MUSIC_SERVICES): its own, else
+        ``{ok, pending, request}`` and the outcome reported to ``music_outcome`` under that id when it ends."""
         task = asyncio.ensure_future(call)
         done, _ = await asyncio.wait({task}, timeout=max(0.1, self.timeout - MUSIC_MARGIN_S))
         if task in done:
             return task.result()
-        self.running.add(task)
+        request = secrets.token_hex(6)
+        self.running[task] = request
 
         def finished(t: asyncio.Task) -> None:
-            self.running.discard(t)
+            self.running.pop(t, None)
             if t.cancelled():
-                return
-            exc = t.exception()
-            if exc is not None:
-                log.warning("linked: %s, answered as still going, failed: %s", service, exc)
+                outcome = outcome_of(error=asyncio.CancelledError("The music request was canceled."))
+            elif t.exception() is not None:
+                log.warning("linked: %s, answered as still going, failed: %s", service, t.exception())
+                outcome = outcome_of(error=t.exception())
             else:
                 log.info("linked: %s, answered as still going, finished: %s", service, t.result())
+                outcome = outcome_of(t.result())
+            if self.music_outcome is not None:
+                try:
+                    self.music_outcome(request, outcome)
+                except Exception:  # noqa: BLE001 -- the run is over; a feed that could not say so is only logged
+                    log.exception("linked: the outcome of %s could not be reported", service)
         task.add_done_callback(finished)
-        log.info("linked: %s is still going after %.1f s: answered so, and it runs on", service,
-                 self.timeout - MUSIC_MARGIN_S)
-        return {"ok": True, "pending": True, "message": "Still starting the music."}
+        log.info("linked: %s is still going after %.1f s: answered so (request %s), and it runs on", service,
+                 self.timeout - MUSIC_MARGIN_S, request)
+        return {"ok": True, "pending": True, "request": request, "message": "Still starting the music."}
 
     async def entity_command(self, msg: Mapping[str, Any], ctx: CallCtx) -> Any:
         uid, command = msg.get("unique_id"), msg.get("command")

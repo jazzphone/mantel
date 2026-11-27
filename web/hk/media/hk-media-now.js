@@ -1570,8 +1570,8 @@
       // configured speaker and serialises quick taps on the same player.
       _svc(command) {
         if (!this.client) return;
-        var player = this._res().player;
-        if (player) this._call('hk_frontend', 'music_transport', { player: player, command: command });
+        var player = this._res().player, data = { player: player, command: command }, M = window.hkMusic;
+        if (player) { if (M && M.claim) M.claim('music_transport', data); this._call('hk_frontend', 'music_transport', data); }   // (claim: hkMusic.settle)
       }
 
       // UP NEXT ON EXTRA LARGE: Music Assistant's queue (hk_music/queue, the integration's: {id, title, artist,

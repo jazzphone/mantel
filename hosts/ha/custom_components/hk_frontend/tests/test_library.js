@@ -1072,7 +1072,7 @@ c = card('Kitchen');
 c._paint = function () {};
 c._callResp = function () { return Promise.resolve({ ok: false, error: 'x' }); };
 c._play({ title: 'Thing', media_content_id: 'x://track/1', media_content_type: 'music' });
-ok('says it is starting first, and where', c._toast, 'Playing Thing on Kitchen');
+ok('says it is starting first, and where', c._toast, 'Starting Thing on Kitchen\u2026');
 drain();
 ok('  ...then says it did not', c._toast, 'Could not play Thing');
 // The integration ran it and it never STARTED: a refusal answer, not an error.

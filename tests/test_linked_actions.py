@@ -122,7 +122,28 @@ async def test_music_runs_on_mantel_s_engine_only(make_env, monkeypatch):
     res = await call(c, 2, "music_play", rooms=["media_player.kitchen"], playlist="Morning")
     assert res["success"] and res["result"] == {"ok": True, "leader": "media_player.kitchen"}
     assert sent == [("hk_frontend", "music_play", {"rooms": ["media_player.kitchen"], "playlist": "Morning"}, True)]
+    # the gateway answers {context, response: <the engine's answer>}: Home Assistant gets the answer itself, as its own
+    # hk_frontend.music_* give it (2026-11-26: one level down, a refusal read as success and `leader` was lost)
+
+    async def gateway_shape(self, domain, service, data, peer, return_response=False):
+        return {"context": {"id": "mantel-audit-7"}, "response": {"ok": False, "message": "Kitchen did not start."}}
+    monkeypatch.setattr(LA.LinkedActions, "command", gateway_shape)
+    res = await call(c, 3, "music_play", rooms=["media_player.kitchen"], playlist="Morning")
+    assert res["success"] and res["result"] == {"ok": False, "message": "Kitchen did not start."}, res
     await c.ws.close()
+
+
+async def test_a_music_request_that_outlasted_the_link_ends_on_the_music_feed(make_env):
+    # linked/__init__.py answers {ok, pending, request} and reports how the run ended; the music host puts it on the feed
+    env = await make_env(commands=True, settings=ON)
+    got = []
+
+    class Host:
+        def note_outcome(self, request, outcome):
+            got.append((request, outcome))
+    env.app["music"] = Host()
+    env.app["linked"].music_outcome("rq1", {"ok": False, "message": "Kitchen did not start."})
+    assert got == [("rq1", {"ok": False, "message": "Kitchen did not start."})]
 
 
 def test_mantel_linked_s_grants_are_exactly_what_these_actions_act_on():
