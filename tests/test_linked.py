@@ -347,6 +347,29 @@ async def test_a_custom_handler_its_refusals_timeouts_and_bugs(tmp_path, monkeyp
     store.db.close()
 
 
+async def test_a_music_request_answers_in_time_and_is_never_cancelled():
+    # 2026-11-26: Everywhere from a Home Assistant screen took ~10 s to start 18 speakers; the link's 8 s wait_for
+    # cancelled the run and the page showed an error while the music started. A music request answers "still going" in
+    # time and runs on to its end; a quick one answers with its own result.
+    from mantel_server.linked import Linked
+    lk = Linked(None, None, None, timeout=0.3)
+    ran = []
+
+    async def slow():
+        await asyncio.sleep(0.5)
+        ran.append("done")
+        return {"ok": True, "leader": "media_player.kitchen"}
+
+    async def quick():
+        return {"ok": True, "leader": "media_player.den"}
+    assert await lk._music("music_play", quick()) == {"ok": True, "leader": "media_player.den"}
+    got = await lk._music("music_play", slow())
+    assert got == {"ok": True, "pending": True, "message": "Still starting the music."}, got
+    assert len(lk.running) == 1 and ran == []
+    await asyncio.sleep(0.6)
+    assert ran == ["done"] and not lk.running, "it ran on to its end"
+
+
 def test_hooks_coerce():
     from mantel_server.connectors import Hooks
     assert LinkedHooks.coerce(None) == LinkedHooks()

@@ -97,6 +97,13 @@ SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owne
 # (phones.py; Mantel Link calls notify.mobile_app_<phone> and nothing else)
 SERVER_TYPES_2 = SERVER_TYPES | {"phone_notify"}
 HANDLER_TIMEOUT = 8.0          # under HA's 10 s, so HA's call gets Mantel's own "timeout" first
+# A MUSIC REQUEST OUTLASTS THE LINK (2026-11-26, the owner: Everywhere from a Home Assistant screen "errored, although it
+# started playing"): the engine waits for the music by design (a group of 18 starting after Music Assistant restarted took
+# ~10 s; START_TIMEOUT is 15), and wait_for CANCELLED the run at 8 s -- the play had begun, a move or a join could have
+# been left half done, and the audit row got no result. A music request answers within MUSIC_ANSWER_S: its own answer
+# when it has one, else "still going", and the run goes on to its end in the background (logged, audited).
+MUSIC_SERVICES = frozenset({"music_play", "music_transfer", "music_stop", "music_transport", "music_play_media"})
+MUSIC_MARGIN_S = 1.5           # MUSIC_ANSWER_S = the handler's timeout less this
 RECHECK_S = 60.0               # how often an idle socket re-checks that its credential is live
 HEARTBEAT_S = 30.0             # pings that find a linked HA gone without a goodbye
 MAX_MSG = 1 << 20
@@ -550,6 +557,7 @@ class Linked:
         self.file_chunk = None                # async fn(client, msg): a `file_chunk` (linked_files.py)
         self.camera_image = None              # async fn(client, msg): a `camera_image` (features/tv_alerts.py)
         self.on_disconnect: list = []         # async fn(client) once its socket has closed
+        self.running: set = set()             # music requests answered "still going" and running on (MUSIC_SERVICES)
 
     def verify(self, token: str, peer: str | None) -> Any:
         return self.accounts.verify(token, SCOPE, source_ip=peer)
@@ -673,7 +681,31 @@ class Linked:
                 d = self.registry.entities.get(t["unique_id"])
                 if d is None or d["platform"] != "switch":
                     raise LinkedError("unknown_target", f"{t['entity_id']} is not a switch Mantel Server publishes")
+        if service in MUSIC_SERVICES:
+            return await self._music(service, self.handler.call_service(service, data, targets, ctx))
         return await asyncio.wait_for(self.handler.call_service(service, data, targets, ctx), self.timeout)
+
+    async def _music(self, service: str, call: Any) -> Any:
+        """A music request's answer within MUSIC_ANSWER_S, never cancelling it (MUSIC_SERVICES)."""
+        task = asyncio.ensure_future(call)
+        done, _ = await asyncio.wait({task}, timeout=max(0.1, self.timeout - MUSIC_MARGIN_S))
+        if task in done:
+            return task.result()
+        self.running.add(task)
+
+        def finished(t: asyncio.Task) -> None:
+            self.running.discard(t)
+            if t.cancelled():
+                return
+            exc = t.exception()
+            if exc is not None:
+                log.warning("linked: %s, answered as still going, failed: %s", service, exc)
+            else:
+                log.info("linked: %s, answered as still going, finished: %s", service, t.result())
+        task.add_done_callback(finished)
+        log.info("linked: %s is still going after %.1f s: answered so, and it runs on", service,
+                 self.timeout - MUSIC_MARGIN_S)
+        return {"ok": True, "pending": True, "message": "Still starting the music."}
 
     async def entity_command(self, msg: Mapping[str, Any], ctx: CallCtx) -> Any:
         uid, command = msg.get("unique_id"), msg.get("command")
